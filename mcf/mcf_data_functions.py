@@ -10,7 +10,7 @@ from concurrent import futures
 import numpy as np
 import pandas as pd
 import ray
-import general_purpose as gp
+import mcf.general_purpose as gp
 
 
 def variable_features(var_x_type, var_x_values):

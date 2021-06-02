@@ -14,8 +14,8 @@ from sklearn.cluster import KMeans
 import scipy.stats as sct
 import matplotlib.pyplot as plt
 import ray
-import mcf_ate_functions as mcf_ate
-import general_purpose as gp
+import mcf.mcf_ate_functions as mcf_ate
+import mcf.general_purpose as gp
 
 
 def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,

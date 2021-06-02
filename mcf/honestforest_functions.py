@@ -14,13 +14,13 @@ from concurrent import futures
 import numpy as np
 import pandas as pd
 import psutil
-import general_purpose as gp
-import mcf_data_functions as mcf_data
-import mcf_weight_functions as mcf_w
-import mcf_vi_functions as mcf_vi
-import mcf_gate_functions as mcf_gate
-import mcf_forest_functions as mcf_forest
-import honestforest_f2 as hf
+import mcf.general_purpose as gp
+import mcf.mcf_data_functions as mcf_data
+import mcf.mcf_weight_functions as mcf_w
+import mcf.mcf_vi_functions as mcf_vi
+import mcf.mcf_gate_functions as mcf_gate
+import mcf.mcf_forest_functions as mcf_forest
+import mcf.honestforest_f2 as hf
 
 
 def honestforest(

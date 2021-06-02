@@ -11,9 +11,9 @@ from concurrent import futures
 import math
 import numpy as np
 import ray
-import mcf_forest_functions as mcf_forest
-import mcf_data_functions as mcf_data
-import general_purpose as gp
+import mcf.mcf_forest_functions as mcf_forest
+import mcf.mcf_data_functions as mcf_data
+import mcf.general_purpose as gp
 
 
 def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,

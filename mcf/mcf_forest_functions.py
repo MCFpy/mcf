@@ -10,8 +10,8 @@ import random
 from numba import njit
 import numpy as np
 import ray
-import general_purpose as gp
-import mcf_data_functions as mcf_data
+import mcf.general_purpose as gp
+import mcf.mcf_data_functions as mcf_data
 
 
 def fill_trees_with_y_indices_mp(forest, indatei, v_dict, v_x_type, v_x_values,

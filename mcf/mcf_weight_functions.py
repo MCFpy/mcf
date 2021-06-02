@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 import ray
-import general_purpose as gp
-import mcf_forest_functions as mcf_forest
+import mcf.general_purpose as gp
+import mcf.mcf_forest_functions as mcf_forest
 
 
 def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,

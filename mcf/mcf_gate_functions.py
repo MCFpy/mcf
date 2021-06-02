@@ -16,11 +16,11 @@ import pandas as pd
 import scipy.stats as sct
 import matplotlib.pyplot as plt
 import ray
-import mcf_weight_functions as mcf_w
-import mcf_iate_functions as mcf_iate
-import mcf_ate_functions as mcf_ate
-import honestforest_f2 as hf
-import general_purpose as gp
+import mcf.mcf_weight_functions as mcf_w
+import mcf.mcf_iate_functions as mcf_iate
+import mcf.mcf_ate_functions as mcf_ate
+import mcf.honestforest_f2 as hf
+import mcf.general_purpose as gp
 
 
 def marg_gates_est(forest, fill_y_sample, pred_sample, v_dict, c_dict,

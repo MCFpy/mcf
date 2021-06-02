@@ -12,7 +12,6 @@ setup(
   keywords = ['causal machine learning, heterogeneous treatment effects, causal forests'],  
   classifiers=[
     'Development Status :: 4 - Beta',
-    'Intended Audience :: Research',
     'Topic :: Software Development :: Build Tools',
     'License :: OSI Approved :: MIT License',  
     'Programming Language :: Python :: 3.8'

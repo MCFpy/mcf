@@ -11,7 +11,7 @@ import os
 import numpy as np
 import pandas as pd
 import psutil
-import general_purpose as gp
+import mcf.general_purpose as gp
 
 
 def make_user_variable(

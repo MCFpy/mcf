@@ -11,17 +11,17 @@ import os
 import pandas as pd
 import numpy as np
 from multiprocessing import freeze_support
-import general_purpose as gp
-import mcf_init_functions as mcf_init
-import mcf_data_functions as mcf_data
-import mcf_loccent_functions as mcf_lc
-import mcf_forest_functions as mcf_forest
-import mcf_vi_functions as mcf_vi
-import mcf_cs_functions as mcf_cs
-import mcf_weight_functions as mcf_w
-import mcf_ate_functions as mcf_ate
-import mcf_gate_functions as mcf_gate
-import mcf_iate_functions as mcf_iate
+import mcf.general_purpose as gp
+import mcf.mcf_init_functions as mcf_init
+import mcf.mcf_data_functions as mcf_data
+import mcf.mcf_loccent_functions as mcf_lc
+import mcf.mcf_forest_functions as mcf_forest
+import mcf.mcf_vi_functions as mcf_vi
+import mcf.mcf_cs_functions as mcf_cs
+import mcf.mcf_weight_functions as mcf_w
+import mcf.mcf_ate_functions as mcf_ate
+import mcf.mcf_gate_functions as mcf_gate
+import mcf.mcf_iate_functions as mcf_iate
 
 
 def ModifiedCausalForest(

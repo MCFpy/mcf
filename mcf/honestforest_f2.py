@@ -8,7 +8,7 @@ Contains the functions needed for the running all parts of the programme
 from concurrent import futures
 import numpy as np
 import pandas as pd
-import general_purpose as gp
+import mcf.general_purpose as gp
 
 
 def predict_hf(weights, data_file, y_data, cl_data, w_data, v_dict, c_dict,

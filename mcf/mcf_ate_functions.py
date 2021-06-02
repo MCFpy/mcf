@@ -10,7 +10,7 @@ Created on Thu Dec  8 15:48:57 2020.
 import copy
 import numpy as np
 import pandas as pd
-import general_purpose as gp
+import mcf.general_purpose as gp
 
 
 def analyse_weights_ate(weights, title, c_dict, ate=True):

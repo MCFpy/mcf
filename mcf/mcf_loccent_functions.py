@@ -10,7 +10,7 @@ Created on Thu Dec  8 15:48:57 2020.
 import copy
 import pandas as pd
 import numpy as np
-import general_purpose as gp
+import mcf.general_purpose as gp
 
 
 def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,

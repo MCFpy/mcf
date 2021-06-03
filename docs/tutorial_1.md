@@ -27,8 +27,6 @@ You may wish to inspect the structure of the data by running the command `data.h
 from multiprocessing import freeze_support
 import mcf
 
-import mcf_functions as mcf
-
 outpfad = 'your/output/goes/here'
 datpfad = 'your/data/is/here'
 

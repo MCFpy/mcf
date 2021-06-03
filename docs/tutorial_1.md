@@ -291,7 +291,7 @@ By default, the the program applies k-Means clustering to  analyze the heterogen
 
 and for the features
 
-**Feature** |0   |      1      |   2    |     3  |       4|
+|**Feature** |0   |      1      |   2    |     3  |       4|
 |--|--|--|--|--|--|
 |CONT0 |-1.019301 |-0.141751 |-0.204567  |0.275242 | 0.706707|
 |CONT1 |-0.614990 |-0.710015 | 0.231552 | 0.252568  |0.516563|

@@ -7,7 +7,7 @@ The *learning goals* of this tutorial are as follows:
 1. Understand the basic functionality of the `mcf` module.
 2. Understand the output from the `mcf` module.
 
-For this purpose, we use the synthetic data, *dgp_mcfN4000S5*, which is provided [here](https://github.com/MCFpy/MCFpy/tree/main/data). The data includes information on 4,000 observations in form of 120 continuous, 10 categorical, 10 dummy, and 10 ordered features. In addition, the data includes information on treatment status, $D$, which can take one of four values $D \in \{0, 1, 2, 3\}$ and the realized outcome, $Y$.
+For this purpose, we use the synthetic data, *dgp_mcfN4000S5*, which is provided [here](https://github.com/MCFpy/mcf/tree/main/data). The data includes information on 4,000 observations in form of 120 continuous, 10 categorical, 10 dummy, and 10 ordered features. In addition, the data includes information on treatment status, $D$, which can take one of four values $D \in \{0, 1, 2, 3\}$ and the realized outcome, $Y$.
 
 For the subsequent code to work, make sure that the path to the data file is correctly specified.
 

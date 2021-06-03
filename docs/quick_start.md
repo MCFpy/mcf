@@ -7,8 +7,6 @@ The package `mcf` is accompanied by synthetic data, which we  use in our tutoria
 from multiprocessing import freeze_support
 import mcf 
 
-import mcf_functions as mcf
-
 # If paths are not specified, the current directory will be used
 outpfad = 'your/output/goes/here'
 datpfad = 'your/data/is/here'

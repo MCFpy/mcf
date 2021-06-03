@@ -14,7 +14,7 @@ setup(
   author_email = 'michael.lechner@unisg.ch',      
   url = 'https://github.com/MCFpy/mcf',      
   keywords = ['causal machine learning, heterogeneous treatment effects, causal forests'],  
-  long_description=read('README'),
+  long_description=read('README.md'),
   classifiers=[
     'Development Status :: 4 - Beta',
     'Topic :: Software Development :: Build Tools',

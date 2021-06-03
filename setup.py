@@ -10,8 +10,8 @@ setup(
   url = 'https://github.com/MCFpy/mcf',   
   download_url = 'https://github.com/MCFpy/mcf/archive/refs/tags/0.0.5.tar.gz',    
   keywords = ['causal machine learning, heterogeneous treatment effects, causal forests'],  
-  long_description=long_description,
- long_description_content_type="text/markdown",
+  long_description="""# Project Description \n The mcf is a Python package that provides a fast and easily implementation of the Modified Causal Forest (MCF). The scope of the MCF is to estimate heterogeneous treatment effects for multiple treatment models in a selection-on-observables setting. For more details refer to the official documentation, which can be accessed [here](https://mcfpy.github.io/mcf/#/).\n""",
+  long_description_content_type='text/markdown',
   classifiers=[
     'Development Status :: 4 - Beta',
     'Topic :: Software Development :: Build Tools',

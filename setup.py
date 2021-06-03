@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'mcf',
   packages = ['mcf'],
-  version = '0.0.1',
+  version = '0.0',
   license='MIT',
   description = 'mcf is a powerful package to estimate heterogeneous treatment effects for multiple treatment models in a selection-on-observables setting.',
   author = 'mlechner',                   

@@ -1,6 +1,6 @@
 # Quick Start
 
-The package `mcf` is accompanied by synthetic data, which we  use in our tutorial. The data can be downloaded from the [Github repository](https://github.com/MCFpy/MCFpy/tree/main/data). Sticking to most default values, the programme can be as quickly started as follows:
+The package `mcf` is accompanied by synthetic data, which we  use in our tutorial. The data can be downloaded from the [Github repository](https://github.com/MCFpy/mcf/tree/main/data). Sticking to most default values, the programme can be as quickly started as follows:
 
 ```python
 

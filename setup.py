@@ -10,8 +10,8 @@ setup(
   url = 'https://github.com/MCFpy/mcf',   
   download_url = 'https://github.com/MCFpy/mcf/archive/refs/tags/v.0.0.tar.gz',    
   keywords = ['causal machine learning, heterogeneous treatment effects, causal forests'],  
-  long_description=long_description, 
-  long_description_content_type= "project_description.md",
+  long_description= project_description, 
+  long_description_content_type= "text/markdown",
   classifiers=[
     'Development Status :: 4 - Beta',
     'Topic :: Software Development :: Build Tools',

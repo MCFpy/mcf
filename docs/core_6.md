@@ -2,69 +2,90 @@
 
 
 ```python
-mcf.ModifiedCausalForest(x_balance_name_ord=x_balance_name_ord, 
-x_balance_name_unord=x_balance_name_unord, 
-x_name_always_in_ord=x_name_always_in_ord, 
-x_name_always_in_unord=x_name_always_in_unord, x_name_ord=x_name_ord, 
-x_name_remain_ord=x_name_remain_ord, x_name_remain_unord=x_name_remain_unord, 
-x_name_unord=x_name_unord, y_name=y_name, y_tree_name=y_tree_name, 
-z_name_amgate=z_name_amgate, z_name_mgate=z_name_mgate, 
-z_name_list=z_name_list, z_name_split_ord=z_name_split_ord, 
-z_name_split_unord=z_name_split_unord, alpha_reg_grid=alpha_reg_grid, 
-alpha_reg_max=alpha_reg_max, alpha_reg_min=alpha_reg_min, 
-atet_flag=atet_flag, balancing_test=balancing_test, 
-bin_corr_threshold=bin_corr_threshold, bin_corr_yes=bin_corr_yes, 
-boot=boot, check_perfectcorr=check_perfectcorr, 
-choice_based_sampling=choice_based_sampling, 
-choice_based_weights=choice_based_weights, ci_level=ci_level, 
-clean_data_flag=clean_data_flag, cluster_name=cluster_name, 
-cluster_std=cluster_std, datpfad=datpfad, descriptive_stats=descriptive_stats, 
-dpi=dpi, d_name=d_name, fontsize=fontsize, forest_files=forest_files, fs_other_sample=fs_other_sample, 
-fs_other_sample_share=fs_other_sample_share, fs_rf_threshold=fs_rf_threshold, 
-fs_yes=fs_yes, gatet_flag=gatet_flag, 
-gmate_no_evaluation_points=gmate_no_evaluation_points, 
-gmate_sample_share=gmate_sample_share, id_name=id_name, indata=indata, 
-knn_const=knn_const, knn_flag=knn_flag, knn_min_k=knn_min_k, 
-l_centering=l_centering, l_centering_cv_k=l_centering_cv_k, 
-l_centering_new_sample=l_centering_new_sample, 
-l_centering_share=l_centering_share, 
-match_nn_prog_score=match_nn_prog_score, max_cats_z_vars=max_cats_z_vars, 
-max_weight_share=max_weight_share, mce_vart=mce_vart, 
-min_dummy_obs=min_dummy_obs, mp_parallel=mp_parallel, 
-mp_ray_objstore_multiplier=mp_ray_objstore_multiplier, 
-mp_vim_type=mp_vim_type, mp_weights_tree_batch=mp_weights_tree_batch, 
-mp_weights_type=mp_weights_type, mp_with_ray=mp_with_ray, 
+mcf.ModifiedCausalForest(cluster_name=cluster_name, d_name=d_name, id_name=id_name,
+w_name=w_name, x_balance_name_ord=x_balance_name_ord,
+x_balance_name_unord=x_balance_name_unord,
+x_name_always_in_ord=x_name_always_in_ord,
+x_name_always_in_unord=x_name_always_in_unord, x_name_ord=x_name_ord,
+x_name_remain_ord=x_name_remain_ord, x_name_remain_unord=x_name_remain_unord,
+x_name_unord=x_name_unord, y_name=y_name, y_tree_name=y_tree_name,
+z_name_amgate=z_name_amgate, z_name_mgate=z_name_mgate,
+z_name_list=z_name_list, z_name_split_ord=z_name_split_ord,
+z_name_split_unord=z_name_split_unord, alpha_reg_grid=alpha_reg_grid,
+alpha_reg_max=alpha_reg_max, alpha_reg_min=alpha_reg_min,
+atet_flag=atet_flag, balancing_test=balancing_test,
+bin_corr_threshold=bin_corr_threshold, bin_corr_yes=bin_corr_yes,
+boot=boot, check_perfectcorr=check_perfectcorr,
+choice_based_sampling=choice_based_sampling,
+choice_based_weights=choice_based_weights, ci_level=ci_level,
+clean_data_flag=clean_data_flag,
+cluster_std=cluster_std, datpfad=datpfad, descriptive_stats=descriptive_stats,
+dpi=dpi,  fontsize=fontsize, forest_files=forest_files, fs_other_sample=fs_other_sample,
+fs_other_sample_share=fs_other_sample_share, fs_rf_threshold=fs_rf_threshold,
+fs_yes=fs_yes, gatet_flag=gatet_flag,
+gmate_no_evaluation_points=gmate_no_evaluation_points,
+gmate_sample_share=gmate_sample_share, indata=indata,
+knn_const=knn_const, knn_flag=knn_flag, knn_min_k=knn_min_k,
+l_centering=l_centering, l_centering_cv_k=l_centering_cv_k,
+l_centering_new_sample=l_centering_new_sample,
+l_centering_share=l_centering_share,
+match_nn_prog_score=match_nn_prog_score, max_cats_z_vars=max_cats_z_vars,
+max_weight_share=max_weight_share, mce_vart=mce_vart,
+min_dummy_obs=min_dummy_obs, mp_parallel=mp_parallel,
+mp_ray_objstore_multiplier=mp_ray_objstore_multiplier,
+mp_vim_type=mp_vim_type, mp_weights_tree_batch=mp_weights_tree_batch,
+mp_weights_type=mp_weights_type, mp_with_ray=mp_with_ray,
 m_grid=m_grid, m_max_share=m_max_share, m_min_share=m_min_share,
-m_random_poisson=m_random_poisson, nn_main_diag_only=nn_main_diag_only, 
+m_random_poisson=m_random_poisson, nn_main_diag_only=nn_main_diag_only,
 no_filled_plot=no_filled_plot, nw_bandw=nw_bandw, nw_kern_flag=nw_kern_flag,
-n_min_grid=n_min_grid, n_min_max=n_min_max, n_min_min=n_min_min, 
-outfiletext=outfiletext, outpfad=outpfad, output_type=output_type, 
-panel_data=panel_data, panel_in_rf=panel_in_rf, post_est_stats=post_est_stats, 
-post_kmeans_max_tries=post_kmeans_max_tries, 
+n_min_grid=n_min_grid, n_min_max=n_min_max, n_min_min=n_min_min,
+outfiletext=outfiletext, outpfad=outpfad, output_type=output_type,
+panel_data=panel_data, panel_in_rf=panel_in_rf, post_est_stats=post_est_stats,
+post_kmeans_max_tries=post_kmeans_max_tries,
 post_kmeans_no_of_groups=post_kmeans_no_of_groups,
-post_kmeans_replications=post_kmeans_replications, 
-post_kmeans_yes=post_kmeans_yes, post_plots=post_plots, 
+post_kmeans_replications=post_kmeans_replications,
+post_kmeans_yes=post_kmeans_yes, post_plots=post_plots,
 post_random_forest_vi=post_random_forest_vi, preddata=preddata, predict_mcf=predict_mcf
 p_diff_penalty=p_diff_penalty, random_thresholds=random_thresholds,
 relative_to_first_group_only=relative_to_first_group_only,
-save_forest=save_forest, screen_covariates=screen_covariates, 
+save_forest=save_forest, screen_covariates=screen_covariates,
 share_forest_sample=share_forest_sample, show_plots=show_plots,
 smooth_gates=smooth_gates, smooth_gates_bandwidth=smooth_gates_bandwidth,
-smooth_gates_no_evaluation_points=smooth_gates_no_evaluation_points, 
-stop_empty=stop_empty, subsample_factor=subsample_factor, 
-support_check=support_check, support_min_p=support_min_p, 
-support_quantil=support_quantil, weighted=weighted, 
-weight_as_sparse=weight_as_sparse, train_mcf=train_mcf, w_name=w_name, 
-variable_importance_oob=variable_importance_oob, verbose=verbose, 
+smooth_gates_no_evaluation_points=smooth_gates_no_evaluation_points,
+stop_empty=stop_empty, subsample_factor=subsample_factor,
+support_check=support_check, support_min_p=support_min_p,
+support_quantil=support_quantil, weighted=weighted,
+weight_as_sparse=weight_as_sparse, train_mcf=train_mcf,  
+variable_importance_oob=variable_importance_oob, verbose=verbose,
 _max_cats_cont_vars=_max_cats_cont_vars, _max_save_values=_max_save_values,
 _seed_sample_split=_seed_sample_split, _smaller_sample=_smaller_sample,
 _with_output=_with_output)
 ```
 
 
-## Variable Names 
+## Variable Names
 
- **x**
+**c**
+
+* <a id="cluster_name">**cluster_name**</a> - list with **string**
+	* Specifies variable defining the clusters.
+
+**d**
+
+* <a id="d_name">**d_name**</a> - list with **string**
+	* Specifies name of treatment, which must be discrete.
+
+**i**
+
+* <a id="id_name">**id_name**</a> - list with **string**
+	* Specifies an identifier; if there is no identifier, an identifier will be added to the data.
+
+**w**
+
+* <a id="w_name">**w_name**</a> - list with **string**
+  	* Specifies the name of the weight, if the weighting option is used.
+
+**x**
 
 * <a id="x_balance_name_ord">**x_balance_name_ord**</a> - list with **string**
 	* Specifies names of ordered variables for balancing tests (also excluded from feature selection).
@@ -86,7 +107,7 @@ _with_output=_with_output)
 **y**
 
 * <a id="y_name">**y_name**</a> - list with **string**
-	* Specifies outcome variables.	
+	* Specifies outcome variables.
 * <a id="y_tree_name">**y_tree_name**</a> - list with **string**
 	*  Specifies variable to build trees; if None or [], the first variable in **y_name** is used to build trees; it will be added to the list of outcome variables.
 
@@ -106,7 +127,7 @@ _with_output=_with_output)
 
 ## Parameters
 
-**a** 
+**a**
 
 * <a id="alpha_reg_grid">**alpha_reg_grid**</a> - positive **integer**
 	* Sets the number of grid values; the default is 2.
@@ -137,9 +158,7 @@ _with_output=_with_output)
 * <a id="ci_level">**ci_level**</a> - **float** between **0-1**
 	* Sets the confidence level used for the figures; must be between 0 and 1; the default is 0.9.
 * <a id="clean_data_flag">**clean_data_flag**</a> - **Boolean**
-	* If True, all missing and unnecessary variables are removed from the data set; the default is True. 
-* <a id="cluster_name">**cluster_name**</a> - list with **string**
-	* Specifies variable defining the clusters.
+	* If True, all missing and unnecessary variables are removed from the data set; the default is True.
 * <a id="cluster_std">**cluster_std**</a> - **Boolean**
 	* If True, program computes clustered standard errors; the value  will be automatically set to 1 if panel data option is activated.
 * <a id="cond_var_flag">**cond_var_flag**</a> - **Boolean**
@@ -152,15 +171,13 @@ _with_output=_with_output)
 * <a id="descriptive_stats">**descriptive_stats**</a> - **Boolean**
 	* If True, the descriptive statistics are printed to the input and output files; the default is True.
 * <a id="dpi">**dpi**</a> - **integer** larger than **0**
-	* Sets the resolution, i.e. dots per inch (dpi); a value larger than 0 must be specified; the default is 500. 
-* <a id="d_name">**d_name**</a> - list with **string**
-	* Specifies name of treatment, which must be discrete. 
+	* Sets the resolution, i.e. dots per inch (dpi); a value larger than 0 must be specified; the default is 500.
 
 **f**
 * <a id="fontsize">**fontsize**</a> - **integer** from **0-7**
 	* Sets the font size for the legend; ranges from 1 (very small) to 7 (very large); the default is 2.
 * <a id="forest_files">**forest_files**</a> - **integer** from **0-7**
-	* Specifies name of the forest files; if None, file names are governed by *indat* + extensions (_savepred.pickle, _savepred.csv, _savepredps.npy, _savepredd.npy); else file names are *name* + extensions. 
+	* Specifies name of the forest files; if None, file names are governed by *indat* + extensions (_savepred.pickle, _savepred.csv, _savepredps.npy, _savepredd.npy); else file names are *name* + extensions.
 * <a id="fs_other_sample">**fs_other_sample**</a> - **Boolean**
 	* Determines whether the same sample as for the random forest estimation is used; the default is True, for which a random sample is taken from the overall sample. If False, the same sample as for the random forest estimation is deployed.
 * <a id="fs_other_sample_share">**fs_other_sample_share**</a> - **float** between **0, 1**
@@ -168,7 +185,7 @@ _with_output=_with_output)
 * <a id="fs_rf_threshold">**fs_rf_threshold**</a> - **float**
 	* If feature selection is enabled, specifies a threshold in percent of loss of feature importance; features with values below the defined threshold are deleted; the default is 0.
 * <a id="fs_yes">**fs_yes**</a> - **Boolean**
-	* If True, feature selection is active; the default is False. 
+	* If True, feature selection is active; the default is False.
 
 **g**
 
@@ -177,11 +194,9 @@ _with_output=_with_output)
 * <a id="gmate_no_evaluation_points">**gmate_no_evaluation_points**</a> - positive **integer**
 	* Determines number of evaluation points for continuous variables; the default is 50.
 * <a id="gmate_sample_share">**gmate_sample_share**</a> - **float**
-	*  Specifies the share of the the prediction data used; the default is None. For the default, the share is computed as follows: if the number of observations in the prediction sample, $no^{\text{pred}}$, is smaller than $1,000$ the share is set to $1$; else the share is computed as $\frac{1000 + (no^{\text{pred}} - 1000)^{0.75}}{no^{\text{pred}}}$. If you set a number less or equal to $0$, the program sets the share according to the previous rule; else you may specify a valid share greater $0$, which the program uses. 
+	*  Specifies the share of the the prediction data used; the default is None. For the default, the share is computed as follows: if the number of observations in the prediction sample, $no^{\text{pred}}$, is smaller than $1,000$ the share is set to $1$; else the share is computed as $\frac{1000 + (no^{\text{pred}} - 1000)^{0.75}}{no^{\text{pred}}}$. If you set a number less or equal to $0$, the program sets the share according to the previous rule; else you may specify a valid share greater $0$, which the program uses.
 
 **i**
-* <a id="id_name">**id_name**</a> - list with **string**
-	* Specifies an identifier; if there is no identifier, an identifier will be added to the data.
 * <a id="indata">**indata**</a> - **string**
 	* Specifies the file name for the data, which is used for estimation; the file needs to be in *csv* format.
 
@@ -209,17 +224,17 @@ _with_output=_with_output)
 **m**
 
 * <a id="match_nn_prog_score">**match_nn_prog_score**</a> - **Boolean**
-	* If True the program computes prognostic scores to find close neighbors for the mean correlated error; if False, Mahalanobis matching using all covariates is applied; the default is True. 
+	* If True the program computes prognostic scores to find close neighbors for the mean correlated error; if False, Mahalanobis matching using all covariates is applied; the default is True.
 * <a id="max_cats_z_vars">**max_cats_z_vars**</a> - positive **integer**
 	* Specifies maximum number of categories for continuous $z$ variables; the default value is $no^{0.3}$, where $no$ is the number of observations in the training data.
 * <a id="max_weight_share">**max_weight_share**</a> - **float** between **0, 1**
 	* Regulates the maximum share of any weight; the default value 0.05; the program trims excess weights and renormalises the ATE, GATE, and IATE separately; due to renormalising, the final weights might be somewhat above the specified threshold.
 * <a id="mce_vart">**mce_vart**</a> - **integer** taking values **0, 1, 2, 3**
-	* Determines the rule, deployed for splitting when growing trees; if the value is 0, only the mean squared error of the regressions are considered; if the value is 1, the sum of the outcome MSE and MCE are considered; if the value is 2, the variance of the effect is chosen as the splitting criterion; with a value of 3, the criterion randomly switches between outcome MSE and MCE and penalty functions. 
+	* Determines the rule, deployed for splitting when growing trees; if the value is 0, only the mean squared error of the regressions are considered; if the value is 1, the sum of the outcome MSE and MCE are considered; if the value is 2, the variance of the effect is chosen as the splitting criterion; with a value of 3, the criterion randomly switches between outcome MSE and MCE and penalty functions.
 * <a id="min_dummy_obs">**min_dummy_obs**</a> - **Boolean**
 	* If the program also screens covariates, i.e. when **screen_covariates** is True, the **min_dummy_obs** regulates the minimal number of observations in one category of a dummy variable for the dummy variable not to be removed from the data set; the default is set to 10.   
 * <a id="mp_parallel">**mp_parallel**</a> - **None** or **integer number** larger **0**
-	* Specifies the number of parallel processes; the default value is None; for a value of None the number of parallel processes is set to the integer part of 80 percent of the number of the cores; for values of 0 and 1, there are no parallel computations. 
+	* Specifies the number of parallel processes; the default value is None; for a value of None the number of parallel processes is set to the integer part of 80 percent of the number of the cores; for values of 0 and 1, there are no parallel computations.
 * <a id="mp_ray_objstore_multiplier">**mp_ray_objstore_multiplier**</a>  - **integer**
 	* Increases internal default values for Ray object store to avoid crashes induced by full object stores; the default value is 1.
 * <a id="mp_vim_type">**mp_vim_type**</a> - **integer** taking values **1, 2**
@@ -235,7 +250,7 @@ _with_output=_with_output)
 * <a id="m_grid">**m_grid**</a> - positive **integer**
 	* Sets the number of grid values which are logarithmically spaced between **m_min** and **m_max**; the default is 2.
 * <a id="m_max_share">**m_max_share**</a> - float between **0, 1** or **integer** taking values **-1, -2**
-	* Sets the maximum share of variables used for the next split; admissible values range from 0 to 1;  note that if **m_max_share** is set to 1, the algorithm corresponds to bagging trees; for a value of -1, the share obtains as $0.66*N$, where $N$ denotes the number of variables; for a value -2 the value is computed as $0.8*N$; the default is -1. 
+	* Sets the maximum share of variables used for the next split; admissible values range from 0 to 1;  note that if **m_max_share** is set to 1, the algorithm corresponds to bagging trees; for a value of -1, the share obtains as $0.66*N$, where $N$ denotes the number of variables; for a value -2 the value is computed as $0.8*N$; the default is -1.
 * <a id="m_min_share">**m_min_share**</a> - **float** between **0, 1** or **integer** taking values **-1, -2**
 	* Sets the minimum share of variables used for  the next split; admissible values range from 0 to 1; if value is set to -1, the share is set to $0.1 * N$, where $N$ denotes the number of variables;  for a value of -2, the share obtains as $0.2 * N$; the default is -1.
 * <a id="m_random_poisson">**m_random_poisson**</a> - **Boolean**
@@ -245,13 +260,13 @@ _with_output=_with_output)
 
 
 * <a id="nn_main_diag_only">**nn_main_diag_only**</a> - **Boolean**
-	* If True, the program uses only main diagonal; if False, the program uses the inverse of the covariance matrix; the default is False. 
+	* If True, the program uses only main diagonal; if False, the program uses the inverse of the covariance matrix; the default is False.
 * <a id="no_filled_plot">**no_filled_plot**</a> - **None** or **integer number** larger **0**
 	* Determines that the plot is filled if there are more than a minimal number of specified points; the default is None; in this case  the plot is filled when there are more than 20 points.
 * <a id="nw_bandw">**nw_bandw**</a> - positive **float** greater equal **1**
 	* Sets the bandwidth for Nadaraya-Watson  estimation in form of the multiplier  of Silverman's optimal bandwidth; the default is None associated with a multiplier of 1.
 * <a id="nw_kern_flag">**nw_kern_flag**</a> - **integer** taking values **1, 2**
-	* Determines the kernel for Nadaraya-Watson estimation; a value of 1 sets the Epanechnikov kernel, a value of 2 sets a normal kernel; the default is 1. 
+	* Determines the kernel for Nadaraya-Watson estimation; a value of 1 sets the Epanechnikov kernel, a value of 2 sets a normal kernel; the default is 1.
 * <a id="n_min_grid">**n_min_grid**</a> - **integer** larger **0**
 	* Sets the number of grid values; the default is 1; if **n_min_grid** equals 1, **n_min_min** is used for leaf size.
 * <a id="n_min_max">**n_min_max**</a> - **integer** taking values **-1, -2** or **integer** larger **0**
@@ -264,7 +279,7 @@ _with_output=_with_output)
 * <a id="outfiletext">**outfiletext**</a> - **string**
 	* Specifies the name for the file, in which the text output from the program is written; if the name is not specified the default is set to the name of the data, deployed for estimation - **indata** - with the extension *txt* is used.
 * <a id="outpfad">**outpfad**</a> - **string**
-	* Creates a folder *out* in the application directory, in which the output files are written. 
+	* Creates a folder *out* in the application directory, in which the output files are written.
 * <a id="output_type">**output_type**</a> - **integer** taking value **0, 1, 2** or **None**
 	* Determines where the output goes; for a value of 0 the output goes to the terminal; for a value of 1, the output is sent to a file; for a value of 2, the output is sent to both terminal and file; the default is None.
 
@@ -280,7 +295,7 @@ _with_output=_with_output)
 * <a id="post_kmeans_max_tries">**post_kmeans_max_tries**</a> - positive **integer**
 	* If **post_kmeans_yes** is True, gives maximum number of iterations in each replication to achieve convergence; default is 1000.
 * <a id="post_kmeans_no_of_groups">**post_kmeans_no_of_groups**</a> - positive **integer**
-	* If **post_kmeans_yes** is set True, sets the number of clusters to be formed; default values depend on the number of observation in the prediction sample $no^{\text{pred}}$. The default is None; the number of clusters to be formed is computed as follows: if $no^{\text{pred}} < 10,000$ the value is set to 5, else if $no^{\text{pred}} < 100,000$ the value is set to 10, for all other cases, the numbers is computed as $5 + \text{round}(no^{\text{pred}}/20,000)$. If a value other than None is specified, the number of clusters to be formed is computed as follows; if the specified number is smaller 2, the number is set according to the previous rule; otherwise, the number is obtained as the rounded number specified by the user. 
+	* If **post_kmeans_yes** is set True, sets the number of clusters to be formed; default values depend on the number of observation in the prediction sample $no^{\text{pred}}$. The default is None; the number of clusters to be formed is computed as follows: if $no^{\text{pred}} < 10,000$ the value is set to 5, else if $no^{\text{pred}} < 100,000$ the value is set to 10, for all other cases, the numbers is computed as $5 + \text{round}(no^{\text{pred}}/20,000)$. If a value other than None is specified, the number of clusters to be formed is computed as follows; if the specified number is smaller 2, the number is set according to the previous rule; otherwise, the number is obtained as the rounded number specified by the user.
 * <a id="post_kmeans_replications">**post_kmeans_replications**</a> - **Boolean**
 	* If **post_kmeans_yes** is set to True, sets number of replications with random start centers to avoid local extrema; the default value is 10.
 * <a id="post_kmeans_yes">**post_kmeans_yes**</a> - **Boolean**
@@ -289,7 +304,7 @@ _with_output=_with_output)
 	* If True, the program delivers plots of estimated treatment effects in **pred_eff_data**; the default is True.  
 * <a id="post_random_forest_vi">**post_random_forest_vi**</a> - **Boolean**
 	* If True, program uses variable importance measure of predictive random forests to learn major factors influencing IATEs; the default is True.
-* 
+*
 * <a id="preddata">**preddata**</a> - **string**
 	* Specifies the file name for the data for the effects estimation; the file needs to be in *csv* format.
 * <a id="p_diff_penalty">**p_diff_penalty**</a> - **None** or **integer** taking values **-1, 0** or float larger **0**
@@ -314,12 +329,12 @@ _with_output=_with_output)
 	* If True, the plots are shown, i.e. `plt.show()` is executed, else not; the default is True.  
 * <a id="smooth_gates">**smooth_gates**</a> - **Boolean**
 	* Specifies an alternative way to estimate GATEs for continuous variables; instead of discretizing variable, the GATE is evaluated at **smooth_gates_no_evaluation_points**. Since there are likely to be no  observations, a local neighbourhood around the evaluation points is considered; the default is True.
-* <a id="smooth_gates_bandwidth">**smooth_gates_bandwidth**</a> - **float** 
+* <a id="smooth_gates_bandwidth">**smooth_gates_bandwidth**</a> - **float**
 	* Defines the multiplier for SGATE aggregation; the default is 1.
 * <a id="smooth_gates_no_evaluation_points">**smooth_gates_no_evaluation_points**</a> - positive **integer**
 	* Sets the number of evaluation points for the GATE; the default is 50.
 * <a id="stop_empty">**stop_empty**</a> - **integer** taking value **0** or integer larger **0**
-	* Determines a stopping rule for splitting; the default is None. The program stops splitting the tree if the next $25$ randomly chosen variable did not lead to a new leaf; if  a value smaller is given, the program stops splitting after $25$ unsuccessful trials, else the stopping rule is governed by the user-defined number (rounded). 
+	* Determines a stopping rule for splitting; the default is None. The program stops splitting the tree if the next $25$ randomly chosen variable did not lead to a new leaf; if  a value smaller is given, the program stops splitting after $25$ unsuccessful trials, else the stopping rule is governed by the user-defined number (rounded).
 *  <a id="subsample_factor">**subsample_factor**</a> - **float** between **0, 1**
 	* Sets the size of the subsampling sample; reduces the default subsample size by 1-subsample_factor; the default is $\min(0.67,(2*(n^{0.8})/n))$ ; $n$ is computed as twice the sample size in the smallest treatment group.
 * <a id="support_check">**support_check**</a> - **integer** taking values **0, 1, 2**
@@ -339,11 +354,9 @@ _with_output=_with_output)
 
 
 * <a id="weighted">**weighted**</a> - **Boolean**
-	* If  True, the program uses sampling weights; if False no sampling weights are used. If  1, sampling weights specified in **w_name** will be used; the default is False. 
+	* If  True, the program uses sampling weights; if False no sampling weights are used. If  1, sampling weights specified in **w_name** will be used; the default is False.
 * <a id="weight_as_sparse">**weight_as_sparse**</a> - **Boolean**
 	* Determines whether the weight matrix is a sparse matrix; the default is True.
-* <a id="w_name">**w_name**</a> - list with **string**
-	* Specifies the name of the weight, if the weighting option is used.
 
 **v**
 
@@ -364,5 +377,3 @@ _with_output=_with_output)
 	*  Determines whether program shall be tested with smaller sample.
 * <a id="_with_output">**_with_output**</a> - **Boolean**
 	* If True, print statements are executed; the default is True.
-
-

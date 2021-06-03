@@ -83,7 +83,7 @@ _with_output=_with_output)
 **w**
 
 * <a id="w_name">**w_name**</a> - list with **string**
-  	* Specifies the name of the weight, if the weighting option is used.
+  * Specifies the name of the weight, if the weighting option is used.
 
 **x**
 
@@ -305,7 +305,7 @@ _with_output=_with_output)
 * <a id="preddata">**preddata**</a> - **string**
 	* Specifies the file name for the data for the effects estimation; the file needs to be in *csv* format.
 * <a id="pred_mcf">**pred_mcf**</a> - **string**
-		* If True, effects are estimated; default is True.
+	* If True, effects are estimated; default is True.
 * <a id="p_diff_penalty">**p_diff_penalty**</a> - **None** or **integer** taking values **-1, 0** or float larger **0**
 	* Sets value to further specify the utilized penalty function in combination with *mce_vart*; if *mce_vart* is 0, the *p_diff_penalty* is irrelevant; if  *mce_vart* is 1, for the default value of None or -1 the penalty is computed as follows $4\times((no^{\text{training}}\times \text{subsample share})^{0.8})/(no^{\text{training}} \times \text{subsample share})\times no^{\text{treatment}} \times (no^{\text{treatment}} -1)/2$; if the balancing tests indicate bad balance, you should increase the penalty above the default. If *mce_vart* is 2, the penalty is set by the program as follows: for the default value of None or -1, the penalty is $400\times((no^{\text{training}}\times \text{subsample share})^{0.8})/(no^{\text{training}} \times \text{subsample share})\times no^{\text{treatment}} \times (no^{\text{treatment}} -1)/2$. If the value is set to 0, there is no penalty; if *mce_vart* is equal to 3, by default (or if set to -1) the probability of setting the p-score is 0.5; if the specified probability is larger $1$, the program checks if the user-defined probability has been accidentally scaled in percent and rescales the number to obtain valid scores in the zero-one interval.    
 

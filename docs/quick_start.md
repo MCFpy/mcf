@@ -4,7 +4,6 @@ The package `mcf` is accompanied by synthetic data, which we  use in our tutoria
 
 ```python
 
-from multiprocessing import freeze_support
 import mcf 
 
 # If paths are not specified, the current directory will be used

@@ -7,6 +7,6 @@
 
 
 [Official GitHub Repository](https://github.com/MCFpy/mcf)
-[Scientifc Paper](https://arxiv.org/abs/1812.09487)
+[Scientific Paper](https://arxiv.org/abs/1812.09487)
 
 ![color](#f0f0f0)

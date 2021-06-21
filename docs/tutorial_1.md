@@ -24,7 +24,6 @@ You may wish to inspect the structure of the data by running the command `data.h
  As listed in [section Python API](./core_6.md), most of the argument inputs of the the `mcf` function take default values. With two exceptions we will stick to most default values. Accordingly, we start the program as follows:
 
 ```python
-from multiprocessing import freeze_support
 import mcf
 
 outpfad = 'your/output/goes/here'

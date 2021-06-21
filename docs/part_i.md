@@ -174,6 +174,7 @@ Local centering is a form of residualization, which can improve the performance 
 
 Formally, a conditionally centered outcome $\tilde{Y}_i$ can be defined as:
 
+<img src="https://render.githubusercontent.com/render/math?math=\tilde{Y}_i = Y_i - \hat{y}^{-i}(X_i)">
 
 $$
 \tilde{Y}_i = Y_i - \hat{y}^{-i}(X_i).

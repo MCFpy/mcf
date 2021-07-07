@@ -153,6 +153,8 @@ First, the program uses the training data to build one forest per treatment by a
 
 The program allows one to choose between no, data-driven, and user-defined support conditions, which can be selected by [support_check](./core_6.md#support_check). The support checks are based on the estimated propensity scores discussed above. For data-driven support, you have to specify a quantile in [support_quantil](./core_6.md#support_quantil). Denoting by $q$ the quantile chosen, the program drops observations with propensities scores smaller than the largest $q$ or larger than the smallest ($1-q$) quantile of the treatment groups. Contrary to this condition, user-defined support directly specifies the support threshold of the propensity scores in [support_min_p](./core_6.md#support_min_p). If a support check is conducted, the program removes all observations with at least one treatment state off support.
 
+The argument [support_max_del_train](./core_6.md#support_max_del_train) defines a threshold for the share of observations off support in the training data set. If this threshold is exceeded, the program terminates because of too large imbalances in the features across treatment states. In such a case, a new and more balanced input data set is required to run the program.
+
 ### Input arguments for common support
 
 | Argument                                       | Description                                                  |
@@ -160,6 +162,7 @@ The program allows one to choose between no, data-driven, and user-defined suppo
 | [support_check](./core_6.md#support_check)     | Three options (0,1,2). The option 0 does not check for common support. The option 1 carries out a data-driven support check by using min-max decision rules for probabilities in each treatment state specified by [support_quantil](./core_6.md#support_quantil). The option 2 starts a support check by enforcing minimum and maximum probabilities defined by [support_min_p](./core_6.md#support_min_p). The default is 1. |
 | [support_quantil](./core_6.md#support_quantil) | Float in the $(0.5,1]$ interval. Observations are dropped if propensities scores are smaller than the largest $q$ or larger than the smallest ($1-q$) quantile of the propensity score distribution. The default of $q$ is 1. |
 | [support_min_p](./core_6.md#support_min_p)     | Float in the $(0,0.5)$ interval. Observations are deleted if propensity scores are smaller than or equal to this argument. The default is $\min(0.025,r)$, where $r$ is the ratio between the share of the smallest treatment group in the training data and the number of treatments. |
+| [support_max_del_train](./core_6.md#support_max_del_train) | Float in the (0,1) interval. Specifies the threshold for the share of observations off support in the training data set. The default is 0.5. |
 
 
 ## Feature selection

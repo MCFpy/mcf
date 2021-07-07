@@ -323,7 +323,7 @@ The program offers three ways of conducting inference. The default is a weights-
 
 One way for conducting inference for treatment effects is to estimate the variance of the treatment effect estimator based on a variance decomposition into the expectation of the conditional variance and the variance of the conditional expectation, given the weights. This variance decomposition takes heteroscedasticity in the weights into account. The conditional means $\mu_{Y \vert \hat{W}} (\hat{w}_i)$ and variances $\sigma^2_{Y \vert \hat{W}} (\hat{w}_i)$ are estimated non-parametrically, either by the Nadaraya-Watson kernel estimator (default) or by the *k-Nearest Neighbor* (*k-NN*) estimator.
 
-Another to obtain inference is to compute the variance of a treatment effect estimator as the sum of the variances of the weighted outcomes in the respective treatment states. A drawback of this inference method is that it implicitly assumes homoscedasticity in the weights for each treatment state.
+Another way to obtain inference is to compute the variance of a treatment effect estimator as the sum of the variances of the weighted outcomes in the respective treatment states. A drawback of this inference method is that it implicitly assumes homoscedasticity in the weights for each treatment state.
 
 Alternatively, the standard bootstrap can be applied to compute standard errors. Our algorithm bootstraps the equally weighted weights $\hat{w}_i$ and then renormalizes $\hat{w}_i$.   
 

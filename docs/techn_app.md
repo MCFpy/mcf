@@ -76,6 +76,9 @@ The following table presents the number of groups. It shows that the number of (
 | [knn_const](./core_6.md#knn_const)         | Multiplier in the asymptotic expansion formula defining the number of nearest neighbors for the *k-NN* estimator, as indicated below. The default is 1. |
 | [nw_bandw](./core_6.md#nw_bandw)           | Multiplier in Silverman's optimal bandwidth rule for the Nadaraya-Watson estimator. The default is 1. |
 | [nw_kern_flag](./core_6.md#nw_kern_flag)   | Type of kernel for the Nadaraya-Watson estimator. Epanechnikov kernel = 1, Gaussian kernel = 2. The default is 1. |
+| [se_boot_ate](./core_6.md#se_boot_ate)     | Integer. Number of replications to estimate the bootstrap standard error of ATEs. Bootstrapping is only activated for more than 99 replications. The default is *False* (no bootstrapping). |
+| [se_boot_gate](./core_6.md#se_boot_gate)   | Integer. Number of replications to estimate the bootstrap standard error of GATEs. Bootstrapping is only activated for more than 99 replications. The default is *False* (no bootstrapping). |
+| [se_boot_iate](./core_6.md#se_boot_iate)   | Integer. Number of replications to estimate the bootstrap standard error of IATEs. Bootstrapping is only activated for more than 99 replications. The default is *False* (no bootstrapping). |
 | [panel_data](./core_6.md#panel_data)       | *True* for panel data, otherwise *False*. The default is *False*. |
 | [cluster_std](./core_6.md#cluster_std)     | *True* for clustered standard errors, otherwise *False*. The default is *False*. |
 

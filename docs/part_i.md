@@ -139,6 +139,28 @@ The smaller the minimum leaf size, the longer is the computation time, as the tr
 |[stop_empty](./core_6.md#stop_empty)|Stops splitting the tree if the next [stop_empty](./core_6.md#stop_empty) randomly chosen variables did not led to a new split (default is 25). |
 
 
+## Common support
+
+### General remarks
+
+Estimation methods adjusting for differences in features require common support in all treatment arms. This program thus drops observations considered to be off support.
+
+### Implementation
+
+Common support checks and corrections are done before any estimation, and they relate to all data files for training, prediction, and feature selection. 
+
+First, the program uses the training data to build one forest per treatment by applying the *RandomForestRegressor* method of the *sklearn.ensemble* module. To avoid overfitting, it then predicts in the prediction data set specified by [preddata](./core_6.md#preddata) the  propensity scores $P(D = m \vert X)$ for all mutually exclusive treatments $m = 1,\cdots,M$, where $M$ denotes the number of treatments.
+
+The program allows one to choose between no, data-driven, and user-defined support conditions, which can be selected by [support_check](./core_6.md#support_check). The support checks are based on the estimated propensity scores discussed above. For data-driven support, you have to specify a quantile in [support_quantil](./core_6.md#support_quantil). Denoting by $q$ the quantile chosen, the program drops observations with propensities scores smaller than the largest $q$ or larger than the smallest ($1-q$) quantile of the treatment groups. Contrary to this condition, user-defined support directly specifies the support threshold of the propensity scores in [support_min_p](./core_6.md#support_min_p). If a support check is conducted, the program removes all observations with at least one treatment state off support.
+
+### Input arguments for common support
+
+| Argument                                       | Description                                                  |
+| ---------------------------------------------- | ------------------------------------------------------------ |
+| [support_check](./core_6.md#support_check)     | Three options (0,1,2). The option 0 does not check for common support. The option 1 carries out a data-driven support check by using min-max decision rules for probabilities in each treatment state specified by [support_quantil](./core_6.md#support_quantil). The option 2 starts a support check by enforcing minimum and maximum probabilities defined by [support_min_p](./core_6.md#support_min_p). The default is 1. |
+| [support_quantil](./core_6.md#support_quantil) | Float in the $(0.5,1]$ interval. Observations are dropped if propensities scores are smaller than the largest $q$ or larger than the smallest ($1-q$) quantile of the propensity score distribution. The default of $q$ is 1. |
+| [support_min_p](./core_6.md#support_min_p)     | Float in the $(0,0.5)$ interval. Observations are deleted if propensity scores are smaller than or equal to this argument. The default is $\min(0.025,r)$, where $r$ is the ratio between the share of the smallest treatment group in the training data and the number of treatments. |
+
 
 ## Feature selection
 
@@ -198,6 +220,7 @@ Alternatively, two separate data sets can be generated for running the local cen
 | [l_centering_new_sample](./core_6.md#l_centering_new_sample) | Generating separate samples for tree building and estimation of $\mathbb{E}[Y_i \vert X_i=x_i]$. The default is *False*. |
 | [l_centering_share](./core_6.md#l_centering_share)           | Share of data used for estimating $\mathbb{E}[Y_i \vert X_i=x_i]$. If [l_centering_new_sample](./core_6.md#l_centering_new_sample) is *True*, the default is 0.25. |
 | [l_centering_cv_k](./core_6.md#l_centering_cv_k)             | Number of folds used in cross-validation. The default is 5.  |
+
 
 ## Estimation  
 
@@ -294,13 +317,15 @@ The program generates graphical representations of the treatment effects. You ca
 
 ### General remarks
 
-The program offers two ways of conducting inference, which are discussed in more detail by [Lechner (2018)](https://arxiv.org/abs/1812.09487). The default is a weights-based inference procedure, which is particularly useful for gaining information on the precision of estimators that have a representation as weighted averages of the outcomes. The user can then select among different tuning parameters for weights-based inference. The second inference procedure simply estimates the variance of treatment effect estimates directly from the variance of weighted outcomes.
+The program offers three ways of conducting inference. The default is a weights-based inference procedure, which is particularly useful for gaining information on the precision of estimators that have a representation as weighted averages of the outcomes, see [Lechner (2018)](https://arxiv.org/abs/1812.09487). The [Technical Appendix](./techn_app.md#Technical Appendix) shows the tuning parameters for this method. The second inference procedure provided by the program simply estimates the variance of treatment effect estimates as the sum of the variance of weighted outcomes. Finally, a bootstrap algorithm can be applied to obtain inference.
 
 ### Methods
 
 One way for conducting inference for treatment effects is to estimate the variance of the treatment effect estimator based on a variance decomposition into the expectation of the conditional variance and the variance of the conditional expectation, given the weights. This variance decomposition takes heteroscedasticity in the weights into account. The conditional means $\mu_{Y \vert \hat{W}} (\hat{w}_i)$ and variances $\sigma^2_{Y \vert \hat{W}} (\hat{w}_i)$ are estimated non-parametrically, either by the Nadaraya-Watson kernel estimator (default) or by the *k-Nearest Neighbor* (*k-NN*) estimator.
 
-An alternative way to obtain inference is to compute the variance of a treatment effect estimator as the sum of the variances of the weighted outcomes in the respective treatment states. A drawback of this inference method is that it implicitly assumes homoscedasticity in the weights for each treatment state.
+Another to obtain inference is to compute the variance of a treatment effect estimator as the sum of the variances of the weighted outcomes in the respective treatment states. A drawback of this inference method is that it implicitly assumes homoscedasticity in the weights for each treatment state.
+
+Alternatively, the standard bootstrap can be applied to compute standard errors. Our algorithm bootstraps the equally weighted weights $\hat{w}_i$ and then renormalizes $\hat{w}_i$.   
 
 Note that because of the weighting representation, inference can also readily be used to account for clustering, which is a common feature in economics data.
 
@@ -367,26 +392,3 @@ The tests are based on estimations of ATEs by replacing the outcomes with user-s
 | -------------------------------------------- | ----------------------------------------------------------- |
 | [balancing_test](./core_6.md#balancing_test) | Flag for activating balancing tests. The default is *True*. |
 
-
-
-## Common support
-
-### General remarks
-
-Estimation methods adjusting for differences in features require common support in all treatment arms. This program thus drops observations considered to be off support.
-
-### Implementation
-
-First, the program uses the training data to build one forest per treatment by applying the *RandomForestRegressor* method of the *sklearn.ensemble* module. To avoid overfitting, it then predicts in the prediction data set specified by [preddata](./core_6.md#preddata) the  propensity scores $P(D = m \vert X)$ for all mutually exclusive treatments $m = 1,\cdots,M$, where $M$ denotes the number of treatments.
-
-The program allows one to choose between no, data-driven, and user-defined support conditions, which can be selected by [support_check](./core_6.md#support_check). The support checks are based on the estimated propensity scores discussed above. For data-driven support, you have to specify a quantile in [support_quantil](./core_6.md#support_quantil). Denoting by $q$ the quantile chosen, the program drops observations with propensities scores smaller than the largest $q$ or larger than the smallest ($1-q$) quantile of the treatment groups. Contrary to this condition, user-defined support directly specifies the support threshold of the propensity scores in [support_min_p](./core_6.md#support_min_p). If a support check is conducted, the program removes all observations with at least one treatment state off support.
-
-
-
-### Input arguments for common support
-
-| Argument                                       | Description                                                  |
-| ---------------------------------------------- | ------------------------------------------------------------ |
-| [support_check](./core_6.md#support_check)     | Three options (0,1,2). The option 0 does not check for common support. The option 1 carries out a data-driven support check by using min-max decision rules for probabilities in each treatment state specified by [support_quantil](./core_6.md#support_quantil). The option 2 starts a support check by enforcing minimum and maximum probabilities defined by [support_min_p](./core_6.md#support_min_p). The default is 1. |
-| [support_quantil](./core_6.md#support_quantil) | Float in the $(0,1]$ interval. Observations are dropped if propensities scores are smaller than the largest $q$ or larger than the smallest ($1-q$) quantile of the propensity score distribution. The default of $q$ is 1. |
-| [support_min_p](./core_6.md#support_min_p)     | Float in the $(0,0.5)$ interval. Observations are deleted if propensity scores are smaller than or equal to this argument. The default is $\min(0.025,r)$, where $r$ is the ratio between the share of the smallest treatment group in the training data and the number of treatments. |

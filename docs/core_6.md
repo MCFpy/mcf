@@ -45,16 +45,15 @@ post_kmeans_max_tries=post_kmeans_max_tries,
 post_kmeans_no_of_groups=post_kmeans_no_of_groups,
 post_kmeans_replications=post_kmeans_replications,
 post_kmeans_yes=post_kmeans_yes, post_plots=post_plots,
-post_random_forest_vi=post_random_forest_vi, preddata=preddata, predict_mcf=predict_mcf
-p_diff_penalty=p_diff_penalty, random_thresholds=random_thresholds,
+post_random_forest_vi=post_random_forest_vi, preddata=preddata, predict_mcf=predict_mcf, p_diff_penalty=p_diff_penalty, random_thresholds=random_thresholds,
 relative_to_first_group_only=relative_to_first_group_only,
 save_forest=save_forest, screen_covariates=screen_covariates,
+se_boot_ate=se_boot_ate, se_boot_gate=se_boot_gate, se_boot_iate=se_boot_iate,
 share_forest_sample=share_forest_sample, show_plots=show_plots,
 smooth_gates=smooth_gates, smooth_gates_bandwidth=smooth_gates_bandwidth,
 smooth_gates_no_evaluation_points=smooth_gates_no_evaluation_points,
 stop_empty=stop_empty, subsample_factor=subsample_factor,
-support_check=support_check, support_min_p=support_min_p,
-support_quantil=support_quantil, weighted=weighted,
+support_check=support_check, support_max_del_train=support_max_del_train, support_min_p=support_min_p,support_quantil=support_quantil, weighted=weighted,
 weight_as_sparse=weight_as_sparse, train_mcf=train_mcf,  
 variable_importance_oob=variable_importance_oob, verbose=verbose,
 _max_cats_cont_vars=_max_cats_cont_vars, _max_save_values=_max_save_values,
@@ -322,6 +321,12 @@ _with_output=_with_output)
 	* If set True, the forest is saved for prediction.
 * <a id="screen_covariates">**screen_covariates**</a> - **Boolean**
 	* Determines whether the covariates are screened; the default is  True; to omit screening stage specify False.
+* <a id="se_boot_ate">**se_boot_ate**</a> - **integer** larger than **99**
+  	* Number of replications to estimate the bootstrap standard error of ATEs; bootstrapping is only activated for more than 99 replications; the default is *False* (no bootstrapping).
+* <a id="se_boot_gate">**se_boot_gate**</a> - **integer** larger than **99**
+  	* Number of replications to estimate the bootstrap standard error of GATEs; bootstrapping is only activated for more than 99 replications; the default is *False* (no bootstrapping).
+* <a id="se_boot_iate">**se_boot_iate**</a> - **integer** larger than **99**
+  	* Number of replications to estimate the bootstrap standard error of IATEs; bootstrapping is only activated for more than 99 replications; the default is *False* (no bootstrapping).
 * <a id="share_forest_sample">**share_forest_sample**</a> - **float** between **0, 1**
 	* Determines the share used for predicting the outcome of interest, $y$; admissible values range from 0 to 1; the default is  0.5; the other share of the sample is used for building the forest.
 * <a id="show_plots">**show_plots**</a> - **Boolean**
@@ -338,10 +343,12 @@ _with_output=_with_output)
 	* Sets the size of the subsampling sample; reduces the default subsample size by 1-subsample_factor; the default is $\min(0.67,(2*(n^{0.8})/n))$ ; $n$ is computed as twice the sample size in the smallest treatment group.
 * <a id="support_check">**support_check**</a> - **integer** taking values **0, 1, 2**
 	* Determines whether program checks for common support and sets rule how common support is enforced; for a value of 0 no common support is checked and enforced; for values of 1 and 2 common support is checked and enforced; for values 1 and 2, the support check is based on the estimated predictive random forests for each treatment probability but one; if the value is set to 1, the program uses min and max rules to enforce common support; for a value of 2, the program enforces minimum and maximum probabilities for all observations and all observations off support are removed. Out-of-bag predictions are used to avoid overfitting.
+* <a id="support_max_del_train">**support_max_del_train**</a> - **float** between **0, 1**
+  	* Specifies the threshold for the share of observations off support in the training data set; the default is 0.5.
 * <a id="support_min_p">**support_min_p**</a> - **float** between **0, 1**
 	* Specifies minimal probability for common support if support check is set to 2; an observation is deleted if the conditional probability $p(d=m|x)$ is less or equal than **support_min_p** for at least one treatment $m$, the default is set to 0.01.
-* <a id="support_quantil">**support_quantil**</a> -  **float** between **0, 1** and **integer** taking value **1**
-	* Specifies how common support is enforced given that support check is set to 1; for a value of 1 the min-max rule is enforced, for values from 0 to and not including 1, the respective quantile is taken for the cut-offs; the default is 1.
+* <a id="support_quantil">**support_quantil**</a> -  **float** between **0.5, 1** and **integer** taking value **1**
+	* Specifies how common support is enforced given that support check is set to 1; for a value of 1 the min-max rule is enforced, for values from 0.5 to and not including 1, the respective quantile is taken for the cut-offs; the default is 1.
 
 **t**
 

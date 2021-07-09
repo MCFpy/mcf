@@ -16,25 +16,23 @@ setup(
   keywords = ['causal machine learning, heterogeneous treatment effects, causal forests'],
   long_description=read('README.txt'),
   classifiers=[
-    'Development Status :: 4 - Beta',
+    'Development Status :: 5',
     'Topic :: Software Development :: Build Tools',
     'License :: OSI Approved :: MIT License',
     'Programming Language :: Python :: 3.8'
   ],
-  install_requires[
-  'futures>=v3.3.0',
-   'multiprocess>=v0.70.5',
-   'numpy>=v1.20.2',
-   'pandas>=v1.2.5',
-   'matplotlib>=v1.5.3',
-   'scipy>=v1.2.1',
-   'ray>=v1.4.0',
-   'numba>=v0.54',
-   'scikit-learn>=v0.23.2',
-   'psutil>=v5.4.5',
-   'importlib>=v1.0.4',
-   'sympy>=v1.8',
-   'pathlib>=v1.0.1'
-  ],
-  python_requires = >=3.8.5  
+  install_requires=[
+   'futures>=3.3.0',
+   'multiprocess>=0.70.5',
+   'numpy>=1.20.2',
+   'pandas>=1.2.5',
+   'matplotlib>=1.5.3',
+   'scipy>=1.2.1',
+   'ray>=1.4.0',
+   'numba>=0.54',
+   'scikit-learn>=0.23.2',
+   'psutil>=5.4.5',
+   'importlib>=1.0.4',
+   'sympy>=1.8',
+   'pathlib>=1.0.1']
 )

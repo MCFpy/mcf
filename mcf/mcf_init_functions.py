@@ -11,7 +11,7 @@ import os
 import numpy as np
 import pandas as pd
 import psutil
-import mcf.general_purpose as gp
+from mcf import general_purpose as gp
 
 
 def make_user_variable(
@@ -69,22 +69,29 @@ def get_controls(c_dict, v_dict):
         c_dict['datpfad'] = path_programme_run
     if c_dict['outpfad'] is None:
         c_dict['outpfad'] = path_programme_run + '/out'
-    if os.path.isdir(c_dict['outpfad']):
-        if not ((c_dict['with_output'] is False)
-                or (c_dict['verbose'] is False)):
-            print("Directory for output %s already exists" % c_dict['outpfad'])
-    else:
-        try:
-            os.mkdir(c_dict['outpfad'])
-        except OSError as oserr:
-            raise Exception(
-                "Creation of the directory %s failed" % c_dict['outpfad']
-                ) from oserr
-        else:
+    out_temp = c_dict['outpfad']
+    for i in range(1000):
+        if os.path.isdir(out_temp):
             if not ((c_dict['with_output'] is False)
-                    or (c_dict['verbose'] is False)):
-                print("Successfully created the directory %s"
-                      % c_dict['outpfad'])
+                or (c_dict['verbose'] is False)):
+                print("Directory for output %s already exists" % out_temp,
+                      "A new directory is created for the output.")
+            out_temp = c_dict['outpfad'] + str(i)
+        else:
+            try:
+                os.mkdir(out_temp)
+            except OSError as oserr:
+                raise Exception(
+                    "Creation of the directory %s failed" % out_temp
+                    ) from oserr
+            else:
+                if not ((c_dict['with_output'] is False)
+                        or (c_dict['verbose'] is False)):
+                    print("Successfully created the directory %s"
+                          % out_temp)
+                if out_temp != c_dict['outpfad']:
+                    c_dict['outpfad'] = out_temp
+                break
     if (c_dict['indata'] is None) and c_dict['train_mcf']:
         raise Exception('Filename of indata must be specified')
     if (c_dict['preddata'] is None) and c_dict['train_mcf']:
@@ -420,17 +427,14 @@ def get_controls(c_dict, v_dict):
             cnew_dict['fs_other_sample_share'] = 0
         # size of subsampling samples         n/2: size of forest sample
         subsam_share = 2 * ((n_train / 2)**0.85) / (n_train / 2)
-        if subsam_share > 0.67:
-            subsam_share = 0.67
+        subsam_share = min(subsam_share, 0.67)
         if c_dict['subsample_factor'] is None:
             c_dict['subsample_factor'] = -1
         if c_dict['subsample_factor'] <= 0:
             cnew_dict['subsample_factor'] = 1
         subsam_share = subsam_share * cnew_dict['subsample_factor']
-        if subsam_share > 0.8:
-            subsam_share = 0.8
-        if subsam_share < 1e-4:
-            subsam_share = 1e-4
+        subsam_share = min(subsam_share, 0.8)
+        subsam_share = max(subsam_share, 1e-4)
         # Define method to be used later on
         if c_dict['mce_vart'] is None:
             c_dict['mce_vart'] = -1
@@ -586,6 +590,25 @@ def get_controls(c_dict, v_dict):
             c_dict['nw_kern'] = -1
         if c_dict['nw_kern'] != 2:  # kernel for NW: 1: Epanechikov 2: Normal
             cnew_dict['nw_kern'] = 1
+        if c_dict['se_boot_ate'] is None:
+            c_dict['se_boot_ate'] = False
+        if c_dict['se_boot_gate'] is None:
+            c_dict['se_boot_gate'] = False
+        if c_dict['se_boot_iate'] is None:
+            c_dict['se_boot_iate'] = False
+        if c_dict['se_boot_ate'] < 100:   # This includes False
+            cnew_dict['se_boot_ate'] = 0
+        else:
+            cnew_dict['se_boot_ate'] = int(c_dict['se_boot_ate'])
+        if c_dict['se_boot_gate'] < 100:   # This includes False
+            cnew_dict['se_boot_gate'] = 0
+        else:
+            cnew_dict['se_boot_gate'] = int(c_dict['se_boot_gate'])
+        if c_dict['se_boot_iate'] < 100:   # This includes False
+            cnew_dict['se_boot_iate'] = 0
+        else:
+            cnew_dict['se_boot_iate'] = int(c_dict['se_boot_iate'])
+
         # Balancing test based on weights
         if c_dict['balancing_test_w'] is False:
             cnew_dict['balancing_test_w'] = False
@@ -754,6 +777,10 @@ def get_controls(c_dict, v_dict):
             c_dict['support_min_p'] = -1
         if c_dict['support_min_p'] < 0 or c_dict['support_min_p'] > 0.5:
             cnew_dict['support_min_p'] = 0.01
+    if c_dict['support_max_del_train'] is None:
+        c_dict['support_max_del_train'] = -1
+    if not 0 < c_dict['support_max_del_train'] <= 1:
+        cnew_dict['support_max_del_train'] = 0.33
     if c_dict['mp_with_ray'] is False:
         cnew_dict['mp_with_ray'] = False
     else:
@@ -1019,7 +1046,8 @@ def controls_into_dic(
         weight_as_sparse, mp_type_weights, mp_weights_tree_batch,
         boot_by_boot, obs_by_obs, max_elements_per_split, mp_with_ray,
         mp_ray_objstore_multiplier, verbose, no_ray_in_forest_building,
-        predict_mcf, train_mcf, forest_files, match_nn_prog_score):
+        predict_mcf, train_mcf, forest_files, match_nn_prog_score,
+        se_boot_ate, se_boot_gate, se_boot_iate, support_max_del_train):
     """Build dictionary with parameters.
 
     Parameters
@@ -1086,6 +1114,9 @@ def controls_into_dic(
         mp_ray_objstore_multiplier, 'verbose': verbose,
         'no_ray_in_forest_building': no_ray_in_forest_building,
         'pred_mcf': predict_mcf, 'train_mcf': train_mcf,
-        'save_forest_files': forest_files
+        'save_forest_files': forest_files,
+        'se_boot_ate': se_boot_ate, 'se_boot_gate': se_boot_gate,
+        'se_boot_iate': se_boot_iate,
+        'support_max_del_train': support_max_del_train
             }
     return controls_dict

@@ -10,19 +10,23 @@ Created on Thu Dec  8 15:48:57 2020.
 import copy
 import numpy as np
 import pandas as pd
-import mcf.general_purpose as gp
+from mcf import mcf_data_functions as mcf_data
+from mcf import general_purpose as gp
+from mcf import general_purpose_estimation as gp_est
 
 
-def common_support(train_file, predict_file, var_x_type, v_dict, c_dict,
-                   cs_list=None, prime_values_dict=None, pred_t=None,
-                   d_train=None):
+def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
+                   v_dict, c_dict, cs_list=None, prime_values_dict=None,
+                   pred_tr_np=None, d_tr_np=None):
     """
-    Remove observations from prediction file that are off-support.
+    Remove observations from data files that are off-support.
 
     Parameters
     ----------
-    train_file : String of csv-file. Data to train the RF.
     predict_file : String of csv-file. Data to predict the RF.
+    train_file : String of csv-file. Data to train the RF.
+    fill_y_file : String of csv-file. Data with y to be used by RF.
+    fs_file : String of csv-file. Data with y to be used by RF.
     var_x_type : Dict. Features.
     v_dict : Dict. Variables.
     c_dict : Dict. Parameters.
@@ -31,7 +35,8 @@ def common_support(train_file, predict_file, var_x_type, v_dict, c_dict,
     prime_values_dict: Dict. List of unique values for variables to dummy.
                     Default is None.
     pred_t: Numpy array. Predicted treatment probabilities in training data.
-    d_train: Numpy series. Observed treatment in training data.
+                         Needed to define cut-offs.
+    d_train: Numpy series. Observed treatment in training data (tree_file).
 
     Returns
     -------
@@ -39,6 +44,7 @@ def common_support(train_file, predict_file, var_x_type, v_dict, c_dict,
     cs_list: Tuple. Contains the information from estimated propensity score
                     needed to predict for other data.
     pred_t: Numpy array. Predicted treatment probabilities in training data.
+    d_train_tree: estimated tree by sklearn.
 
     """
     def r2_obb(c_dict, idx, oob_best):
@@ -49,160 +55,221 @@ def common_support(train_file, predict_file, var_x_type, v_dict, c_dict,
                   'OOB Score (R2 in %): {:6.3f}'.format(oob_best * 100))
             print('-' * 80)
 
+    def get_data(file_name, x_name):
+        data = pd.read_csv(file_name)
+        x_all = data[x_name]    # deep copies
+        obs = len(x_all.index)
+        return data, x_all, obs
+
+    def check_cols(x_1, x_2, name1, name2):
+        var1 = set(x_1.columns)
+        var2 = set(x_2.columns)
+        if var1 != var2:
+            if len(var1-var2) > 0:
+                print('Variables in ', name1, 'not contained in ', name2,
+                      *(var1-var2))
+            if len(var2-var1) > 0:
+                print('Variables in ', name2, 'not contained in ', name1,
+                      *(var2-var1))
+            raise Exception(name1 + ' data and ' + name2 + ' data contain' +
+                            ' differnt variables. Programm stopped.')
+
+    def on_support_data_and_stats(obs_to_del_np, data_pd, x_data_pd, out_file,
+                                  upper, lower, c_dict, header=False):
+        obs_to_keep = np.invert(obs_to_del_np)
+        data_keep = data_pd[obs_to_keep]
+        gp.delete_file_if_exists(out_file)
+        data_keep.to_csv(out_file, index=False)
+        if c_dict['with_output']:
+            x_keep = x_data_pd[obs_to_keep]
+            x_delete = x_data_pd[obs_to_del_np]
+            if header:
+                print('\n')
+                print('=' * 80)
+                print('Common support check')
+                print('-' * 80)
+                print('Upper limits on treatment probabilities: ', upper)
+                print('Lower limits on treatment probabilities: ', lower)
+            print('-' * 80)
+            print('Data investigated and saved:', out_file)
+            print('-' * 80)
+            print('Observations deleted: {:4}'.format(np.sum(obs_to_del_np)),
+                  ' ({:6.3f}%)'.format(np.mean(obs_to_del_np)*100))
+            with pd.option_context(
+                    'display.max_rows', None,
+                    'display.max_columns', None,
+                    'display.expand_frame_repr', True,
+                    'display.width', 120,
+                    'chop_threshold', 1e-13):
+                print('-' * 80)
+                print('Data ON support')
+                print('-' * 80)
+                print(x_keep.describe().transpose())
+                print('-' * 80)
+                print('Data OFF support')
+                print('-' * 80)
+                print(x_delete.describe().transpose())
+            if np.mean(obs_to_del_np) > c_dict['support_max_del_train']:
+                raise Exception(
+                    'Less than {:3}%'.format(c_dict['support_max_del_train'])
+                    + ' observations left after common support check of'
+                    + ' training data. Programme terminated. Improve'
+                    + ' balance of input data for forest building.')
+
     x_name, x_type = gp.get_key_values_in_list(var_x_type)
     names_unordered = []  # Split ordered variables into dummies
     for j, val in enumerate(x_type):
         if val > 0:
             names_unordered.append(x_name[j])
+    fs_adjust = False
+    obs_fs = 0
     if c_dict['train_mcf']:
-        indata = pd.read_csv(train_file)
-        x_all_t = indata[x_name]      # deep copies
+        data_tr, x_tr, obs_tr = get_data(tree_file, x_name)  # train,adj.
+        data_fy, x_fy, obs_fy = get_data(fill_y_file, x_name)  # adj.
+        if c_dict['fs_yes']:
+            if not ((fs_file == tree_file) or (fs_file == fill_y_file)):
+                data_fs, x_fs, obs_fs = get_data(fs_file, x_name)  # adj.
+                fs_adjust = True
     if c_dict['pred_mcf']:
-        preddata = pd.read_csv(predict_file)
-        x_all_p = preddata[x_name]
+        data_pr, x_pr, obs_pr = get_data(predict_file, x_name)
+    else:
+        obs_pr = 0
     if names_unordered:  # List is not empty
         if c_dict['train_mcf'] and c_dict['pred_mcf']:
-            n_obs_t = len(x_all_t.index)
-            x_total = pd.concat([x_all_t, x_all_p], axis=0)
+            x_total = pd.concat([x_tr, x_fy, x_pr], axis=0)
+            if fs_adjust:
+                x_total = pd.concat([x_total, x_fs], axis=0)
             x_dummies = pd.get_dummies(x_total[names_unordered],
                                        columns=names_unordered)
             x_total = pd.concat([x_total, x_dummies], axis=1)
-            x_all_t = x_total[:n_obs_t]
-            x_all_p = x_total[n_obs_t:]
+            x_tr = x_total[:obs_tr]
+            x_fy = x_total[obs_tr:obs_tr+obs_fy]
+            x_pr = x_total[obs_tr+obs_fy:obs_tr+obs_fy+obs_pr]
+            if fs_adjust:
+                x_fs = x_total[obs_tr+obs_fy+obs_pr:]
         elif c_dict['train_mcf'] and not c_dict['pred_mcf']:
-            x_dummies = pd.get_dummies(x_all_t[names_unordered],
-                                       columns=names_unordered)
-            x_all_t = pd.concat([x_all_t, x_dummies], axis=1)
-        else:
-            x_add_tmp = check_if_obs_needed(names_unordered, x_all_p,
-                                            prime_values_dict)
-            if x_add_tmp is not None:
-                n_obs_add = len(x_add_tmp.index)
-                x_total = pd.concat([x_all_p, x_add_tmp], axis=0)
-            else:
-                x_total = x_all_p
+            x_total = pd.concat([x_tr, x_fy], axis=0)
+            if fs_adjust:
+                x_total = pd.concat([x_total, x_fs], axis=0)
             x_dummies = pd.get_dummies(x_total[names_unordered],
                                        columns=names_unordered)
-            x_all_p = pd.concat([x_total, x_dummies], axis=1)
+            x_total = pd.concat([x_total, x_dummies], axis=1)
+            x_tr = x_total[:obs_tr]
+            x_fy = x_total[obs_tr:obs_tr+obs_fy]
+            if fs_adjust:
+                x_fs = x_total[obs_tr+obs_fy:]
+        else:
+            x_add_tmp = check_if_obs_needed(names_unordered, x_pr,
+                                            prime_values_dict)
             if x_add_tmp is not None:
-                x_all_p = x_all_p[n_obs_add:]
+                x_total = pd.concat([x_pr, x_add_tmp], axis=0)
+            else:
+                x_total = x_pr
+            x_dummies = pd.get_dummies(x_total[names_unordered],
+                                       columns=names_unordered)
+            x_pr = pd.concat([x_total, x_dummies], axis=1)
+            if x_add_tmp is not None:  # remove add_temp
+                x_pr = x_pr[:obs_pr]
     if c_dict['train_mcf']:
-        x_name_all = x_all_t.columns.values.tolist()
+        x_name_all = x_tr.columns.values.tolist()
     else:
-        x_name_all = x_all_p.columns.values.tolist()
+        x_name_all = x_pr.columns.values.tolist()
     if c_dict['train_mcf']:
-        x_train = x_all_t.to_numpy(copy=True)
-        d_all_in = pd.get_dummies(indata[v_dict['d_name']],
+        x_tr_np = x_tr.to_numpy(copy=True)
+        d_all_in = pd.get_dummies(data_tr[v_dict['d_name']],
                                   columns=v_dict['d_name'])
-        d_train = d_all_in.to_numpy(copy=True)
-        pred_t = np.empty(np.shape(d_train))
-    if c_dict['pred_mcf']:
-        x_pred = x_all_p.to_numpy(copy=True)
-        pred_p = np.empty((np.shape(x_pred)[0], c_dict['no_of_treat']))
+        d_tr_np = d_all_in.to_numpy(copy=True)
+        pred_tr_np = np.empty((np.shape(x_tr_np)[0], c_dict['no_of_treat']))
+    if c_dict['train_mcf']:
+        x_pred_all = x_fy.copy()
+        if c_dict['pred_mcf']:
+            x_pred_all = pd.concat([x_pred_all, x_pr], axis=0)
+        if fs_adjust:
+            x_pred_all = pd.concat([x_pred_all, x_fs], axis=0)
+    else:
+        obs_fy = 0
+        x_pred_all = x_pr.copy()
+    x_pred_all_np = x_pred_all.to_numpy(copy=True)
+    pred_all_np = np.empty((obs_fy+obs_fs+obs_pr, c_dict['no_of_treat']))
     if c_dict['no_parallel'] > 1:
         workers_mp = copy.copy(c_dict['no_parallel'])
     else:
         workers_mp = None
+    if c_dict['train_mcf']:
+        check_cols(x_tr, x_fy, 'Tree', 'Fill_y')
+        if fs_adjust:
+            check_cols(x_tr, x_fs, 'Tree', 'Feature selection')
     if c_dict['train_mcf'] and c_dict['pred_mcf']:
-        if np.shape(x_train)[1] != np.shape(x_pred)[1]:
-            raise Exception('Prediction data and input data have differnt' +
-                            'number of columns')
+        check_cols(x_tr, x_pr, 'Tree', 'Prediction')
     if c_dict['train_mcf']:
         if c_dict['with_output'] and c_dict['verbose']:
             print('\n')
             print('-' * 80)
             print('Computing random forest based common support')
-    if c_dict['train_mcf'] and c_dict['pred_mcf']:
+    if c_dict['train_mcf']:
         cs_list = []
+        c_dict_new = mcf_data.m_n_grid(copy.deepcopy(c_dict),    # dict only
+                                       len(x_pred_all.columns))  # used here
         for idx in range(c_dict['no_of_treat']):
             return_forest = bool(c_dict['save_forest'])
-            # if c_dict['save_forest']:
-            #     return_forest = True
-            # else:
-            #     return_forest = False
-            ret_rf = gp.RandomForest_scikit(
-                x_train, d_train[:, idx], x_pred, boot=c_dict['boot'],
-                n_min=c_dict['grid_n_min'], no_features=c_dict['grid_m'],
-                workers=workers_mp, pred_p_flag=True, pred_t_flag=True,
-                pred_oob_flag=True, with_output=False,
-                variable_importance=True, x_name=x_name_all,
+            ret_rf = gp_est.RandomForest_scikit(
+                x_tr_np, d_tr_np[:, idx], x_pred_all_np, boot=c_dict['boot'],
+                n_min=c_dict_new['grid_n_min'],
+                no_features=c_dict_new['grid_m'], workers=workers_mp,
+                pred_p_flag=True, pred_t_flag=True, pred_oob_flag=True,
+                with_output=False, variable_importance=True, x_name=x_name_all,
                 var_im_with_output=c_dict['with_output'],
                 return_forest_object=return_forest)
-            pred_p[:, idx] = np.copy(ret_rf[0])
-            pred_t[:, idx] = np.copy(ret_rf[1])
+            pred_all_np[:, idx] = np.copy(ret_rf[0])
+            pred_tr_np[:, idx] = np.copy(ret_rf[1])
             oob_best = np.copy(ret_rf[2])
             if c_dict['save_forest']:
                 cs_list.append(ret_rf[6])
             r2_obb(c_dict, idx, oob_best)
             if c_dict['no_of_treat'] == 2:
-                pred_p[:, idx+1] = 1 - pred_p[:, idx]
-                pred_t[:, idx+1] = 1 - pred_t[:, idx]
+                pred_all_np[:, idx+1] = 1 - pred_all_np[:, idx]
+                pred_tr_np[:, idx+1] = 1 - pred_tr_np[:, idx]
                 break
-    elif c_dict['train_mcf'] and not c_dict['pred_mcf']:
-        cs_list = []
+    else:
         for idx in range(c_dict['no_of_treat']):
-            ret_rf = gp.RandomForest_scikit(
-                x_train, d_train[:, idx], None, boot=c_dict['boot'],
-                n_min=c_dict['grid_n_min'], no_features=c_dict['grid_m'],
-                workers=workers_mp, pred_p_flag=False, pred_t_flag=True,
-                pred_oob_flag=True, with_output=False,
-                variable_importance=True, x_name=x_name_all,
-                var_im_with_output=c_dict['with_output'],
-                return_forest_object=True)
-            pred_t[:, idx] = np.copy(ret_rf[1])
-            oob_best = np.copy(ret_rf[2])
-            if c_dict['save_forest']:
-                cs_list.append(ret_rf[6])
-            r2_obb(c_dict, idx, oob_best)
+            pred_all_np[:, idx] = cs_list[idx].predict(x_pred_all_np)
             if c_dict['no_of_treat'] == 2:
-                pred_t[:, idx+1] = 1 - pred_t[:, idx]
+                pred_all_np[:, idx+1] = 1 - pred_all_np[:, idx]
                 break
-    elif c_dict['pred_mcf'] and not c_dict['train_mcf']:
-        for idx in range(c_dict['no_of_treat']):
-            pred_p[:, idx] = cs_list[idx].predict(x_pred)
-            if c_dict['no_of_treat'] == 2:
-                pred_p[:, idx+1] = 1 - pred_p[:, idx]
-                break
+    obs_to_del_all, obs_to_del_tr, upper, lower = indicate_off_support(
+        pred_tr_np, pred_all_np, d_tr_np, c_dict)
+    # split obs_to_del_all into its parts
+    obs_to_del_fs, obs_to_del_fy, obs_to_del_pr = False, False, False
+    predict_file_new = None
+    if c_dict['train_mcf']:
+        obs_to_del_fy = obs_to_del_all[:obs_fy]
+        if c_dict['pred_mcf']:
+            obs_to_del_pr = obs_to_del_all[obs_fy:obs_fy+obs_pr]
+        if fs_adjust:
+            obs_to_del_fs = obs_to_del_all[obs_fy+obs_pr:]
+    else:
+        obs_to_del_pr = obs_to_del_all
+    if c_dict['train_mcf']:
+        if np.any(obs_to_del_tr):
+            on_support_data_and_stats(obs_to_del_tr, data_tr, x_tr, tree_file,
+                                      upper, lower, c_dict, header=True)
+        if np.any(obs_to_del_fs):
+            on_support_data_and_stats(obs_to_del_fs, data_fs, x_fs, fs_file,
+                                      upper, lower, c_dict)
+        if np.any(obs_to_del_fy):
+            on_support_data_and_stats(obs_to_del_fy, data_fy, x_fy,
+                                      fill_y_file, upper, lower, c_dict)
     if c_dict['pred_mcf']:
-        obs_to_del, upper, lower = indicate_off_support(pred_t, pred_p,
-                                                        d_train, c_dict)
-        if np.any(obs_to_del):
-            obs_to_keep = np.invert(obs_to_del)
-            data_keep = pd.DataFrame(preddata[obs_to_keep])
-            data_delete = pd.DataFrame(preddata[obs_to_del])
+        if np.any(obs_to_del_pr):
+            on_support_data_and_stats(obs_to_del_pr, data_pr, x_pr,
+                                      c_dict['preddata3_temp'], upper, lower,
+                                      c_dict)
             predict_file_new = c_dict['preddata3_temp']
-            gp.delete_file_if_exists(predict_file_new)
-            gp.delete_file_if_exists(c_dict['off_support_temp'])
-            data_keep.to_csv(predict_file_new, index=False)
-            data_delete.to_csv(c_dict['off_support_temp'], index=False)
         else:
             predict_file_new = predict_file
-        if c_dict['with_output']:
-            print('\n')
-            print('=' * 80)
-            print('Common support check')
-            print('-' * 80)
-            print('Upper limits on treatment probabilities: ', upper)
-            print('Lower limits on treatment probabilities: ', lower)
-            if np.any(obs_to_del):
-                print('Observations deleted: {:4}'.format(np.sum(obs_to_del)),
-                      ' ({:6.3f}%)'.format(np.mean(obs_to_del)*100))
-                # if np.sum(obs_to_del) == np.size(obs_to_del):
-                if np.sum(obs_to_del) == len(obs_to_del):
-                    raise Exception('No observations left after common' +
-                                    'support adjustment. Programme terminated.'
-                                    )
-                gp.print_descriptive_stats_file(predict_file_new, x_name,
-                                                c_dict['print_to_file'])
-                gp.print_descriptive_stats_file(c_dict['off_support_temp'],
-                                                x_name,
-                                                c_dict['print_to_file'])
-            else:
-                print("No observations deleted.")
-            print('-' * 80)
     else:
         predict_file_new = None
-    return predict_file_new, cs_list, pred_t, d_train
+    return predict_file_new, cs_list, pred_tr_np, d_tr_np
 
 
 def check_if_obs_needed(names_unordered, x_all_p, prime_values_dict):
@@ -235,7 +302,7 @@ def check_if_obs_needed(names_unordered, x_all_p, prime_values_dict):
 
 def indicate_off_support(pred_t, pred_p, d_t, c_dict):
     """
-    Indicate which observation is off support.
+    Indicate which observations are off support.
 
     Parameters
     ----------
@@ -246,19 +313,21 @@ def indicate_off_support(pred_t, pred_p, d_t, c_dict):
 
     Returns
     -------
-    off_support : NN x 1 Numpy array of boolean. True if obs is off support.
+    off_support_p : N x 1 Numpy array of boolean. True if obs is off support.
+    off_support_t : N x 1 Numpy array of boolean. True if obs is off support.
+    upper : No of treatment x 1 Numpy array of float. Upper limits.
+    lower : No of treatment x 1 Numpy array of float. Lower limits.
 
     """
     # Normalize such that probabilities add up to 1
     pred_t = pred_t / pred_t.sum(axis=1, keepdims=True)
     pred_p = pred_p / pred_p.sum(axis=1, keepdims=True)
     n_p = np.shape(pred_p)[0]
+    n_t = np.shape(pred_t)[0]
     q_s = c_dict['support_quantil']
     if c_dict['common_support'] == 1:
-        upper_limit = np.empty((c_dict['no_of_treat'],
-                                c_dict['no_of_treat']))
-        lower_limit = np.empty((c_dict['no_of_treat'],
-                                c_dict['no_of_treat']))
+        upper_limit = np.empty((c_dict['no_of_treat'], c_dict['no_of_treat']))
+        lower_limit = np.empty_like(upper_limit)
         for idx in range(c_dict['no_of_treat']):
             if q_s == 1:
                 upper_limit[idx, :] = np.max(pred_t[d_t[:, idx] == 1], axis=0)
@@ -289,11 +358,16 @@ def indicate_off_support(pred_t, pred_p, d_t, c_dict):
         upper = np.ones(
             c_dict['no_of_treat']) * (1 - c_dict['support_min_p'])
         lower = np.ones(c_dict['no_of_treat']) * c_dict['support_min_p']
-    off_support = np.empty(n_p, dtype=bool)
+    off_support_p = np.empty(n_p, dtype=bool)
+    off_support_t = np.empty(n_t, dtype=bool)
     off_upper = np.empty(c_dict['no_of_treat'], dtype=bool)
-    off_lower = np.empty(c_dict['no_of_treat'], dtype=bool)
+    off_lower = np.empty_like(off_upper)
     for i in range(n_p):
         off_upper = np.any(pred_p[i, :] > upper)
         off_lower = np.any(pred_p[i, :] < lower)
-        off_support[i] = off_upper or off_lower
-    return off_support, upper, lower
+        off_support_p[i] = off_upper or off_lower
+    for i in range(n_t):
+        off_upper = np.any(pred_t[i, :] > upper)
+        off_lower = np.any(pred_t[i, :] < lower)
+        off_support_t[i] = off_upper or off_lower
+    return off_support_p, off_support_t, upper, lower

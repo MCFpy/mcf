@@ -58,20 +58,20 @@ Running the above code took roughly 6 minutes on a laptop, equipped with 8 logic
 | -- | --|
 Data preparation and stats I:     | 0 min 1 sec
 Local centering (recoding of Y):  | 0 min 0 sec
-Data preparation and stats II:    | 0 mic 0 sec
+Data preparation and stats II:    | 0 mic 16 sec
 Feature preselection:             | 0 min 0 sec
-Estimate forest structure:        | 3 min 16 sec
+Estimate forest structure:        | 3 min 38 sec
 Variable importance:               | 0 min 0 sec
 Fill tree with outcomes:          | 0 min 8 sec
-Common support:                   | 0 min 17 sec  
-Weight computation:               | 1 min 0 sec
+Common support:                   | 0 min 1 sec  
+Weight computation:               | 1 min 1 sec
 Inference for ATEs:               | 0 min 1 sec
 Inference for MGATE & AMGATE:     | 0 min 0 sec
-Inference for GATEs:              | 0 min 24 sec
-Inference for IATEs:              | 0 min 36 sec
+Inference for GATEs:              | 0 min 23 sec
+Inference for IATEs:              | 0 min 33 sec
 Balancing test:                   | 0 min 0 sec
 Post estimation analysis:         | 0 min 10 sec
-Total time:                       | 5 min 55 sec
+Total time:                       | 6 min 14 sec
 
 Now, we are ready to proceed and discuss the output.
 
@@ -97,7 +97,7 @@ By default, the programme checks for  unnecessary variables and observations wit
 
 >  No observations deleted
 >  
->  158  variables deleted: CAT0 CAT1 CAT2 CAT3 CAT4 CAT5 ...
+>  157  variables deleted: CAT0 CAT1 CAT2 CAT3 CAT4 CAT5 ...
 
 The output then renders again summary statistics against the data, which is used further down the road. In our example, we obtain the following summary snippet:
 
@@ -171,11 +171,10 @@ with the subsequent structure:
 
 Adhering to the principal of honesty, the program continuous to assign observations from the *‌fill_y_sample_tmp.csv* to the appropriate cells for further estimation. The output summarizes the  common support analysis. Estimation methods adjusting for differences in features require common support in all treatment arms. Hence, units considered to be off support are dropped. In our application, the upper limits on the respective treatment probabilities are given by [0.55571439 0.54827745 0.58607963 0.56150745] and the lower limits on treatment probabilities:  [0.00671384 0.03575506 0.03189171 0.03126602]. This led to 78  (3.900%) observations being deleted.
 
-
 Subsequently, results on the weights estimation are rendered.  The weights are informative on how many observations effectively drive the estimation results.
 
 In the output snippet given below, for treatment 1,
-out of  2000 observations  488 have strictly positive weights. Note that due to honesty and our split of the original data into two equally sized data sets for tree growing and tree filling, we are left with 2000 and not 4000 observations.  
+out of  2000 observations  525 have strictly positive weights. Note that due to honesty and our split of the original data into two equally sized data sets for tree growing and tree filling, we are left with 2000 and not 4000 observations.  
 
 
  Example: Treatment group: 0
@@ -186,7 +185,7 @@ out of  2000 observations  488 have strictly positive weights. Note that due to 
 4. Std. of positive weights:  0.0007
 5. Gini coefficient (incl. weights=0):                         78.2324%
 6. Gini coefficient (weights > 0):                             17.0758%
-7. Share of 1% / 5% / 10% largest weights of all weights > 0:   3.9593% 12.0497% 19.9323%
+7. Share of 1% / 5% / 10% largest weights of all weights > 0:   3.9021% 11.1618% 18.0577%
 
 Next, the output comprises information analysis of the different treatment effects, which have been defined [here](./part_i.md#Estimation).
 
@@ -213,7 +212,7 @@ Next, the GATE related output is rendered, including an analysis of the weights.
 |Comparison |  Z  |   GATE   |   SE |  t-val |  p-val  |      GATE-ATE    |    SE   | t-val |p-val|
 |--|--|--|--|--|--|--|--|--|--|
 |1   vs   0 | -1.9| 15.13573 |  3.66640|  4.13 |  0.00% **** |-3.45807 |  3.77997 | 0.91 | 36.03% |
-|1   vs   0 | -1.2 18.49357 |  3.96904 | 4.66  | 0.00% **** |-0.10023  | 4.04580  |0.02|  98.02%  |
+|1   vs   0 | -1.2 | 18.49357 |  3.96904 | 4.66  | 0.00% **** |-0.10023  | 4.04580  |0.02|  98.02%  |
 |1   vs   0 | -0.8 |16.98334 |  3.93248|  4.32 |  0.00% ****| -1.61046|   3.99926 | 0.40 | 68.72%  |
 |1   vs   0|  -0.6| 19.30235 |  4.04546 | 4.77  | 0.00% ****|  0.70855  | 4.08998  |0.17 | 86.25%  |
 |1   vs   0 | -0.4 |17.48490 |  4.19075|  4.17 |  0.00% **** |-1.10890 |  4.14809  |0.27 | 78.92%|  

@@ -11,9 +11,11 @@ from concurrent import futures
 import math
 import numpy as np
 import ray
-import mcf.mcf_forest_functions as mcf_forest
-import mcf.mcf_data_functions as mcf_data
-import mcf.general_purpose as gp
+from mcf import mcf_forest_functions as mcf_forest
+from mcf import mcf_data_functions as mcf_data
+from mcf import general_purpose as gp
+from mcf import general_purpose_system_files as gp_sys
+from mcf import general_purpose_mcf as gp_mcf
 
 
 def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
@@ -67,8 +69,8 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
         maxworkers = 1
     else:
         if c_dict['mp_automatic']:
-            maxworkers = gp.find_no_of_workers(c_dict['no_parallel'],
-                                               c_dict['sys_share'])
+            maxworkers = gp_mcf.find_no_of_workers(c_dict['no_parallel'],
+                                                   c_dict['sys_share'])
         else:
             maxworkers = c_dict['no_parallel']
     if c_dict['with_output'] and c_dict['verbose']:
@@ -93,8 +95,7 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
             if c_dict['with_output'] and c_dict['verbose']:
                 gp.share_completed(jdx+1, number_of_oobs)
     else:  # Fast but needs a lot of memory because it copied a lot
-        if maxworkers > number_of_oobs:
-            maxworkers = number_of_oobs
+        maxworkers = min(maxworkers, number_of_oobs)
         if c_dict['mp_with_ray']:
             tasks = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx, True, [],
@@ -408,8 +409,8 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, c_dict, k, single,
         maxworkers = 1
     else:
         if c_dict['mp_automatic']:
-            maxworkers = gp.find_no_of_workers(c_dict['no_parallel'],
-                                               c_dict['sys_share'])
+            maxworkers = gp_mcf.find_no_of_workers(c_dict['no_parallel'],
+                                                   c_dict['sys_share'])
         else:
             maxworkers = c_dict['no_parallel']
     if c_dict['with_output'] and not no_mp and c_dict['verbose']:
@@ -426,8 +427,8 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, c_dict, k, single,
             no_of_boot_splits = c_dict['mp_weights_tree_batch']
             split_forest = True
         elif c_dict['mp_weights_tree_batch'] == 0:  # Automatic # of batches
-            size_of_forest_mb = gp.total_size(forest) / (1024 * 1024)
-            no_of_boot_splits = gp.no_of_boot_splits_fct(
+            size_of_forest_mb = gp_sys.total_size(forest) / (1024 * 1024)
+            no_of_boot_splits = gp_mcf.no_of_boot_splits_fct(
                 size_of_forest_mb, maxworkers, False)
             split_forest = bool(no_of_boot_splits < c_dict['boot'])
         else:
@@ -438,11 +439,6 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, c_dict, k, single,
             b_ind_list = np.array_split(range(c_dict['boot']),
                                         no_of_boot_splits)
             with futures.ProcessPoolExecutor(max_workers=maxworkers) as fpp:
-                # ret_fut = {fpp.submit(
-                #     get_oob_mcf_chuncks, data_np, y_i, y_nn_i, x_i, d_i, w_i,
-                #     c_dict, k, single, group_ind_list,
-                #     forest[b_ind[0]:b_ind[-1]+1], b_ind, regrf, partner_k):
-                #         b_ind for b_ind in b_ind_list}
                 ret_fut = {}
                 for idx, b_ind in enumerate(b_ind_list):
                     forest_temp = forest[b_ind[0]:b_ind[-1]+1]
@@ -451,10 +447,6 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, c_dict, k, single,
                         w_i, c_dict, k, single, group_ind_list, forest_temp,
                         b_ind, regrf, partner_k): idx}
                     ret_fut.update(ret_fut_t)
-                # if c_dict['with_output']:
-                #     print('Size of future: ',
-                #           np.round(gp.total_size(ret_fut) / (1024 * 1024),2),
-                #           ' MB', flush=True)
                 for frv in futures.as_completed(ret_fut):
                     oob_value += frv.result()
                     del ret_fut[frv]

@@ -14,8 +14,10 @@ from sklearn.cluster import KMeans
 import scipy.stats as sct
 import matplotlib.pyplot as plt
 import ray
-import mcf.mcf_ate_functions as mcf_ate
-import mcf.general_purpose as gp
+from mcf import mcf_ate_functions as mcf_ate
+from mcf import general_purpose as gp
+from mcf import general_purpose_estimation as gp_est
+from mcf import general_purpose_mcf as gp_mcf
 
 
 def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
@@ -83,8 +85,8 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
         maxworkers = 1
     else:
         if c_dict['mp_automatic']:
-            maxworkers = gp.find_no_of_workers(c_dict['no_parallel'],
-                                               c_dict['sys_share'])
+            maxworkers = gp_mcf.find_no_of_workers(c_dict['no_parallel'],
+                                                   c_dict['sys_share'])
         else:
             maxworkers = c_dict['no_parallel']
     if c_dict['with_output'] and c_dict['verbose']:
@@ -177,10 +179,8 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
         else:
             rows_per_split = c_dict['max_elements_per_split'] / n_y
             no_of_splits = round(n_x / rows_per_split)
-            if no_of_splits < maxworkers:
-                no_of_splits = maxworkers
-            if no_of_splits > n_x:
-                no_of_splits = n_x
+            no_of_splits = max(no_of_splits, maxworkers)
+            no_of_splits = min(no_of_splits, n_x)
             if c_dict['with_output'] and c_dict['verbose']:
                 print('IATE-1: Avg. number of obs per split: {:5.2f}'.format(
                     n_x / no_of_splits))
@@ -276,8 +276,8 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
         maxworkers = 1
     else:
         if c_dict['mp_automatic']:
-            maxworkers = gp.find_no_of_workers(c_dict['no_parallel'],
-                                               c_dict['sys_share'])
+            maxworkers = gp_mcf.find_no_of_workers(c_dict['no_parallel'],
+                                                   c_dict['sys_share'])
         else:
             maxworkers = c_dict['no_parallel']
     if c_dict['with_output'] and c_dict['verbose']:
@@ -476,7 +476,8 @@ def iate_func2_for_mp(idx, no_of_out, pot_y_i, pot_y_var_i, pot_y_m_ate_i,
                 pot_y_ao = pot_y_m_ate_i[:, o_i]
                 pot_y_var_ao = pot_y_m_ate_var_i[:, o_i]
             (iate_i[o_i, :, jdx], iate_se_i[o_i, :, jdx], _,
-             iate_p_i[o_i, :, jdx], effect_list) = gp.effect_from_potential(
+             iate_p_i[o_i, :, jdx], effect_list
+             ) = gp_mcf.effect_from_potential(
                  pot_y_ao, pot_y_var_ao, c_dict['d_values'])
     return idx, iate_i, iate_se_i, iate_p_i, effect_list
 
@@ -576,7 +577,7 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
             w_i = w_i / w_i_sum
         w_i_unc = np.copy(w_i)
         if c_dict['max_weight_share'] < 1:
-            w_i, _, share_i[t_idx] = gp.bound_norm_weights(
+            w_i, _, share_i[t_idx] = gp_mcf.bound_norm_weights(
                 w_i, c_dict['max_weight_share'])
         if c_dict['cluster_std']:
             cl_i = cl_dat[w_index]
@@ -587,12 +588,13 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
         else:
             cl_i = 0
         for o_idx in range(no_of_out):
-            ret = gp.weight_var(w_i, y_dat[w_index, o_idx], cl_i, c_dict,
-                                weights=w_t)
+            ret = gp_est.weight_var(w_i, y_dat[w_index, o_idx], cl_i, c_dict,
+                                    weights=w_t,
+                                    bootstrap=c_dict['se_boot_iate'])
             pot_y_i[t_idx, o_idx] = ret[0]
             pot_y_var_i[t_idx, o_idx] = ret[1]
             if c_dict['cluster_std']:
-                ret2 = gp.aggregate_cluster_pos_w(
+                ret2 = gp_est.aggregate_cluster_pos_w(
                     cl_dat, w_all_i, y_dat[:, o_idx], sweights=w_dat)
                 if o_idx == 0:
                     w_add[t_idx, :] = np.copy(ret2[0])
@@ -600,8 +602,9 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         w_diff = w_all_i_unc  # Dummy if no w_ate
                     else:
                         w_diff = w_all_i_unc - w_ate[t_idx, :]
-                ret = gp.weight_var(w_diff, y_dat[:, o_idx], cl_dat, c_dict,
-                                    norm=False, weights=w_dat)
+                ret = gp_est.weight_var(
+                    w_diff, y_dat[:, o_idx], cl_dat, c_dict, norm=False,
+                    weights=w_dat, bootstrap=c_dict['se_boot_iate'])
             else:
                 if o_idx == 0:
                     w_add[t_idx, w_index] = ret[2]
@@ -614,8 +617,9 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         w_diff = w_add_unc[t_idx, :]
                     else:
                         w_diff = w_add_unc[t_idx, :] - w_ate[t_idx, :]
-                ret = gp.weight_var(w_diff, y_dat[:, o_idx], None, c_dict,
-                                    norm=False, weights=w_dat)
+                ret = gp_est.weight_var(
+                    w_diff, y_dat[:, o_idx], None, c_dict, norm=False,
+                    weights=w_dat, bootstrap=c_dict['se_boot_iate'])
             pot_y_m_ate_i[t_idx, o_idx] = ret[0]
             pot_y_m_ate_var_i[t_idx, o_idx] = ret[1]
     l1_to_9 = mcf_ate.analyse_weights_ate(w_add, None, c_dict, False)
@@ -764,8 +768,9 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
             iate_se_temp = iate_se_temp[sorted_ind]
             x_values = np.arange(len(iate_temp)) + 1
             k = np.round(c_dict['knn_const'] * np.sqrt(len(iate_temp)) * 2)
-            iate_temp = gp.moving_avg_mean_var(iate_temp, k, False)[0]
-            iate_se_temp = gp.moving_avg_mean_var(iate_se_temp, k, False)[0]
+            iate_temp = gp_est.moving_avg_mean_var(iate_temp, k, False)[0]
+            iate_se_temp = gp_est.moving_avg_mean_var(
+                iate_se_temp, k, False)[0]
             file_name_jpeg = c_dict['fig_pfad_jpeg'] + '/' + titel + '.jpeg'
             file_name_pdf = c_dict['fig_pfad_pdf'] + '/' + titel + '.pdf'
             file_name_csv = c_dict['fig_pfad_csv'] + '/' + titel + '.csv'
@@ -831,12 +836,12 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                 file_name_pdf = c_dict['fig_pfad_pdf'] + '/' + titel + '.pdf'
                 file_name_csv = c_dict['fig_pfad_csv'] + '/' + titel + '.csv'
                 iate_temp = data[name_iate_t].to_numpy()
-                bandwidth = gp.bandwidth_silverman(iate_temp, 1)
+                bandwidth = gp_est.bandwidth_silverman(iate_temp, 1)
                 dist = np.abs(iate_temp.max() - iate_temp.min())
                 low_b = iate_temp.min() - 0.1 * dist
                 up_b = iate_temp.max() + 0.1 * dist
                 grid = np.linspace(low_b, up_b, 1000)
-                density = gp.kernel_density(iate_temp, grid, 1, bandwidth)
+                density = gp_est.kernel_density(iate_temp, grid, 1, bandwidth)
                 fig, axe = plt.subplots()
                 axe.set_title(titel)
                 axe.set_ylabel('Estimated density')
@@ -931,7 +936,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
         for _, y_name in enumerate(iate_pot_name['names_iate']):
             print('Computing post estimation random forests for ', y_name)
             y_train = iate[y_name].to_numpy(copy=True)
-            gp.RandomForest_scikit(
+            gp_est.RandomForest_scikit(
                 x_train, y_train, None, x_name=x_name, y_name=y_name,
                 boot=c_dict['boot'], n_min=2, no_features='sqrt',
                 max_depth=None, workers=c_dict['no_parallel'], alpha=0,

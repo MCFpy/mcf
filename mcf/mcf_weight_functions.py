@@ -9,8 +9,10 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 import ray
-import mcf.general_purpose as gp
-import mcf.mcf_forest_functions as mcf_forest
+from mcf import general_purpose as gp
+from mcf import general_purpose_system_files as gp_sys
+from mcf import general_purpose_mcf as gp_mcf
+from mcf import mcf_forest_functions as mcf_forest
 
 
 def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
@@ -35,7 +37,7 @@ def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
     cl_dat : N_y x 1 Numpy array. Cluster number.
     w_dat: N_y x 1 Numpy array. Sampling weights (if used).
     """
-    gp.clean_futures()
+    gp_sys.clean_futures()
     if c_dict['with_output'] and c_dict['verbose']:
         print('\nObtaining weights from estimated forest')
     data_x = pd.read_csv(x_file)
@@ -70,8 +72,8 @@ def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
         maxworkers = 1
     else:
         if c_dict['mp_automatic']:
-            maxworkers = gp.find_no_of_workers(c_dict['no_parallel'],
-                                               c_dict['sys_share'])
+            maxworkers = gp_mcf.find_no_of_workers(c_dict['no_parallel'],
+                                                   c_dict['sys_share'])
         else:
             maxworkers = c_dict['no_parallel']
     if c_dict['with_output'] and c_dict['verbose']:
@@ -130,8 +132,8 @@ def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
                     print()
                     print('User determined number of tree batches')
             elif c_dict['mp_weights_tree_batch'] == 0:  # Automatic # of batch
-                size_of_forest_mb = gp.total_size(forest) / (1024 * 1024)
-                no_of_boot_splits = gp.no_of_boot_splits_fct(
+                size_of_forest_mb = gp_sys.total_size(forest) / (1024 * 1024)
+                no_of_boot_splits = gp_mcf.no_of_boot_splits_fct(
                     size_of_forest_mb, maxworkers, c_dict['with_output'])
                 if no_of_boot_splits > 1:
                     split_forest = True
@@ -164,14 +166,14 @@ def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
                 forest_temp = forest[boots_ind[0]:boots_ind[-1]+1]
                 if c_dict['with_output'] and c_dict['verbose'] and b_i == 0:
                     print('Size of each submitted forest {:6.2f} MB'
-                          .format(gp.total_size(forest_temp)/(1024*1024)))
+                          .format(gp_sys.total_size(forest_temp)/(1024*1024)))
                 c_dict['boot'] = len(boots_ind)
                 # weights über trees addieren
                 if c_dict['with_output'] and c_dict['verbose']:
                     print()
                     print('Boot Chunk {:2} of {:2}'.format(
                         b_i+1, no_of_boot_splits))
-                    gp.memory_statistics()
+                    gp_sys.memory_statistics()
             else:
                 if not c_dict['mp_with_ray']:
                     forest_temp = forest
@@ -269,10 +271,10 @@ def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
                             break
                 if c_dict['with_output'] and c_dict['verbose']:
                     print()
-                    gp.print_size_weight_matrix(
+                    gp_mcf.print_size_weight_matrix(
                         weights_all, c_dict['weight_as_sparse'],
                         c_dict['no_of_treat'])
-                    gp.memory_statistics()
+                    gp_sys.memory_statistics()
     if split_forest:
         c_dict['boot'] = total_bootstraps
         weights = normalize_weights(weights_all, c_dict['no_of_treat'], regrf,

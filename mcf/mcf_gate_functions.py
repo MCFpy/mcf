@@ -16,11 +16,14 @@ import pandas as pd
 import scipy.stats as sct
 import matplotlib.pyplot as plt
 import ray
-import mcf.mcf_weight_functions as mcf_w
-import mcf.mcf_iate_functions as mcf_iate
-import mcf.mcf_ate_functions as mcf_ate
-import mcf.honestforest_f2 as hf
-import mcf.general_purpose as gp
+from mcf import mcf_weight_functions as mcf_w
+from mcf import mcf_iate_functions as mcf_iate
+from mcf import mcf_ate_functions as mcf_ate
+from mcf import mcf_hf
+from mcf import general_purpose as gp
+from mcf import general_purpose_estimation as gp_est
+from mcf import general_purpose_system_files as gp_sys
+from mcf import general_purpose_mcf as gp_mcf
 
 
 def marg_gates_est(forest, fill_y_sample, pred_sample, v_dict, c_dict,
@@ -183,7 +186,7 @@ def mgate_function(
                 forest, new_predict_file, fill_y_sample, v_dict,
                 c_dict_mgate, x_name_mcf, regrf=regrf)
             if regrf:
-                _, y_pred, y_pred_se, name_pred, _ = hf.predict_hf(
+                _, y_pred, y_pred_se, name_pred, _ = mcf_hf.predict_hf(
                     weights, new_predict_file, y_f, cl_f, w_f, v_dict,
                     c_dict_mgate)
             else:
@@ -268,8 +271,9 @@ def plot_marginal(pred, pred_se, names_pred, x_name, x_values_in, x_type,
             #                                    False)[0]
             # pred_se_temp = gp.moving_avg_mean_var(pred_se_temp, x_values, 3,
             #                                       False)[0]
-            pred_temp = gp.moving_avg_mean_var(pred_temp, 3, False)[0]
-            pred_se_temp = gp.moving_avg_mean_var(pred_se_temp, 3, False)[0]
+            pred_temp = gp_est.moving_avg_mean_var(pred_temp, 3, False)[0]
+            pred_se_temp = gp_est.moving_avg_mean_var(
+                pred_se_temp, 3, False)[0]
         file_titel = titel.replace(" ", "")
         file_name_jpeg = c_dict['fig_pfad_jpeg'] + '/' + file_titel + '.jpeg'
         file_name_pdf = c_dict['fig_pfad_pdf'] + '/' + file_titel + '.pdf'
@@ -286,8 +290,7 @@ def plot_marginal(pred, pred_se, names_pred, x_name, x_values_in, x_type,
         else:
             label_m = 'MGATE'
         if x_type == 0 and len(x_values) > c_dict['no_filled_plot']:
-            line_pred = '-b'
-            axs.plot(x_values, pred_temp, line_pred, label=label_m, color='b')
+            axs.plot(x_values, pred_temp, label=label_m, color='b')
             axs.fill_between(x_values, upper, lower, alpha=0.3, color='b',
                              label=label_ci)
         else:
@@ -510,8 +513,7 @@ def ref_vals_margplot(in_csv_file, var_x_type, var_x_values,
                     ref_val = ref_val[0]
                 ref_val = int(ref_val)
         if not var_x_values[vname]:
-            if no_eva_values > obs:
-                no_eva_values = obs
+            no_eva_values = min(no_eva_values, obs)
             quas = np.linspace(0.01, 0.99, no_eva_values)
             eva_val = ddf.quantile(quas)
             eva_val = eva_val.to_list()
@@ -610,7 +612,7 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
     files_to_delete = set()
     save_w_file = None
     if c_dict['no_parallel'] > 1 and not c_dict['mp_with_ray']:
-        memory_weights = gp.total_size(weights_all)
+        memory_weights = gp_sys.total_size(weights_all)
         if c_dict['weight_as_sparse']:
             for d_idx in range(c_dict['no_of_treat']):
                 memory_weights += (weights_all[d_idx].data.nbytes
@@ -621,8 +623,8 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                 print('Weights need ', memory_weights/1e+9, 'GB RAM',
                       '==> Weights are passed as file to MP processes')
             save_w_file = 'w_all.pickle'
-            gp.save_load(save_w_file, weights_all, save=True,
-                         output=c_dict['with_output'])
+            gp_sys.save_load(save_w_file, weights_all, save=True,
+                             output=c_dict['with_output'])
             files_to_delete.add(save_w_file)
             weights_all2 = None
         else:
@@ -633,8 +635,8 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
         maxworkers = 1
     else:
         if c_dict['mp_automatic']:
-            maxworkers = gp.find_no_of_workers(c_dict['no_parallel'],
-                                               c_dict['sys_share']/2)
+            maxworkers = gp_mcf.find_no_of_workers(c_dict['no_parallel'],
+                                                   c_dict['sys_share']/2)
         else:
             maxworkers = c_dict['no_parallel']
         if weights_all2 is None:
@@ -663,7 +665,7 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
         z_smooth = z_smooth_l[z_name_j]
         if z_smooth:
             kernel = 1  # Epanechikov
-            bandw_z = gp.bandwidth_nw_rule_of_thumb(z_p[:, z_name_j])
+            bandw_z = gp_est.bandwidth_nw_rule_of_thumb(z_p[:, z_name_j])
             bandw_z = bandw_z * c_dict['sgates_bandwidth']
         else:
             kernel = None
@@ -814,7 +816,7 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                 ret_gate = [None] * no_of_zval
                 ret_gate_mate = [None] * no_of_zval
                 for zj_idx, _ in enumerate(z_values):
-                    ret = gp.effect_from_potential(
+                    ret = gp_mcf.effect_from_potential(
                         pot_y[zj_idx, a_idx, :, o_idx].reshape(-1),
                         pot_y_var[zj_idx, a_idx, :, o_idx].reshape(-1),
                         c_dict['d_values'])
@@ -822,7 +824,7 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                     gate_z[zj_idx, o_idx, a_idx, :] = ret[0]
                     gate_z_se[zj_idx, o_idx, a_idx, :] = ret[1]
                     if c_dict['with_output']:
-                        ret = gp.effect_from_potential(
+                        ret = gp_mcf.effect_from_potential(
                             pot_y_mate[zj_idx, a_idx, :, o_idx].reshape(-1),
                             pot_y_mate_var[zj_idx, a_idx, :, o_idx].reshape(
                                 -1), c_dict['d_values'])
@@ -837,8 +839,8 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                     print('Heterogeneity: ', z_name, 'Outcome: ',
                           v_dict['y_name'][o_idx], 'Ref. pop.: ',
                           ref_pop_lab[a_idx])
-                    gp.print_effect_z(ret_gate, ret_gate_mate, z_values,
-                                      gate_str)
+                    gp_mcf.print_effect_z(ret_gate, ret_gate_mate, z_values,
+                                          gate_str)
         if c_dict['with_output']:   # figures
             primes = gp.primes_list()
             for a_idx, a_lab in enumerate(ref_pop_lab):
@@ -967,20 +969,21 @@ def gate_zj(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
             w_gate_unc_zj[a_idx, t_idx, :] = w_gate_zj[a_idx, t_idx, :]
             if c_dict['max_weight_share'] < 1:
                 w_gate_zj[a_idx, t_idx, :], _, w_censored_zj[a_idx, t_idx] = (
-                    gp.bound_norm_weights(w_gate_zj[a_idx, t_idx, :],
-                                          c_dict['max_weight_share']))
+                    gp_mcf.bound_norm_weights(w_gate_zj[a_idx, t_idx, :],
+                                              c_dict['max_weight_share']))
             if c_dict['with_output']:
                 w_diff = w_gate_unc_zj[a_idx, t_idx, :] - w_ate[a_idx,
                                                                 t_idx, :]
             for o_idx in range(no_of_out):
-                ret = gp.weight_var(
+                ret = gp_est.weight_var(
                     w_gate_zj[a_idx, t_idx, :], y_dat[:, o_idx], cl_dat,
-                    c_dict, weights=w_dat)
+                    c_dict, weights=w_dat, bootstrap=c_dict['se_boot_gate'])
                 pot_y_zj[a_idx, t_idx, o_idx] = ret[0]
                 pot_y_var_zj[a_idx, t_idx, o_idx] = ret[1]
                 if c_dict['with_output']:
-                    ret2 = gp.weight_var(w_diff, y_dat[:, o_idx], cl_dat,
-                                         c_dict, norm=False, weights=w_dat)
+                    ret2 = gp_est.weight_var(
+                        w_diff, y_dat[:, o_idx], cl_dat, c_dict, norm=False,
+                        weights=w_dat, bootstrap=c_dict['se_boot_gate'])
                     pot_y_mate_zj[a_idx, t_idx, o_idx] = ret2[0]
                     pot_y_mate_var_zj[a_idx, t_idx, o_idx] = ret2[1]
     return (pot_y_zj, pot_y_var_zj, pot_y_mate_zj, pot_y_mate_var_zj,
@@ -993,8 +996,8 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
                save_w_file=None, smooth_it=False):
     """Compute Gates and their variances for MP."""
     if save_w_file is not None:
-        weights_all = gp.save_load(save_w_file, save=False,
-                                   output=c_dict['with_output'])
+        weights_all = gp_sys.save_load(save_w_file, save=False,
+                                       output=c_dict['with_output'])
     w_gate_zj = np.zeros((no_of_tgates, c_dict['no_of_treat'], n_y))
     w_gate_unc_zj = np.zeros((no_of_tgates, c_dict['no_of_treat'], n_y))
     w_censored_zj = np.zeros((no_of_tgates, c_dict['no_of_treat']))
@@ -1050,27 +1053,29 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
     sum_wgate = np.sum(w_gate_zj, axis=2)
     for a_idx in range(no_of_tgates):
         for t_idx in range(c_dict['no_of_treat']):
-            if not (1-1e-10 < sum_wgate[a_idx, t_idx] < 1+1e-10):
+            if (not (1-1e-10 < sum_wgate[a_idx, t_idx] < 1+1e-10)) and (
+                    sum_wgate[a_idx, t_idx] > 1e-10):
                 w_gate_zj[a_idx, t_idx, :] = w_gate_zj[
                     a_idx, t_idx, :] / sum_wgate[a_idx, t_idx]
             w_gate_unc_zj[a_idx, t_idx, :] = w_gate_zj[a_idx, t_idx, :]
             if c_dict['max_weight_share'] < 1:
                 w_gate_zj[a_idx, t_idx, :], _, w_censored_zj[a_idx, t_idx] = (
-                    gp.bound_norm_weights(w_gate_zj[a_idx, t_idx, :],
-                                          c_dict['max_weight_share']))
+                    gp_mcf.bound_norm_weights(w_gate_zj[a_idx, t_idx, :],
+                                              c_dict['max_weight_share']))
             if c_dict['with_output']:
                 w_diff = w_gate_unc_zj[a_idx, t_idx, :] - w_ate[a_idx,
                                                                 t_idx, :]
                 w_diff = w_gate_zj[a_idx, t_idx, :] - w_ate[a_idx, t_idx, :]
             for o_idx in range(no_of_out):
-                ret = gp.weight_var(
+                ret = gp_est.weight_var(
                     w_gate_zj[a_idx, t_idx, :], y_dat[:, o_idx], cl_dat,
-                    c_dict, weights=w_dat)
+                    c_dict, weights=w_dat, bootstrap=c_dict['se_boot_gate'])
                 pot_y_zj[a_idx, t_idx, o_idx] = ret[0]
                 pot_y_var_zj[a_idx, t_idx, o_idx] = ret[1]
                 if c_dict['with_output']:
-                    ret2 = gp.weight_var(w_diff, y_dat[:, o_idx], cl_dat,
-                                         c_dict, norm=False, weights=w_dat)
+                    ret2 = gp_est.weight_var(
+                        w_diff, y_dat[:, o_idx], cl_dat, c_dict, norm=False,
+                        weights=w_dat, bootstrap=c_dict['se_boot_gate'])
                     pot_y_mate_zj[a_idx, t_idx, o_idx] = ret2[0]
                     pot_y_mate_var_zj[a_idx, t_idx, o_idx] = ret2[1]
     if w_gate_zj.nbytes > 1e+9 and not c_dict['mp_with_ray']:
@@ -1130,24 +1135,26 @@ def wald_test(z_name, no_of_zval, w_gate, y_dat, w_dat, cl_dat, a_idx, o_idx,
             diff_w = np.empty(no_of_zval-1)
             var_w = np.empty((no_of_zval-1, no_of_zval-1))
             for zj1 in range(no_of_zval-1):
-                ret1 = gp.weight_var(
+                ret1 = gp_est.weight_var(
                     w_gate[zj1, a_idx, t1_idx, :] - w_ate[a_idx, t1_idx, :],
-                    y_dat[:, o_idx], cl_dat, c_dict, False, weights=w_dat)
-                ret2 = gp.weight_var(
+                    y_dat[:, o_idx], cl_dat, c_dict, False, weights=w_dat,
+                    bootstrap=c_dict['se_boot_gate'])
+                ret2 = gp_est.weight_var(
                     w_gate[zj1, a_idx, t2_idx, :] - w_ate[a_idx, t2_idx, :],
-                    y_dat[:, o_idx], cl_dat, c_dict, False, weights=w_dat)
+                    y_dat[:, o_idx], cl_dat, c_dict, False, weights=w_dat,
+                    bootstrap=c_dict['se_boot_gate'])
                 diff_w[zj1] = ret2[0] - ret1[0]
                 var_w[zj1, zj1] = ret1[1] + ret2[1]
                 if no_of_zval > 2:
                     for zj2 in range(zj1+1, no_of_zval-1):
                         if c_dict['cluster_std']:
-                            ret1 = gp.aggregate_cluster_pos_w(
+                            ret1 = gp_est.aggregate_cluster_pos_w(
                                 cl_dat, w_gate[zj1, a_idx, t1_idx, :]
                                 - w_ate[a_idx, t1_idx, :], y_dat[:, o_idx],
                                 False, w2_dat=w_gate[zj2, a_idx, t1_idx, :]
                                 - w_ate[a_idx, t1_idx, :], sweights=w_dat,
                                 y2_compute=True)
-                            ret2 = gp.aggregate_cluster_pos_w(
+                            ret2 = gp_est.aggregate_cluster_pos_w(
                                 cl_dat, w_gate[zj1, a_idx, t2_idx, :]
                                 - w_ate[a_idx, t2_idx, :], y_dat[:, o_idx],
                                 False, w2_dat=w_gate[zj2, a_idx, t2_idx, :]
@@ -1229,7 +1236,6 @@ def make_gate_figures(titel, z_name, z_values, z_type, effects, stderr,
                                 + 'fill.jpeg')
             file_name_f_pdf = c_dict['fig_pfad_pdf'] + '/' + titel + 'fill.pdf'
             figs, axs = plt.subplots()
-            line_pred = '-b'
             if ate_se is None:
                 if am_gate:
                     label_m = 'AMGATE-ATE'
@@ -1240,14 +1246,7 @@ def make_gate_figures(titel, z_name, z_values, z_type, effects, stderr,
                     label_m = 'AMGATE'
                 else:
                     label_m = 'GATE'
-            # if am_gate and 1==2:
-            #     axs.plot(z_values, effects, line_pred, label=label_m,
-            #              color='r')
-            #     axs.fill_between(z_values, upper, lower, alpha=0.3,color='b',
-            #                      label=label_ci)
-            # else:
-            axs.plot(z_values, effects, line_pred, label=label_m,
-                     color='b')
+            axs.plot(z_values, effects, label=label_m, color='b')
             axs.fill_between(z_values, upper, lower, alpha=0.3, color='b',
                              label=label_ci)
             line_ate = '_-r'
@@ -1424,7 +1423,7 @@ def get_w_rel_z(z_dat, z_val, weights_all, smooth_it, bandwidth=1, kernel=1,
 
     """
     if smooth_it:
-        w_z_val = gp.kernel_proc((z_dat - z_val) / bandwidth, kernel)
+        w_z_val = gp_est.kernel_proc((z_dat - z_val) / bandwidth, kernel)
         relevant_data_points = w_z_val > 1e-10
         w_z_val = w_z_val[relevant_data_points]
         w_z_val = w_z_val / np.sum(w_z_val) * len(w_z_val)  # Normalise

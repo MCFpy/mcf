@@ -10,7 +10,9 @@ Created on Thu Dec  8 15:48:57 2020.
 import copy
 import numpy as np
 import pandas as pd
-import mcf.general_purpose as gp
+from mcf import general_purpose as gp
+from mcf import general_purpose_estimation as gp_est
+from mcf import general_purpose_mcf as gp_mcf
 
 
 def analyse_weights_ate(weights, title, c_dict, ate=True):
@@ -61,8 +63,8 @@ def analyse_weights_ate(weights, title, c_dict, ate=True):
         equal_0[j] = len(w_j) - n_pos
         mean_pos[j] = np.mean(w_pos)
         std_pos[j] = np.std(w_pos)
-        gini_all[j] = gp.gini_coefficient(w_j) * 100
-        gini_pos[j] = gp.gini_coefficient(w_pos) * 100
+        gini_all[j] = gp_est.gini_coefficient(w_j) * 100
+        gini_pos[j] = gp_est.gini_coefficient(w_pos) * 100
         if len(w_pos) > 5:
             qqq = np.quantile(w_pos, (0.99, 0.95, 0.9))
             for i in range(3):
@@ -272,7 +274,7 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
                                                                      ta_idx]
             w_ate_export[a_idx, ta_idx, :] = w_ate[a_idx, ta_idx, :]
             if c_dict['max_weight_share'] < 1:
-                w_ate[a_idx, ta_idx, :], _, share = gp.bound_norm_weights(
+                w_ate[a_idx, ta_idx, :], _, share = gp_mcf.bound_norm_weights(
                     w_ate[a_idx, ta_idx, :], c_dict['max_weight_share'])
                 if c_dict['with_output']:
                     print('Share of weights censored at',
@@ -290,8 +292,9 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
     for a_idx in range(no_of_ates):
         for t_idx in range(c_dict['no_of_treat']):
             for o_idx in range(no_of_out):
-                ret = gp.weight_var(w_ate[a_idx, t_idx, :], y_dat[:, o_idx],
-                                    cl_dat, c_dict, weights=w_dat)
+                ret = gp_est.weight_var(
+                    w_ate[a_idx, t_idx, :], y_dat[:, o_idx], cl_dat, c_dict,
+                    weights=w_dat, bootstrap=c_dict['se_boot_ate'])
                 pot_y[a_idx, t_idx, o_idx] = ret[0]
                 pot_y_var[a_idx, t_idx, o_idx] = ret[1]
                 if o_idx == 0:
@@ -312,6 +315,9 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
         print('-' * 80)
         print('Potential outcomes')
         print('-' * 80)
+        if c_dict['se_boot_ate'] > 1:
+            print('Bootstrap standard errors with {:<6} replications'.format(
+                c_dict['se_boot_ate']))
         for o_idx in range(no_of_out):
             print('\nOutcome variable: ', v_dict['y_name'][o_idx])
             for a_idx in range(no_of_ates):
@@ -345,7 +351,8 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
                 print('- ' * 40)
             pot_y_ao = pot_y[a_idx, :, o_idx]
             pot_y_var_ao = pot_y_var[a_idx, :, o_idx]
-            est, stderr, t_val, p_val, effect_list = gp.effect_from_potential(
+            (est, stderr, t_val, p_val, effect_list
+             ) = gp_mcf.effect_from_potential(
                 pot_y_ao, pot_y_var_ao, c_dict['d_values'])
             ate[o_idx, a_idx] = est
             ate_se[o_idx, a_idx] = stderr

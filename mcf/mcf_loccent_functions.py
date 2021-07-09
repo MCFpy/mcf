@@ -10,7 +10,8 @@ Created on Thu Dec  8 15:48:57 2020.
 import copy
 import pandas as pd
 import numpy as np
-import mcf.general_purpose as gp
+from mcf import general_purpose as gp
+from mcf import general_purpose_estimation as gp_est
 
 
 def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
@@ -76,7 +77,7 @@ def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
     for indx, y_name in enumerate(v_dict['y_name']):
         y_train = lc_y_df[y_name].to_numpy()
         y_nonlc = nonlc_y_df[y_name].to_numpy()
-        y_pred, _, _, _, _, _, _ = gp.RandomForest_scikit(
+        y_pred, _, _, _, _, _, _ = gp_est.RandomForest_scikit(
             x_train, y_train, x_pred, y_name=y_name, boot=c_dict['boot'],
             n_min=c_dict['grid_n_min'], no_features=c_dict['m_grid'],
             workers=max_workers, pred_p_flag=True,
@@ -151,7 +152,7 @@ def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict):
             x_train = x_np[index_train]
             for indx, y_name in enumerate(v_dict['y_name']):
                 y_train = y_np[index_train, indx]
-                y_pred_rf, _, _, _, _, _, _ = gp.RandomForest_scikit(
+                y_pred_rf, _, _, _, _, _, _ = gp_est.RandomForest_scikit(
                     x_train, y_train, x_pred, y_name=y_name,
                     boot=c_dict['boot'], n_min=c_dict['grid_n_min'],
                     no_features=c_dict['m_grid'], workers=max_workers,

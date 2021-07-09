@@ -10,7 +10,9 @@ from concurrent import futures
 import numpy as np
 import pandas as pd
 import ray
-import mcf.general_purpose as gp
+from mcf import general_purpose as gp
+from mcf import general_purpose_estimation as gp_est
+from mcf import general_purpose_mcf as gp_mcf
 
 
 def variable_features(var_x_type, var_x_values):
@@ -162,8 +164,7 @@ def m_n_grid(c_dict, no_vars):
 
     """
     m_min = round(c_dict['m_min_share'] * no_vars)
-    if m_min < 1:
-        m_min = 1
+    m_min = max(m_min, 1)
     m_max = round(c_dict['m_max_share'] * no_vars)
     if m_min == m_max:
         c_dict['m_grid'] = 1
@@ -304,19 +305,19 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
             print('Computing prognostic score for matching')
         c_dict['nn_main_diag_only'] = False   # Use full Mahalanobis matrix
         x_dat_neu = np.empty((obs, c_dict['no_of_treat']))
-        for m, d_val in enumerate(c_dict['d_values']):
+        for midx, d_val in enumerate(c_dict['d_values']):
             d_m = d_dat == d_val
             d_m = d_m.reshape(len(d_m))
             x_dat_m = x_dat[d_m, :].copy()
             y_dat_m = y_dat[d_m].copy()
-            ret_rf = gp.RandomForest_scikit(
+            ret_rf = gp_est.RandomForest_scikit(
                 x_dat_m, y_dat_m, x_dat, boot=c_dict['boot'],
                 n_min=c_dict['grid_n_min'],
                 pred_p_flag=True, pred_t_flag=False,
                 pred_oob_flag=False, with_output=False,
                 variable_importance=False, x_name=x_df.columns,
                 var_im_with_output=False, return_forest_object=False)
-            x_dat_neu[:, m] = np.copy(ret_rf[0])
+            x_dat_neu[:, midx] = np.copy(ret_rf[0])
         x_dat = x_dat_neu
     if (c_dict['match_nn_prog_score']
         and ((c_dict['mtot'] == 1) or (c_dict['mtot'] == 4))
@@ -352,8 +353,8 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
             maxworkers = 1
         else:
             if c_dict['mp_automatic']:
-                maxworkers = gp.find_no_of_workers(c_dict['no_parallel'],
-                                                   c_dict['sys_share'])
+                maxworkers = gp_mcf.find_no_of_workers(c_dict['no_parallel'],
+                                                       c_dict['sys_share'])
             else:
                 maxworkers = c_dict['no_parallel']
         if c_dict['with_output'] and c_dict['verbose']:
@@ -671,6 +672,11 @@ def create_xz_variables(
                 # Recode categorical variables by running integers such that
                 # groups of them can be efficiently translated into primes
                 prime_values = gp.primes_list(k)
+                if len(prime_values) != len(unique_val):
+                    raise Exception(
+                        'Not enough prime values available for recoding.' +
+                        'Most likely reason: Continuous variables coded as' +
+                        ' unordered. Program stopped.')
                 prime_variable = data1new[variable].name + "PR"
                 data1new[prime_variable] = data1new[variable].replace(
                     unique_val, prime_values)

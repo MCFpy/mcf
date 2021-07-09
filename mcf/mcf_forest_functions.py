@@ -10,8 +10,11 @@ import random
 from numba import njit
 import numpy as np
 import ray
-import mcf.general_purpose as gp
-import mcf.mcf_data_functions as mcf_data
+from mcf import general_purpose as gp
+from mcf import general_purpose_estimation as gp_est
+from mcf import general_purpose_system_files as gp_sys
+from mcf import general_purpose_mcf as gp_mcf
+from mcf import mcf_data_functions as mcf_data
 
 
 def fill_trees_with_y_indices_mp(forest, indatei, v_dict, v_x_type, v_x_values,
@@ -53,8 +56,8 @@ def fill_trees_with_y_indices_mp(forest, indatei, v_dict, v_x_type, v_x_values,
         maxworkers = 1
     else:
         if c_dict['mp_automatic']:
-            maxworkers = gp.find_no_of_workers(c_dict['no_parallel'],
-                                               c_dict['sys_share'])
+            maxworkers = gp_mcf.find_no_of_workers(c_dict['no_parallel'],
+                                                   c_dict['sys_share'])
         else:
             maxworkers = c_dict['no_parallel']
     if c_dict['with_output'] and c_dict['verbose']:
@@ -219,8 +222,8 @@ def fs_adjust_vars(vi_i, vi_g, vi_ag, v_dict, v_x_type, v_x_values, x_name,
     if ((np.count_nonzero(below_i) > 0) and (np.count_nonzero(below_g) > 0)
             and (np.count_nonzero(below_ag) > 0)):   # necessary conditions met
         ind_i = set(ind_i[below_i])
-        indi_g_flat = set(gp.flatten_list(list(ind_g[below_g])))
-        indi_ag_flat = set(gp.flatten_list(list(ind_ag[below_ag])))
+        indi_g_flat = set(gp_est.flatten_list(list(ind_g[below_g])))
+        indi_ag_flat = set(gp_est.flatten_list(list(ind_ag[below_ag])))
         remove_ind = ind_i & indi_g_flat & indi_ag_flat
         if remove_ind:           # If list is empty, this will be False
             names_to_remove1 = []
@@ -278,6 +281,8 @@ def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
     oob_tree = 0
     n_lost = 0
     n_total = 0
+    mse_mce_tree = np.zeros((no_of_treat, no_of_treat))
+    obs_t_tree = np.zeros(no_of_treat)
     for leaf in leaf_no:
         in_leaf = obs_in_leaf[:, 1] == leaf
         if w_yes:
@@ -291,10 +296,10 @@ def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
                 oob_tree += mse_oob * n_l
         else:
             d_dat_in_leaf = d_dat[in_leaf]  # makes a copy
-            enough_data_in_leaf = True
             if n_l < no_of_treat:
                 enough_data_in_leaf = False
             else:
+                enough_data_in_leaf = True
                 if n_l < 40:          # this is done for efficiency reasons
                     if set(d_dat_in_leaf.reshape(-1)) != set(treat_values):
                         enough_data_in_leaf = False
@@ -302,19 +307,19 @@ def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
                     if len(np.unique(d_dat_in_leaf)) < no_of_treat:  # No MSE
                         enough_data_in_leaf = False
             if enough_data_in_leaf:
-                mse_oob, _ = mcf_mse(y_dat[in_leaf], y_nn[in_leaf],
-                                     d_dat_in_leaf, w_l, n_l, mtot,
-                                     no_of_treat, treat_values, w_yes)
-                oob_tree += mse_oob * n_l
+                mse_mce_leaf, _, obs_by_treat_leaf = mcf_mse(
+                    y_dat[in_leaf], y_nn[in_leaf], d_dat_in_leaf, w_l, n_l,
+                    mtot, no_of_treat, treat_values, w_yes)
+                mse_mce_tree, obs_t_tree = add_rescale_mse_mce(
+                    mse_mce_leaf, obs_by_treat_leaf, mtot, no_of_treat,
+                    mse_mce_tree, obs_t_tree)
             else:
                 n_lost += n_l
             n_total += n_l
     if not regrf:
-        if n_lost > 0:
-            if (n_total - n_lost) > 0:
-                oob_tree = oob_tree * n_total / (n_total - n_lost)  # Scale up
-            # else:
-            #     raise Exception('No OOB observations left. Use more trees.')
+        mse_mce_tree = get_avg_mse_mce(mse_mce_tree, obs_t_tree, mtot,
+                                       no_of_treat)
+        oob_tree = compute_mse_mce(mse_mce_tree, mtot, no_of_treat)
     return oob_tree
 
 
@@ -491,26 +496,34 @@ def best_m_n_min_alpha_reg(forest, c_dict):
     if (dim_m_n_min_ar) > 1:       # Find best of trees
         mse_oob = np.zeros(dim_m_n_min_ar)
         trees_without_oob = np.zeros(dim_m_n_min_ar)
-        for trees_m_n_min_ar in forest:
-            for j, tree in enumerate(trees_m_n_min_ar):
+        for trees_m_n_min_ar in forest:                  # different forests
+            for j, tree in enumerate(trees_m_n_min_ar):  # trees within forest
                 n_lost = 0
                 n_total = 0
+                mse_mce_tree = np.zeros((c_dict['no_of_treat'],
+                                         c_dict['no_of_treat']))
+                obs_t_tree = np.zeros(c_dict['no_of_treat'])
                 tree_mse = 0
-                for leaf in tree:
+                for leaf in tree:                        # leaves within tree
                     if leaf[4] == 1:   # Terminal leafs only
-                        n_total += leaf[6]
+                        n_total += np.sum(leaf[6])
                         if leaf[7] is None:
-                            n_lost += leaf[6]
-                        else:
-                            tree_mse += leaf[6] * leaf[7]
+                            n_lost += np.sum(leaf[6])  # [6]: Leaf size
+                        else:                          # [7]: leaf_mse
+                            mse_mce_tree, obs_t_tree = add_rescale_mse_mce(
+                                leaf[7], leaf[6], c_dict['mtot'],
+                                c_dict['no_of_treat'], mse_mce_tree,
+                                obs_t_tree)
                 if n_lost > 0:
                     if (n_total - n_lost) < 1:
                         trees_without_oob[j] += 1
-                    else:
-                        tree_mse = tree_mse * n_total / (n_total - n_lost)
-                mse_oob[j] += tree_mse
+                mse_mce_tree = get_avg_mse_mce(
+                    mse_mce_tree, obs_t_tree, c_dict['mtot'],
+                    c_dict['no_of_treat'])
+                tree_mse = compute_mse_mce(mse_mce_tree, c_dict['mtot'],
+                                           c_dict['no_of_treat'])
+                mse_oob[j] += tree_mse     # Add MSE to MSE of forest j
         if np.any(trees_without_oob) > 0:
-            # for j, _ in enumerate(trees_m_n_min_ar):
             for j, _ in enumerate(trees_without_oob):
                 if trees_without_oob[j] > 0:
                     mse_oob[j] = mse_oob[j] * (
@@ -605,15 +618,14 @@ def mcf_mse(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
 
     """
     if w_yes:
-        mse, treat_shares = mcf_mse_not_numba(
-            y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat, treat_values,
-            w_yes, splitting)
+        mse_mce, treat_shares, no_of_obs_by_treat = mcf_mse_not_numba(
+            y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
+            treat_values, w_yes, splitting)
     else:
-        mse, treat_shares = mcf_mse_numba(
+        mse_mce, treat_shares, no_of_obs_by_treat = mcf_mse_numba(
             y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat,
-            np.array(treat_values, dtype=np.int8),
-            w_yes)
-    return mse, treat_shares
+            np.array(treat_values, dtype=np.int8), w_yes)
+    return mse_mce, treat_shares, no_of_obs_by_treat
 
 
 def mcf_mse_not_numba(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
@@ -647,9 +659,12 @@ def mcf_mse_not_numba(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
         treat_shares = np.empty(no_of_treat)
     else:
         treat_shares = 0
+    mse_mce = np.zeros((no_of_treat, no_of_treat))
+    no_of_obs_by_treat = np.zeros(no_of_treat)
     for m_idx in range(no_of_treat):
         d_m = d_dat == treat_values[m_idx]   # d_m is Boolean
         n_m = len(y_dat[d_m])
+        no_of_obs_by_treat[m_idx] = n_m.copy()
         if w_yes:
             w_m = w_dat[d_m]
             y_m_mean = np.average(y_dat[d_m], weights=w_m, axis=0)
@@ -660,9 +675,9 @@ def mcf_mse_not_numba(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
             mse_m = np.dot(y_dat[d_m], y_dat[d_m]) / n_m - (y_m_mean**2)
         if mtot in (1, 4):
             treat_shares[m_idx] = n_m / n_obs
-            mse += (no_of_treat - 1) * mse_m
+            mse_mce[m_idx, m_idx] = mse_m
         elif mtot == 3:
-            mse += mse_m
+            mse_mce[m_idx, m_idx] = mse_m
         if mtot != 3:
             mce_ml = 0
             for v_idx in range(m_idx + 1, no_of_treat):
@@ -699,14 +714,13 @@ def mcf_mse_not_numba(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
                                                                       axis=0)
                         bbb = np.dot(y_nn_m, y_nn_l) / len(y_nn_m)
                         mce_ml = bbb - aaa
-                mce += mce_ml
-    mse -= 2 * mce
-    return mse, treat_shares
+                mse_mce[m_idx, v_idx] = mce_ml
+    return mse_mce, treat_shares, no_of_obs_by_treat
 
 
 @njit
-def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat,
-                  treat_values, w_yes):
+def mcf_mse_numba_old(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat,
+                      treat_values, w_yes, corrected):
     """Compute average mse for the data passed. Based on different methods.
 
        WEIGHTED VERSION DOES NOT YET WORK. TRY with next Numba version.
@@ -735,9 +749,15 @@ def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat,
         treat_shares = np.zeros(no_of_treat)
     else:
         treat_shares = np.zeros(1)
+    if corrected:
+        mse_mce = np.zeros((no_of_treat, no_of_treat))
+        mse_md = np.zeros(no_of_treat)
+        no_of_obs_by_treat = np.zeros(no_of_treat)
     for m_idx in range(no_of_treat):
         d_m = d_dat == treat_values[m_idx]   # d_m is Boolean
         n_m = np.sum(d_m)
+        if corrected:
+            no_of_obs_by_treat[m_idx] = n_m
         y_m = np.empty(n_m)
         j = 0
         for i in range(obs):
@@ -746,29 +766,20 @@ def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat,
                 j += 1
         if w_yes:
             raise Exception('not yet implemented for weighting with Numba')
-            # w_m = np.empty(n_m)
-            # j = 0
-            # for i in range(obs):
-            #     if d_m[i]:
-            #         w_m[j] = w_dat[i, 0]
-            #         j += 1
-            # y_m_mean = np.sum(y_m * w_m) / np.sum(w_m)
-            # # y_m_mean = np.average(y_m, weights=w_m, axis=0)
-            # y_m_mse = np.square(y_m - y_m_mean)
-            # mse_m = np.sum(y_m_mse * w_m) / np.sum(w_m)
-            # # mse_m = np.average(np.square(y_m - y_m_mean),
-            # #                    weights=w_m, axis=0)
-        # else:
-            # y_m_mean = np.average(y_m, axis=0)
-            # y_m_mean = np.sum(y_m) / n_m
-            # mse_m = np.dot(y_m, y_m) / n_m - (y_m_mean**2)
         y_m_mean = np.sum(y_m) / n_m
         mse_m = np.dot(y_m, y_m) / n_m - (y_m_mean**2)
         if mtot in (1, 4):
             treat_shares[m_idx] = n_m / n_obs
-            mse += (no_of_treat - 1) * mse_m
+            if corrected:
+                # mse[m_idx, m_idx] = mse_m
+                mse_md[m_idx] = mse_m
+            else:
+                mse += (no_of_treat - 1) * mse_m
         elif mtot == 3:
-            mse += mse_m
+            if corrected:
+                mse_mce[m_idx, m_idx] = mse_m
+            else:
+                mse += mse_m
         if mtot != 3:
             mce_ml = 0
             for v_idx in range(m_idx + 1, no_of_treat):
@@ -783,18 +794,8 @@ def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat,
                             j += 1
                     if w_yes:
                         pass
-                    #     w_l = np.empty(n_l)
-                    #     j = 0
-                    #     for i in range(obs):
-                    #         if d_l[i]:
-                    #             w_l[j] = w_dat[i, 0]
-                    #             j += 1
-                    #     y_l_mean = np.sum(y_l * w_l) / np.sum(w_l)
-                    # #   y_l_mean = np.average(y_dat[d_l], weights=w_dat[d_l],
-                    # #                           axis=0)
                     else:
                         y_l_mean = np.sum(y_l) / n_l
-                        #  y_l_mean = np.average(y_dat[d_l], axis=0)
                     mce_ml = (y_m_mean - y_l_mean)**2
                 else:
                     d_ml = (d_dat == treat_values[v_idx]) | (
@@ -808,47 +809,170 @@ def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat,
                             y_nn_l[j] = y_nn[i, v_idx]
                             y_nn_m[j] = y_nn[i, m_idx]
                             j += 1
-                    # y_nn_m = y_nn[d_ml, m_idx]
-                    # y_nn_l = y_nn[d_ml, v_idx]
                     if w_yes:
                         pass
-                        # # w_ml = w_dat[d_ml].reshape(-1)
-                        # w_ml = np.empty(n_ml)
-                        # j = 0
-                        # for i in range(obs):
-                        #     if d_ml[i]:
-                        #         w_ml[j] = w_dat[i, 0]
-                        #         j += 1
-                        # w_ml_sum = np.sum(w_ml)
-                        # y_nn_l_mean = np.sum(y_nn_l * w_ml) / w_ml_sum
-                        # y_nn_m_mean = np.sum(y_nn_m * w_ml) / w_ml_sum
-                        # if splitting and (no_of_treat == 2):
-                        #     mce_ml = (-1) * y_nn_l_mean * y_nn_m_mean
-                        # #     mce_ml = ((np.average(y_nn_m, weights=w_ml,
-                        # #                           axis=0)) *
-                        # #               (np.average(y_nn_l, weights=w_ml,
-                        # #                           axis=0)) * (-1))
-                        # else:
-                        #     mce_ml = (np.sum(y_nn_m - y_nn_m_mean) / w_ml_sum
-                        #               * np.sum(y_nn_l - y_nn_l_mean)
-                        #               / w_ml_sum)
-                        # #     mce_ml = np.average(
-                        # #         (y_nn_m - np.average(y_nn_m, weights=w_ml,
-                        # #                              axis=0)) *
-                        # #         (y_nn_l - np.average(y_nn_l, weights=w_ml,
-                        # #                              axis=0)),
-                        # #         weights=w_ml, axis=0)
                     else:
-                        # aaa = np.average(y_nn_m, axis=0) * np.average(y_nn_l,
-                        #                                               axis=0)
                         aaa = np.sum(y_nn_m) / n_ml * np.sum(y_nn_l) / n_ml
                         bbb = np.dot(y_nn_m, y_nn_l) / len(y_nn_m)
                         mce_ml = bbb - aaa
-                mce += mce_ml
+                if corrected:
+                    mse_mce[m_idx, v_idx] = mce_ml
+                else:
+                    mce += mce_ml
+    if corrected:
+        return mse_mce, treat_shares, no_of_obs_by_treat
+    else:
+        mse -= 2 * mce
+        return mse, treat_shares
+
+
+@njit
+def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat,
+                  treat_values, w_yes):
+    """Compute average mse for the data passed. Based on different methods.
+
+       WEIGHTED VERSION DOES NOT YET WORK. TRY with next Numba version.
+       Need to change list format soon.
+
+    Parameters
+    ----------
+    y_dat : Numpy Nx1 vector. Outcome variable of observation.
+    y_nn : Numpy N x no_of_treatments array. Matched outcomes.
+    d_dat : Numpy Nx1 vector. Treatment.
+    n : INT. Leaf size.
+    mtot : INT. Method.
+    no_of_treat : INT. Number of treated.
+    treat_values : 1D Numpy array of INT. Treatment values.
+    w_yes: Boolean. Weighted estimation.
+
+    Returns
+    -------
+    mse : Mean squared error (average not acccount of number of obs).
+    treat_share: 1D Numpy array. Treatment shares.
+    """
+    obs = len(y_dat)
+    if mtot in (1, 4):
+        treat_shares = np.zeros(no_of_treat)
+    else:
+        treat_shares = np.zeros(1)
+    mse_mce = np.zeros((no_of_treat, no_of_treat))
+    no_of_obs_by_treat = np.zeros(no_of_treat)
+    for m_idx in range(no_of_treat):
+        d_m = d_dat == treat_values[m_idx]   # d_m is Boolean
+        n_m = np.sum(d_m)
+        no_of_obs_by_treat[m_idx] = n_m
+        y_m = np.empty(n_m)
+        j = 0
+        for i in range(obs):
+            if d_m[i]:
+                y_m[j] = y_dat[i, 0]
+                j += 1
+        if w_yes:
+            raise Exception('not yet implemented for weighting with Numba')
+        y_m_mean = np.sum(y_m) / n_m
+        mse_m = np.dot(y_m, y_m) / n_m - (y_m_mean**2)
+        if mtot in (1, 3, 4):
+            treat_shares[m_idx] = n_m / n_obs
+            mse_mce[m_idx, m_idx] = mse_m
+        if mtot != 3:
+            mce_ml = 0
+            for v_idx in range(m_idx + 1, no_of_treat):
+                d_l = d_dat == treat_values[v_idx]   # d_l is Boolean
+                n_l = np.sum(d_l)
+                if mtot == 2:  # Variance of effects mtot = 2
+                    y_l = np.empty(n_l)
+                    j = 0
+                    for i in range(obs):
+                        if d_l[i]:
+                            y_l[j] = y_dat[i, 0]
+                            j += 1
+                    if w_yes:
+                        pass
+                    else:
+                        y_l_mean = np.sum(y_l) / n_l
+                    mce_ml = (y_m_mean - y_l_mean)**2
+                else:
+                    d_ml = (d_dat == treat_values[v_idx]) | (
+                        d_dat == treat_values[m_idx])
+                    n_ml = np.sum(d_ml)
+                    y_nn_l = np.empty(n_ml)
+                    y_nn_m = np.empty(n_ml)
+                    j = 0
+                    for i in range(obs):
+                        if d_ml[i]:
+                            y_nn_l[j] = y_nn[i, v_idx]
+                            y_nn_m[j] = y_nn[i, m_idx]
+                            j += 1
+                    if w_yes:
+                        pass
+                    else:
+                        aaa = np.sum(y_nn_m) / n_ml * np.sum(y_nn_l) / n_ml
+                        bbb = np.dot(y_nn_m, y_nn_l) / len(y_nn_m)
+                        mce_ml = bbb - aaa
+                mse_mce[m_idx, v_idx] = mce_ml
+    return mse_mce, treat_shares, no_of_obs_by_treat
+
+
+def add_mse_mce_split(mse_mce_l, mse_mce_r, obs_by_treat_l, obs_by_treat_r,
+                      mtot, no_of_treat):
+    """Sum up MSE parts of use in splitting rule."""
+    mse_mce = np.zeros((no_of_treat, no_of_treat))
+    obs_by_treat = np.empty(no_of_treat)
+    for m_idx in range(no_of_treat):
+        obs_by_treat[m_idx] = obs_by_treat_l[m_idx] + obs_by_treat_r[m_idx]
+        mse_mce[m_idx, m_idx] = (
+            mse_mce_l[m_idx, m_idx] * obs_by_treat_l[m_idx]
+            + mse_mce_r[m_idx, m_idx] * obs_by_treat_r[m_idx]
+            ) / obs_by_treat[m_idx]
+        if mtot != 3:
+            for v_idx in range(m_idx+1, no_of_treat):
+                n_ml_l = obs_by_treat_l[m_idx] + obs_by_treat_l[v_idx]
+                n_ml_r = obs_by_treat_r[m_idx] + obs_by_treat_r[v_idx]
+                mse_mce[m_idx, v_idx] = (mse_mce_l[m_idx, v_idx] * n_ml_l
+                                         + mse_mce_r[m_idx, v_idx] * n_ml_r
+                                         ) / (n_ml_l + n_ml_r)
+    return mse_mce
+
+
+def add_rescale_mse_mce(mse_mce, obs_by_treat, mtot, no_of_treat,
+                        mse_mce_add_to, obs_by_treat_add_to):
+    """Rescale MSE_MCE matrix and update observation count."""
+    mse_mce_sc = np.zeros((no_of_treat, no_of_treat))
+    obs_by_treat_new = obs_by_treat + obs_by_treat_add_to
+    for m_idx in range(no_of_treat):
+        mse_mce_sc[m_idx, m_idx] = mse_mce[m_idx, m_idx] * obs_by_treat[m_idx]
+        if mtot != 3:
+            for v_idx in range(m_idx+1, no_of_treat):
+                mse_mce_sc[m_idx, v_idx] = mse_mce[m_idx, v_idx] * (
+                    obs_by_treat[m_idx] + obs_by_treat[v_idx])
+    mse_mce_new = mse_mce_add_to + mse_mce_sc
+    return mse_mce_new, obs_by_treat_new
+
+
+def get_avg_mse_mce(mse_mce, obs_by_treat, mtot, no_of_treat):
+    """Bring MSE_MCE matrix in average form."""
+    for m_idx in range(no_of_treat):
+        mse_mce[m_idx, m_idx] = mse_mce[m_idx, m_idx] / obs_by_treat[m_idx]
+        if mtot != 3:
+            for v_idx in range(m_idx+1, no_of_treat):
+                mse_mce[m_idx, v_idx] = mse_mce[m_idx, v_idx] / (
+                    obs_by_treat[m_idx] + obs_by_treat[v_idx])
+    return mse_mce
+
+
+def compute_mse_mce(mse_mce, mtot, no_of_treat):
+    """Sum up MSE parts for use in splitting rule and else."""
+    mse = 0
+    mce = 0
+    for m_idx in range(no_of_treat):
+        if mtot in (1, 4):
+            mse_mce[m_idx, m_idx] = (no_of_treat - 1) * mse_mce[m_idx, m_idx]
+        mse += mse_mce[m_idx, m_idx]
+        if mtot != 3:
+            for v_idx in range(m_idx+1, no_of_treat):
+                mce += mse_mce[m_idx, v_idx]
     mse -= 2 * mce
-    return mse, treat_shares
-    # treat_shares_typed = List(treat_shares)
-    # return mse, treat_shares_typed
+    return mse
 
 
 def term_or_data(data_tr_ns, data_oob_ns, y_i, d_i, x_i_ind_split,
@@ -1071,17 +1195,23 @@ def next_split(current_node, data_tr, data_oob, y_i, y_nn_i, d_i, x_i, w_i,
                                               c_dict['w_yes'])
                             mse_r = regrf_mse(y_dat[leaf_r],  w_r, n_r,
                                               c_dict['w_yes'])
+                            mse_split = (mse_l * n_l + mse_r * n_r) / (
+                                n_l + n_r)
                         else:
-                            mse_l, shares_l = mcf_mse(
-                                y_dat[leaf_l], y_nn_l, d_dat[leaf_l], w_l, n_l,
-                                c_dict['mtot'], c_dict['no_of_treat'],
-                                c_dict['d_values'], c_dict['w_yes'], True)
-                            mse_r, shares_r = mcf_mse(
-                                y_dat[leaf_r], y_nn_r, d_dat[leaf_r], w_r, n_r,
-                                c_dict['mtot'], c_dict['no_of_treat'],
-                                c_dict['d_values'],
-                                c_dict['w_yes'], True)
-                        mse_split = (mse_l * n_l + mse_r * n_r) / (n_l + n_r)
+                            mse_mce_l, shares_l, obs_by_treat_l = mcf_mse(
+                                y_dat[leaf_l], y_nn_l, d_dat[leaf_l], w_l,
+                                n_l, c_dict['mtot'], c_dict['no_of_treat'],
+                                c_dict['d_values'], c_dict['w_yes'])
+                            mse_mce_r, shares_r, obs_by_treat_r = mcf_mse(
+                                y_dat[leaf_r], y_nn_r, d_dat[leaf_r], w_r,
+                                n_r, c_dict['mtot'], c_dict['no_of_treat'],
+                                c_dict['d_values'], c_dict['w_yes'])
+                            mse_mce = add_mse_mce_split(
+                                mse_mce_l, mse_mce_r, obs_by_treat_l,
+                                obs_by_treat_r, c_dict['mtot'],
+                                c_dict['no_of_treat'])
+                            mse_split = compute_mse_mce(
+                                mse_mce, c_dict['mtot'], c_dict['no_of_treat'])
                         # add penalty for this split
                         if not regrf:
                             if (c_dict['mtot'] == 1) or (
@@ -1130,7 +1260,7 @@ def next_split(current_node, data_tr, data_oob, y_i, y_nn_i, d_i, x_i, w_i,
             if len(np.unique(data_oob_ns[:, d_i])) < c_dict['no_of_treat']:
                 current_node[7] = None      # MSE cannot be computed
             else:
-                current_node[7], _ = mcf_mse(
+                current_node[7], shares_r, current_node[6] = mcf_mse(
                     data_oob_ns[:, y_i], data_oob_ns[:, y_nn_i],
                     data_oob_ns[:, d_i], w_oob, n_oob, c_dict['mtot'],
                     c_dict['no_of_treat'], c_dict['d_values'], c_dict['w_yes'])
@@ -1518,8 +1648,8 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
         maxworkers = 1
     else:
         if c_dict['mp_automatic']:
-            maxworkers = gp.find_no_of_workers(c_dict['no_parallel'],
-                                               c_dict['sys_share'])
+            maxworkers = gp_mcf.find_no_of_workers(c_dict['no_parallel'],
+                                                   c_dict['sys_share'])
         else:
             maxworkers = c_dict['no_parallel']
     if c_dict['with_output'] and c_dict['verbose']:
@@ -1565,7 +1695,7 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
                         jdx += 1
                     del finished_res
                     if jdx % 50 == 0:   # every 50'th tree
-                        gp.auto_garbage_collect(50)  # do if half memory full
+                        gp_sys.auto_garbage_collect(50)  # do if half mem full
                 ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
@@ -1614,7 +1744,7 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
                         jdx += 1
                     del finished_res
                     if jdx % 50 == 0:   # every 50'th tree
-                        gp.auto_garbage_collect(50)  # do if half memory full
+                        gp_sys.auto_garbage_collect(50)  # do if 0.5 mem. full
                 ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers

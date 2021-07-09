@@ -35,5 +35,6 @@ setup(
    'importlib>=v1.0.4',
    'sympy>=v1.8',
    'pathlib>=v1.0.1'
-  ]
+  ],
+  python_requires = >=3.8.5  
 )

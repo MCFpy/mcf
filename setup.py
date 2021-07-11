@@ -22,16 +22,14 @@ setup(
     'Programming Language :: Python :: 3.8'
   ],
   install_requires=[
-   'futures>=3.3.0',
-   'multiprocess>=0.70.5',
-   'numpy>=1.20.2',
-   'pandas>=1.2.5',
-   'matplotlib>=1.5.3',
-   'scipy>=1.2.1',
+   'numpy>=1.21.0',
+   'pandas>=1.3.0',
+   'matplotlib>=3.4.2',
+   'scipy>=1.7.0',
    'ray>=1.4.0',
-   'numba>=0.54',
-   'scikit-learn>=0.23.2',
-   'psutil>=5.4.5',
+   'numba>=0.53.1',
+   'scikit-learn>=0.24.2',
+   'psutil>=5.8.0',
    'importlib>=1.0.4',
    'sympy>=1.8',
    'pathlib>=1.0.1']

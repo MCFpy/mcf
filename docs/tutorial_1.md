@@ -45,7 +45,7 @@ Finally, to execute the program, we run the following code chunk.
 
 ```python
 if __name__ == '__main__':
-    mcf.ModifiedCausalForest(
+    mcf.mcf_functions.ModifiedCausalForest(
         outpfad=outpfad, datpfad=datpfad, indata=indata,
         d_name=d_name, y_name=y_name, x_name_ord=x_name_ord, z_name_list = z_name_list,mp_parallel = mp_parallel, mp_with_ray = mp_with_ray)
 ```

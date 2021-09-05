@@ -344,7 +344,7 @@ _with_output=_with_output)
 * <a id="support_check">**support_check**</a> - **integer** taking values **0, 1, 2**
 	* Determines whether program checks for common support and sets rule how common support is enforced; for a value of 0 no common support is checked and enforced; for values of 1 and 2 common support is checked and enforced; for values 1 and 2, the support check is based on the estimated predictive random forests for each treatment probability but one; if the value is set to 1, the program uses min and max rules to enforce common support; for a value of 2, the program enforces minimum and maximum probabilities for all observations and all observations off support are removed. Out-of-bag predictions are used to avoid overfitting.
 * <a id="support_max_del_train">**support_max_del_train**</a> - **float** between **0, 1**
-  	* Specifies the threshold for the share of observations off support in the training data set; the default is 0.5.
+  * Specifies the threshold for the share of observations off support in the training data set; the default is 0.5.
 * <a id="support_min_p">**support_min_p**</a> - **float** between **0, 1**
 	* Specifies minimal probability for common support if support check is set to 2; an observation is deleted if the conditional probability $p(d=m|x)$ is less or equal than **support_min_p** for at least one treatment $m$, the default is set to 0.01.
 * <a id="support_quantil">**support_quantil**</a> -  **float** between **0.5, 1** and **integer** taking value **1**

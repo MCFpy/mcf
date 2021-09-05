@@ -322,11 +322,11 @@ _with_output=_with_output)
 * <a id="screen_covariates">**screen_covariates**</a> - **Boolean**
 	* Determines whether the covariates are screened; the default is  True; to omit screening stage specify False.
 * <a id="se_boot_ate">**se_boot_ate**</a> - **integer** larger than **99**
-  	* Number of replications to estimate the bootstrap standard error of ATEs; bootstrapping is only activated for more than 99 replications; the default is *False* (no bootstrapping).
+  * Number of replications to estimate the bootstrap standard error of ATEs; bootstrapping is only activated for more than 99 replications; the default is *False* (no bootstrapping).
 * <a id="se_boot_gate">**se_boot_gate**</a> - **integer** larger than **99**
-  	* Number of replications to estimate the bootstrap standard error of GATEs; bootstrapping is only activated for more than 99 replications; the default is *False* (no bootstrapping).
+  * Number of replications to estimate the bootstrap standard error of GATEs; bootstrapping is only activated for more than 99 replications; the default is *False* (no bootstrapping).
 * <a id="se_boot_iate">**se_boot_iate**</a> - **integer** larger than **99**
-  	* Number of replications to estimate the bootstrap standard error of IATEs; bootstrapping is only activated for more than 99 replications; the default is *False* (no bootstrapping).
+  * Number of replications to estimate the bootstrap standard error of IATEs; bootstrapping is only activated for more than 99 replications; the default is *False* (no bootstrapping).
 * <a id="share_forest_sample">**share_forest_sample**</a> - **float** between **0, 1**
 	* Determines the share used for predicting the outcome of interest, $y$; admissible values range from 0 to 1; the default is  0.5; the other share of the sample is used for building the forest.
 * <a id="show_plots">**show_plots**</a> - **Boolean**

@@ -12,7 +12,6 @@ For this purpose, we use the synthetic data, *dgp_mcfN4000S5*, which is provided
 For the subsequent code to work, make sure that the path to the data file is correctly specified.
 
 ```python
-import mcf
 import pandas as pd
 data = pd.read_csv('dgp_mcfN4000S5.csv')
 ```

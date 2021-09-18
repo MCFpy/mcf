@@ -281,8 +281,9 @@ def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
     oob_tree = 0
     n_lost = 0
     n_total = 0
-    mse_mce_tree = np.zeros((no_of_treat, no_of_treat))
-    obs_t_tree = np.zeros(no_of_treat)
+    if not regrf:
+        mse_mce_tree = np.zeros((no_of_treat, no_of_treat))
+        obs_t_tree = np.zeros(no_of_treat)
     for leaf in leaf_no:
         in_leaf = obs_in_leaf[:, 1] == leaf
         if w_yes:
@@ -460,7 +461,7 @@ def describe_forest(forest, m_n_min_ar, v_dict, c_dict, pen_mult=0,
     print('-' * 80)
 
 
-def best_m_n_min_alpha_reg(forest, c_dict):
+def best_m_n_min_alpha_reg(forest, c_dict, regrf=False):
     """Get best forest for the tuning parameters m_try, n_min, alpha_reg.
 
     Parameters
@@ -500,28 +501,39 @@ def best_m_n_min_alpha_reg(forest, c_dict):
             for j, tree in enumerate(trees_m_n_min_ar):  # trees within forest
                 n_lost = 0
                 n_total = 0
-                mse_mce_tree = np.zeros((c_dict['no_of_treat'],
-                                         c_dict['no_of_treat']))
-                obs_t_tree = np.zeros(c_dict['no_of_treat'])
+                if c_dict['no_of_treat'] is not None:
+                    mse_mce_tree = np.zeros((c_dict['no_of_treat'],
+                                             c_dict['no_of_treat']))
+                    obs_t_tree = np.zeros(c_dict['no_of_treat'])
                 tree_mse = 0
                 for leaf in tree:                        # leaves within tree
                     if leaf[4] == 1:   # Terminal leafs only
                         n_total += np.sum(leaf[6])
                         if leaf[7] is None:
-                            n_lost += np.sum(leaf[6])  # [6]: Leaf size
-                        else:                          # [7]: leaf_mse
-                            mse_mce_tree, obs_t_tree = add_rescale_mse_mce(
-                                leaf[7], leaf[6], c_dict['mtot'],
-                                c_dict['no_of_treat'], mse_mce_tree,
-                                obs_t_tree)
+                            if c_dict['no_of_treat'] is None:
+                                n_lost += leaf[6]
+                            else:    
+                                n_lost += np.sum(leaf[6])  # [6]: Leaf size
+                        else:                              
+                            if c_dict['no_of_treat'] is None:  # [7]: leaf_mse
+                                tree_mse += leaf[6] * leaf[7]
+                            else:    
+                                mse_mce_tree, obs_t_tree = add_rescale_mse_mce(
+                                    leaf[7], leaf[6], c_dict['mtot'],
+                                    c_dict['no_of_treat'], mse_mce_tree,
+                                    obs_t_tree)
                 if n_lost > 0:
-                    if (n_total - n_lost) < 1:
-                        trees_without_oob[j] += 1
-                mse_mce_tree = get_avg_mse_mce(
-                    mse_mce_tree, obs_t_tree, c_dict['mtot'],
-                    c_dict['no_of_treat'])
-                tree_mse = compute_mse_mce(mse_mce_tree, c_dict['mtot'],
-                                           c_dict['no_of_treat'])
+                    if c_dict['no_of_treat'] is None:
+                        tree_mse = tree_mse * n_total / (n_total - n_lost)
+                    else:    
+                        if (n_total - n_lost) < 1:
+                            trees_without_oob[j] += 1
+                if c_dict['no_of_treat'] is not None:            
+                    mse_mce_tree = get_avg_mse_mce(
+                        mse_mce_tree, obs_t_tree, c_dict['mtot'],
+                        c_dict['no_of_treat'])
+                    tree_mse = compute_mse_mce(mse_mce_tree, c_dict['mtot'],
+                                               c_dict['no_of_treat'])
                 mse_oob[j] += tree_mse     # Add MSE to MSE of forest j
         if np.any(trees_without_oob) > 0:
             for j, _ in enumerate(trees_without_oob):
@@ -653,8 +665,6 @@ def mcf_mse_not_numba(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
     treat_share: 1D Numpy array. Treatment shares.
 
     """
-    mse = 0
-    mce = 0
     if mtot in (1, 4):
         treat_shares = np.empty(no_of_treat)
     else:
@@ -1764,7 +1774,7 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
             raise Exception('Forest has wrong size: ', len(forest),
                             'Bug in Multiprocessing.')
     # find best forest given the saved oob values
-    forest_final, m_n_final = best_m_n_min_alpha_reg(forest, c_dict)
+    forest_final, m_n_final = best_m_n_min_alpha_reg(forest, c_dict, regrf)
     del forest    # Free memory
     # Describe final tree
     if c_dict['with_output']:

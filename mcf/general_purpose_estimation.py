@@ -496,8 +496,11 @@ def kernel_density_y(y_dat, x_dat, grid, kernel, bandwidth):
     """
     differ = np.subtract.outer(x_dat, grid)  # This builds a matrix
     y_dach_i = kernel_proc(differ / bandwidth, kernel)
-    f_grid = np.mean(y_dach_i * np.reshape(y_dat, (len(grid), 1)),
-                     axis=0) / bandwidth
+    if y_dat.ndim == 2:
+        f_grid = np.mean(y_dach_i * y_dat, axis=0) / bandwidth
+    else:    
+        f_grid = np.mean(y_dach_i * np.reshape(y_dat, (len(grid), 1)),
+                         axis=0) / bandwidth
     return f_grid
 
 

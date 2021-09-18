@@ -263,13 +263,18 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
             if -1e-15 < sumw[a_idx, ta_idx] < 1e-15:
                 if c_dict['with_output']:
                     print('Treatment:', ta_idx, 'ATE number: ', a_idx)
-                    print('ATE weights:', w_ate[a_idx, ta_idx, :])
+                    print('ATE weights:', w_ate[a_idx, ta_idx, :], flush=True)
                 if w_ate_only:
                     sumw[a_idx, ta_idx] = 1
                     if c_dict['with_output']:
                         print('ATE weights are all zero.')
                 else:
-                    raise Exception('ATE weights are all zero.')
+                    print('ATE weights:', w_ate[a_idx, ta_idx, :], flush=True)
+                    raise Exception('ATE weights are all zero. Not good.' + 
+                                    'Redo statistic without this variable. ' +
+                                    'Or try to use more bootstraps. ' +
+                                    'Sample may be too small. ' +
+                                    'Problem may be with AMGATE only.')
             w_ate[a_idx, ta_idx, :] = w_ate[a_idx, ta_idx, :] / sumw[a_idx,
                                                                      ta_idx]
             w_ate_export[a_idx, ta_idx, :] = w_ate[a_idx, ta_idx, :]

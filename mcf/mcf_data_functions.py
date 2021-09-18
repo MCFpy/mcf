@@ -15,6 +15,9 @@ from mcf import general_purpose_estimation as gp_est
 from mcf import general_purpose_mcf as gp_mcf
 
 
+
+
+
 def variable_features(var_x_type, var_x_values):
     """
     Show variables and their key features.
@@ -491,6 +494,7 @@ def create_xz_variables(
         data1 = pd.read_csv(filepath_or_buffer=c_dict['indata'])
         data1.columns = data1.columns.str.upper()
         data1new = data1.copy()
+        data1new.replace({False: 0, True: 1}, inplace=True)
         if not regrf:
             d1_np = data1[v_dict['d_name']].to_numpy()
             d1_unique = np.round(np.unique(d1_np))
@@ -508,6 +512,7 @@ def create_xz_variables(
         data2 = pd.read_csv(filepath_or_buffer=c_dict['preddata'])
         data2.columns = data2.columns.str.upper()
         data2new = data2.copy()
+        data2new.replace({False: 0, True: 1}, inplace=True)
         if not regrf:
             if c_dict['gatet_flag'] or c_dict['atet_flag']:
                 text = 'Treatment variable differently coded in both datasets.'

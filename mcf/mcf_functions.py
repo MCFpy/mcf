@@ -92,10 +92,10 @@ def ModifiedCausalForest(
 # use smaller random sample (usually for testing purposes)
     if 0 < _smaller_sample < 1:
         if train_mcf:
-            gp.randomsample(datpfad, indata + '.csv', 'smaller_idata.csv',
+            gp.randomsample(datpfad, indata + '.csv', 'smaller_indata.csv',
                             _smaller_sample, True)
         if predict_mcf and preddata != indata:
-            gp.randomsample(datpfad, preddata + '.csv', 'smaller_pdata.csv',
+            gp.randomsample(datpfad, preddata + '.csv', 'smaller_preddata.csv',
                             _smaller_sample, True)
             preddata = 'smaller_preddata'
         else:
@@ -204,7 +204,19 @@ def ModifiedCausalForest(
          v_dict, c_dict, False, d_in_values, no_val_dict, q_inv_dict,
          q_inv_cr_dict, prime_values_dict, unique_val_dict,
          z_new_name_dict, z_new_dic_dict)
-    # Remove missing and keep only variables needed for further analysis
+    
+    if c_dict['with_output'] and c_dict['verbose']:
+        print()
+        print('Dictionary for recoding of categorical variables into primes')
+        key_list_unique_val_dict = [key for key in unique_val_dict]
+        key_list_prime_values_dict = [key for key in prime_values_dict]
+        for key_nr, key in enumerate(key_list_unique_val_dict):
+            print(key)
+            print(unique_val_dict[key])
+            print(key_list_prime_values_dict[key_nr])  # order may differ!
+            print(prime_values_dict[key_list_prime_values_dict[key_nr]])
+
+    # Remove missing and keep only variables needed for further analysis    
     if c_dict['clean_data_flag']:
         if c_dict['train_mcf']:
             namen1_to_inc = gp.add_var_names(
@@ -216,8 +228,11 @@ def ModifiedCausalForest(
                 namen1_to_inc, c_dict['with_output'],
                 c_dict['desc_stat'], c_dict['print_to_file'])
         if indata_with_z != predata_with_z and c_dict['pred_mcf']:
+            # namen2_to_inc = gp.add_var_names(
+            #     v_dict['id_name'], v_dict['cluster_name'], v_dict['w_name'],
+            #     v_dict['x_balance_name'], v_dict['x_name'])
             namen2_to_inc = gp.add_var_names(
-                v_dict['id_name'], v_dict['cluster_name'], v_dict['w_name'],
+                v_dict['id_name'], v_dict['w_name'],
                 v_dict['x_balance_name'], v_dict['x_name'])
             if c_dict['atet_flag']:
                 namen2_to_inc.extend(v_dict['d_name'])
@@ -309,6 +324,7 @@ def ModifiedCausalForest(
             d_train_tree)
     else:
         preddata3 = preddata2
+        prob_score, d_train_tree = None, None
 
 # Pre-analysis feature selection
     if c_dict['train_mcf']:
@@ -565,7 +581,7 @@ def save_train_data_for_pred(data_file, v_dict, c_dict, prob_score,
     if not regrf:
         names_to_save.append(*v_dict['d_name'])
     if c_dict['cluster_std']:
-        names_to_save.append.append(*v_dict['cluster_name'])
+        names_to_save.append(*v_dict['cluster_name'])
     if c_dict['w_yes']:
         names_to_save.append(*v_dict['w_name'])
     if not regrf:

@@ -18,6 +18,34 @@ import numpy as np
 from numba import njit
 
 
+def check_if_not_number(data_df, variable):
+    """
+    Check if the pandas dataframe is not a number.
+
+    Parameters
+    ----------
+    data_df : Dataframe. Variables to check.
+    variable : String or list of strings.
+
+    Raises
+    ------
+    Exception : Stops programme.
+
+    Returns
+    -------
+    None.
+
+    """
+    is_number_mask = np.array(data_df[variable].applymap(np.isreal))
+    var_not_a_number = []
+    for idx, var in enumerate(variable):
+        if not np.all(is_number_mask[:, idx]):
+            var_not_a_number.append(var)
+    if var_not_a_number:
+        print(var_not_a_number, 'do not contain numbers.')
+        raise Exception('Number format is needed for this variable.')
+
+
 def delete_file_if_exists(file_name):
     """Delete existing file.
 
@@ -376,6 +404,7 @@ def screen_variables(indatei, var_names, perfectcorr, min_dummy, with_output):
     """
     data = pd.read_csv(filepath_or_buffer=indatei, header=0)
     data = data[var_names]
+    check_if_not_number(data, var_names)
     k = data.shape[1]
     all_variable = set(data.columns)
     # Remove variables without any variation
@@ -471,7 +500,7 @@ def clean_reduce_data(infile, outfile, names_to_inc, with_output, desc_stat,
         if add_df is not None:
             data = pd.concat([data, add_df], axis=1)
     datanew = data[names_to_inc]
-    datanew.dropna()
+    datanew.dropna(inplace=True)
     shapenew = datanew.shape
     delete_file_if_exists(outfile)
     datanew.to_csv(outfile, index=False)

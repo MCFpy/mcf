@@ -93,13 +93,18 @@ def amgate_function(forest, fill_y_sample, pred_sample, v_dict, c_dict,
     x_name_mcf : Names from MCF procedure.
     var_x_type : List of int. Type of feature.
     var_x_values : List of List of float or int. Values of features.
-    c_dict_mgate: Dict. Differs only for 'with_output' from c_dict.
+    c_dict_mgate: Dict. Differs only for 'with_output' (t) from c_dict.
 
     Returns
     -------
     any_plots_done : Bool.
 
     """
+    if c_dict['gatet_flag']:
+        c_dict_mgate['gatet_flag'] = False
+        c_dict_mgate['atet_flag'] = False
+        if c_dict['with_output']:
+            print('No treatment specific effects for MGATE and AMGATE.')
     any_plots_done = False
     if c_dict['with_output']:
         print()
@@ -127,8 +132,9 @@ def amgate_function(forest, fill_y_sample, pred_sample, v_dict, c_dict,
             w_ate_iate, _, _, ate_z, ate_se_z, _ = mcf_ate.ate_est(
                     weights, new_predict_file, y_f, cl_f, w_f, v_dict,
                     c_dict_mgate)
+            c_dict_mgate['with_output'] = c_dict['with_output']
             gate_est(weights, new_predict_file, y_f, cl_f, w_f, v_dict,
-                     c_dict, var_x_type, var_x_values, w_ate_iate, ate_z,
+                     c_dict_mgate, var_x_type, var_x_values, w_ate_iate, ate_z,
                      ate_se_z, amgate_flag=True)
             os.remove(new_predict_file)  # Delete new file
     v_dict['z_name'] = z_name_old

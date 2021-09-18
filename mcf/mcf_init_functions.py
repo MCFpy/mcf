@@ -185,6 +185,9 @@ def get_controls(c_dict, v_dict):
     else:
         c_dict['w_yes'] = False
         cnew_dict['w_yes'] = False
+        
+    if c_dict['output_type'] is None:
+        c_dict['output_type'] = 2        
     if c_dict['output_type'] == 0:
         print_to_file = False
         print_to_terminal = True
@@ -686,17 +689,32 @@ def get_controls(c_dict, v_dict):
         else:
             cnew_dict['post_km'] = True
         if c_dict['post_km_no_of_groups'] is None:
-            c_dict['post_km_no_of_groups'] = -1
-        if c_dict['post_km_no_of_groups'] < 2:
-            if n_pred < 10000:
-                cnew_dict['post_km_no_of_groups'] = 5
-            elif n_pred > 100000:
-                cnew_dict['post_km_no_of_groups'] = 10
+            c_dict['post_km_no_of_groups'] = [-1]
+        if isinstance(c_dict['post_km_no_of_groups'], (int, float)):
+            c_dict['post_km_no_of_groups'] = [c_dict['post_km_no_of_groups']]
+        if len(c_dict['post_km_no_of_groups']) == 1:
+            if c_dict['post_km_no_of_groups'][0] < 2:
+                if n_pred < 10000:
+                    middle = 5
+                elif n_pred > 100000:
+                    middle = 10
+                else:
+                    middle = 5 + int(round(n_pred/20000))
+                if middle < 7:    
+                    cnew_dict['post_km_no_of_groups'] = [
+                        middle-2, middle-1, middle, middle+1, middle+2]
+                else:
+                    cnew_dict['post_km_no_of_groups'] = [
+                        middle-4, middle-2, middle, middle+2, middle+4]
             else:
-                cnew_dict['post_km_no_of_groups'] = 5 + round(n_pred/20000)
+                cnew_dict['post_km_no_of_groups'] = [round(
+                    int(c_dict['post_km_no_of_groups']))]
         else:
-            cnew_dict['post_km_no_of_groups'] = round(
-                c_dict['post_km_no_of_groups'])
+            if not isinstance(c_dict['post_km_no_of_groups'], list):
+                c_dict['post_km_no_of_groups'] = list(
+                        cnew_dict['post_km_no_of_groups'])
+                cnew_dict['post_km_no_of_groups'] = [
+                    round(int(a)) for a in c_dict['post_km_no_of_groups']]
         if c_dict['post_km_replications'] is None:
             c_dict['post_km_replications'] = -1
         if c_dict['post_km_replications'] < 0:
@@ -990,7 +1008,8 @@ def get_controls(c_dict, v_dict):
             'pred_mcf']:
         data2 = pd.read_csv(cnew_dict['preddata'], nrows=2)
         var_names = list(data2.columns)
-        if vnew_dict['d_name'][0] not in var_names:
+        var_names_up = [s.upper() for s in var_names]
+        if vnew_dict['d_name'][0] not in var_names_up:
             if cnew_dict['with_output'] and c_dict['verbose']:
                 print('-' * 80)
                 add_text = 'Treatment variable not in prediction data. '

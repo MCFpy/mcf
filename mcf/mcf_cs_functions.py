@@ -74,8 +74,14 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
             raise Exception(name1 + ' data and ' + name2 + ' data contain' +
                             ' differnt variables. Programm stopped.')
 
+    def mean_by_treatment(treat_pd, data_pd):
+        print('--------------- Mean by treatment status ------------------')
+        mean = data_pd.groupby(treat_pd.squeeze()).mean()
+        print(mean.transpose())
+
     def on_support_data_and_stats(obs_to_del_np, data_pd, x_data_pd, out_file,
-                                  upper, lower, c_dict, header=False):
+                                  upper_l, lower_l, c_dict, header=False,
+                                  d_name=None):
         obs_to_keep = np.invert(obs_to_del_np)
         data_keep = data_pd[obs_to_keep]
         gp.delete_file_if_exists(out_file)
@@ -88,30 +94,74 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
                 print('=' * 80)
                 print('Common support check')
                 print('-' * 80)
-                print('Upper limits on treatment probabilities: ', upper)
-                print('Lower limits on treatment probabilities: ', lower)
+                print('Upper limits on treatment probabilities: ', upper_l)
+                print('Lower limits on treatment probabilities: ', lower_l)
             print('-' * 80)
             print('Data investigated and saved:', out_file)
             print('-' * 80)
             print('Observations deleted: {:4}'.format(np.sum(obs_to_del_np)),
                   ' ({:6.3f}%)'.format(np.mean(obs_to_del_np)*100))
             with pd.option_context(
-                    'display.max_rows', None,
-                    'display.max_columns', None,
+                    'display.max_rows', 500,
+                    'display.max_columns', 500,
                     'display.expand_frame_repr', True,
-                    'display.width', 120,
+                    'display.width', 150,
                     'chop_threshold', 1e-13):
+                all_var_names = [name.upper() for name in data_pd.columns]
+                if d_name[0].upper() in all_var_names:
+                    d_keep = data_keep[d_name]
+                    d_delete = data_pd[d_name]
+                    d_delete = d_delete[obs_to_del_np]
+                    d_keep_count = d_keep.value_counts(sort=False)
+                    d_delete_count = d_delete.value_counts(sort=False)
+                    d_keep_count = pd.concat([d_keep_count,
+                        d_keep_count / np.sum(obs_to_keep) * 100], axis=1)
+                    d_delete_count = pd.concat([d_delete_count,
+                        d_delete_count / np.sum(obs_to_del_np) * 100], axis=1)
+                    d_keep_count.columns = ['Obs.', 'Share in %']
+                    d_delete_count.columns = ['Obs.', 'Share in %']
+                    if c_dict['panel_data']:
+                        cluster_id = data_pd[v_dict['cluster_name']].squeeze()
+                        cluster_keep = cluster_id[obs_to_keep].squeeze()
+                        cluster_delete = cluster_id[obs_to_del_np].squeeze()
+                    print('-' * 80)
+                    print('Observations kept by treatment')
+                    print(d_keep_count)
+                    print('-   ' * 20)
+                    print('Observations deleted by treatment')
+                    print(d_delete_count)
+                    if c_dict['panel_data']:
+                        print('-   ' * 20)
+                        print('Total number of panel unit:',
+                              len(cluster_id.unique()))
+                        print('Observations belonging to ',
+                              len(cluster_keep.unique()),
+                              'panel units are ON support')
+                        print('Observations belonging to ',
+                              len(cluster_delete.unique()),
+                              'panel units are OFF support')
+                if d_name[0].upper() in all_var_names:
+                    print()
+                    print('Full sample (ON and OFF support observations)')
+                    mean_by_treatment(data_pd[d_name], x_data_pd)
                 print('-' * 80)
                 print('Data ON support')
                 print('-' * 80)
                 print(x_keep.describe().transpose())
+                if d_name[0].upper() in all_var_names:
+                    print()
+                    mean_by_treatment(d_keep, x_keep)
                 print('-' * 80)
                 print('Data OFF support')
                 print('-' * 80)
                 print(x_delete.describe().transpose())
+                if d_name[0].upper() in all_var_names:
+                    print()
+                    mean_by_treatment(d_delete, x_delete)
             if np.mean(obs_to_del_np) > c_dict['support_max_del_train']:
                 raise Exception(
-                    'Less than {:3}%'.format(c_dict['support_max_del_train'])
+                    'Less than {:3}%'.format(
+                        100-c_dict['support_max_del_train']*100)
                     + ' observations left after common support check of'
                     + ' training data. Programme terminated. Improve'
                     + ' balance of input data for forest building.')
@@ -127,7 +177,8 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
         data_tr, x_tr, obs_tr = get_data(tree_file, x_name)  # train,adj.
         data_fy, x_fy, obs_fy = get_data(fill_y_file, x_name)  # adj.
         if c_dict['fs_yes']:
-            if not ((fs_file == tree_file) or (fs_file == fill_y_file)):
+            #if not ((fs_file == tree_file) or (fs_file == fill_y_file)):
+            if fs_file not in (tree_file, fill_y_file):
                 data_fs, x_fs, obs_fs = get_data(fs_file, x_name)  # adj.
                 fs_adjust = True
     if c_dict['pred_mcf']:
@@ -236,7 +287,7 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
             if c_dict['no_of_treat'] == 2:
                 pred_all_np[:, idx+1] = 1 - pred_all_np[:, idx]
                 break
-    obs_to_del_all, obs_to_del_tr, upper, lower = indicate_off_support(
+    obs_to_del_all, obs_to_del_tr, upper_l, lower_l = indicate_off_support(
         pred_tr_np, pred_all_np, d_tr_np, c_dict)
     # split obs_to_del_all into its parts
     obs_to_del_fs, obs_to_del_fy, obs_to_del_pr = False, False, False
@@ -252,18 +303,21 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
     if c_dict['train_mcf']:
         if np.any(obs_to_del_tr):
             on_support_data_and_stats(obs_to_del_tr, data_tr, x_tr, tree_file,
-                                      upper, lower, c_dict, header=True)
+                                      upper_l, lower_l, c_dict, header=True,
+                                      d_name=v_dict['d_name'])
         if np.any(obs_to_del_fs):
             on_support_data_and_stats(obs_to_del_fs, data_fs, x_fs, fs_file,
-                                      upper, lower, c_dict)
+                                      upper_l, lower_l, c_dict,
+                                      d_name=v_dict['d_name'])
         if np.any(obs_to_del_fy):
             on_support_data_and_stats(obs_to_del_fy, data_fy, x_fy,
-                                      fill_y_file, upper, lower, c_dict)
+                                      fill_y_file, upper_l, lower_l, c_dict,
+                                      d_name=v_dict['d_name'])
     if c_dict['pred_mcf']:
         if np.any(obs_to_del_pr):
-            on_support_data_and_stats(obs_to_del_pr, data_pr, x_pr,
-                                      c_dict['preddata3_temp'], upper, lower,
-                                      c_dict)
+            on_support_data_and_stats(
+                obs_to_del_pr, data_pr, x_pr, c_dict['preddata3_temp'],
+                upper_l, lower_l, c_dict, d_name=v_dict['d_name'])
             predict_file_new = c_dict['preddata3_temp']
         else:
             predict_file_new = predict_file

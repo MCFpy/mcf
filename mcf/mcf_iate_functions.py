@@ -11,6 +11,7 @@ from concurrent import futures
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 import scipy.stats as sct
 import matplotlib.pyplot as plt
 import ray
@@ -867,12 +868,26 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
     # k-means clustering
     if c_dict['post_km']:
         pd.set_option('display.max_rows', 1000, 'display.max_columns', 100)
-        cluster_lab_np = KMeans(
-            n_clusters=c_dict['post_km_no_of_groups'],
-            n_init=c_dict['post_km_replications'], init='k-means++',
-            max_iter=c_dict['post_kmeans_max_tries'], algorithm='full',
-            random_state=42, tol=1e-5, verbose=0, copy_x=True
-            ).fit_predict(iate.to_numpy())
+        iate_np = iate.to_numpy()
+        silhouette_avg_prev = -1
+        print('\n' + ('=' * 80), '\nK-Means++ clustering', '\n' + ('-' * 80))
+        print('-' * 80)
+        for cluster_no in c_dict['post_km_no_of_groups']:
+            cluster_lab_tmp = KMeans(
+                n_clusters=cluster_no,
+                n_init=c_dict['post_km_replications'], init='k-means++',
+                max_iter=c_dict['post_kmeans_max_tries'], algorithm='full',
+                random_state=42, tol=1e-5, verbose=0, copy_x=True
+                ).fit_predict(iate_np)
+            silhouette_avg = silhouette_score(iate_np, cluster_lab_tmp)
+            print('Number of clusters: ', cluster_no,
+                  'Average silhouette score:', silhouette_avg)
+            if silhouette_avg > silhouette_avg_prev:
+                cluster_lab_np = np.copy(cluster_lab_tmp)
+                silhouette_avg_prev = np.copy(silhouette_avg)
+        print('Best value of average silhouette score:', silhouette_avg_prev)
+        print('-' * 80)
+        del iate_np
         # Reorder labels for better visible inspection of results
         iate_name = iate_pot_name['names_iate']
         namesfirsty = iate_name[0:round(len(iate_name)/len(v_dict['y_name']))]
@@ -883,7 +898,6 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
         cl_group = cluster_lab_np.copy()
         for cl_j, cl_old in enumerate(sort_ind):
             cl_group[cluster_lab_np == cl_old] = cl_j
-        print('\n' + ('=' * 80), '\nK-Means++ clustering', '\n' + ('-' * 80))
         print('Effects are ordered w.r.t. to size of the effects for the',
               ' first outcome.')
         print('Effects', '\n' + ('-' * 80))

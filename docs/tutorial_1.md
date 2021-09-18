@@ -23,7 +23,7 @@ You may wish to inspect the structure of the data by running the command `data.h
  As listed in [section Python API](./core_6.md), most of the argument inputs of the the `mcf` function take default values. With two exceptions we will stick to most default values. Accordingly, we start the program as follows:
 
 ```python
-from mcf import mcf_functions
+from mcf import ModifiedCausalForest
 
 outpfad = 'your/output/goes/here'
 datpfad = 'your/data/is/here'
@@ -44,7 +44,7 @@ Finally, to execute the program, we run the following code chunk.
 
 ```python
 if __name__ == '__main__':
-    mcf_functions.ModifiedCausalForest(
+    ModifiedCausalForest(
         outpfad=outpfad, datpfad=datpfad, indata=indata,
         d_name=d_name, y_name=y_name, x_name_ord=x_name_ord, z_name_list = z_name_list,mp_parallel = mp_parallel, mp_with_ray = mp_with_ray)
 ```

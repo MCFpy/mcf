@@ -7,16 +7,16 @@ def read(fname):
 setup(
   name = 'mcf',
   packages = ['mcf'],
-  version = '0.0.1',
+  version = '0.1.0',
   license='MIT',
-  description = 'mcf is a powerful package to estimate heterogeneous treatment effects for multiple treatment models in a selection-on-observables setting',
+  description = 'mcf is a powerful package to estimate heterogeneous treatment effects for multiple treatment models in a selection-on-observables setting and learn optimal policy rules',
   author = 'mlechner',
   author_email = 'michael.lechner@unisg.ch',
   url = 'https://github.com/MCFpy/mcf',
-  keywords = ['causal machine learning, heterogeneous treatment effects, causal forests'],
+  keywords = ['causal machine learning, heterogeneous treatment effects, causal forests, optimal policy learning'],
   long_description=read('README.txt'),
   classifiers=[
-    'Development Status :: 5',
+    'Development Status :: 4',
     'Topic :: Software Development :: Build Tools',
     'License :: OSI Approved :: MIT License',
     'Programming Language :: Python :: 3.8'

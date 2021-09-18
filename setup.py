@@ -16,7 +16,7 @@ setup(
   keywords = ['causal machine learning, heterogeneous treatment effects, causal forests, optimal policy learning'],
   long_description=read('README.txt'),
   classifiers=[
-    'Development Status :: 5',
+    'Development Status :: 4 - Beta',
     'Topic :: Software Development :: Build Tools',
     'License :: OSI Approved :: MIT License',
     'Programming Language :: Python :: 3.8'

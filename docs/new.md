@@ -6,6 +6,7 @@
 - Minor bug fixes concerning [_with_output](./core_6.md#_with_output), [_smaller_sample](./core_6.md#_smaller_sample), (A,AM)GATE/IATE-ATE plots, and the sampling weights.
 
 ### What's new
+- Optional tree-specific subsampling for evaluation sample (subsample variables got new names). 
 - k-Means cluster indicator for the IATEs saved in file with IATE predictions.
 - Evaluation points of GATE figures are included in the output csv-file.
 - Exception raised if choice based sampling is activated and there is no treatment information in predictions file.

@@ -17,13 +17,14 @@ polscore_name = ['YLC0_pot', 'YLC1_pot', 'YLC2_Pot', 'YLC3_Pot']
 effect_vs_0 = ['YLC1vs0_iate', 'YLC2vs0_iate', 'YLC3vs0_iate']
 effect_vs_0_se = ['YLC1vs0_iate_se', 'YLC2vs0_iate_se',
                       'YLC3vs0_iate_se']
+_with_output=True
 ```
 
 Now, to run the programme simply type
 
 ```python
 if __name__ == 'main':
-		optp_functions.optpoltree(polscore_name=polscore_name, x_ord_name=x_ord_name, x_unord_name=x_unord_name, effect_vs_0=effect_vs_0, effect_vs_0_se=effect_vs_0_se,  indata=indata, datpath=datpath, outpath=outpath
+		optp_functions.optpoltree(polscore_name=polscore_name, x_ord_name=x_ord_name, x_unord_name=x_unord_name, effect_vs_0=effect_vs_0, effect_vs_0_se=effect_vs_0_se,  indata=indata, datpath=datpath, outpath=outpath, _with_output=_with_output)
 ```
 
 By default, the output is printed to the console and written into the output directory.

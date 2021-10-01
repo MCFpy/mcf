@@ -499,7 +499,7 @@ def clean_reduce_data(infile, outfile, names_to_inc, with_output, desc_stat,
                                       len(data), with_output)
         if add_df is not None:
             data = pd.concat([data, add_df], axis=1)
-    datanew = data[names_to_inc]
+    datanew = data[names_to_inc].copy()
     datanew.dropna(inplace=True)
     shapenew = datanew.shape
     delete_file_if_exists(outfile)

@@ -15,9 +15,6 @@ from mcf import general_purpose_estimation as gp_est
 from mcf import general_purpose_mcf as gp_mcf
 
 
-
-
-
 def variable_features(var_x_type, var_x_values):
     """
     Show variables and their key features.
@@ -382,6 +379,7 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
                     finished_res = ray.get(finished)
                     for res in finished_res:
                         y_match[:, res[1]] = res[0]
+                del x_dat_ref, finished, still_running, tasks
                 ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
@@ -406,8 +404,9 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
     datanew = pd.concat([data, y_match_df], axis=1)
     gp.delete_file_if_exists(c_dict['tree_sample_nn'])
     datanew.to_csv(c_dict['tree_sample_nn'], index=False)
-    gp.print_descriptive_stats_file(
-        c_dict['tree_sample_nn'], 'all', c_dict['print_to_file'])
+    if c_dict['with_output']:
+        gp.print_descriptive_stats_file(
+            c_dict['tree_sample_nn'], 'all', c_dict['print_to_file'])
     return c_dict['tree_sample_nn'], v_dict
 
 

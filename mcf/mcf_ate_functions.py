@@ -23,6 +23,7 @@ def analyse_weights_ate(weights, title, c_dict, ate=True):
     weights : Numyp array. Weights.
     title : String. Title for output.
     c : Dict. Parameters.
+    ate: Boolean. True if Ate is estimated. Default is True.
 
     Returns
     -------
@@ -193,7 +194,6 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
         need_count=c_dict['weight_as_sparse'])
     if (d_p is not None) and (c_dict['atet_flag'] or c_dict['gatet_flag']):
         no_of_ates = c_dict['no_of_treat'] + 1  # Compute ATEs, ATET, ATENT
-        # d_p = np.round(d_p)
     else:
         c_dict['atet_flag'] = 0
         no_of_ates = 1
@@ -270,7 +270,7 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
                         print('ATE weights are all zero.')
                 else:
                     print('ATE weights:', w_ate[a_idx, ta_idx, :], flush=True)
-                    raise Exception('ATE weights are all zero. Not good.' + 
+                    raise Exception('ATE weights are all zero. Not good.' +
                                     'Redo statistic without this variable. ' +
                                     'Or try to use more bootstraps. ' +
                                     'Sample may be too small. ' +
@@ -395,8 +395,9 @@ def get_data_for_final_estimation(data_file, v_dict, c_dict, ate=True,
         w_dat = data[v_dict['w_name']].to_numpy()
     else:
         w_dat = None
-    if (v_dict['d_name'][0] in data.columns) and (c_dict['atet_flag']
-                                                  or c_dict['gatet_flag']):
+    if (v_dict['d_name'][0] in data.columns
+        ) and (c_dict['atet_flag'] or c_dict['gatet_flag']
+               or c_dict['choice_based_yes']):
         d_dat = data[v_dict['d_name']].to_numpy()
         d_dat = np.int16(np.round(d_dat))
     else:

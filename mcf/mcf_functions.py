@@ -57,11 +57,12 @@ def ModifiedCausalForest(
         post_kmeans_yes=True, post_kmeans_max_tries=1000,
         post_kmeans_no_of_groups=None, post_kmeans_replications=10,
         post_random_forest_vi=True, predict_mcf=True,
-        random_thresholds=20, relative_to_first_group_only=True,
+        random_thresholds=None, relative_to_first_group_only=True,
         save_forest=False, screen_covariates=True, share_forest_sample=0.5,
         show_plots=True, smooth_gates=True, smooth_gates_bandwidth=1,
         smooth_gates_no_evaluation_points=50, stop_empty=25,
-        subsample_factor=None, support_check=1, support_min_p=None,
+        subsample_factor_forest=None, subsample_factor_eval=None,
+        support_check=1, support_min_p=None,
         support_quantil=1, support_max_del_train=0.5,
         train_mcf=True, variable_importance_oob=False,
         verbose=True, weight_as_sparse=True, weighted=False,
@@ -94,6 +95,8 @@ def ModifiedCausalForest(
         if train_mcf:
             gp.randomsample(datpfad, indata + '.csv', 'smaller_indata.csv',
                             _smaller_sample, True)
+        if preddata is None:
+            preddata = 'smaller_indata'
         if predict_mcf and preddata != indata:
             gp.randomsample(datpfad, preddata + '.csv', 'smaller_preddata.csv',
                             _smaller_sample, True)
@@ -108,10 +111,11 @@ def ModifiedCausalForest(
         n_min_grid, check_perfectcorr, n_min_min, clean_data_flag,
         min_dummy_obs, mce_vart, p_diff_penalty, boot, n_min_max,
         support_min_p, weighted, support_check, support_quantil,
-        subsample_factor, m_min_share, m_grid, stop_empty,
-        m_random_poisson, alpha_reg_min, alpha_reg_max, alpha_reg_grid,
-        random_thresholds, knn_min_k, share_forest_sample, descriptive_stats,
-        m_max_share, max_cats_z_vars, variable_importance_oob,
+        subsample_factor_forest, subsample_factor_eval, m_min_share, m_grid,
+        stop_empty, m_random_poisson, alpha_reg_min, alpha_reg_max,
+        alpha_reg_grid, random_thresholds, knn_min_k, share_forest_sample,
+        descriptive_stats, m_max_share, max_cats_z_vars,
+        variable_importance_oob,
         balancing_test, choice_based_sampling, knn_const, choice_based_weights,
         nw_kern_flag, post_kmeans_max_tries, cond_var_flag, knn_flag, nw_bandw,
         panel_data, _max_cats_cont_vars, cluster_std, fs_yes,
@@ -204,19 +208,20 @@ def ModifiedCausalForest(
          v_dict, c_dict, False, d_in_values, no_val_dict, q_inv_dict,
          q_inv_cr_dict, prime_values_dict, unique_val_dict,
          z_new_name_dict, z_new_dic_dict)
-    
+
     if c_dict['with_output'] and c_dict['verbose']:
         print()
         print('Dictionary for recoding of categorical variables into primes')
-        key_list_unique_val_dict = [key for key in unique_val_dict]
-        key_list_prime_values_dict = [key for key in prime_values_dict]
+        # key_list_unique_val_dict = [key for key in unique_val_dict]
+        # key_list_prime_values_dict = [key for key in prime_values_dict]
+        key_list_unique_val_dict = list(unique_val_dict)
+        key_list_prime_values_dict = list(prime_values_dict)
         for key_nr, key in enumerate(key_list_unique_val_dict):
             print(key)
             print(unique_val_dict[key])
             print(key_list_prime_values_dict[key_nr])  # order may differ!
             print(prime_values_dict[key_list_prime_values_dict[key_nr]])
-
-    # Remove missing and keep only variables needed for further analysis    
+    # Remove missing and keep only variables needed for further analysis
     if c_dict['clean_data_flag']:
         if c_dict['train_mcf']:
             namen1_to_inc = gp.add_var_names(
@@ -297,7 +302,6 @@ def ModifiedCausalForest(
                       'is activated. Therefore, the part of the input that is',
                       'used for estimating the forest is not used as',
                       'reference sample to get more reliable inference')
-
 # Descriptive statistics by treatment for outcomes and balancing variables
         if c_dict['with_output'] and c_dict['desc_stat']:
             variables_to_desc = [*v_dict['y_name'], *v_dict['x_balance_name']]
@@ -308,7 +312,6 @@ def ModifiedCausalForest(
                 gp_mcf.statistics_by_treatment(indata2, v_dict['d_name'],
                                                variables_to_desc)
             mcf_data.variable_features(var_x_type, var_x_values)
-
 # Common support
     if c_dict['common_support'] > 0:
         if not c_dict['train_mcf']:
@@ -388,14 +391,7 @@ def ModifiedCausalForest(
                 c_dict, x_name_mcf)
         else:
             raise Exception('Currently deactivated. Dics not saved.')
-            # time4 = time.time()
-            # time5 = time.time()
-            # loaded_tuple = gp.save_load(c_dict['save_forest_file_pickle'],
-            #                             save=False,
-            #                             output=c_dict['with_output'])
-            # forest = loaded_tuple[0]
-            # v_dict = loaded_tuple[7]
-            # x_name_mcf = loaded_tuple[8]
+
         time6 = time.time()    # Forest is tuple
         if c_dict['with_output'] and c_dict['verbose']:
             print()
@@ -412,21 +408,7 @@ def ModifiedCausalForest(
         time4 = time.time()
         time5 = time.time()
         time6 = time.time()
-# # Common support
-#     if c_dict['common_support'] > 0:
-#         if not c_dict['train_mcf']:
-#             indatei_tree = None
-#             prob_score = np.load(c_dict['save_forest_file_ps'])
-#             d_train_tree = np.load(c_dict['save_forest_file_d_train_tree'])
-#         else:
-#             prob_score = None
-#             d_train_tree = None
-#         (preddata3, indatei_tree, fill_y_sample, common_support_list,
-#          prob_score, d_train_tree) = mcf_cs.common_support(
-#           indatei_tree, fill_y_sample, preddata2, var_x_type, v_dict, c_dict,
-#             common_support_list, prime_values_dict, prob_score, d_train_tree)
-#     else:
-#         preddata3 = preddata2
+
     if c_dict['save_forest'] and c_dict['train_mcf']:
         save_train_data_for_pred(fill_y_sample, v_dict, c_dict, prob_score,
                                  d_train_tree)
@@ -458,11 +440,7 @@ def ModifiedCausalForest(
             del forest
         # Estimation and inference given weights
         time8 = time.time()
-        # time_string = [    'Weight computation:              '
-        #                 ]
-        # time_difference = [time8 - time7]
-        # gp.print_timing(time_string, time_difference)  # print to file
-        # sys.exit()
+
         w_ate, _, _, ate, ate_se, effect_list = mcf_ate.ate_est(
             weights, preddata3, y_train, cl_train, w_train, v_dict, c_dict)
         time9_ate = time.time()
@@ -472,12 +450,16 @@ def ModifiedCausalForest(
                 var_x_type, var_x_values, w_ate)
             del forest
         time9_marg = time.time()
-        if c_dict['with_output']:
-            mcf_gate.gate_est(weights, preddata3, y_train, cl_train, w_train,
-                              v_dict, c_dict, var_x_type, var_x_values, w_ate,
-                              ate, ate_se)
+        # if c_dict['with_output']:
+        if c_dict['gate_yes']:
+            gate, gate_se = mcf_gate.gate_est(
+                weights, preddata3, y_train, cl_train, w_train, v_dict, c_dict,
+                var_x_type, var_x_values, w_ate, ate, ate_se)
+        else:
+            gate = gate_se = None
         time9_gate = time.time()
-        pred_outfile, _, _, _, _, names_pot_iate = mcf_iate.iate_est_mp(
+        (pred_outfile, _, _, iate, iate_se, names_pot_iate
+         ) = mcf_iate.iate_est_mp(
             weights, preddata3, y_train, cl_train, w_train, v_dict, c_dict,
             w_ate)
         del _, w_ate
@@ -571,6 +553,7 @@ def ModifiedCausalForest(
         else:
             outfiletext.close()
         sys.stdout = orig_stdout
+    return ate, ate_se, gate, gate_se, iate, iate_se, pred_outfile
 
 
 def save_train_data_for_pred(data_file, v_dict, c_dict, prob_score,

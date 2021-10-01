@@ -64,6 +64,18 @@ def get_controls(c_dict, v_dict):
     vn: Updated list of variables.
 
     """
+    def sub_size(n_train, subsample_share, max_share):
+        if subsample_share is None:
+            subsample_share = -1
+        if subsample_share <= 0:
+            subsample_share = 1
+        subsam_share = 2 * ((n_train / 2)**0.85) / (n_train / 2)
+        subsam_share = min(subsam_share, 0.67)
+        subsam_share = subsam_share * subsample_share
+        subsam_share = min(subsam_share, max_share)
+        subsam_share = max(subsam_share, 1e-4)
+        return subsam_share
+
     path_programme_run = str(Path(__file__).parent.absolute())
     if c_dict['datpfad'] is None:
         c_dict['datpfad'] = path_programme_run
@@ -71,6 +83,8 @@ def get_controls(c_dict, v_dict):
         c_dict['outpfad'] = path_programme_run + '/out'
     out_temp = c_dict['outpfad']
     for i in range(1000):
+        if not c_dict['with_output']:
+            break
         if os.path.isdir(out_temp):
             if not ((c_dict['with_output'] is False)
                 or (c_dict['verbose'] is False)):
@@ -127,7 +141,7 @@ def get_controls(c_dict, v_dict):
     fig_pfad_jpeg = c_dict['outpfad'] + '/' + 'fig_jpeg'
     fig_pfad_csv = c_dict['outpfad'] + '/' + 'fig_csv'
     fig_pfad_pdf = c_dict['outpfad'] + '/' + 'fig_pdf'
-    if c_dict['pred_mcf']:
+    if c_dict['pred_mcf'] and c_dict['with_output']:
         if not os.path.isdir(fig_pfad_jpeg):
             os.mkdir(fig_pfad_jpeg)
         if not os.path.isdir(fig_pfad_csv):
@@ -185,9 +199,9 @@ def get_controls(c_dict, v_dict):
     else:
         c_dict['w_yes'] = False
         cnew_dict['w_yes'] = False
-        
+
     if c_dict['output_type'] is None:
-        c_dict['output_type'] = 2        
+        c_dict['output_type'] = 2
     if c_dict['output_type'] == 0:
         print_to_file = False
         print_to_terminal = True
@@ -339,11 +353,11 @@ def get_controls(c_dict, v_dict):
             cnew_dict['n_min_max'] = round(c_dict['n_min_max'])
         if cnew_dict['n_min_max'] < 1:
             if cnew_dict['n_min_max'] == -1:
-                cnew_dict['n_min_max'] = round(math.sqrt(n_d_subsam)/5)
+                cnew_dict['n_min_max'] = round(math.sqrt(n_d_subsam) / 5)
                 if cnew_dict['n_min_max'] < 5:
                     cnew_dict['n_min_max'] = 5
             else:
-                cnew_dict['n_min_max'] = round(math.sqrt(n_d_subsam)/10)
+                cnew_dict['n_min_max'] = round(math.sqrt(n_d_subsam) / 10)
                 if cnew_dict['n_min_max'] < 3:
                     cnew_dict['n_min_max'] = 3
         if c_dict['n_min_grid'] is None:
@@ -406,7 +420,7 @@ def get_controls(c_dict, v_dict):
         if c_dict['random_thresholds'] is None:
             c_dict['random_thresholds'] = -1
         if c_dict['random_thresholds'] < 0:     # Saves computation time
-            cnew_dict['random_thresholds'] = 20
+            cnew_dict['random_thresholds'] = round(math.sqrt(n_train) / 5)
             # Feature preselection
         if c_dict['fs_yes'] is True:
             cnew_dict['fs_yes'] = True
@@ -428,16 +442,12 @@ def get_controls(c_dict, v_dict):
         if cnew_dict['fs_other_sample'] is False or (
                 cnew_dict['fs_yes'] is False):
             cnew_dict['fs_other_sample_share'] = 0
+
         # size of subsampling samples         n/2: size of forest sample
-        subsam_share = 2 * ((n_train / 2)**0.85) / (n_train / 2)
-        subsam_share = min(subsam_share, 0.67)
-        if c_dict['subsample_factor'] is None:
-            c_dict['subsample_factor'] = -1
-        if c_dict['subsample_factor'] <= 0:
-            cnew_dict['subsample_factor'] = 1
-        subsam_share = subsam_share * cnew_dict['subsample_factor']
-        subsam_share = min(subsam_share, 0.8)
-        subsam_share = max(subsam_share, 1e-4)
+        subsam_share_forest = sub_size(
+            n_train, c_dict['subsample_factor_forest'], 0.8)
+        subsam_share_eval = sub_size(
+            n_train, c_dict['subsample_factor_eval'], 1)
         # Define method to be used later on
         if c_dict['mce_vart'] is None:
             c_dict['mce_vart'] = -1
@@ -465,8 +475,8 @@ def get_controls(c_dict, v_dict):
                 cnew_dict['mtot_p_diff_penalty'] = 0.5
             else:                                   # Approx 1 for N = 1000
                 cnew_dict['mtot_p_diff_penalty'] = (
-                    4 * ((n_train * subsam_share)**0.8)
-                    / (n_train * subsam_share))
+                    4 * ((n_train * subsam_share_forest)**0.8)
+                    / (n_train * subsam_share_forest))
                 if mtot == 2:
                     cnew_dict['mtot_p_diff_penalty'] = 100 * cnew_dict[
                         'mtot_p_diff_penalty']
@@ -529,7 +539,8 @@ def get_controls(c_dict, v_dict):
             cnew_dict['var_import_oob'] = False
     else:
         n_min = None
-        subsam_share = None
+        subsam_share_eval = None
+        subsam_share_forest = None
         mtot = None
         mtot_no_mce = None
     if c_dict['pred_mcf']:
@@ -700,7 +711,7 @@ def get_controls(c_dict, v_dict):
                     middle = 10
                 else:
                     middle = 5 + int(round(n_pred/20000))
-                if middle < 7:    
+                if middle < 7:
                     cnew_dict['post_km_no_of_groups'] = [
                         middle-2, middle-1, middle, middle+1, middle+2]
                 else:
@@ -873,7 +884,8 @@ def get_controls(c_dict, v_dict):
               'grid_n_min':         n_min,
               'title_variance':     'Weight-based variance',
               'add_pred_to_data_file': add_pred_to_data_file,
-              'subsam_share':       subsam_share,
+              'subsam_share_forest': subsam_share_forest,
+              'subsam_share_eval':  subsam_share_eval,
               'mtot':               mtot,
               'mtot_no_mce':        mtot_no_mce,
               'd_values':           d_values,
@@ -938,6 +950,10 @@ def get_controls(c_dict, v_dict):
     if cnew_dict['w_yes'] == 0:
         vnew_dict['w_name'] = []
     else:
+        if vnew_dict['w_name'] is None:
+            raise Exception('No name for sample weights specified.')
+        if vnew_dict['w_name'] == []:
+            raise Exception('No name for sample weights specified.')
         vnew_dict['w_name'] = gp.cleaned_var_names(vnew_dict['w_name'])
     vnew_dict['id_name'] = gp.cleaned_var_names(vnew_dict['id_name'])
 
@@ -992,8 +1008,10 @@ def get_controls(c_dict, v_dict):
             and (vnew_dict['z_name_unord'] == [])):
         cnew_dict.update({'agg_yes': 0})
         z_name = []
+        cnew_dict.update({'gate_yes': False})
     else:
         cnew_dict.update({'agg_yes': 1})
+        cnew_dict.update({'gate_yes': True})
         if not vnew_dict['z_name_list'] == []:
             names_to_check_train.extend(vnew_dict['z_name_list'])
             names_to_check_pred.extend(vnew_dict['z_name_list'])
@@ -1004,24 +1022,32 @@ def get_controls(c_dict, v_dict):
             names_to_check_train.extend(vnew_dict['z_name_unord'])
             names_to_check_pred.extend(vnew_dict['z_name_unord'])
         z_name = vnew_dict['z_name_ord'] + vnew_dict['z_name_unord']
-    if (cnew_dict['atet_flag'] or cnew_dict['gatet_flag']) and c_dict[
-            'pred_mcf']:
+    if (cnew_dict['atet_flag'] or cnew_dict['gatet_flag'] or
+        cnew_dict['choice_based_yes']) and c_dict['pred_mcf']:
         data2 = pd.read_csv(cnew_dict['preddata'], nrows=2)
         var_names = list(data2.columns)
         var_names_up = [s.upper() for s in var_names]
         if vnew_dict['d_name'][0] not in var_names_up:
-            if cnew_dict['with_output'] and c_dict['verbose']:
+            if cnew_dict['with_output'] and c_dict['verbose'] and (
+                    cnew_dict['atet_flag'] or cnew_dict['gatet_flag']):
                 print('-' * 80)
                 add_text = 'Treatment variable not in prediction data. '
                 add_text += 'ATET and GATET cannot be computed. '
                 print(add_text)
                 print('-' * 80)
+            else:
+                add_text = ''
             cnew_dict['atet_flag'] = False
             cnew_dict['gatet_flag'] = False
             if text_to_print is not None:
                 text_to_print = add_text + ' \n' + text_to_print
             else:
                 text_to_print = add_text
+            if cnew_dict['choice_based_yes']:
+                raise Exception('Choice based sampling relates only to ' +
+                                'prediction file. It requires treatment ' +
+                                'information in prediction file, WHICH IS ' +
+                                'MISSING!')
     else:
         text_to_print = None
     vn_add = {
@@ -1036,6 +1062,7 @@ def get_controls(c_dict, v_dict):
         'names_to_check_train': names_to_check_train,
         'names_to_check_pred':  names_to_check_pred}
     vnew_dict.update(vn_add)
+    
     return cnew_dict, vnew_dict, text_to_print
 
 
@@ -1045,8 +1072,9 @@ def controls_into_dic(
         check_perfectcorr, n_min_min, clean_data_flag,
         min_dummy_obs, mce_vart, p_diff_penalty, boot, n_min_max,
         support_min_p, weighted, support_check, support_quantil,
-        subsample_factor, m_min_share, m_grid, stop_empty,
-        m_random_poisson, alpha_reg_min, alpha_reg_max, alpha_reg_grid,
+        subsample_factor_forest, subsample_factor_eval,
+        m_min_share, m_grid, stop_empty, m_random_poisson, alpha_reg_min,
+        alpha_reg_max, alpha_reg_grid,
         random_thresholds, knn_min_k, share_forest_sample, descriptive_stats,
         m_max_share, max_cats_z_vars, variable_importance_oob,
         balancing_test, choice_based_sampling, knn_const, choice_based_weights,
@@ -1089,7 +1117,9 @@ def controls_into_dic(
         'common_support': support_check, 'n_min_max': n_min_max,
         'support_quantil': support_quantil, 'knn_min_k': knn_min_k,
         'nw_bandw': nw_bandw, 'nw_kern': nw_kern_flag,
-        'subsample_factor': subsample_factor, 'm_min_share': m_min_share,
+        'subsample_factor_forest': subsample_factor_forest,
+        'subsample_factor_eval': subsample_factor_eval,
+        'm_min_share': m_min_share,
         'm_grid': m_grid, 'stop_empty': stop_empty,
         'm_random_poisson': m_random_poisson, 'alpha_reg_min': alpha_reg_min,
         'alpha_reg_max': alpha_reg_max, 'alpha_reg_grid': alpha_reg_grid,

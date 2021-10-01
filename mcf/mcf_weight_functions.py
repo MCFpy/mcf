@@ -138,7 +138,8 @@ def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
                 if no_of_boot_splits > 1:
                     split_forest = True
                 else:
-                    print('No tree batching')
+                    if c_dict['with_output']:
+                        print('No tree batching')
         if split_forest:
             boot_indx_list = np.array_split(range(c_dict['boot']),
                                             no_of_boot_splits)
@@ -223,6 +224,7 @@ def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
                                 weights[val_list] = results_fut_idx[1][idx]
                         empty_leaf_counter += results_fut_idx[2]
                         merge_leaf_counter += results_fut_idx[3]
+                del x_dat_ref, forest_ref, finished, still_running, tasks
                 ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers

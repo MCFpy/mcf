@@ -209,6 +209,7 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
     else:
         vim_mg = None
     if c_dict['mp_with_ray']:
+        del finished, still_running, data_np_ref, forest_ref, tasks
         ray.shutdown()
     return vim, vim_g, vim_mg, x_name
 

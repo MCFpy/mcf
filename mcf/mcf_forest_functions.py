@@ -95,6 +95,7 @@ def fill_trees_with_y_indices_mp(forest, indatei, v_dict, v_x_type, v_x_values,
                     if c_dict['with_output'] and c_dict['verbose']:
                         gp.share_completed(jdx+1, c_dict['boot'])
                     jdx += 1
+            del x_dat_ref, finished, still_running, tasks
             ray.shutdown()
         else:
             with futures.ProcessPoolExecutor(max_workers=maxworkers) as fpp:
@@ -147,19 +148,33 @@ def fill_mp(node_table, obs, d_dat, x_dat, b_idx, c_dict, regrf=False):
     b_idx : Int. Tree number.
 
     """
-    obs_in_leaf = np.empty((obs, 1), dtype=np.uint32)
+    if not regrf:
+        subsam = bool(c_dict['subsam_share_eval'] < 1)
+    else:
+        subsam = False
     indices = np.arange(obs)
+    if subsam:
+        obs = round(obs * c_dict['subsam_share_eval'])
+        np.random.seed((10+b_idx)**2+121)
+        indices = np.random.choice(indices, size=obs, replace=False)
+        obs_in_leaf = np.zeros((obs, 1), dtype=np.uint32)
+        for i, idx in enumerate(indices):
+            obs_in_leaf[i] = get_terminal_leaf_no(node_table, x_dat[idx, :])
+        unique_leafs = np.unique(obs_in_leaf)
+        unique_leafs = unique_leafs[1:]  # remove first index: obs not used
+        d_dat = d_dat[indices]
+    else:
+        obs_in_leaf = np.zeros((obs, 1), dtype=np.uint32)
+        for idx in indices:
+            obs_in_leaf[idx] = get_terminal_leaf_no(node_table, x_dat[idx, :])
+        unique_leafs = np.unique(obs_in_leaf)
     nodes_empty = 0
-    for idx in range(obs):
-        obs_in_leaf[idx] = get_terminal_leaf_no(node_table, x_dat[idx, :])
-    unique_leafs = np.unique(obs_in_leaf)
     for leaf_id in unique_leafs:
         sel_ind = obs_in_leaf.reshape(-1) == leaf_id
         node_table[leaf_id][14] = indices[sel_ind]
         if regrf:
             empty_leaf = len(sel_ind) < 1
         else:
-            # empty_leaf=len(np.unique(d_dat[indices])) < c_dict['no_of_treat']
             empty_leaf = len(np.unique(d_dat[sel_ind])) < c_dict['no_of_treat']
         if empty_leaf:
             node_table[leaf_id][16] = 1   # Leaf to be ignored
@@ -442,7 +457,10 @@ def describe_forest(forest, m_n_min_ar, v_dict, c_dict, pen_mult=0,
         print('Splitting rule used:        {0:<4}'.format(splitting_rule))
         if c_dict['mtot_p_diff_penalty'] > 0:
             print('Penalty used in splitting: ', pen_mult)
-    print('Share of data in subsample: {0:<4}'.format(c_dict['subsam_share']))
+    print('Share of data in subsample for forest buildung: {0:<4}'.format(
+        c_dict['subsam_share_forest']))
+    print('Share of data in subsample for forest evaluation: {0:<4}'.format(
+        c_dict['subsam_share_eval']))
     print('Total number of variables available for splitting: {0:<4}'.format(
         len(v_dict['x_name'])))
     print('# of variables (M) used for split: {0:<4}'.format(m_n_min_ar[0]))
@@ -461,7 +479,7 @@ def describe_forest(forest, m_n_min_ar, v_dict, c_dict, pen_mult=0,
     print('-' * 80)
 
 
-def best_m_n_min_alpha_reg(forest, c_dict, regrf=False):
+def best_m_n_min_alpha_reg(forest, c_dict):
     """Get best forest for the tuning parameters m_try, n_min, alpha_reg.
 
     Parameters
@@ -512,12 +530,12 @@ def best_m_n_min_alpha_reg(forest, c_dict, regrf=False):
                         if leaf[7] is None:
                             if c_dict['no_of_treat'] is None:
                                 n_lost += leaf[6]
-                            else:    
+                            else:
                                 n_lost += np.sum(leaf[6])  # [6]: Leaf size
-                        else:                              
+                        else:
                             if c_dict['no_of_treat'] is None:  # [7]: leaf_mse
                                 tree_mse += leaf[6] * leaf[7]
-                            else:    
+                            else:
                                 mse_mce_tree, obs_t_tree = add_rescale_mse_mce(
                                     leaf[7], leaf[6], c_dict['mtot'],
                                     c_dict['no_of_treat'], mse_mce_tree,
@@ -525,10 +543,10 @@ def best_m_n_min_alpha_reg(forest, c_dict, regrf=False):
                 if n_lost > 0:
                     if c_dict['no_of_treat'] is None:
                         tree_mse = tree_mse * n_total / (n_total - n_lost)
-                    else:    
+                    else:
                         if (n_total - n_lost) < 1:
                             trees_without_oob[j] += 1
-                if c_dict['no_of_treat'] is not None:            
+                if c_dict['no_of_treat'] is not None:
                     mse_mce_tree = get_avg_mse_mce(
                         mse_mce_tree, obs_t_tree, c_dict['mtot'],
                         c_dict['no_of_treat'])
@@ -674,7 +692,7 @@ def mcf_mse_not_numba(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
     for m_idx in range(no_of_treat):
         d_m = d_dat == treat_values[m_idx]   # d_m is Boolean
         n_m = len(y_dat[d_m])
-        no_of_obs_by_treat[m_idx] = n_m.copy()
+        no_of_obs_by_treat[m_idx] = n_m
         if w_yes:
             w_m = w_dat[d_m]
             y_m_mean = np.average(y_dat[d_m], weights=w_m, axis=0)
@@ -726,114 +744,6 @@ def mcf_mse_not_numba(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
                         mce_ml = bbb - aaa
                 mse_mce[m_idx, v_idx] = mce_ml
     return mse_mce, treat_shares, no_of_obs_by_treat
-
-
-@njit
-def mcf_mse_numba_old(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat,
-                      treat_values, w_yes, corrected):
-    """Compute average mse for the data passed. Based on different methods.
-
-       WEIGHTED VERSION DOES NOT YET WORK. TRY with next Numba version.
-       Need to change list format soon.
-
-    Parameters
-    ----------
-    y_dat : Numpy Nx1 vector. Outcome variable of observation.
-    y_nn : Numpy N x no_of_treatments array. Matched outcomes.
-    d_dat : Numpy Nx1 vector. Treatment.
-    n : INT. Leaf size.
-    mtot : INT. Method.
-    no_of_treat : INT. Number of treated.
-    treat_values : 1D Numpy array of INT. Treatment values.
-    w_yes: Boolean. Weighted estimation.
-
-    Returns
-    -------
-    mse : Mean squared error (average not acccount of number of obs).
-    treat_share: 1D Numpy array. Treatment shares.
-    """
-    mse = 0
-    mce = 0
-    obs = len(y_dat)
-    if mtot in (1, 4):
-        treat_shares = np.zeros(no_of_treat)
-    else:
-        treat_shares = np.zeros(1)
-    if corrected:
-        mse_mce = np.zeros((no_of_treat, no_of_treat))
-        mse_md = np.zeros(no_of_treat)
-        no_of_obs_by_treat = np.zeros(no_of_treat)
-    for m_idx in range(no_of_treat):
-        d_m = d_dat == treat_values[m_idx]   # d_m is Boolean
-        n_m = np.sum(d_m)
-        if corrected:
-            no_of_obs_by_treat[m_idx] = n_m
-        y_m = np.empty(n_m)
-        j = 0
-        for i in range(obs):
-            if d_m[i]:
-                y_m[j] = y_dat[i, 0]
-                j += 1
-        if w_yes:
-            raise Exception('not yet implemented for weighting with Numba')
-        y_m_mean = np.sum(y_m) / n_m
-        mse_m = np.dot(y_m, y_m) / n_m - (y_m_mean**2)
-        if mtot in (1, 4):
-            treat_shares[m_idx] = n_m / n_obs
-            if corrected:
-                # mse[m_idx, m_idx] = mse_m
-                mse_md[m_idx] = mse_m
-            else:
-                mse += (no_of_treat - 1) * mse_m
-        elif mtot == 3:
-            if corrected:
-                mse_mce[m_idx, m_idx] = mse_m
-            else:
-                mse += mse_m
-        if mtot != 3:
-            mce_ml = 0
-            for v_idx in range(m_idx + 1, no_of_treat):
-                d_l = d_dat == treat_values[v_idx]   # d_l is Boolean
-                n_l = np.sum(d_l)
-                if mtot == 2:  # Variance of effects mtot = 2
-                    y_l = np.empty(n_l)
-                    j = 0
-                    for i in range(obs):
-                        if d_l[i]:
-                            y_l[j] = y_dat[i, 0]
-                            j += 1
-                    if w_yes:
-                        pass
-                    else:
-                        y_l_mean = np.sum(y_l) / n_l
-                    mce_ml = (y_m_mean - y_l_mean)**2
-                else:
-                    d_ml = (d_dat == treat_values[v_idx]) | (
-                        d_dat == treat_values[m_idx])
-                    n_ml = np.sum(d_ml)
-                    y_nn_l = np.empty(n_ml)
-                    y_nn_m = np.empty(n_ml)
-                    j = 0
-                    for i in range(obs):
-                        if d_ml[i]:
-                            y_nn_l[j] = y_nn[i, v_idx]
-                            y_nn_m[j] = y_nn[i, m_idx]
-                            j += 1
-                    if w_yes:
-                        pass
-                    else:
-                        aaa = np.sum(y_nn_m) / n_ml * np.sum(y_nn_l) / n_ml
-                        bbb = np.dot(y_nn_m, y_nn_l) / len(y_nn_m)
-                        mce_ml = bbb - aaa
-                if corrected:
-                    mse_mce[m_idx, v_idx] = mce_ml
-                else:
-                    mce += mce_ml
-    if corrected:
-        return mse_mce, treat_shares, no_of_obs_by_treat
-    else:
-        mse -= 2 * mce
-        return mse, treat_shares
 
 
 @njit
@@ -1584,7 +1494,7 @@ def build_tree_mcf(data, y_i, y_nn_i, x_i, d_i, cl_i, w_i, x_type, x_values,
     if c_dict['panel_in_rf']:
         cl_unique = np.unique(data[:, cl_i])
         n_cl = cl_unique.shape[0]
-        n_train = round(n_cl * c_dict['subsam_share'])
+        n_train = round(n_cl * c_dict['subsam_share_forest'])
         indices_cl = random.sample(range(n_cl), n_train)  # Returns list
         indices = []
         for i in range(n_obs):
@@ -1592,7 +1502,7 @@ def build_tree_mcf(data, y_i, y_nn_i, x_i, d_i, cl_i, w_i, x_type, x_values,
                 indices.append(i)
         data = data[:, :-1]                 # CL_ind is at last position
     else:
-        n_train = round(n_obs * c_dict['subsam_share'])
+        n_train = round(n_obs * c_dict['subsam_share_forest'])
         indices = random.sample(range(n_obs), n_train)
     data_tr = data[indices]
     data_oob = np.delete(data, indices, axis=0)
@@ -1706,6 +1616,7 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
                     del finished_res
                     if jdx % 50 == 0:   # every 50'th tree
                         gp_sys.auto_garbage_collect(50)  # do if half mem full
+                del data_np_ref, finished, still_running
                 ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
@@ -1755,6 +1666,7 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
                     del finished_res
                     if jdx % 50 == 0:   # every 50'th tree
                         gp_sys.auto_garbage_collect(50)  # do if 0.5 mem. full
+                del data_np_ref, finished, still_running, tasks
                 ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
@@ -1774,7 +1686,7 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
             raise Exception('Forest has wrong size: ', len(forest),
                             'Bug in Multiprocessing.')
     # find best forest given the saved oob values
-    forest_final, m_n_final = best_m_n_min_alpha_reg(forest, c_dict, regrf)
+    forest_final, m_n_final = best_m_n_min_alpha_reg(forest, c_dict)
     del forest    # Free memory
     # Describe final tree
     if c_dict['with_output']:

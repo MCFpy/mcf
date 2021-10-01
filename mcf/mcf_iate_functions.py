@@ -108,12 +108,6 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
              share_censored) = assign_ret_all_i(
                  pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var, l1_to_9,
                  share_censored, ret_all_i, n_x, idx)
-            # pot_y[idx, :, :] = ret_all_i[1]
-            # pot_y_var[idx, :, :] = ret_all_i[2]
-            # pot_y_m_ate[idx, :, :] = ret_all_i[3]
-            # pot_y_m_ate_var[idx, :, :] = ret_all_i[4]
-            # l1_to_9[idx] = ret_all_i[5]
-            # share_censored += ret_all_i[6] / n_x
             if c_dict['with_output'] and c_dict['verbose']:
                 gp.share_completed(idx+1, n_x)
     else:
@@ -151,6 +145,7 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                         if c_dict['with_output'] and c_dict['verbose']:
                             gp.share_completed(jdx+1, n_x)
                         jdx += 1
+                del finished, still_running, tasks
                 ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
@@ -220,6 +215,7 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                         if c_dict['with_output'] and c_dict['verbose']:
                             gp.share_completed(jdx+1, no_of_splits)
                         jdx += 1
+                del finished, still_running        
                 ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
@@ -323,6 +319,7 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                     if c_dict['with_output'] and c_dict['verbose']:
                         gp.share_completed(jdx+1, n_x)
                     jdx += 1
+            del finished, still_running, tasks
             ray.shutdown()
         else:
             with futures.ProcessPoolExecutor(max_workers=maxworkers) as fpp:
@@ -384,7 +381,7 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
     name_iate_se0 = [s + '_iate_se' for s in name_eff0]
     name_iate_mate0 = [s + '_iatemate' for s in name_eff0]
     name_iate_mate_se0 = [s + '_iatemate_se' for s in name_eff0]
-    if save_predictions:
+    if c_dict['with_output'] and save_predictions:
         pot_y_df = pd.DataFrame(data=pot_y_np, columns=name_pot_y)
         pot_y_se_df = pd.DataFrame(data=pot_y_se_np, columns=name_pot_y_se)
         iate_df = pd.DataFrame(data=iate_np, columns=name_iate)
@@ -789,7 +786,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                 label_r = 'ATE'
             else:
                 label_t = 'IATE-ATE'
-                label_r = 'Zero'
+                label_r = '_nolegend_'
             axe.plot(x_values, iate_temp, line_iate, label=label_t)
             axe.set_ylabel(label_t)
             axe.plot(x_values, ate_t, line_ate, label=label_r)
@@ -901,6 +898,11 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
         print('Effects are ordered w.r.t. to size of the effects for the',
               ' first outcome.')
         print('Effects', '\n' + ('-' * 80))
+        daten_neu = data.copy()
+        daten_neu['IATE_Cluster'] = cl_group
+        gp.delete_file_if_exists(file_name)
+        daten_neu.to_csv(file_name)
+        del daten_neu
         cl_means = iate.groupby(by=cl_group).mean()
         print(cl_means.transpose())
         print('-' * 80, '\nPotential outcomes', '\n' + ('-' * 80))

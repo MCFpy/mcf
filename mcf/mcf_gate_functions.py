@@ -170,6 +170,8 @@ def mgate_function(
             print('Marginal variable predictive plots')
         else:
             print('Marginale GATEs evaluated at median (MGATES)', '\n')
+        if c_dict_mgate['choice_based_yes']:
+            print('Choice based sampling deactivated for MGATES.')
     ref_values, eva_values = ref_vals_margplot(
         pred_sample, var_x_type, var_x_values,
         with_output=c_dict['with_output'], ref_values_needed=True,
@@ -181,6 +183,8 @@ def mgate_function(
     c_dict_mgate['w_yes'] = False   # Weighting not needed here
     with_output_old = c_dict_mgate['with_output']
     c_dict_mgate['with_output'] = False
+    choice_based_yes_old = c_dict_mgate['choice_based_yes']
+    c_dict_mgate['choice_based_yes'] = False
     for vname in v_dict['z_name_mgate']:
         if vname in x_name_mcf:
             if c_dict['with_output'] and c_dict['verbose']:
@@ -231,6 +235,7 @@ def mgate_function(
                   '(equally weighted).')
     c_dict_mgate['w_yes'] = w_yes_old
     c_dict_mgate['with_output'] = with_output_old
+    c_dict_mgate['choice_based_yes'] = choice_based_yes_old
     return any_plots_done
 
 
@@ -268,15 +273,9 @@ def plot_marginal(pred, pred_se, names_pred, x_name, x_values_in, x_type,
                 titel = 'MGATEMATE ' + x_name + names_pred[idx][:-9]
             else:
                 titel = 'MGATE ' + x_name + names_pred[idx][:-5]
-        # pred_temp = pred[:, idx].flatten()
-        # pred_se_temp = pred_se[:, idx].flatten()
         pred_temp = pred[:, idx]
         pred_se_temp = pred_se[:, idx]
         if x_type == 0 and len(x_values) > c_dict['no_filled_plot']:
-            # pred_temp = gp.moving_avg_mean_var(pred_temp, x_values, 3,
-            #                                    False)[0]
-            # pred_se_temp = gp.moving_avg_mean_var(pred_se_temp, x_values, 3,
-            #                                       False)[0]
             pred_temp = gp_est.moving_avg_mean_var(pred_temp, 3, False)[0]
             pred_se_temp = gp_est.moving_avg_mean_var(
                 pred_se_temp, 3, False)[0]
@@ -287,14 +286,19 @@ def plot_marginal(pred, pred_se, names_pred, x_name, x_values_in, x_type,
         upper = pred_temp + pred_se_temp * conf_int
         lower = pred_temp - pred_se_temp * conf_int
         fig, axs = plt.subplots()
-        # label_t = names_pred[idx]
         label_u = 'Upper ' + str(round(c_dict['fig_ci_level'] * 100)) + '%-CI'
         label_l = 'Lower ' + str(round(c_dict['fig_ci_level'] * 100)) + '%-CI'
         label_ci = str(c_dict['fig_ci_level'] * 100) + '%-CI'
         if regrf:
             label_m = 'Conditional prediction'
         else:
-            label_m = 'MGATE'
+            if minus_ate:
+                label_m = 'MGATE-ATE'
+                label_0 = '_nolegend_'
+                line_0 = '_-k'
+                zeros = np.zeros_like(pred_temp)
+            else:
+                label_m = 'MGATE'
         if x_type == 0 and len(x_values) > c_dict['no_filled_plot']:
             axs.plot(x_values, pred_temp, label=label_m, color='b')
             axs.fill_between(x_values, upper, lower, alpha=0.3, color='b',
@@ -311,9 +315,11 @@ def plot_marginal(pred, pred_se, names_pred, x_name, x_values_in, x_type,
                 connect_x[0] = i_lab
                 connect_x[1] = i_lab
                 axs.plot(connect_x, connect_y, 'b-', linewidth=0.7)
-            axs.plot(x_values, pred_temp, middle + 'b', label=label_m)
+            axs.plot(x_values, pred_temp, middle +'b', label=label_m)
             axs.plot(x_values, upper, u_line + 'b', label=label_u)
             axs.plot(x_values, lower, l_line + 'b', label=label_l)
+            if minus_ate:
+                axs.plot(x_values, zeros, line_0, label=label_0)
         if c_dict['with_output']:
             print_mgate(pred_temp, pred_se_temp, titel, x_values)
         axs.set_ylabel(label_m)
@@ -332,8 +338,10 @@ def plot_marginal(pred, pred_se, names_pred, x_name, x_values_in, x_type,
         upper = upper.reshape(-1, 1)
         lower = lower.reshape(-1, 1)
         pred_temp = pred_temp.reshape(-1, 1)
-        effects_et_al = np.concatenate((upper, pred_temp, lower), axis=1)
-        cols = ['upper', 'effects', 'lower']
+        x_values_np = np.array(x_values, copy=True).reshape(-1, 1)
+        effects_et_al = np.concatenate((upper, pred_temp, lower, x_values_np),
+                                        axis=1)
+        cols = ['upper', 'effects', 'lower', 'x_values']
         datasave = pd.DataFrame(data=effects_et_al, columns=cols)
         gp.delete_file_if_exists(file_name_csv)
         datasave.to_csv(file_name_csv, index=False)
@@ -647,8 +655,6 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
             maxworkers = c_dict['no_parallel']
         if weights_all2 is None:
             maxworkers = round(maxworkers / 2)
-        # if maxworkers > no_of_zval:
-        #     maxworkers = no_of_zval
         if not maxworkers > 0:
             maxworkers = 1
     if c_dict['with_output'] and c_dict['verbose']:
@@ -694,22 +700,6 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
         pot_y_var = np.empty(dim_all)
         pot_y_mate = np.empty(dim_all)
         pot_y_mate_var = np.empty(dim_all)
-        # if c_dict['no_parallel'] < 1.5:
-        #     maxworkers = 1
-        # else:
-        #     if c_dict['mp_automatic']:
-        #         maxworkers = gp.find_no_of_workers(c_dict['no_parallel'],
-        #                                            c_dict['sys_share']/2)
-        #     else:
-        #         maxworkers = c_dict['no_parallel']
-        #     if weights_all2 is None:
-        #         maxworkers = round(maxworkers / 2)
-        #     if maxworkers > no_of_zval:
-        #         maxworkers = no_of_zval
-        #     if not maxworkers > 0:
-        #         maxworkers = 1
-        # if c_dict['with_output']:
-        #     print('Number of parallel processes: ', maxworkers, flush=True)
         if maxworkers == 1:
             for zj_idx in range(no_of_zval):
                 results_fut_zj = gate_zj(
@@ -748,6 +738,8 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                         w_gate, w_gate_unc, w_censored = assign_w(
                             w_gate, w_gate_unc, w_censored, results_fut_idx,
                             results_fut_idx[6])
+                del finished, still_running, tasks
+                # del finished, still_running, tasks, weights_all_ref
                 # ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
@@ -878,6 +870,7 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
         gate[z_name_j] = gate_z
         gate_se[z_name_j] = gate_z_se
     if c_dict['mp_with_ray']:
+        del weights_all_ref
         ray.shutdown()
     if files_to_delete:  # delete temporary files
         for file in files_to_delete:
@@ -1262,7 +1255,7 @@ def make_gate_figures(titel, z_name, z_values, z_type, effects, stderr,
                     alpha=0.3, color='r', label=label_ci)
                 label_ate = 'ATE'
             else:
-                label_ate = 'Zero'
+                label_ate = '_nolegend_'
             axs.plot(z_values, ate, line_ate, label=label_ate)
             axs.set_ylabel(label_m)
             axs.legend(loc='lower right', shadow=True,
@@ -1298,18 +1291,20 @@ def make_gate_figures(titel, z_name, z_values, z_type, effects, stderr,
             gate_str = 'AMGATE'
         else:
             gate_str = 'GATE'
+        ate_label = 'ATE'
     else:
         if am_gate:
             gate_str = 'AMGATE-ATE'
         else:
             gate_str = 'GATE-ATE'
+        ate_label = '_nolegend_'
     axe.plot(z_values, effects, e_line + 'b', label=gate_str)
     axe.set_ylabel(gate_str)
     label_u = 'Upper ' + str(round(c_dict['fig_ci_level'] * 100)) + '%-CI'
     label_l = 'Lower ' + str(round(c_dict['fig_ci_level'] * 100)) + '%-CI'
     axe.plot(z_values, upper, u_line + 'b', label=label_u)
     axe.plot(z_values, lower, l_line + 'b', label=label_l)
-    axe.plot(z_values, ate, '-' + 'k', label='ATE')
+    axe.plot(z_values, ate, '-' + 'k', label=ate_label)
     if ate_se is not None:
         axe.plot(z_values, ate_upper, '--' + 'k', label=label_u)
         axe.plot(z_values, ate_lower, '--' + 'k', label=label_l)
@@ -1327,15 +1322,19 @@ def make_gate_figures(titel, z_name, z_values, z_type, effects, stderr,
     effects = effects.reshape(-1, 1)
     upper = upper.reshape(-1, 1)
     lower = lower.reshape(-1, 1)
+    z_values_np = np.array(z_values, copy=True).reshape(-1, 1)
     if ate_se is not None:
         ate_upper = ate_upper.reshape(-1, 1)
         ate_lower = ate_lower.reshape(-1, 1)
         effects_et_al = np.concatenate((upper, effects, lower, ate,
-                                        ate_upper, ate_lower), axis=1)
-        cols = ['upper', 'effects', 'lower', 'ate', 'ate_upper', 'ate_lower']
+                                        ate_upper, ate_lower, z_values_np),
+                                       axis=1)
+        cols = ['upper', 'effects', 'lower', 'ate', 'ate_upper', 'ate_lower',
+                'z_values']
     else:
-        cols = ['upper', 'effects', 'lower', 'ate']
-        effects_et_al = np.concatenate((upper, effects, lower, ate), axis=1)
+        cols = ['upper', 'effects', 'lower', 'ate', 'z_values']
+        effects_et_al = np.concatenate((upper, effects, lower, ate,
+                                        z_values_np), axis=1)
     datasave = pd.DataFrame(data=effects_et_al, columns=cols)
     gp.delete_file_if_exists(file_name_csv)
     datasave.to_csv(file_name_csv, index=False)

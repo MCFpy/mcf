@@ -354,7 +354,7 @@ Plots can be printed with [post_plots](./core_6.md#post_plots). This generates s
 
 ### *k-Means* clustering
 
-To analyze heterogeneity in different groups (clusters), the program applies *k-Means* clustering if [post_kmeans_yes](./core_6.md#post_kmeans_yes) is set to *True*. It uses the *k-means++* algorithm of the *KMeans* method provided by Python's sklearn.cluster module. Clusters are formed on the IATEs only. For these clusters, descriptive statistics of the IATEs, the potential outcomes, and the features are displayed.
+To analyze heterogeneity in different groups (clusters), the program applies *k-Means* clustering if [post_kmeans_yes](./core_6.md#post_kmeans_yes) is set to *True*. It uses the *k-means++* algorithm of the *KMeans* method provided by Python's sklearn.cluster module. Clusters are formed on the IATEs only. For these clusters, descriptive statistics of the IATEs, the potential outcomes, and the features are displayed. Cluster memberships are saved to the output file, which facilitates further in-depth analysis of the respective clusters. 
 
 You can define the number of clusters by specifying the input argument [post_kmeans_no_of_groups](./core_6.md#post_kmeans_no_of_groups), which can be a list or tuple specifying the number of clusters. The final number of clusters is chosen via silhouette analysis. To guard against getting stuck at local extrema, the number of replications with different random start centers can be defined in [post_kmeans_replications](./core_6.md#post_kmeans_replications). The argument [post_kmeans_max_tries](./core_6.md#post_kmeans_max_tries) sets the maximum number of iterations in each replication to achieve convergence.
 

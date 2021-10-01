@@ -1,4 +1,18 @@
-# Release Updates 
+# Release Updates
+
+## Version 0.1.1
+
+### Bug fixes
+- Minor bug fixes concerning [_with_output](./core_6.md#_with_output), [_smaller_sample](./core_6.md#_smaller_sample), (A,AM)GATE/IATE-ATE plots, and the sampling weights.
+
+### What's new
+- k-Means cluster indicator for the IATEs saved in file with IATE predictions.
+- Evaluation points of GATE figures are included in the output csv-file.
+- Exception raised if choice based sampling is activated and there is no treatment information in predictions file.
+- New defaults for [random_thresholds](./core_6.md#random_thresholds); by default the value is set to 20 percent of the square-root of the number of training observations. 
+- Stabilizing ``ray`` by deleting references to object store and tasks
+- The function ``ModifiedCausalForest()`` returns now ATE, standard error (SE) of the ATE, GATE, SE of the GATE, IATE, SE of the IATE, and the name of the file with the predictions.
+
 
 ## Version 0.1.0
 

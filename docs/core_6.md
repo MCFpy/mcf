@@ -310,8 +310,8 @@ _with_output=_with_output)
 
 **r**
 
-* <a id="random_thresholds">**random_thresholds**</a> - **integer** taking value **0** or **integer** larger **0**
-	* Regulates the random thresholds; if 0, no random thresholds are used; if set to values > 0, dictates number of random thresholds; the default is 20.
+* <a id="random_thresholds">**random_thresholds**</a> - **-1** or **integer** larger **0**
+	* Regulates the number of random thresholds; by default, the number of thresholds equals $\sqrt{n_{\text{training}}}/5$, where $n_{\text{training}}$ equals the number of observations in the training data.
 * <a id="relative_to_first_group_only">**relative_to_first_group_only**</a> - **Boolean**
 	* If True, uses only effects relative to lowest treatment value; the default is True.
 

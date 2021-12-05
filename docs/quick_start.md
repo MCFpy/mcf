@@ -5,7 +5,7 @@
 The package `mcf` is accompanied by synthetic data, which we  use in our tutorial. The data can be downloaded from the [Github repository](https://github.com/MCFpy/mcf/tree/main/data). Sticking to most default values, the programme can be as quickly started as follows:
 
 ```python
-from mcf import mcf_functions
+from mcf import ModifiedCausalForest
 
 # If paths are not specified, the current directory will be used
 outpfad = 'your/output/goes/here'
@@ -23,7 +23,7 @@ Now, to run the programme simply type:
 ```python
 
 if __name__ == '__main__':
-    mcf_functions.ModifiedCausalForest(
+    ModifiedCausalForest(
         outpfad=outpfad, datpfad=datpfad, indata=indata,
         d_name=d_name, y_name=y_name, x_name_ord=x_name_ord)
 

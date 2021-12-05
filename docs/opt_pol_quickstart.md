@@ -5,7 +5,7 @@
 The ``optpoltree`` is as quickly set up as follows:
 
 ```python
-from mcf import optp_functions
+from mcf import optpoltree
 
 datpath = 'your/data/is/here'
 outpath = '/your/output/goes/here'
@@ -24,7 +24,7 @@ Now, to run the programme simply type
 
 ```python
 if __name__ == 'main':
-		optp_functions.optpoltree(polscore_name=polscore_name, x_ord_name=x_ord_name, x_unord_name=x_unord_name, effect_vs_0=effect_vs_0, effect_vs_0_se=effect_vs_0_se,  indata=indata, datpath=datpath, outpath=outpath, _with_output=_with_output)
+		optpoltree(polscore_name=polscore_name, x_ord_name=x_ord_name, x_unord_name=x_unord_name, effect_vs_0=effect_vs_0, effect_vs_0_se=effect_vs_0_se,  indata=indata, datpath=datpath, outpath=outpath, _with_output=_with_output)
 ```
 
 By default, the output is printed to the console and written into the output directory.

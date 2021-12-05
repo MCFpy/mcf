@@ -81,7 +81,8 @@ def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
             x_train, y_train, x_pred, y_name=y_name, boot=c_dict['boot'],
             n_min=c_dict['grid_n_min'], no_features=c_dict['m_grid'],
             workers=max_workers, pred_p_flag=True,
-            pred_t_flag=False, pred_oob_flag=False, with_output=True)
+            pred_t_flag=False, pred_oob_flag=False,
+            with_output=c_dict['with_output'])
         y_m_yx[:, indx] = y_nonlc - y_pred  # centered outcomes
         centered_y_name.append(y_name + 'LC')
     y_m_yx_df = pd.DataFrame(data=y_m_yx, columns=centered_y_name)
@@ -157,7 +158,7 @@ def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict):
                     boot=c_dict['boot'], n_min=c_dict['grid_n_min'],
                     no_features=c_dict['m_grid'], workers=max_workers,
                     pred_p_flag=True, pred_t_flag=False, pred_oob_flag=False,
-                    with_output=True)
+                    with_output=c_dict['with_output'])
                 y_m_yx[index_pred, indx] = y_np[index_pred, indx] - y_pred_rf
                 if add_yx_names:
                     centered_y_name.append(y_name + 'LC')

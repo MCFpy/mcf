@@ -172,9 +172,9 @@ The program allows for a grid search over tree tuning parameters: (i) the number
 |[n_min_grid](./core_6.md#n_min_grid) | Number of grid values for the minimum leaf size (default is 1, for which the minimum leaf size is governed by [n_min_min](./core_6.md#n_min_min)).|
 |[n_min_min](./core_6.md#n_min_min) | Smallest minimum leaf size for grid-search,  (default is -1, for which the leaf size is computed as $\max(n^{0.4}/10, 5)$, where $n$ is twice the number of observations in the smallest treatment group).|
 |[n_min_max](./core_6.md#n_min_max)| Largest minimum leaf size for grid-search (default is -1, for which the leaf size is computed as $\max(\sqrt{n}/5, 5)$, where $n$ is twice the number of observations in the smallest treatment group).|
-|[alpha_reg_grid](./core_6.md#alpha_reg_grid) | Number of grid values for the  alpha-regularity parameter (default is 2).|
-|[alpha_reg_max](./core_6.md#alpha_reg_max)  | Largest value for the  alpha-regularity parameter (default is 0.2).|
-|[alpha_reg_min](./core_6.md#alpha_reg_min)  | Smallest value for the  alpha-regularity parameter (default is 0.1).|
+|[alpha_reg_grid](./core_6.md#alpha_reg_grid) | Number of grid values for the  alpha-regularity parameter (default is 1).|
+|[alpha_reg_max](./core_6.md#alpha_reg_max)  | Largest value for the  alpha-regularity parameter (default is 0).|
+|[alpha_reg_min](./core_6.md#alpha_reg_min)  | Smallest value for the  alpha-regularity parameter (default is 0).|
 |[m_min_share](./core_6.md#m_min_share) | Minimum share of variables used for splitting (default is -1, for which this share is computed as $0.1*q$, where $q$ denotes the number of variables).|
 |[m_max_share](./core_6.md#m_max_share) | Maximum share of variables used for next split (default is -1, for which this share is computed as $0.66*q$, where $q$ denotes the number of variables).|
 |[m_grid](./core_6.md#m_grid) | Number of grid values which are logarithmically spaced (default is 2).|
@@ -186,7 +186,7 @@ The smaller the minimum leaf size, the longer is the computation time, as the tr
 
 |Argument | Description |
 |---------|-------------|
-|[stop_empty](./core_6.md#stop_empty)|Stops splitting the tree if the next [stop_empty](./core_6.md#stop_empty) randomly chosen variables did not led to a new split (default is 25). |
+|[stop_empty](./core_6.md#stop_empty)|Stops splitting the tree if the next [stop_empty](./core_6.md#stop_empty) randomly chosen variables did not led to a new split (default is 5). |
 
 
 
@@ -218,7 +218,7 @@ Alternatively, two separate data sets can be generated for running the local cen
 
 | Argument                                                     | Description                                                  |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| [l_centering](./core_6.md#l_centering)                       | *True* activates local centering. The default is *False*.    |
+| [l_centering](./core_6.md#l_centering)                       | *True* activates local centering. The default is *True*.    |
 | [l_centering_new_sample](./core_6.md#l_centering_new_sample) | Generating separate samples for tree building and estimation of $\mathbb{E}[Y_i \vert X_i=x_i]$. The default is *False*. |
 | [l_centering_share](./core_6.md#l_centering_share)           | Share of data used for estimating $\mathbb{E}[Y_i \vert X_i=x_i]$. If [l_centering_new_sample](./core_6.md#l_centering_new_sample) is *True*, the default is 0.25. |
 | [l_centering_cv_k](./core_6.md#l_centering_cv_k)             | Number of folds used in cross-validation. The default is 5.  |
@@ -323,7 +323,7 @@ The program offers three ways of conducting inference. The default is a weights-
 
 ### Methods
 
-One way for conducting inference for treatment effects is to estimate the variance of the treatment effect estimator based on a variance decomposition into the expectation of the conditional variance and the variance of the conditional expectation, given the weights. This variance decomposition takes heteroscedasticity in the weights into account. The conditional means $\mu_{Y \vert \hat{W}} (\hat{w}_i)$ and variances $\sigma^2_{Y \vert \hat{W}} (\hat{w}_i)$ are estimated non-parametrically, either by the Nadaraya-Watson kernel estimator (default) or by the *k-Nearest Neighbor* (*k-NN*) estimator.
+One way for conducting inference for treatment effects is to estimate the variance of the treatment effect estimator based on a variance decomposition into the expectation of the conditional variance and the variance of the conditional expectation, given the weights. This variance decomposition takes heteroscedasticity in the weights into account. The conditional means $\mu_{Y \vert \hat{W}} (\hat{w}_i)$ and variances $\sigma^2_{Y \vert \hat{W}} (\hat{w}_i)$ are estimated non-parametrically, either by the Nadaraya-Watson kernel estimator  or by the *k-Nearest Neighbor* (*k-NN*) estimator (default).
 
 Another way to obtain inference is to compute the variance of a treatment effect estimator as the sum of the variances of the weighted outcomes in the respective treatment states. A drawback of this inference method is that it implicitly assumes homoscedasticity in the weights for each treatment state.
 

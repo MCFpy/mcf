@@ -264,10 +264,11 @@ def variable_importance_testdata(
 
 def get_r2_test(x_test, y_test, name_to_randomize, x_name, regr_vi):
     """Get R2 for variable importance."""
+    rng = np.random.default_rng()
     x_vi = x_test.copy()
     indices_to_r = find_indices_vi(name_to_randomize, x_name)
     x_to_shuffle = x_vi[:, indices_to_r]
-    np.random.shuffle(x_to_shuffle)
+    rng.shuffle(x_to_shuffle)
     x_vi[:, indices_to_r] = x_to_shuffle
     r2_vi = regr_vi.score(x_vi, y_test)
     return r2_vi
@@ -457,6 +458,13 @@ def gini_coefficient(x_dat):
     return diffsum
 
 
+def gini_coeff_pos(x_dat, len_x):
+    """Compute Gini coefficient of numpy array of values with values >= 0."""
+    s = x_dat.sum()
+    r = np.argsort(np.argsort(-x_dat))  # calculates zero based ranks
+    return 1 - (2.0 * (r * x_dat).sum() + s) / (len_x * s)
+
+
 def kernel_density(data, grid, kernel, bandwidth):
     """Compute nonparametric estimate of density of data.
 
@@ -498,7 +506,7 @@ def kernel_density_y(y_dat, x_dat, grid, kernel, bandwidth):
     y_dach_i = kernel_proc(differ / bandwidth, kernel)
     if y_dat.ndim == 2:
         f_grid = np.mean(y_dach_i * y_dat, axis=0) / bandwidth
-    else:    
+    else:
         f_grid = np.mean(y_dach_i * np.reshape(y_dat, (len(grid), 1)),
                          axis=0) / bandwidth
     return f_grid
@@ -660,7 +668,7 @@ def moving_avg_mean_var(data, k, mean_and_var=True):
 
 
 def weight_var(w0_dat, y0_dat, cl_dat, c_dict, norm=True, w_for_diff=None,
-               weights=None, bootstrap=0):
+               weights=None, bootstrap=0, keep_some_0=False, se_yes=True):
     """Generate the weight-based variance.
 
     Parameters
@@ -681,15 +689,18 @@ def weight_var(w0_dat, y0_dat, cl_dat, c_dict, norm=True, w_for_diff=None,
     variance : Float. Variance.
 
     """
-    w_dat = np.copy(w0_dat)
-    y_dat = np.copy(y0_dat)
-    if c_dict['cluster_std'] and (cl_dat is not None):
+    w_dat = w0_dat.copy()
+    y_dat = y0_dat.copy()
+    if c_dict['cluster_std'] and (cl_dat is not None) and (bootstrap < 1):
         if not c_dict['w_yes']:
             weights = None
         w_dat, y_dat, _, _ = aggregate_cluster_pos_w(
             cl_dat, w_dat, y_dat, norma=norm, sweights=weights)
     if w_for_diff is not None:
         w_dat = w_dat - w_for_diff
+    if not c_dict['iate_se_flag']:
+        keep_some_0 = False
+        bootstrap = 0
     if norm:
         sum_w_dat = np.abs(np.sum(w_dat))
         if not ((-1e-15 < sum_w_dat < 1e-15)
@@ -697,47 +708,86 @@ def weight_var(w0_dat, y0_dat, cl_dat, c_dict, norm=True, w_for_diff=None,
             w_dat = w_dat / sum_w_dat
     w_ret = np.copy(w_dat)
     w_pos = np.abs(w_dat) > 1e-15  # use non-zero only to speed up
-    w_dat2 = w_dat[w_pos]
-    y_dat = y_dat[w_pos]
+    only_copy = np.all(w_pos)
+    if keep_some_0 and not only_copy:  # to improve variance estimate
+        sum_pos = np.sum(w_pos)
+        obs_all = len(w_dat)
+        sum_0 = obs_all - sum_pos
+        zeros_to_keep = 0.05 * obs_all  # keep to 5% of all obs as zeros
+        zeros_to_switch = round(sum_0 - zeros_to_keep)
+        if zeros_to_switch <= 2:
+            only_copy = True
+        else:
+            ind_of_0 = np.where(w_pos == False)
+            rng = np.random.default_rng(123345)
+            ind_to_true = rng.choice(
+                ind_of_0[0], size=zeros_to_switch, replace=False)
+            w_pos[ind_to_true] = np.invert(w_pos[ind_to_true])
+    if only_copy:
+        w_dat2 = w_dat.copy()
+    else:
+        w_dat2 = w_dat[w_pos]
+        y_dat = y_dat[w_pos]
     obs = len(w_dat2)
     if obs < 5:
         return 0, 1, w_ret
     est = np.dot(w_dat2, y_dat)
-    if bootstrap > 1:
-        rng = np.random.default_rng(123345)
-        est_b = np.empty(bootstrap)
-        for b_idx in range(bootstrap):
-            idx = rng.integers(0, high=obs, size=obs)
-            w_b = np.copy(w_dat2[idx])
-            if norm:
-                sum_w_b = np.abs(np.sum(w_b))
-                if not ((-1e-15 < sum_w_dat < 1e-15)
-                        or (1-1e-10 < sum_w_dat < 1+1e-10)):
-                    w_b = w_b / sum_w_b
-            est_b[b_idx] = np.dot(w_b, y_dat[idx])
-        variance = np.var(est_b)
-    else:
-        if c_dict['cond_var']:
-            sort_ind = np.argsort(w_dat2)
-            y_s = y_dat[sort_ind]
-            w_s = w_dat2[sort_ind]
-            if c_dict['knn']:
-                k = int(np.round(c_dict['knn_const'] * np.sqrt(obs) * 2))
-                if k < c_dict['knn_min_k']:
-                    k = c_dict['knn_min_k']
-                if k > obs/2:
-                    k = np.floor(obs/2)
-                exp_y_cond_w, var_y_cond_w = moving_avg_mean_var(y_s, k)
-            else:
-                band = bandwidth_nw_rule_of_thumb(w_s) * c_dict['nw_bandw']
-                exp_y_cond_w = nadaraya_watson(y_s, w_s, w_s,
-                                               c_dict['nw_kern'], band)
-                var_y_cond_w = nadaraya_watson((y_s - exp_y_cond_w)**2, w_s,
-                                               w_s, c_dict['nw_kern'], band)
-            variance = np.dot(w_s**2, var_y_cond_w) + obs * np.var(
-                w_s*exp_y_cond_w)
+    if se_yes:
+        if bootstrap > 1:
+            if c_dict['cluster_std'] and (cl_dat is not None
+                                          ) and not only_copy:
+                cl_dat = cl_dat[w_pos]
+                unique_cl_id = np.unique(cl_dat)
+                obs_cl = len(unique_cl_id)
+                cl_dat = np.round(cl_dat)
+            rng = np.random.default_rng(123345)
+            est_b = np.empty(bootstrap)
+            for b_idx in range(bootstrap):
+                if c_dict['cluster_std'] and (cl_dat is not None
+                                              ) and not only_copy:
+                    # block bootstrap
+                    idx_cl = rng.integers(0, high=obs_cl, size=obs_cl)
+                    cl_boot = unique_cl_id[idx_cl]  # relevant indices
+                    idx = []
+                    for cl_i in np.round(cl_boot):
+                        select_idx = cl_dat == cl_i
+                        idx_cl_i = np.nonzero(select_idx)
+                        idx.extend(idx_cl_i[0])
+                else:
+                    idx = rng.integers(0, high=obs, size=obs)
+                w_b = np.copy(w_dat2[idx])
+                if norm:
+                    sum_w_b = np.abs(np.sum(w_b))
+                    if not ((-1e-15 < sum_w_dat < 1e-15)
+                            or (1-1e-10 < sum_w_dat < 1+1e-10)):
+                        w_b = w_b / sum_w_b
+                est_b[b_idx] = np.dot(w_b, y_dat[idx])
+            variance = np.var(est_b)
         else:
-            variance = len(w_dat2) * np.var(w_dat2 * y_dat)
+            if c_dict['cond_var']:
+                sort_ind = np.argsort(w_dat2)
+                y_s = y_dat[sort_ind]
+                w_s = w_dat2[sort_ind]
+                if c_dict['knn']:
+                    k = int(np.round(c_dict['knn_const'] * np.sqrt(obs) * 2))
+                    if k < c_dict['knn_min_k']:
+                        k = c_dict['knn_min_k']
+                    if k > obs/2:
+                        k = np.floor(obs/2)
+                    exp_y_cond_w, var_y_cond_w = moving_avg_mean_var(y_s, k)
+                else:
+                    band = bandwidth_nw_rule_of_thumb(w_s) * c_dict['nw_bandw']
+                    exp_y_cond_w = nadaraya_watson(y_s, w_s, w_s,
+                                                   c_dict['nw_kern'], band)
+                    var_y_cond_w = nadaraya_watson((y_s - exp_y_cond_w)**2,
+                                                   w_s, w_s, c_dict['nw_kern'],
+                                                   band)
+                variance = np.dot(w_s**2, var_y_cond_w) + obs * np.var(
+                    w_s*exp_y_cond_w)
+            else:
+                variance = len(w_dat2) * np.var(w_dat2 * y_dat)
+    else:
+        variance = None
     return est, variance, w_ret
 
 
@@ -760,7 +810,6 @@ def aggregate_cluster_pos_w(cl_dat, w_dat, y_dat=None, norma=True, w2_dat=None,
 
     """
     cluster_no = np.unique(cl_dat)
-    # no_cluster = np.size(cluster_no)
     no_cluster = len(cluster_no)
     w_pos = np.abs(w_dat) > 1e-15
     if y_dat is not None:
@@ -834,3 +883,16 @@ def flatten_list(list_to_flatten):
     """
     flatted_list = [item for sublist in list_to_flatten for item in sublist]
     return flatted_list
+
+
+def print_se_info(cluster_std, se_boot):
+    """Print some info on computation of standard errors."""
+    if cluster_std:
+        if se_boot > 0:
+            print('Clustered standard errors by bootstrap.')
+        else:
+            print('Clustered standard errors by group aggregation.')
+        print('-' * 80)
+    if se_boot > 0:
+        print('Bootstrap replications: ', se_boot)
+        print('-' * 80)

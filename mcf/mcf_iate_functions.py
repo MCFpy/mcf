@@ -51,6 +51,14 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
            names_pot_iate: List of strings: All names of IATEs in file.
            names_pot_iate0: Only those names related to first category.
     """
+    def warn_text(c_dict):
+        if c_dict['with_output'] and c_dict['verbose']:
+            print('If prediction file is large, this step may take. If ',
+                  'nothing seems to happen, it may be worth to try do the ',
+                  'estimation without sparse weight matrix. This needs more '
+                  'memory, but could be substantially faster ',
+                  '(weight_as_sparse = False).')
+
     if c_dict['with_output'] and c_dict['verbose'] and save_predictions:
         print('\nComputing IATEs 1/2 (potential outcomes)')
     if c_dict['weight_as_sparse']:
@@ -60,25 +68,29 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
     n_y = len(y_dat)
     no_of_out = len(v_dict['y_name'])
     larger_0 = np.zeros(c_dict['no_of_treat'])
-    equal_0 = np.zeros(c_dict['no_of_treat'])
-    mean_pos = np.zeros(c_dict['no_of_treat'])
-    std_pos = np.zeros(c_dict['no_of_treat'])
-    gini_all = np.zeros(c_dict['no_of_treat'])
-    gini_pos = np.zeros(c_dict['no_of_treat'])
-    share_censored = np.zeros(c_dict['no_of_treat'])
+    equal_0 = np.zeros_like(larger_0)
+    mean_pos = np.zeros_like(larger_0)
+    std_pos = np.zeros_like(larger_0)
+    gini_all = np.zeros_like(larger_0)
+    gini_pos = np.zeros_like(larger_0)
+    share_censored = np.zeros_like(larger_0)
     share_largest_q = np.zeros((c_dict['no_of_treat'], 3))
     sum_larger = np.zeros((c_dict['no_of_treat'], len(c_dict['q_w'])))
-    obs_larger = np.zeros((c_dict['no_of_treat'], len(c_dict['q_w'])))
+    obs_larger = np.zeros_like(sum_larger)
     pot_y = np.empty((n_x, c_dict['no_of_treat'], no_of_out))
-    pot_y_var = np.empty((n_x, c_dict['no_of_treat'], no_of_out))
-    pot_y_m_ate = np.empty((n_x, c_dict['no_of_treat'], no_of_out))
-    pot_y_m_ate_var = np.empty((n_x, c_dict['no_of_treat'], no_of_out))
+    if c_dict['iate_se_flag']:
+        pot_y_var = np.empty_like(pot_y)
+        pot_y_m_ate = np.empty_like(pot_y)
+        pot_y_m_ate_var = np.empty_like(pot_y)
+    else:
+        pot_y_var = pot_y_m_ate = pot_y_m_ate_var = w_ate = None
     if w_ate is not None:
         w_ate = w_ate[0, :, :]
     if not c_dict['w_yes']:
         w_dat = None
-    if c_dict['cluster_std']:
-        no_of_cluster = len(np.unique(cl_dat))
+    if c_dict['iate_se_flag']:
+        no_of_cluster = len(np.unique(cl_dat)) if c_dict['cluster_std'
+                                                         ] else None
     else:
         no_of_cluster = None
     l1_to_9 = [None] * n_x
@@ -111,28 +123,31 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
             if c_dict['with_output'] and c_dict['verbose']:
                 gp.share_completed(idx+1, n_x)
     else:
-        if c_dict['obs_by_obs']:
+        if c_dict['obs_by_obs']:  # this is currently not used, too slow
             if c_dict['mp_with_ray']:
                 if c_dict['mem_object_store_3'] is None:
-                    ray.init(num_cpus=maxworkers, include_dashboard=False)
+                    if not ray.is_initialized():
+                        ray.init(num_cpus=maxworkers, include_dashboard=False)
                 else:
-                    ray.init(num_cpus=maxworkers, include_dashboard=False,
-                             object_store_memory=c_dict['mem_object_store_3'])
+                    if not ray.is_initialized():
+                        ray.init(
+                            num_cpus=maxworkers, include_dashboard=False,
+                            object_store_memory=c_dict['mem_object_store_3'])
                     if c_dict['with_output'] and c_dict['verbose']:
                         print("Size of Ray Object Store: ", round(
                             c_dict['mem_object_store_3']/(1024*1024)), " MB")
                 if c_dict['weight_as_sparse']:
-                    tasks = [ray_iate_func1_for_mp.remote(
+                    still_running = [ray_iate_func1_for_mp.remote(
                         idx, [weights[t_idx].getrow(idx) for t_idx in
                               range(iterator)], cl_dat, no_of_cluster, w_dat,
                         w_ate, y_dat, no_of_out, n_y, c_dict)
                         for idx in range(n_x)]
+                    warn_text(c_dict)
                 else:
-                    tasks = [ray_iate_func1_for_mp.remote(
+                    still_running = [ray_iate_func1_for_mp.remote(
                         idx, weights[idx], cl_dat, no_of_cluster, w_dat,
                         w_ate, y_dat, no_of_out, n_y, c_dict)
                         for idx in range(n_x)]
-                still_running = list(tasks)
                 jdx = 0
                 while len(still_running) > 0:
                     finished, still_running = ray.wait(still_running)
@@ -145,8 +160,10 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                         if c_dict['with_output'] and c_dict['verbose']:
                             gp.share_completed(jdx+1, n_x)
                         jdx += 1
-                del finished, still_running, tasks
-                ray.shutdown()
+                if 'rest' in c_dict['_mp_ray_del']:
+                    del finished_res, finished
+                if c_dict['_mp_ray_shutdown']:
+                    ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
                                                  ) as fpp:
@@ -157,6 +174,7 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                              range(iterator)], cl_dat, no_of_cluster, w_dat,
                             w_ate, y_dat, no_of_out, n_y, c_dict):
                                 idx for idx in range(n_x)}
+                        warn_text(c_dict)
                     else:
                         ret_fut = {fpp.submit(
                             iate_func1_for_mp, idx, weights[idx], cl_dat,
@@ -178,30 +196,33 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
             no_of_splits = max(no_of_splits, maxworkers)
             no_of_splits = min(no_of_splits, n_x)
             if c_dict['with_output'] and c_dict['verbose']:
-                print('IATE-1: Avg. number of obs per split: {:5.2f}'.format(
-                    n_x / no_of_splits))
+                print('IATE-1: Avg. number of obs per split: {:5.2f}.'.format(
+                    n_x / no_of_splits), ' Number of splits: ', no_of_splits)
             obs_idx_list = np.array_split(np.arange(n_x), no_of_splits)
             if c_dict['mp_with_ray']:
                 if c_dict['mem_object_store_3'] is None:
-                    ray.init(num_cpus=maxworkers, include_dashboard=False)
+                    if not ray.is_initialized():
+                        ray.init(num_cpus=maxworkers, include_dashboard=False)
                 else:
-                    ray.init(num_cpus=maxworkers, include_dashboard=False,
-                             object_store_memory=c_dict['mem_object_store_3'])
+                    if not ray.is_initialized():
+                        ray.init(
+                            num_cpus=maxworkers, include_dashboard=False,
+                            object_store_memory=c_dict['mem_object_store_3'])
                     if c_dict['with_output'] and c_dict['verbose']:
                         print("Size of Ray Object Store: ", round(
                             c_dict['mem_object_store_3']/(1024*1024)), " MB")
                 if c_dict['weight_as_sparse']:
-                    tasks = [ray_iate_func1_for_mp_many_obs.remote(
-                        idx,
-                        [weights[t_idx][idx, :] for t_idx in range(iterator)],
-                        cl_dat, no_of_cluster, w_dat, w_ate, y_dat, no_of_out,
-                        n_y, c_dict) for idx in obs_idx_list]
+                    still_running = [ray_iate_func1_for_mp_many_obs.remote(
+                        idx, [weights[t_idx][idx, :] for t_idx in
+                              range(iterator)], cl_dat, no_of_cluster,
+                        w_dat, w_ate, y_dat, no_of_out, n_y, c_dict)
+                        for idx in obs_idx_list]
+                    warn_text(c_dict)
                 else:
-                    tasks = [ray_iate_func1_for_mp_many_obs.remote(
+                    still_running = [ray_iate_func1_for_mp_many_obs.remote(
                         idx, [weights[idxx] for idxx in idx], cl_dat,
                         no_of_cluster, w_dat, w_ate, y_dat, no_of_out, n_y,
                         c_dict) for idx in obs_idx_list]
-                still_running = list(tasks)
                 jdx = 0
                 while len(still_running) > 0:
                     finished, still_running = ray.wait(still_running)
@@ -215,8 +236,10 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                         if c_dict['with_output'] and c_dict['verbose']:
                             gp.share_completed(jdx+1, no_of_splits)
                         jdx += 1
-                del finished, still_running        
-                ray.shutdown()
+                if 'rest' in c_dict['_mp_ray_del']:
+                    del finished_res, finished
+                if c_dict['_mp_ray_shutdown']:
+                    ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
                                                  ) as fpp:
@@ -266,9 +289,13 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
     if c_dict['with_output'] and c_dict['verbose'] and save_predictions:
         print('\nComputing IATEs 2/2 (effects)')
     dim_3 = round(c_dict['no_of_treat'] * (c_dict['no_of_treat'] - 1) / 2)
-    iate = np.empty((n_x, no_of_out, dim_3, 2))     # obs x outcome x
-    iate_se = np.empty((n_x, no_of_out, dim_3, 2))  # effects x type_of_effect
-    iate_p = np.empty((n_x, no_of_out, dim_3, 2))
+    iate = np.empty((n_x, no_of_out, dim_3, 2))
+    if c_dict['iate_se_flag']:
+        iate_se = np.empty_like(iate)
+        iate_p = np.empty_like(iate)
+    else:
+        iate_se = iate_p = None
+    # obs x outcome x effects x type_of_effect
     if c_dict['no_parallel'] < 1.5:
         maxworkers = 1
     else:
@@ -281,30 +308,43 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
         print('Number of parallel processes: ', maxworkers)
     if maxworkers == 1:
         for idx in range(n_x):
-            ret_all_idx = iate_func2_for_mp(
-                idx, no_of_out, pot_y[idx], pot_y_var[idx], pot_y_m_ate[idx],
-                pot_y_m_ate_var[idx], c_dict)
+            if c_dict['iate_se_flag']:
+                ret_all_idx = iate_func2_for_mp(
+                    idx, no_of_out, pot_y[idx], pot_y_var[idx],
+                    pot_y_m_ate[idx], pot_y_m_ate_var[idx], c_dict)
+            else:
+                ret_all_idx = iate_func2_for_mp(
+                    idx, no_of_out, pot_y[idx], None, None, None, c_dict)
             if c_dict['with_output'] and c_dict['verbose']:
                 gp.share_completed(idx+1, n_x)
             iate[idx, :, :, :] = ret_all_idx[1]
-            iate_se[idx, :, :, :] = ret_all_idx[2]
-            iate_p[idx, :, :, :] = ret_all_idx[3]
+            if c_dict['iate_se_flag']:
+                iate_se[idx, :, :, :] = ret_all_idx[2]
+                iate_p[idx, :, :, :] = ret_all_idx[3]
             if idx == n_x-1:
                 effect_list = ret_all_idx[4]
     else:
         if c_dict['mp_with_ray']:
             if c_dict['mem_object_store_3'] is None:
-                ray.init(num_cpus=maxworkers, include_dashboard=False)
+                if not ray.is_initialized():
+                    ray.init(num_cpus=maxworkers, include_dashboard=False)
             else:
-                ray.init(num_cpus=maxworkers, include_dashboard=False,
-                         object_store_memory=c_dict['mem_object_store_3'])
+                if not ray.is_initialized():
+                    ray.init(
+                        num_cpus=maxworkers, include_dashboard=False,
+                        object_store_memory=c_dict['mem_object_store_3'])
                 if c_dict['with_output'] and c_dict['verbose']:
                     print("Size of Ray Object Store: ", round(
                         c_dict['mem_object_store_3']/(1024*1024)), " MB")
-            tasks = [ray_iate_func2_for_mp.remote(
-                idx, no_of_out, pot_y[idx], pot_y_var[idx], pot_y_m_ate[idx],
-                pot_y_m_ate_var[idx], c_dict) for idx in range(n_x)]
-            still_running = list(tasks)
+            if c_dict['iate_se_flag']:        
+                still_running = [ray_iate_func2_for_mp.remote(
+                    idx, no_of_out, pot_y[idx], pot_y_var[idx],
+                    pot_y_m_ate[idx], pot_y_m_ate_var[idx], c_dict)
+                    for idx in range(n_x)]
+            else:
+                still_running = [ray_iate_func2_for_mp.remote(
+                    idx, no_of_out, pot_y[idx], None, None, None, c_dict)
+                    for idx in range(n_x)]
             jdx = 0
             while len(still_running) > 0:
                 finished, still_running = ray.wait(still_running)
@@ -312,15 +352,18 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                 for ret_all_i2 in finished_res:
                     iix = ret_all_i2[0]
                     iate[iix, :, :, :] = ret_all_i2[1]
-                    iate_se[iix, :, :, :] = ret_all_i2[2]
-                    iate_p[iix, :, :, :] = ret_all_i2[3]
+                    if c_dict['iate_se_flag']:
+                        iate_se[iix, :, :, :] = ret_all_i2[2]
+                        iate_p[iix, :, :, :] = ret_all_i2[3]
                     if jdx == n_x-1:
                         effect_list = ret_all_i2[4]
                     if c_dict['with_output'] and c_dict['verbose']:
                         gp.share_completed(jdx+1, n_x)
                     jdx += 1
-            del finished, still_running, tasks
-            ray.shutdown()
+            if 'rest' in c_dict['_mp_ray_del']:
+                del finished_res, finished
+            if c_dict['_mp_ray_shutdown']:
+                ray.shutdown()
         else:
             with futures.ProcessPoolExecutor(max_workers=maxworkers) as fpp:
                 ret_fut = {fpp.submit(
@@ -333,33 +376,36 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                     del frv
                     iix = ret_all_i2[0]
                     iate[iix, :, :, :] = ret_all_i2[1]
-                    iate_se[iix, :, :, :] = ret_all_i2[2]
-                    iate_p[iix, :, :, :] = ret_all_i2[3]
+                    if c_dict['iate_se_flag']:
+                        iate_se[iix, :, :, :] = ret_all_i2[2]
+                        iate_p[iix, :, :, :] = ret_all_i2[3]
                     if jdx == n_x-1:
                         effect_list = ret_all_i2[4]
                     if c_dict['with_output'] and c_dict['verbose']:
                         gp.share_completed(jdx+1, n_x)
     if c_dict['with_output'] and save_predictions:
-        print_iate(iate, iate_se, iate_p, effect_list, v_dict)
+        print_iate(iate, iate_se, iate_p, effect_list, v_dict, c_dict)
     # Add results to data file
     pot_y_np = np.empty((n_x, no_of_out * c_dict['no_of_treat']))
-    pot_y_se_np = np.empty((n_x, no_of_out * c_dict['no_of_treat']))
+    if c_dict['iate_se_flag']:
+        pot_y_se_np = np.empty_like(pot_y_np)
     dim = round(no_of_out * c_dict['no_of_treat'] * (
         c_dict['no_of_treat'] - 1) / 2)
     iate_np = np.empty((n_x, dim))
-    iate_se_np = np.empty((n_x, dim))
-    iate_mate_np = np.empty((n_x, dim))
-    iate_mate_se_np = np.empty((n_x, dim))
+    if c_dict['iate_se_flag']:
+        iate_se_np = np.empty_like(iate_np)
+        iate_mate_np = np.empty_like(iate_np)
+        iate_mate_se_np = np.empty_like(iate_np)
+    jdx = j2dx = 0
     name_pot = []
     name_eff = []
     name_eff0 = []
-    jdx = 0
-    j2dx = 0
     for o_idx, o_name in enumerate(v_dict['y_name']):
         for t_idx, t_name in enumerate(c_dict['d_values']):
             name_pot += [o_name + str(t_name)]
             pot_y_np[:, jdx] = pot_y[:, t_idx, o_idx]
-            pot_y_se_np[:, jdx] = np.sqrt(pot_y_var[:, t_idx, o_idx])
+            if c_dict['iate_se_flag']:
+                pot_y_se_np[:, jdx] = np.sqrt(pot_y_var[:, t_idx, o_idx])
             jdx += 1
         for t2_idx, t2_name in enumerate(effect_list):
             name_eff += [o_name + str(t2_name[0]) + 'vs' + str(t2_name[1])]
@@ -367,31 +413,42 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                 name_eff0 += [
                     o_name + str(t2_name[0]) + 'vs' + str(t2_name[1])]
             iate_np[:, j2dx] = iate[:, o_idx, t2_idx, 0]
-            iate_se_np[:, j2dx] = iate_se[:, o_idx, t2_idx, 0]
-            iate_mate_np[:, j2dx] = iate[:, o_idx, t2_idx, 1]
-            iate_mate_se_np[:, j2dx] = iate_se[:, o_idx, t2_idx, 1]
+            if c_dict['iate_se_flag']:
+                iate_se_np[:, j2dx] = iate_se[:, o_idx, t2_idx, 0]
+                iate_mate_np[:, j2dx] = iate[:, o_idx, t2_idx, 1]
+                iate_mate_se_np[:, j2dx] = iate_se[:, o_idx, t2_idx, 1]
             j2dx += 1
     name_pot_y = [s + '_pot' for s in name_pot]
-    name_pot_y_se = [s + '_pot_se' for s in name_pot]
     name_iate = [s + '_iate' for s in name_eff]
-    name_iate_se = [s + '_iate_se' for s in name_eff]
-    name_iate_mate = [s + '_iatemate' for s in name_eff]
-    name_iate_mate_se = [s + '_iatemate_se' for s in name_eff]
     name_iate0 = [s + '_iate' for s in name_eff0]
-    name_iate_se0 = [s + '_iate_se' for s in name_eff0]
-    name_iate_mate0 = [s + '_iatemate' for s in name_eff0]
-    name_iate_mate_se0 = [s + '_iatemate_se' for s in name_eff0]
+    if c_dict['iate_se_flag']:
+        name_pot_y_se = [s + '_pot_se' for s in name_pot]
+        name_iate_se = [s + '_iate_se' for s in name_eff]
+        name_iate_mate = [s + '_iatemate' for s in name_eff]
+        name_iate_mate_se = [s + '_iatemate_se' for s in name_eff]
+        name_iate_se0 = [s + '_iate_se' for s in name_eff0]
+        name_iate_mate0 = [s + '_iatemate' for s in name_eff0]
+        name_iate_mate_se0 = [s + '_iatemate_se' for s in name_eff0]
+    else:
+        name_pot_y_se = name_iate_se = name_iate_mate = None
+        name_iate_mate_se = name_iate_se0 = name_iate_mate0 = None
+        name_iate_mate_se0 = None
     if c_dict['with_output'] and save_predictions:
         pot_y_df = pd.DataFrame(data=pot_y_np, columns=name_pot_y)
-        pot_y_se_df = pd.DataFrame(data=pot_y_se_np, columns=name_pot_y_se)
         iate_df = pd.DataFrame(data=iate_np, columns=name_iate)
-        iate_se_df = pd.DataFrame(data=iate_se_np, columns=name_iate_se)
-        iate_mate_df = pd.DataFrame(data=iate_mate_np, columns=name_iate_mate)
-        iate_mate_se_df = pd.DataFrame(data=iate_mate_se_np,
-                                       columns=name_iate_mate_se)
+        if c_dict['iate_se_flag']:
+            pot_y_se_df = pd.DataFrame(data=pot_y_se_np, columns=name_pot_y_se)
+            iate_se_df = pd.DataFrame(data=iate_se_np, columns=name_iate_se)
+            iate_mate_df = pd.DataFrame(data=iate_mate_np,
+                                        columns=name_iate_mate)
+            iate_mate_se_df = pd.DataFrame(data=iate_mate_se_np,
+                                           columns=name_iate_mate_se)
         data_df = pd.read_csv(data_file)
-        df_list = [data_df, pot_y_df, pot_y_se_df, iate_df, iate_se_df,
-                   iate_mate_df, iate_mate_se_df]
+        if c_dict['iate_se_flag']:
+            df_list = [data_df, pot_y_df, pot_y_se_df, iate_df, iate_se_df,
+                       iate_mate_df, iate_mate_se_df]
+        else:
+            df_list = [data_df, pot_y_df, iate_df]
         data_file_new = pd.concat(df_list, axis=1)
         gp.delete_file_if_exists(c_dict['pred_sample_with_pred'])
         data_file_new.to_csv(c_dict['pred_sample_with_pred'], index=False)
@@ -421,9 +478,10 @@ def assign_ret_all_i(pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var, l1_to_9,
     if idx is None:
         idx = ret_all_i[0]
     pot_y[idx, :, :] = ret_all_i[1]
-    pot_y_var[idx, :, :] = ret_all_i[2]
-    pot_y_m_ate[idx, :, :] = ret_all_i[3]
-    pot_y_m_ate_var[idx, :, :] = ret_all_i[4]
+    if not pot_y_var is None:
+        pot_y_var[idx, :, :] = ret_all_i[2]
+        pot_y_m_ate[idx, :, :] = ret_all_i[3]
+        pot_y_m_ate_var[idx, :, :] = ret_all_i[4]
     l1_to_9[idx] = ret_all_i[5]
     share_censored += ret_all_i[6] / n_x
     return (pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var, l1_to_9,
@@ -460,23 +518,36 @@ def iate_func2_for_mp(idx, no_of_out, pot_y_i, pot_y_var_i, pot_y_m_ate_i,
     iate_p_i : Numpy array.
     effect_list : List.
     """
+    # obs x outcome x effects x type_of_effect
     dim = (no_of_out, round(c_dict['no_of_treat'] * (
                           c_dict['no_of_treat'] - 1) / 2), 2)
     iate_i = np.empty(dim)
-    iate_se_i = np.empty(dim)  # obs x outcome x effects x type_of_effect
-    iate_p_i = np.empty(dim)
+    if c_dict['iate_se_flag']:
+        iate_se_i = np.empty(dim)  # obs x outcome x effects x type_of_effect
+        iate_p_i = np.empty(dim)
+        iterator = 2
+    else:
+        iate_se_i = iate_p_i = None
+        iterator = 1
     for o_i in range(no_of_out):
-        for jdx in range(2):
+        for jdx in range(iterator):
             if jdx == 0:
                 pot_y_ao = pot_y_i[:, o_i]
-                pot_y_var_ao = pot_y_var_i[:, o_i]
+                if c_dict['iate_se_flag']:
+                    pot_y_var_ao = pot_y_var_i[:, o_i]
+                else:
+                    pot_y_var_ao = None
             else:
                 pot_y_ao = pot_y_m_ate_i[:, o_i]
                 pot_y_var_ao = pot_y_m_ate_var_i[:, o_i]
-            (iate_i[o_i, :, jdx], iate_se_i[o_i, :, jdx], _,
-             iate_p_i[o_i, :, jdx], effect_list
-             ) = gp_mcf.effect_from_potential(
-                 pot_y_ao, pot_y_var_ao, c_dict['d_values'])
+            ret = gp_mcf.effect_from_potential(
+                pot_y_ao, pot_y_var_ao, c_dict['d_values'],
+                se_yes=c_dict['iate_se_flag'])
+            if c_dict['iate_se_flag']:
+                (iate_i[o_i, :, jdx], iate_se_i[o_i, :, jdx], _,
+                 iate_p_i[o_i, :, jdx], effect_list) = ret
+            else:
+                (iate_i[o_i, :, jdx], _, _, _, effect_list) = ret
     return idx, iate_i, iate_se_i, iate_p_i, effect_list
 
 
@@ -549,21 +620,26 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
         print('Starting to compute IATE - procedure 1', flush=True)
     pot_y_i = np.empty((c_dict['no_of_treat'], no_of_out))
     share_i = np.zeros(c_dict['no_of_treat'])
-    pot_y_var_i = np.empty((c_dict['no_of_treat'], no_of_out))
-    pot_y_m_ate_i = np.empty((c_dict['no_of_treat'], no_of_out))
-    pot_y_m_ate_var_i = np.empty((c_dict['no_of_treat'], no_of_out))
-    if c_dict['cluster_std']:
+    if c_dict['iate_se_flag']:
+        pot_y_var_i = np.empty_like(pot_y_i)
+        pot_y_m_ate_i = np.empty_like(pot_y_i)
+        pot_y_m_ate_var_i = np.empty_like(pot_y_i)
+        cluster_std = c_dict['cluster_std']
+    else:
+        pot_y_var_i = pot_y_m_ate_i = pot_y_m_ate_var_i = w_ate = None
+        cluster_std = False
+    if cluster_std:
         w_add = np.zeros((c_dict['no_of_treat'], no_of_cluster))
     else:
         w_add = np.zeros((c_dict['no_of_treat'], n_y))
-    w_add_unc = np.zeros((c_dict['no_of_treat'], n_y))
+    if c_dict['iate_se_flag']:        
+        w_add_unc = np.zeros((c_dict['no_of_treat'], n_y))
     for t_idx in range(c_dict['no_of_treat']):
         if c_dict['weight_as_sparse']:
             w_index = weights_i[t_idx].indices
-            # w_i = weights_i[t_idx].data.copy() Copy already made into func
             w_i = weights_i[t_idx].data
         else:
-            w_index = weights_i[t_idx][0]  # Indices of non-zero weights
+            w_index = weights_i[t_idx][0]    # Indices of non-zero weights
             w_i = weights_i[t_idx][1].copy()
         if c_dict['w_yes']:
             w_t = w_dat[w_index].reshape(-1)
@@ -577,55 +653,62 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
         if c_dict['max_weight_share'] < 1:
             w_i, _, share_i[t_idx] = gp_mcf.bound_norm_weights(
                 w_i, c_dict['max_weight_share'])
-        if c_dict['cluster_std']:
+        if cluster_std:
             cl_i = cl_dat[w_index]
             w_all_i = np.zeros(n_y)
-            w_all_i_unc = np.zeros(n_y)
             w_all_i[w_index] = w_i
+            w_all_i_unc = np.zeros_like(w_all_i)
             w_all_i_unc[w_index] = w_i_unc
         else:
-            cl_i = 0
+            cl_i = None
         for o_idx in range(no_of_out):
             ret = gp_est.weight_var(w_i, y_dat[w_index, o_idx], cl_i, c_dict,
-                                    weights=w_t,
+                                    weights=w_t, se_yes=c_dict['iate_se_flag'],
                                     bootstrap=c_dict['se_boot_iate'])
             pot_y_i[t_idx, o_idx] = ret[0]
-            pot_y_var_i[t_idx, o_idx] = ret[1]
-            if c_dict['cluster_std']:
+            if c_dict['iate_se_flag']:
+                pot_y_var_i[t_idx, o_idx] = ret[1]
+            if cluster_std:
                 ret2 = gp_est.aggregate_cluster_pos_w(
                     cl_dat, w_all_i, y_dat[:, o_idx], sweights=w_dat)
                 if o_idx == 0:
                     w_add[t_idx, :] = np.copy(ret2[0])
-                    if w_ate is None:
-                        w_diff = w_all_i_unc  # Dummy if no w_ate
-                    else:
-                        w_diff = w_all_i_unc - w_ate[t_idx, :]
+                    if c_dict['iate_se_flag']:
+                        if w_ate is None:
+                            w_diff = w_all_i_unc  # Dummy if no w_ate
+                        else:
+                            w_diff = w_all_i_unc - w_ate[t_idx, :]
                 ret = gp_est.weight_var(
                     w_diff, y_dat[:, o_idx], cl_dat, c_dict, norm=False,
-                    weights=w_dat, bootstrap=c_dict['se_boot_iate'])
+                    weights=w_dat, bootstrap=c_dict['se_boot_iate'],
+                    se_yes=c_dict['iate_se_flag'])
             else:
                 if o_idx == 0:
                     w_add[t_idx, w_index] = ret[2]
-                    w_i_unc_sum = np.sum(w_i_unc)
-                    if not (1-1e-10) < w_i_unc_sum < (1+1e-10):
-                        w_add_unc[t_idx, w_index] = w_i_unc / w_i_unc_sum
-                    else:
-                        w_add_unc[t_idx, w_index] = w_i_unc
-                    if w_ate is None:
-                        w_diff = w_add_unc[t_idx, :]
-                    else:
-                        w_diff = w_add_unc[t_idx, :] - w_ate[t_idx, :]
-                ret = gp_est.weight_var(
-                    w_diff, y_dat[:, o_idx], None, c_dict, norm=False,
-                    weights=w_dat, bootstrap=c_dict['se_boot_iate'])
-            pot_y_m_ate_i[t_idx, o_idx] = ret[0]
-            pot_y_m_ate_var_i[t_idx, o_idx] = ret[1]
+                    if c_dict['iate_se_flag']:
+                        w_i_unc_sum = np.sum(w_i_unc)
+                        if not (1-1e-10) < w_i_unc_sum < (1+1e-10):
+                            w_add_unc[t_idx, w_index] = w_i_unc / w_i_unc_sum
+                        else:
+                            w_add_unc[t_idx, w_index] = w_i_unc
+                        if w_ate is None:
+                            w_diff = w_add_unc[t_idx, :]
+                        else:
+                            w_diff = w_add_unc[t_idx, :] - w_ate[t_idx, :]
+                if c_dict['iate_se_flag']:
+                    ret = gp_est.weight_var(
+                        w_diff, y_dat[:, o_idx], None, c_dict, norm=False,
+                        weights=w_dat, bootstrap=c_dict['se_boot_iate'],
+                        se_yes=c_dict['iate_se_flag'])
+            if c_dict['iate_se_flag']:
+                pot_y_m_ate_i[t_idx, o_idx] = ret[0]
+                pot_y_m_ate_var_i[t_idx, o_idx] = ret[1]
     l1_to_9 = mcf_ate.analyse_weights_ate(w_add, None, c_dict, False)
     return (idx, pot_y_i, pot_y_var_i, pot_y_m_ate_i, pot_y_m_ate_var_i,
             l1_to_9, share_i)
 
 
-def print_iate(iate, iate_se, iate_p, effect_list, v_dict):
+def print_iate(iate, iate_se, iate_p, effect_list, v_dict, c_dict):
     """Print statistics for the two types of IATEs.
 
     Parameters
@@ -658,23 +741,34 @@ def print_iate(iate, iate_se, iate_p, effect_list, v_dict):
         for o_idx in range(no_outcomes):
             print('\nOutcome variable: ', v_dict['y_name'][o_idx])
             print(str_l)
-            print('Comparison     Mean      Median      Std   Effect > 0',
-                  'mean(SE)  sig 10% sig 5%  sig 1%')
+            if c_dict['iate_se_flag']:
+                print('Comparison     Mean      Median      Std   Effect > 0',
+                      'mean(SE)  sig 10% sig 5%  sig 1%')
+            else:
+                print('Comparison     Mean      Median      Std   Effect > 0')
             for jdx, effects in enumerate(effect_list):
                 print('{:<3} vs {:>3}'.format(effects[0],
                                               effects[1]), end=' ')
                 est = iate[:, o_idx, jdx, types].reshape(-1)
-                stderr = iate_se[:, o_idx, jdx, types].reshape(-1)
-                p_val = iate_p[:, o_idx, jdx, types].reshape(-1)
+                if c_dict['iate_se_flag']:
+                    stderr = iate_se[:, o_idx, jdx, types].reshape(-1)
+                    p_val = iate_p[:, o_idx, jdx, types].reshape(-1)
                 print('{:10.5f} {:10.5f} {:10.5f}'.format(
                     np.mean(est), np.median(est), np.std(est)), end=' ')
-                print('{:6.2f}% {:10.5f} {:6.2f}% {:6.2f}% {:6.2f}%'.format(
-                    np.count_nonzero(est > 1e-15) / n_obs * 100,
-                    np.mean(stderr),
-                    np.count_nonzero(p_val < 0.1) / n_obs * 100,
-                    np.count_nonzero(p_val < 0.05) / n_obs * 100,
-                    np.count_nonzero(p_val < 0.01) / n_obs * 100))
+                if c_dict['iate_se_flag']:
+                    print('{:6.2f}% {:10.5f} {:6.2f}% {:6.2f}% {:6.2f}%'
+                          .format(np.count_nonzero(est > 1e-15) / n_obs * 100,
+                                  np.mean(stderr),
+                                  np.count_nonzero(p_val < 0.1) / n_obs * 100,
+                                  np.count_nonzero(p_val < 0.05) / n_obs * 100,
+                                  np.count_nonzero(p_val < 0.01) / n_obs * 100)
+                          )
+                else:
+                    print()
         print(str_m, '\n')
+    print('-' * 80)
+    if c_dict['iate_se_flag']:
+        gp_est.print_se_info(c_dict['cluster_std'], c_dict['se_boot_iate'])
 
 
 def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
@@ -713,7 +807,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
         iate_pot_name = iate_pot_all_name[0]
         dim_all = (np.size(ate_all, axis=0), np.size(ate_all, axis=2))
         ate = np.empty(dim_all)
-        ate_se = np.empty(dim_all)
+        ate_se = np.empty_like(ate)
         ate = ate_all[:, 0, :]
         ate_se = ate_all_se[:, 0, :]
     ate = ate.reshape(-1)
@@ -724,13 +818,14 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
     x_name = delete_x_with_catv(v_x_type.keys())
     x_dat = data[x_name]
     cint = sct.norm.ppf(c_dict['fig_ci_level'] +
-                        0.5 * (1 - c_dict['fig_ci_level']))
+                    0.5 * (1 - c_dict['fig_ci_level']))
     if c_dict['bin_corr_yes']:
         print('\n' + ('=' * 80), '\nCorrelations of effects with ... in %')
         print('-' * 80)
     label_ci = str(c_dict['fig_ci_level'] * 100) + '%-CI'
+    iterator = range(2) if c_dict['iate_se_flag'] else range(1)
     for idx in range(len(iate_pot_name['names_iate'])):
-        for imate in range(2):
+        for imate in iterator:
             if imate == 0:
                 name_eff = 'names_iate'
                 ate_t = ate[idx].copy()
@@ -738,9 +833,12 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
             else:
                 name_eff = 'names_iate_mate'
                 ate_t = 0
-            name_se = name_eff + '_se'
             name_iate_t = iate_pot_name[name_eff][idx]
-            name_iate_se_t = iate_pot_name[name_se][idx]
+            if c_dict['iate_se_flag']:
+                name_se = name_eff + '_se'
+                name_iate_se_t = iate_pot_name[name_se][idx]    
+            else:
+                name_se = name_iate_se_t = None
             titel = 'Sorted' + name_iate_t
             # Add correlation analyis of IATEs
             if c_dict['bin_corr_yes'] and (imate == 0):
@@ -760,24 +858,30 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                         print('{:<20} {:>8.2f}'.format(jdx, corr[jdx] * 100))
                 print('-' * 80)
             iate_temp = data[name_iate_t].to_numpy()
-            iate_se_temp = data[name_iate_se_t].to_numpy()
+            if c_dict['iate_se_flag']:
+                iate_se_temp = data[name_iate_se_t].to_numpy()
+            else:
+                iate_se_temp = None
             sorted_ind = np.argsort(iate_temp)
             iate_temp = iate_temp[sorted_ind]
-            iate_se_temp = iate_se_temp[sorted_ind]
+            if c_dict['iate_se_flag']:
+                iate_se_temp = iate_se_temp[sorted_ind]
             x_values = np.arange(len(iate_temp)) + 1
             k = np.round(c_dict['knn_const'] * np.sqrt(len(iate_temp)) * 2)
             iate_temp = gp_est.moving_avg_mean_var(iate_temp, k, False)[0]
-            iate_se_temp = gp_est.moving_avg_mean_var(
-                iate_se_temp, k, False)[0]
+            if c_dict['iate_se_flag']:
+                iate_se_temp = gp_est.moving_avg_mean_var(
+                    iate_se_temp, k, False)[0]
             file_name_jpeg = c_dict['fig_pfad_jpeg'] + '/' + titel + '.jpeg'
             file_name_pdf = c_dict['fig_pfad_pdf'] + '/' + titel + '.pdf'
             file_name_csv = c_dict['fig_pfad_csv'] + '/' + titel + '.csv'
-            upper = iate_temp + iate_se_temp * cint
-            lower = iate_temp - iate_se_temp * cint
-            ate_t = ate_t * np.ones(len(upper))
+            if c_dict['iate_se_flag']:
+                upper = iate_temp + iate_se_temp * cint
+                lower = iate_temp - iate_se_temp * cint
+            ate_t = ate_t * np.ones(len(iate_temp))
             if imate == 0:
-                ate_upper = ate_t + (ate_se_t * cint * np.ones(len(upper)))
-                ate_lower = ate_t - (ate_se_t * cint * np.ones(len(upper)))
+                ate_upper = ate_t + (ate_se_t * cint * np.ones(len(iate_temp)))
+                ate_lower = ate_t - (ate_se_t * cint * np.ones(len(iate_temp)))
             line_ate = '_-r'
             line_iate = '-b'
             fig, axe = plt.subplots()
@@ -795,8 +899,9 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                                  alpha=0.3, color='r', label=label_ci)
             axe.set_title(titel)
             axe.set_xlabel('Ordered observations')
-            axe.fill_between(x_values, upper, lower, alpha=0.3, color='b',
-                             label=label_ci)
+            if c_dict['iate_se_flag']:
+                axe.fill_between(x_values, upper, lower, alpha=0.3, color='b',
+                                 label=label_ci)
             axe.legend(loc='lower right', shadow=True,
                        fontsize=c_dict['fig_fontsize'])
             if c_dict['post_plots']:
@@ -809,16 +914,25 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
             else:
                 plt.close()
             iate_temp = iate_temp.reshape(-1, 1)
-            upper = upper.reshape(-1, 1)
-            lower = lower.reshape(-1, 1)
+            if c_dict['iate_se_flag']:
+                upper = upper.reshape(-1, 1)
+                lower = lower.reshape(-1, 1)
             ate_t = ate_t.reshape(-1, 1)
             iate_temp = iate_temp.reshape(-1, 1)
             if imate == 0:
                 ate_upper = ate_upper.reshape(-1, 1)
                 ate_lower = ate_lower.reshape(-1, 1)
-                effects_et_al = np.concatenate((upper, iate_temp, lower, ate_t,
-                                                ate_upper, ate_lower), axis=1)
-                cols = ['upper', 'effects', 'lower', 'ate', 'ate_l', 'ate_u']
+                if c_dict['iate_se_flag']:
+                    effects_et_al = np.concatenate((upper, iate_temp, lower,
+                                                    ate_t, ate_upper,
+                                                    ate_lower), axis=1)
+                    cols = ['upper', 'effects', 'lower', 'ate', 'ate_l',
+                            'ate_u']
+                else:
+                    effects_et_al = np.concatenate((iate_temp, ate_t,
+                                                    ate_upper, ate_lower),
+                                                   axis=1)
+                    cols = ['effects', 'ate', 'ate_l', 'ate_u']
             else:
                 effects_et_al = np.concatenate((upper, iate_temp, lower,
                                                 ate_t), axis=1)

@@ -75,9 +75,14 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
                             ' differnt variables. Programm stopped.')
 
     def mean_by_treatment(treat_pd, data_pd):
+        treat_pd = treat_pd.squeeze()
+        treat_vals = pd.unique(treat_pd)
         print('--------------- Mean by treatment status ------------------')
-        mean = data_pd.groupby(treat_pd.squeeze()).mean()
-        print(mean.transpose())
+        if len(treat_vals) > 0:
+            mean = data_pd.groupby(treat_pd).mean()
+            print(mean.transpose())
+        else:
+            print('All obs have same treatment:', treat_vals)
 
     def on_support_data_and_stats(obs_to_del_np, data_pd, x_data_pd, out_file,
                                   upper_l, lower_l, c_dict, header=False,
@@ -157,7 +162,10 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
                 print(x_delete.describe().transpose())
                 if d_name[0].upper() in all_var_names:
                     print()
-                    mean_by_treatment(d_delete, x_delete)
+                    if np.sum(obs_to_del_np) > 1:
+                        mean_by_treatment(d_delete, x_delete)
+                    else:
+                        print('Only single observation deleted.')
             if np.mean(obs_to_del_np) > c_dict['support_max_del_train']:
                 raise Exception(
                     'Less than {:3}%'.format(

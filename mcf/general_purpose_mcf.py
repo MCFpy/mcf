@@ -80,7 +80,7 @@ def print_effect_z(g_r, gm_r, z_values, gate_str):
     print('-' * 80)
 
 
-def effect_from_potential(pot_y, pot_y_var, d_values):
+def effect_from_potential(pot_y, pot_y_var, d_values, se_yes=True):
     """Compute effects and stats from potential outcomes.
 
     Parameters
@@ -98,7 +98,8 @@ def effect_from_potential(pot_y, pot_y_var, d_values):
     """
     no_of_comparisons = round(len(d_values) * (len(d_values) - 1) / 2)
     est = np.empty(no_of_comparisons)
-    stderr = np.empty(no_of_comparisons)
+    if se_yes:
+        stderr = np.empty(no_of_comparisons)
     comparison = [None] * no_of_comparisons
     j = 0
     for idx, treat1 in enumerate(d_values):
@@ -106,12 +107,15 @@ def effect_from_potential(pot_y, pot_y_var, d_values):
             if jnd <= idx:
                 continue
             est[j] = pot_y[jnd] - pot_y[idx]
-            stderr[j] = np.sqrt(pot_y_var[jnd] + pot_y_var[idx])
+            if se_yes:
+                stderr[j] = np.sqrt(pot_y_var[jnd] + pot_y_var[idx])
             comparison[j] = [treat2, treat1]
             j = j + 1
-    t_val = np.abs(est / stderr)
-    # p_val = sct.t.sf(np.abs(t_val), 1000000) * 2
-    p_val = sct.t.sf(t_val, 1000000) * 2
+    if se_yes:        
+        t_val = np.abs(est / stderr)
+        p_val = sct.t.sf(t_val, 1000000) * 2
+    else:
+        stderr = t_val = p_val = None
     return est, stderr, t_val, p_val, comparison
 
 

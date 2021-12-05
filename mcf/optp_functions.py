@@ -18,21 +18,23 @@ from pathlib import Path
 import os
 import pandas as pd
 import numpy as np
+import ray
 import scipy.stats as sct
-import psutil
+from psutil import cpu_count
 from numba import njit
 from mcf import general_purpose as gp
 
 
 def optpoltree(
-    indata=None, datpath=None, outpath=None, id_name=None, polscore_name=None,
-    x_ord_name=None, x_unord_name=None, effect_vs_0=None, effect_vs_0_se=None,
-    output_type=2, outfiletext=None, parallel_processing=True,
-    how_many_parallel=None, with_numba=True, screen_covariates=True,
-    check_perfectcorr=True, min_dummy_obs=10, clean_data_flag=True,
-    no_of_evalupoints=100, depth_of_tree=3, min_leaf_size=None,
-    max_shares=None, costs_of_treat=None, costs_of_treat_mult=1,
-    only_if_sig_better_vs_0=False, sig_level_vs_0=0.05,
+    indata=None, preddata=None, datpath=None, outpath=None,
+    save_pred_to_file=None, id_name=None,
+    polscore_name=None, x_ord_name=None, x_unord_name=None, effect_vs_0=None,
+    effect_vs_0_se=None, output_type=2, outfiletext=None, mp_with_ray=True,
+    parallel_processing=True, how_many_parallel=None, with_numba=True,
+    screen_covariates=True, check_perfectcorr=True, min_dummy_obs=10,
+    clean_data_flag=True, no_of_evalupoints=100, depth_of_tree=3,
+    min_leaf_size=None, max_shares=None, costs_of_treat=None,
+    costs_of_treat_mult=1, only_if_sig_better_vs_0=False, sig_level_vs_0=0.05,
     _smaller_sample=None, _with_output=False):
     """Compute the optimal policy tree."""
     freeze_support()
@@ -49,10 +51,11 @@ def optpoltree(
     # set values for control variables
     controls = controls_into_dic(
         how_many_parallel, parallel_processing, output_type, outpath, datpath,
-        indata, outfiletext, _with_output, screen_covariates,
+        indata, preddata, outfiletext, _with_output, screen_covariates,
         check_perfectcorr, clean_data_flag, min_dummy_obs, no_of_evalupoints,
         max_shares, depth_of_tree, costs_of_treat, costs_of_treat_mult,
-        with_numba, min_leaf_size, only_if_sig_better_vs_0, sig_level_vs_0)
+        with_numba, min_leaf_size, only_if_sig_better_vs_0, sig_level_vs_0,
+        save_pred_to_file, mp_with_ray)
     variables = variable_dict(id_name, polscore_name, x_ord_name,
                               x_unord_name, effect_vs_0, effect_vs_0_se)
 
@@ -77,19 +80,27 @@ def optpoltree(
         gp.print_dic(v_dict)
         gp.print_descriptive_stats_file(
             c_dict['indata'], to_file=c_dict['print_to_file'])
-        names_to_check = (v_dict['id_name'] + v_dict['polscore_name']
-                          + v_dict['x_ord_name'] + v_dict['x_unord_name'])
-        if c_dict['only_if_sig_better_vs_0']:
-            names_to_check = names_to_check + v_dict['effect_vs_0'] + v_dict[
-                'effect_vs_0_se']
+        if c_dict['indata'] != c_dict['preddata']:
+            gp.print_descriptive_stats_file(
+                c_dict['preddata'], to_file=c_dict['print_to_file'])
     else:
         c_dict['print_to_file'] = False
-
+    names_to_check_train = (v_dict['id_name'] + v_dict['polscore_name']
+                           + v_dict['x_ord_name'] + v_dict['x_unord_name'])
+    if c_dict['only_if_sig_better_vs_0']:
+        names_to_check_train = names_to_check_train + v_dict[
+            'effect_vs_0'] + v_dict['effect_vs_0_se']
+    if c_dict['indata'] != c_dict['preddata'] and c_dict['with_output']:
+        gp.check_all_vars_in_data(
+            c_dict['preddata'], v_dict['x_ord_name'] + v_dict['x_unord_name'])
+        gp.print_descriptive_stats_file(
+            c_dict['preddata'], varnames=v_dict['x_ord_name']
+            +v_dict['x_unord_name'], to_file=c_dict['print_to_file'])
     # Prepare data
     # Remove missings and keep only variables needed for further analysis
     if c_dict['clean_data_flag']:
         indata2 = gp.clean_reduce_data(
-            c_dict['indata'], c_dict['indata_temp'], names_to_check,
+            c_dict['indata'], c_dict['indata_temp'], names_to_check_train,
             c_dict['with_output'], c_dict['with_output'],
             c_dict['print_to_file'])
     else:
@@ -108,12 +119,13 @@ def optpoltree(
             c_dict = automatic_cost(indata2, v_dict, c_dict)
     optimal_tree, _, _ = optimal_tree_proc(
         indata2, x_type, x_value, v_dict, c_dict)
-
     # Prozedur um den Output darzustellen
     if c_dict['with_output']:
-        # if __name__ == '__main__':  # ohne das geht Multiprocessing nicht
         descr_policy_tree(indata2, optimal_tree, x_type, x_value,
                           v_dict, c_dict)
+    opt_alloc_pred = pred_optimal_policy_allocation(
+        optimal_tree, x_value, v_dict, c_dict,
+        len(v_dict['polscore_name']))
     time3 = time.time()
 
     # Print timing information
@@ -133,6 +145,7 @@ def optpoltree(
             else:
                 outfiletext.close()
             sys.stdout = orig_stdout
+    return opt_alloc_pred
 
 
 def automatic_cost(datafile_name, v_dict, c_dict):
@@ -159,20 +172,16 @@ def automatic_cost(datafile_name, v_dict, c_dict):
     obs = len(data_ps)
     max_by_treat = np.array(c_dict['max_by_treat'])
     costs_of_treat = np.zeros(c_dict['no_of_treatments'])
-    # std_ps = np.std(data_ps.flatten())
     std_ps = np.std(data_ps.reshape(-1))
     step_size = 0.02
     while True:
         treatments = np.argmax(data_ps - costs_of_treat, axis=1)
         values, count = np.unique(treatments, return_counts=True)
-        # if np.size(count) == c_dict['no_of_treatments']:
         if len(count) == c_dict['no_of_treatments']:
-            # alloc = count.copy()
             alloc = count
         else:
             alloc = np.zeros(c_dict['no_of_treatments'])
             for i, j in enumerate(values):
-                # alloc[j] = count[i].copy()
                 alloc[j] = count[i]
         diff = alloc - max_by_treat
         diff[diff < 0] = 0
@@ -192,12 +201,12 @@ def automatic_cost(datafile_name, v_dict, c_dict):
     return c_dict
 
 
-def subsample_leaf(polscore_df, x_df, split):
+def subsample_leaf(any_df, x_df, split):
     """Reduces dataframes to data in leaf.
 
     Parameters
     ----------
-    polscore_df : Dataframe. Policyscores.
+    any_df : Dataframe. Policyscores, indices or any other of same length as x.
     x_df : Dataframe. Policy variables.
     split : dict. Split information.
 
@@ -217,9 +226,9 @@ def subsample_leaf(polscore_df, x_df, split):
             condition = x_df[split['x_name']] <= split['cut-off or set']
         else:
             condition = x_df[split['x_name']] > split['cut-off or set']
-    polscore_df_red = polscore_df[condition]
+    any_df_red = any_df[condition]
     x_df_red = x_df[condition]
-    return polscore_df_red, x_df_red
+    return any_df_red, x_df_red
 
 
 def final_leaf_dict(leaf, left_right):
@@ -242,13 +251,13 @@ def final_leaf_dict(leaf, left_right):
     return return_dic
 
 
-def two_leafs_info(tree, polscore_df, x_df, leaf):
+def two_leafs_info(tree, polscore_df, x_df, leaf, polscore_is_index=False):
     """Compute the information contained in two adjacent leaves.
 
     Parameters
     ----------
     tree : List of lists.
-    polscore_df : Dataframe. Policyscore.
+    polscore_df : Dataframe. Policyscore or index.
     x_df : Dataframe. Policy variables.
     leaf : List. Terminal leaf under investigation.
 
@@ -263,7 +272,7 @@ def two_leafs_info(tree, polscore_df, x_df, leaf):
     obs : Tuple of Int. Number of observations in leaf.
 
     """
-    # Collect decision path that the two final leaves
+    # Collect decision path of the two final leaves
     leaf_splits_pre = []
     parent_nr = leaf[1]
     current_nr = leaf[0]
@@ -295,16 +304,22 @@ def two_leafs_info(tree, polscore_df, x_df, leaf):
     final_dict_r = final_leaf_dict(leaf, 'right')
     polscore_df_l = subsample_leaf(polscore_df, x_df, final_dict_l)[0]
     polscore_df_r = subsample_leaf(polscore_df, x_df, final_dict_r)[0]
+    obs = (polscore_df_l.shape[0], polscore_df_r.shape[0])
+    if polscore_is_index:
+        # Policy score contains index of observation
+        score = (0, 0)
+    else:
+        polscore_df_l = polscore_df_l.iloc[:, leaf[8][0]]
+        polscore_df_r = polscore_df_r.iloc[:, leaf[8][1]]
+        score = (polscore_df_l.sum(axis=0), polscore_df_r.sum(axis=0))
     leaf_splits_r = copy.deepcopy(leaf_splits_pre)
     leaf_splits_l = leaf_splits_pre   # one copy is enough
     leaf_splits_l.append(final_dict_l)
     leaf_splits_r.append(final_dict_r)
     leaf_splits = (leaf_splits_l, leaf_splits_r)
-    obs = (polscore_df_l.shape[0], polscore_df_r.shape[0])
-    polscore_df_l = polscore_df_l.iloc[:, leaf[8][0]]
-    polscore_df_r = polscore_df_r.iloc[:, leaf[8][1]]
-    score = (polscore_df_l.sum(axis=0), polscore_df_r.sum(axis=0))
-    return leaf_splits, score, obs, tuple(leaf[8])
+    polscore_df_lr = (polscore_df_l, polscore_df_r)
+    # leaf 8 contains treatment information in final leaf
+    return leaf_splits, score, obs, tuple(leaf[8]), polscore_df_lr
 
 
 def descr_policy_tree(datafile_name, tree, x_name, x_type, v_dict, c_dict):
@@ -355,7 +370,7 @@ def descr_policy_tree(datafile_name, tree, x_name, x_type, v_dict, c_dict):
     if not len(set(ids)) == len(ids):
         raise Exception('Some leafs IDs are identical. Rerun programme.')
     print('\n' + ('=' * 80))
-    print('Descriptive statistic of estimated policy tree')
+    print('Descriptive statistic of estimated policy tree: Training sample')
     if c_dict['only_if_sig_better_vs_0']:
         print('While tree building, policy scores not significantly',
               'different from zero are set to zero. Below, orginal scores',
@@ -377,12 +392,10 @@ def descr_policy_tree(datafile_name, tree, x_name, x_type, v_dict, c_dict):
     obs = [None] * len(terminal_leafs)
     treat = [None] * len(terminal_leafs)
     for i, leaf in enumerate(terminal_leafs):
-        splits_seq[i], score_val[i], obs[i], treat[i] = two_leafs_info(
-            tree, data_df_ps, data_df_x, leaf)
-    total_obs = 0
+        splits_seq[i], score_val[i], obs[i], treat[i], _ = two_leafs_info(
+            tree, data_df_ps, data_df_x, leaf, polscore_is_index=False)
     total_obs_by_treat = np.zeros((data_df_ps.shape[1]))
-    total_score = 0
-    total_cost = 0
+    total_obs = total_score =  total_cost = 0
     for i, obs_i in enumerate(obs):
         total_obs += obs_i[0] + obs_i[1]
         total_obs_by_treat[treat[i][0]] += obs_i[0]
@@ -447,6 +460,152 @@ def descr_policy_tree(datafile_name, tree, x_name, x_type, v_dict, c_dict):
     print('=' * 80)
 
 
+def pred_optimal_policy_allocation(tree, x_name, v_dict, c_dict, no_of_treat):
+    """Describe optimal policy tree in prediction sample and get predictions.
+
+    Content of tree for each node:
+    0: Node identifier (INT: 0-...)
+    1: Parent knot
+    2: Child node left
+    3: Child node right
+    4: Type of node (2: Active -> will be further splitted or made terminal
+                    1: Terminal node, no further splits
+                    0: previous node that lead already to further splits)
+    5: String: Name of variable used for decision of next split
+    6: x_type of variable (policy categorisation, maybe different from MCF)
+    7: If x_type = 'unordered': Set of values that goes to left daughter
+    7: If x_type = 0: Cut-off value (larger goes to right daughter)
+    8: List of Treatment state for both daughters [left, right]
+
+    Parameters
+    ----------
+    datafile_name: String.
+    tree : List of lists.
+    x_type : Dict. Type information of variables.
+    v_dict : Dict. Variables.
+    c_dict : Dict. Controls.
+
+    Returns
+    -------
+    None.
+
+    """
+    data_df = pd.read_csv(c_dict['preddata'])
+    x_name = [x.upper() for x in x_name]
+    data_df.columns = [x.upper() for x in data_df.columns]
+    data_df_x = data_df[x_name]
+    total_obs = len(data_df_x)
+    x_indx = pd.DataFrame(data=range(len(data_df_x)), columns=('Sorter',))
+    if tree is None:
+        raise Exception('Not enough evaluation points for current depth.' +
+                        'Reduce depth or increase variable and / or ' +
+                        'evaluation points for continuous variables.')
+    length = len(tree)
+    ids = [None] * length
+    terminal_leafs = []
+    for leaf_i in range(length):
+        ids[leaf_i] = tree[leaf_i][0]
+        if tree[leaf_i][4] == 1:
+            terminal_leafs.append(tree[leaf_i])
+    if not len(set(ids)) == len(ids):
+        raise Exception('Some leafs IDs are identical. Rerun programme.')
+    if c_dict['with_output']:
+        print('\n' + ('=' * 80))
+        print('Descriptive statistic of estimated policy tree: prediction',
+              ' sample')
+    splits_seq = [None] * len(terminal_leafs)
+    obs = [None] * len(terminal_leafs)
+    treat = [None] * len(terminal_leafs)
+    indx_in_leaf = [None] * len(terminal_leafs)
+    for i, leaf in enumerate(terminal_leafs):
+        splits_seq[i], _, obs[i], treat[i], indx_in_leaf[i] = two_leafs_info(
+            tree, x_indx, data_df_x, leaf, polscore_is_index=True)
+    predicted_treatment = pred_treat_fct(treat, indx_in_leaf, total_obs)
+    if c_dict['save_pred_to_file']:
+        pd_df = pd.DataFrame(data=predicted_treatment, columns=('Alloctreat',))
+        datanew = pd.concat([pd_df, data_df], axis=1)
+        gp.delete_file_if_exists(c_dict['pred_save_file'])
+        datanew.to_csv(c_dict['pred_save_file'], index=False)
+    if c_dict['with_output']:
+        total_obs_by_treat = np.zeros(no_of_treat)
+        total_obs_temp = total_cost = 0
+        for i, obs_i in enumerate(obs):
+            total_obs_temp += obs_i[0] + obs_i[1]
+            total_obs_by_treat[treat[i][0]] += obs_i[0]
+            total_obs_by_treat[treat[i][1]] += obs_i[1]
+        total_cost = np.sum(c_dict['costs_of_treat'] * total_obs_by_treat)
+        if int(total_obs_temp) != total_obs:
+            print('Total observations in x:                       ', total_obs)
+            print('Total observations in with treatment allocated:',
+                  total_obs_temp)
+            raise Exception('Some observations did get a treatment allocation.'
+                            )
+        print('- ' * 40)
+        print('Total cost:         {:14.4f} '.format(total_cost),
+              '  Average cost:         {:14.4f}'.format(total_cost / total_obs))
+        print('- ' * 40)
+        print('Total number of observations: {:d}'.format(int(total_obs)))
+        print('Treatments:                           ', end=' ')
+        for i, j in enumerate(v_dict['polscore_name']):
+            print('{:6d} '.format(i), end=' ')
+        print('\nObservations allocated, by treatment: ', end=' ')
+        for i in total_obs_by_treat:
+            print('{:6d} '.format(int(i)), end=' ')
+        print('\nCost per treatment:                   ', end=' ')
+        for i in c_dict['costs_of_treat']:
+            print('{:6.2f} '.format(i), end=' ')
+        print('\n' + '-' * 80)
+        for i, splits in enumerate(splits_seq):
+            for j in range(2):
+                print('Leaf {:d}{:d}:  '.format(i, j), end=' ')
+                for splits_dic in splits[j]:
+                    print('{:4s}'.format(splits_dic['x_name']), end=' ')
+                    if splits_dic['x_type'] == 'unord':
+                        if splits_dic['left or right'] == 'left':
+                            print('In:     ', end='')
+                        else:
+                            print('Not in: ', end='')
+                        values_to_print = np.sort(splits_dic['cut-off or set'])
+                        for s_i in values_to_print:
+                            if isinstance(s_i, int) or (
+                                    (s_i - np.round(s_i)) < 0.00001):
+                                print('{:2d} '.format(
+                                    int(np.round(s_i))), end=' ')
+                            else:
+                                print('{:3.1f} '.format(s_i), end=' ')
+                    else:
+                        if splits_dic['left or right'] == 'left':
+                            print('<=', end='')
+                        else:
+                            print('> ', end='')
+                        print('{:8.3f} '.format(splits_dic['cut-off or set']),
+                              end=' ')
+                print()
+                print('Alloc Treatment: {:3d} '.format(treat[i][j]), end='')
+                print('- ' * 40)
+        print('=' * 80)
+    return predicted_treatment
+
+
+def pred_treat_fct(treat, indx_in_leaf, total_obs):
+    """Collect data and bring in the same as original data."""
+    pred_treat = np.zeros((total_obs, 2), dtype=np.int64)
+    idx_start = 0
+    for idx, idx_leaf in enumerate(indx_in_leaf):
+        idx_treat = treat[idx]
+        idx_end = idx_start + len(idx_leaf[0])
+        pred_treat[idx_start:idx_end, 0] = idx_leaf[0].to_numpy().flatten()
+        pred_treat[idx_start:idx_end, 1] = idx_treat[0]
+        idx_start = idx_end
+        idx_end = idx_start + len(idx_leaf[1])
+        pred_treat[idx_start:idx_end, 0] = idx_leaf[1].to_numpy().flatten()
+        pred_treat[idx_start:idx_end, 1] = idx_treat[1]
+        idx_start = idx_end
+    pred_treat = pred_treat[pred_treat[:, 0].argsort()]  # sort on indices
+    pred_treat = pred_treat[:, 1]
+    return pred_treat
+
+
 def combinations_categorical(single_x_np, ps_np_diff, c_dict):
     """Create all possible combinations of list elements, removing complements.
 
@@ -462,7 +621,6 @@ def combinations_categorical(single_x_np, ps_np_diff, c_dict):
 
     """
     values = np.unique(single_x_np)
-    # no_of_values = np.size(values)
     no_of_values = len(values)
     no_of_combinations = gp.total_sample_splits_categorical(no_of_values)
     if no_of_combinations < c_dict['no_of_evalupoints']:
@@ -705,8 +863,7 @@ def merge_trees(tree_l, tree_r, name_x_m, type_x_m, val_x, treedepth):
     leaf[7] = val_x
     if treedepth == 2:  # Final split (defines 2 final leaves)
         leaf[4] = 1
-        leaf[2] = None
-        leaf[3] = None
+        leaf[2] = leaf[3] = None
         leaf[8] = [tree_l, tree_r]  # For 1st tree --> treatment states
         new_tree = [leaf]
     else:
@@ -869,8 +1026,7 @@ def tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
         min_leaf_size = c_dict['min_leaf_size'] * 2**(treedepth - 2)
         no_of_x = len(type_x)
         reward = -math.inf  # minus infinity
-        tree = None
-        no_by_treat = None
+        tree = no_by_treat = None
         for m_i in range(no_of_x):
             if c_dict['with_output']:
                 if treedepth == c_dict['depth_of_tree']:
@@ -994,7 +1150,6 @@ def tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x, type_x,
     reward = -math.inf  # minus infinity
     tree = None
     no_by_treat = None
-    # data_x_m_i = data_x[:, m_i].copy()
     if type_x[m_i] == 'cont':
         values_x_to_check = get_values_cont_x(
             data_x[:, m_i], c_dict['no_of_evalupoints'],
@@ -1016,10 +1171,6 @@ def tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x, type_x,
         if not (c_dict['min_leaf_size'] <= obs_left
                 <= (len(left)-c_dict['min_leaf_size'])):
             continue
-        # if np.all(left):
-        #     continue
-        # if not np.any(left):
-        #     continue
         right = np.invert(left)
         tree_l, reward_l, no_by_treat_l = tree_search(
             data_ps[left, :], data_ps_diff[left, :], data_x[left, :],
@@ -1116,8 +1267,6 @@ def adjust_reward_no_numba(no_by_treat_l, no_by_treat_r, reward_l, reward_r,
 
     """
     if (no_by_treat_l is None) or (no_by_treat_r is None):
-        # no_by_treat_l = -math.inf
-        # no_by_treat_r = -math.inf
         return reward_l, reward_r
     if np.any(no_by_treat_l + no_by_treat_r > max_by_treat):
         diff = (no_by_treat_l + no_by_treat_r - max_by_treat)
@@ -1194,7 +1343,6 @@ def optimal_tree_proc(datafile_name, x_type, x_value, v_dict, c_dict):
     type_x = [None] * no_of_x
     values_x = [None] * no_of_x
     for j, key in enumerate(x_type.keys()):
-        # name_x[j] = copy.copy(key)
         name_x[j] = key
         type_x[j] = x_type[key]
         if x_value[key] is not None:
@@ -1212,16 +1360,37 @@ def optimal_tree_proc(datafile_name, x_type, x_value, v_dict, c_dict):
     optimal_tree = None
     x_trees = []
     if c_dict['parallel']:
-        para = c_dict['no_parallel']
-        with futures.ProcessPoolExecutor(max_workers=para) as fpp:
-            trees = {fpp.submit(tree_search_multip_single, data_ps,
-                                data_ps_diff, data_x, name_x, type_x, values_x,
-                                c_dict, c_dict['depth_of_tree'], m_i):
-                     m_i for m_i in range(len(type_x))}
-            for idx, val in enumerate(futures.as_completed(trees)):
-                if c_dict['with_output']:
-                    gp.share_completed(idx, len(type_x))
-                x_trees.append(val.result())
+        maxworkers = c_dict['no_parallel']
+        if c_dict['mp_with_ray']:
+            if not ray.is_initialized():
+                ray.init(num_cpus=maxworkers, include_dashboard=False)
+            data_x_ref = ray.put(data_x)
+            data_ps_ref = ray.put(data_ps)
+            data_ps_diff_ref = ray.put(data_ps_diff)
+            still_running = [ray_tree_search_multip_single.remote(
+                data_ps_ref, data_ps_diff_ref, data_x_ref, name_x, type_x,
+                values_x, c_dict, c_dict['depth_of_tree'], m_i)
+                for m_i in range(len(type_x))]
+            idx = 0
+            x_trees = [None] * len(type_x)
+            while len(still_running) > 0:
+                finished, still_running = ray.wait(still_running)
+                finished_res = ray.get(finished)
+                for ret_all_i in finished_res:
+                    if c_dict['with_output']:
+                        gp.share_completed(idx+1, len(type_x))
+                    x_trees[idx] = ret_all_i
+                    idx += 1
+        else:    
+            with futures.ProcessPoolExecutor(max_workers=maxworkers) as fpp:
+                trees = {fpp.submit(tree_search_multip_single, data_ps,
+                                    data_ps_diff, data_x, name_x, type_x, 
+                                    values_x, c_dict, c_dict['depth_of_tree'],
+                                    m_i): m_i for m_i in range(len(type_x))}
+                for idx, val in enumerate(futures.as_completed(trees)):
+                    if c_dict['with_output']:
+                        gp.share_completed(idx, len(type_x))
+                    x_trees.append(val.result())
         optimal_reward = np.empty(len(type_x))
         for idx, tree in enumerate(x_trees):
             optimal_reward[idx] = tree[1]
@@ -1234,6 +1403,14 @@ def optimal_tree_proc(datafile_name, x_type, x_value, v_dict, c_dict):
             data_ps, data_ps_diff, data_x, name_x, type_x, values_x, c_dict,
             c_dict['depth_of_tree'])
     return optimal_tree, optimal_reward, obs_total
+
+
+@ray.remote
+def ray_tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x, type_x,
+                              values_x, c_dict, treedepth, m_i):
+    """Prepare function for Ray."""
+    return tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x, type_x,
+                                  values_x, c_dict, treedepth, m_i)
 
 
 def structure_of_node_tabl_poltree():
@@ -1279,11 +1456,9 @@ def init_node_table_poltree():
 
     """
     node_table = [None] * 8
-    node_table[0] = 0
-    node_table[1] = 0
+    node_table[0] = node_table[1] = 0
     node_table[2] = 1
-    node_table[3] = 2
-    node_table[4] = 2
+    node_table[3] = node_table[4] = 2
     return [node_table]
 
 
@@ -1306,9 +1481,7 @@ def classify_var_for_pol_tree(datafile_name, v_dict, c_dict, all_var_names):
     if not all_var_names:
         raise Exception('No variables left.')
     data = pd.read_csv(datafile_name)
-    x_continuous = False
-    x_ordered = False
-    x_unordered = False
+    x_continuous = x_ordered = x_unordered = False
     x_type_dict = {}
     x_value_dict = {}
     for var in all_var_names:
@@ -1430,7 +1603,14 @@ def get_controls(c_dict, v_dict):
     c_dict['outfiletext'] = (c_dict['outpfad'] + '/' + c_dict['outfiletext']
                              + '.txt')
     c_dict['indata'] = c_dict['datpfad'] + '/' + c_dict['indata'] + '.csv'
+    if c_dict['preddata'] is None:
+        c_dict['preddata'] = c_dict['indata']
+    else:
+        c_dict['preddata'] = c_dict['datpfad'] + '/' + c_dict['preddata'
+                                                              ] + '.csv'
     indata_temp = temppfad + '/' + 'indat_temp' + '.csv'
+    c_dict['save_pred_to_file'] = c_dict['save_pred_to_file'] is not False
+    c_dict['pred_save_file'] = c_dict['outfiletext'][:-4] + 'OptTreat.csv'
 
     if c_dict['output_type'] is None:
         c_dict['output_type'] = 2
@@ -1441,49 +1621,41 @@ def get_controls(c_dict, v_dict):
         print_to_file = True
         print_to_terminal = False
     else:
-        print_to_file = True
-        print_to_terminal = True
+        print_to_file = print_to_terminal = True
 
     if c_dict['parallel'] is not False:
         c_dict['parallel'] = True
-    if c_dict['parallel'] == 0:
-        c_dict['parallel'] = False
-    else:
-        c_dict['parallel'] = True
+    # c_dict['parallel'] = False if c_dict['parallel'] == 0 else True
+    c_dict['parallel'] = not c_dict['parallel'] == 0
     if c_dict['no_parallel'] is None:
         c_dict['no_parallel'] = 0
     if c_dict['no_parallel'] < 0.5:
-        c_dict['no_parallel'] = psutil.cpu_count()
+        c_dict['no_parallel'] = cpu_count(logical=False) - 1
     else:
         c_dict['no_parallel'] = round(c_dict['no_parallel'])
+    c_dict['mp_with_ray'] = c_dict['mp_with_ray'] is not False
     if c_dict['screen_covariates'] is not False:
         c_dict['screen_covariates'] = True
     if c_dict['check_perfectcorr'] is not True:
         c_dict['check_perfectcorr'] = False
     if c_dict['min_dummy_obs'] is None:
         c_dict['min_dummy_obs'] = 0
-    if c_dict['min_dummy_obs'] < 1:
-        c_dict['min_dummy_obs'] = 10
-    else:
-        c_dict['min_dummy_obs'] = round(c_dict['min_dummy_obs'])
+    c_dict['min_dummy_obs'] = 10 if c_dict['min_dummy_obs'] < 1 else round(
+        c_dict['min_dummy_obs'])
     if c_dict['clean_data_flag'] is not False:
         c_dict['clean_data_flag'] = True
     if c_dict['no_of_evalupoints'] is None:
         c_dict['no_of_evalupoints'] = 0
-    if c_dict['no_of_evalupoints'] < 5:
-        c_dict['no_of_evalupoints'] = 100
-    else:
-        c_dict['no_of_evalupoints'] = round(c_dict['no_of_evalupoints'])
+    c_dict['no_of_evalupoints'] = 100 if c_dict['no_of_evalupoints'] < 5 else (
+        round(c_dict['no_of_evalupoints']))
     if c_dict['max_shares'] is None:
         c_dict['max_shares'] = [1 for i in range(len(v_dict['polscore_name']))]
     if len(c_dict['max_shares']) != len(v_dict['polscore_name']):
         raise Exception('# of policy scores different from # of restrictions.')
     if c_dict['depth_of_tree'] is None:
         c_dict['depth_of_tree'] = 0
-    if c_dict['depth_of_tree'] < 1:  # 'normal definition of depth + 1'
-        c_dict['depth_of_tree'] = 4
-    else:
-        c_dict['depth_of_tree'] = int(round(c_dict['depth_of_tree']) + 1)
+    c_dict['depth_of_tree'] = 4 if c_dict['depth_of_tree'] < 1 else int(round(
+        c_dict['depth_of_tree']) + 1)
     zeros = 0
     for i in c_dict['max_shares']:
         if not 0 <= i <= 1:
@@ -1552,13 +1724,11 @@ def get_controls(c_dict, v_dict):
                 raise Exception('Wrong dimension of variables effect_vs_0')
             if len(v_dict['effect_vs_0_se']) != (no_of_treatments-1):
                 raise Exception('Wrong dimension of variables effect_vs_0_se')
-    add_c = {'temppfad': temppfad,
-             'indata_temp': indata_temp,
-             'print_to_file': print_to_file,
-             'print_to_terminal': print_to_terminal,
-             'max_by_treat': max_by_treat,
-             'no_of_treatments': no_of_treatments,
-             'restricted': restricted}
+    add_c = {
+        'temppfad': temppfad, 'indata_temp': indata_temp,
+        'print_to_file': print_to_file, 'print_to_terminal': print_to_terminal,
+        'max_by_treat': max_by_treat, 'no_of_treatments': no_of_treatments,
+        'restricted': restricted}
     c_dict.update(add_c)
     return c_dict, v_dict_new
 
@@ -1610,23 +1780,21 @@ def variable_dict(id_name, polscore_name, x_ord_name, x_unord_name,
         effect_vs_0_se = []
     else:
         effect_vs_0_se = capital_letter_and_list(effect_vs_0_se)
-    var = {'id_name': id_name,
-           'polscore_name': polscore_name,
-           'x_ord_name': x_ord_name,
-           'x_unord_name': x_unord_name,
-           'effect_vs_0': effect_vs_0,
-           'effect_vs_0_se': effect_vs_0_se}
+    var = {
+        'id_name': id_name, 'polscore_name': polscore_name,
+        'x_ord_name': x_ord_name, 'x_unord_name': x_unord_name,
+        'effect_vs_0': effect_vs_0, 'effect_vs_0_se': effect_vs_0_se}
     return var
 
 
 def controls_into_dic(how_many_parallel, parallel_processing,
-                      output_type, outpfad, datpfad,
-                      indata, outfiletext, with_output, screen_covariates,
+                      output_type, outpfad, datpfad, indata, preddata,
+                      outfiletext, with_output, screen_covariates,
                       check_perfectcorr, clean_data_flag, min_dummy_obs,
                       no_of_evalupoints, max_shares, depth_of_tree,
                       costs_of_treat, costs_of_treat_mult, with_numba,
                       min_leaf_size, only_if_sig_better_vs_0,
-                      sig_level_vs_0):
+                      sig_level_vs_0, save_pred_to_file, mp_with_ray):
     """Build dictionary containing control parameters for later easier use.
 
     Parameters
@@ -1638,6 +1806,7 @@ def controls_into_dic(how_many_parallel, parallel_processing,
     temppfad : string.
     datpfad : string.
     indata : string.
+    preddata: string
     outfiletext : string.
     with_output: boolean.
     screen_covariates : int.
@@ -1653,26 +1822,18 @@ def controls_into_dic(how_many_parallel, parallel_processing,
     control_dic : Dict. Parameters.
 
     """
-    control_dic = {'no_parallel': how_many_parallel,
-                   'parallel': parallel_processing,
-                   'output_type': output_type,
-                   'outpfad': outpfad,
-                   'datpfad': datpfad,
-                   'indata': indata,
-                   'with_output': with_output,
-                   'outfiletext': outfiletext,
-                   'screen_covariates': screen_covariates,
-                   'check_perfectcorr': check_perfectcorr,
-                   'clean_data_flag': clean_data_flag,
-                   'min_dummy_obs': min_dummy_obs,
-                   'no_of_evalupoints': no_of_evalupoints,
-                   'max_shares': max_shares,
-                   'costs_of_treat': costs_of_treat,
-                   'costs_mult': costs_of_treat_mult,
-                   'depth_of_tree': depth_of_tree,
-                   'with_numba': with_numba,
-                   'min_leaf_size': min_leaf_size,
-                   'only_if_sig_better_vs_0': only_if_sig_better_vs_0,
-                   'sig_level_vs_0': sig_level_vs_0
+    control_dic = {
+        'no_parallel': how_many_parallel, 'parallel': parallel_processing,
+        'output_type': output_type, 'outpfad': outpfad, 'datpfad': datpfad,
+        'indata': indata, 'preddata': preddata, 'with_output': with_output,
+        'outfiletext': outfiletext, 'screen_covariates': screen_covariates,
+        'check_perfectcorr': check_perfectcorr, 'mp_with_ray': mp_with_ray,
+        'clean_data_flag': clean_data_flag, 'min_dummy_obs': min_dummy_obs,
+        'no_of_evalupoints': no_of_evalupoints, 'max_shares': max_shares,
+        'costs_of_treat': costs_of_treat, 'costs_mult': costs_of_treat_mult,
+        'depth_of_tree': depth_of_tree, 'with_numba': with_numba,
+        'min_leaf_size': min_leaf_size, 'save_pred_to_file': save_pred_to_file,
+        'only_if_sig_better_vs_0': only_if_sig_better_vs_0,
+        'sig_level_vs_0': sig_level_vs_0
                    }
     return control_dic

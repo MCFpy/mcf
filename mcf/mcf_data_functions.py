@@ -364,23 +364,30 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
                 y_match[:, i_treat] = nn_neighbour_mcf2(
                     y_dat, x_dat, d_dat, obs, cov_x_inv, i_value)
         else:
-            if maxworkers > math.ceil(c_dict['no_of_treat']/2):
-                maxworkers = math.ceil(c_dict['no_of_treat']/2)
+            if c_dict['_mp_ray_shutdown']:  # Later on more workers needed
+                if maxworkers > math.ceil(c_dict['no_of_treat']/2):
+                    maxworkers = math.ceil(c_dict['no_of_treat']/2)
             if c_dict['mp_with_ray']:
-                ray.init(num_cpus=maxworkers, include_dashboard=False)
+                if not ray.is_initialized():
+                    ray.init(num_cpus=maxworkers, include_dashboard=False)
                 x_dat_ref = ray.put(x_dat)
-                tasks = [ray_nn_neighbour_mcf2.remote(
+                still_running = [ray_nn_neighbour_mcf2.remote(
                     y_dat, x_dat_ref, d_dat, obs, cov_x_inv,
                     c_dict['d_values'][idx], idx)
                     for idx in range(c_dict['no_of_treat'])]
-                still_running = list(tasks)
                 while len(still_running) > 0:
                     finished, still_running = ray.wait(still_running)
                     finished_res = ray.get(finished)
                     for res in finished_res:
                         y_match[:, res[1]] = res[0]
-                del x_dat_ref, finished, still_running, tasks
-                ray.shutdown()
+                if 'refs' in c_dict['_mp_ray_del']:
+                    del x_dat_ref
+                # if 'remote' in c_dict['_mp_ray_del']:
+                #     del tasks
+                if 'rest' in c_dict['_mp_ray_del']:
+                    del finished_res, finished
+                if c_dict['_mp_ray_shutdown']:
+                    ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
                                                  ) as fpp:
@@ -485,6 +492,20 @@ def create_xz_variables(
     prime_values_dict, unique_val_dict: Dict. Correspondence table from
                variable to prime (unordered variable). Default is None.
     """
+    def check_for_nan(data):
+        vars_with_nans = []
+        for name in data.columns:
+            temp_pd = data[name].squeeze()
+            if temp_pd.dtype == 'object':
+                vars_with_nans.append(name)
+        if vars_with_nans:
+            print('-' * 80)
+            print('WARNING: The following variables are not numeric:')
+            print(vars_with_nans)
+            print('WARNING: They have to be recoded as numerical if used in',
+                  'estimation.')
+            print('-' * 80)
+
     vn_dict = copy.deepcopy(v_dict)
     cn_dict = copy.deepcopy(c_dict)
     if c_dict['train_mcf']:
@@ -494,8 +515,20 @@ def create_xz_variables(
         data1.columns = data1.columns.str.upper()
         data1new = data1.copy()
         data1new.replace({False: 0, True: 1}, inplace=True)
+        if c_dict['with_output']:
+            check_for_nan(data1new)
         if not regrf:
-            d1_np = data1[v_dict['d_name']].to_numpy()
+            d_dat_pd = data1new[v_dict['d_name']].squeeze()
+            if d_dat_pd.dtype == 'object':
+                d_dat_pd = d_dat_pd.astype('category')
+                print(d_dat_pd.cat.categories)
+                if c_dict['with_output']:
+                    print('Automatic recoding of treatment variable')
+                    numerical_codes = pd.unique(d_dat_pd.cat.codes)
+                    print(numerical_codes)
+                d_dat_new_pd = d_dat_pd.cat.codes
+                data1new[v_dict['d_name']] = d_dat_new_pd.to_frame()
+            d1_np = data1new[v_dict['d_name']].to_numpy()
             d1_unique = np.round(np.unique(d1_np))
         else:
             d1_unique = None
@@ -512,11 +545,18 @@ def create_xz_variables(
         data2.columns = data2.columns.str.upper()
         data2new = data2.copy()
         data2new.replace({False: 0, True: 1}, inplace=True)
+        if c_dict['with_output'] and c_dict['train_mcf']:
+            check_for_nan(data1new)
         if not regrf:
             if c_dict['gatet_flag'] or c_dict['atet_flag']:
                 text = 'Treatment variable differently coded in both datasets.'
                 text += 'Set ATET_FLAG and GATET_FLAG to 0.'
-                d2_np = data2[v_dict['d_name']].to_numpy()
+                d_dat_pd = data2new[v_dict['d_name']].squeeze()
+                if d_dat_pd.dtype == 'object':
+                    raise Exception('Treatment in predicted file not coded' +
+                                    'as integer. Change this and use same' +
+                                    'coding as in training data.')
+                d2_np = data2new[v_dict['d_name']].to_numpy()
                 d2_unique = np.round(np.unique(d2_np))
                 if len(d1_unique) == len(d2_unique):
                     if not np.all(d1_unique == d2_unique):
@@ -766,9 +806,6 @@ def create_xz_variables(
                   predata_with_z)
             gp.print_descriptive_stats_file(
                 predata_with_z, 'all', c_dict['print_to_file'])
-    # if not regrf:
-    #     if c_dict['atet_flag']:
-    #         cn_dict['agg_yes'] = 1   NOWHERE else USED
     return (vn_dict, vn_x_type, vn_x_values, cn_dict, indata_with_z,
             predata_with_z, d1_unique, no_val_dict, q_inv_dict, q_inv_cr_dict,
             prime_values_dict, unique_val_dict, z_new_name_dict,
@@ -818,3 +855,77 @@ def adjust_y_names(var_dict, y_name_old, y_name_new, with_output):
         print('\n')
         print('New variable to build trees in RF: ', var_dict['y_tree_name'])
     return var_dict
+
+
+def random_obs_reductions(infiles, outfiles=None, fraction=0.5,
+                          replacement=False):
+    """
+    Write random subsamples on file.
+
+    Parameters
+    ----------
+    indata_list : List-like of file names. Input.
+    out_data_list : List-like of file names. Output.
+    fraction : Share of observations to include.
+
+    Returns
+    -------
+    None.
+
+    """
+    if outfiles is None:
+        outfiles = infiles
+    for file_idx, file in enumerate(infiles):
+        data = pd.read_csv(filepath_or_buffer=file, header=0)
+        data = data.sample(frac=fraction, replace=replacement,
+                           random_state=12345)
+        gp.delete_file_if_exists(outfiles[file_idx])
+        data.to_csv(outfiles[file_idx], index=False)
+
+
+def random_obs_reductions_treatment(infiles, outfiles=None, fraction=0.5,
+                                    d_name=None):
+    """
+    Write random subsamples on file - treatment specific.
+
+    Parameters
+    ----------
+    indata_list : List-like of file names. Input.
+    out_data_list : List-like of file names. Output.
+    fraction : Share of observations to include.
+    d_name: Name of treatment variable
+
+    Returns
+    -------
+    None.
+
+    """
+    def find_reduction(d_pd, fraction_to_keep):
+        largest_count = d_pd.value_counts()
+        group = int(largest_count.index[0][0])
+        if largest_count.iloc[0] * fraction_to_keep > largest_count.iloc[1]:
+            no_of_obs_to_keep = round(largest_count.iloc[0] * fraction_to_keep)
+        else:
+            no_of_obs_to_keep = largest_count.iloc[1]
+        no_of_obs_to_drop = largest_count.iloc[0] - no_of_obs_to_keep
+        return group, no_of_obs_to_drop
+
+    def reduce_group(data, d_name, group, no_of_obs_to_drop):
+        treatment_group = data.loc[data[d_name].eq(group).squeeze()]
+        drop_index = treatment_group.sample(
+            no_of_obs_to_drop, random_state=12345).index
+        data = data.drop(drop_index)
+        print()
+        return data
+
+    def write_to_file(data, file):
+        gp.delete_file_if_exists(file)
+        data.to_csv(file, index=False)
+
+    if outfiles is None:
+        outfiles = infiles
+    for file_idx, file in enumerate(infiles):
+        data = pd.read_csv(filepath_or_buffer=file, header=0)
+        group, no_of_obs_to_drop = find_reduction(data[d_name], fraction)
+        data = reduce_group(data, d_name, group, no_of_obs_to_drop)
+        write_to_file(data, outfiles[file_idx])

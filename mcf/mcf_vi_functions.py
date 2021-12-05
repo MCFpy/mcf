@@ -77,10 +77,12 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
         print('Number of parallel processes: ', maxworkers)
     if c_dict['mp_with_ray'] and maxworkers > 1:
         if c_dict['mem_object_store_2'] is None:
-            ray.init(num_cpus=maxworkers, include_dashboard=False)
+            if not ray.is_initialized():
+                ray.init(num_cpus=maxworkers, include_dashboard=False)
         else:
-            ray.init(num_cpus=maxworkers, include_dashboard=False,
-                     object_store_memory=c_dict['mem_object_store_2'])
+            if not ray.is_initialized():
+                ray.init(num_cpus=maxworkers, include_dashboard=False,
+                         object_store_memory=c_dict['mem_object_store_2'])
             if c_dict['with_output'] and c_dict['verbose']:
                 print("Size of Ray Object Store: ",
                       round(c_dict['mem_object_store_2']/(1024*1024)), " MB")
@@ -97,11 +99,15 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
     else:  # Fast but needs a lot of memory because it copied a lot
         maxworkers = min(maxworkers, number_of_oobs)
         if c_dict['mp_with_ray']:
-            tasks = [ray_get_oob_mcf.remote(
+            # tasks = [ray_get_oob_mcf.remote(
+            #     data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx, True, [],
+            #     forest_ref, True, regrf, partner_k[idx])
+            #     for idx in range(number_of_oobs)]
+            # still_running = list(tasks)
+            still_running = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx, True, [],
                 forest_ref, True, regrf, partner_k[idx])
                 for idx in range(number_of_oobs)]
-            still_running = list(tasks)
             jdx = 0
             while len(still_running) > 0:
                 finished, still_running = ray.wait(still_running)
@@ -142,11 +148,15 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
         n_g = len(ind_groups)
         oob_values = [None] * n_g
         if c_dict['mp_with_ray'] and maxworkers > 1:
-            tasks = [ray_get_oob_mcf.remote(
+            # tasks = [ray_get_oob_mcf.remote(
+            #     data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx, False,
+            #     ind_groups, forest_ref, True, regrf, partner_k)
+            #     for idx in range(n_g)]
+            # still_running = list(tasks)
+            still_running = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx, False,
                 ind_groups, forest_ref, True, regrf, partner_k)
                 for idx in range(n_g)]
-            still_running = list(tasks)
             idx = 0
             while len(still_running) > 0:
                 finished, still_running = ray.wait(still_running)
@@ -179,11 +189,15 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
         n_g = len(ind_groups)
         oob_values = [None] * n_g
         if c_dict['mp_with_ray'] and maxworkers > 1:
-            tasks = [ray_get_oob_mcf.remote(
+            # tasks = [ray_get_oob_mcf.remote(
+            #     data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx, False,
+            #     ind_groups, forest_ref, True, regrf, partner_k)
+            #     for idx in range(n_g)]
+            # still_running = list(tasks)
+            still_running = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx, False,
                 ind_groups, forest_ref, True, regrf, partner_k)
                 for idx in range(n_g)]
-            still_running = list(tasks)
             idx = 0
             while len(still_running) > 0:
                 finished, still_running = ray.wait(still_running)
@@ -208,9 +222,16 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
                            c_dict['with_output'], False)
     else:
         vim_mg = None
-    if c_dict['mp_with_ray']:
-        del finished, still_running, data_np_ref, forest_ref, tasks
-        ray.shutdown()
+    if c_dict['mp_with_ray'] and maxworkers > 1:
+        if 'refs' in c_dict['_mp_ray_del']:
+            del data_np_ref, forest_ref
+        # if 'remote' in c_dict['_mp_ray_del']:
+        #     del tasks
+        if 'rest' in c_dict['_mp_ray_del']:
+            del finished_res, finished
+            #     del ret_all_i_list
+        if c_dict['_mp_ray_shutdown']:    
+            ray.shutdown()
     return vim, vim_g, vim_mg, x_name
 
 
@@ -497,7 +518,7 @@ def get_oob_mcf_b(data, y_i, y_nn_i, x_i, d_i, w_i, c_dict, k, single,
         if single:
             rng.shuffle(x_dat[:, k-1])
             if partner_k is not None:   # Randomises variable related to k-1
-                np.random.shuffle(x_dat[:, partner_k-1])
+                rng.shuffle(x_dat[:, partner_k-1])
         else:
             rand_ind = np.arange(obs)
             rng.shuffle(rand_ind)

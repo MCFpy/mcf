@@ -64,14 +64,14 @@ def get_controls(c_dict, v_dict):
     vn: Updated list of variables.
 
     """
-    def sub_size(n_train, subsample_share, max_share):
-        if subsample_share is None:
-            subsample_share = -1
-        if subsample_share <= 0:
-            subsample_share = 1
+    def sub_size(n_train, subsample_share_mult, max_share):
+        if subsample_share_mult is None:
+            subsample_share_mult = -1
+        if subsample_share_mult <= 0:
+            subsample_share_mult = 1
         subsam_share = 2 * ((n_train / 2)**0.85) / (n_train / 2)
         subsam_share = min(subsam_share, 0.67)
-        subsam_share = subsam_share * subsample_share
+        subsam_share = subsam_share * subsample_share_mult
         subsam_share = min(subsam_share, max_share)
         subsam_share = max(subsam_share, 1e-4)
         return subsam_share
@@ -190,10 +190,7 @@ def get_controls(c_dict, v_dict):
     temporary_file = temppfad + '/' + 'temporaryfile' + '.csv'
     nonlc_sample = temppfad + '/' + 'nonlc_sample' + '.csv'
     lc_sample = temppfad + '/' + 'lc_sample' + '.csv'
-    if c_dict['desc_stat'] is False:            # Decriptive statistics
-        cnew_dict['desc_stat'] = False
-    else:
-        cnew_dict['desc_stat'] = True
+    cnew_dict['desc_stat'] = not c_dict['desc_stat'] is False
     if c_dict['w_yes'] is True:  # Weighting
         cnew_dict['w_yes'] = True
     else:
@@ -211,10 +208,7 @@ def get_controls(c_dict, v_dict):
     else:
         print_to_file = True
         print_to_terminal = True
-    if c_dict['verbose'] is False:
-        cnew_dict['verbose'] = False
-    else:
-        cnew_dict['verbose'] = True
+    cnew_dict['verbose'] = not c_dict['verbose'] is False
     if c_dict['screen_covariates'] is False:
         cnew_dict['screen_covariates'] = False
     else:
@@ -246,7 +240,7 @@ def get_controls(c_dict, v_dict):
     if c_dict['alpha_reg_max'] is None:
         c_dict['alpha_reg_max'] = -1
     if (c_dict['alpha_reg_max'] < 0) or (c_dict['alpha_reg_max'] >= 0.4):
-        cnew_dict['alpha_reg_max'] = 0.2
+        cnew_dict['alpha_reg_max'] = 0.1
         if c_dict['alpha_reg_max'] >= 0.4:
             print('Values of 0.4 and larger do not make sense for alpha',
                   'regularisation. alpha regularisation parameter set to ',
@@ -254,11 +248,11 @@ def get_controls(c_dict, v_dict):
     else:
         cnew_dict['alpha_reg_max'] = c_dict['alpha_reg_max']
     if c_dict['alpha_reg_grid'] is None:
-        cnew_dict['alpha_reg_grid'] = 2
+        cnew_dict['alpha_reg_grid'] = 1
     else:
         cnew_dict['alpha_reg_grid'] = round(c_dict['alpha_reg_grid'])
     if cnew_dict['alpha_reg_grid'] < 1:
-        cnew_dict['alpha_reg_grid'] = 2
+        cnew_dict['alpha_reg_grid'] = 1
     if cnew_dict['alpha_reg_min'] >= cnew_dict['alpha_reg_max']:
         cnew_dict['alpha_reg_grid'] = 1
         cnew_dict['alpha_reg_max'] = cnew_dict['alpha_reg_min']
@@ -298,7 +292,16 @@ def get_controls(c_dict, v_dict):
         data_train = pd.read_csv(save_forest_file_csv, header=0)
     v_dict['d_name'][0] = gp.adjust_var_name(v_dict['d_name'][0],
                                              data_train.columns.tolist())
-    d_dat = data_train[v_dict['d_name']].to_numpy()
+    d_dat_pd = data_train[v_dict['d_name']].squeeze()
+    if d_dat_pd.dtype == 'object':
+        d_dat_pd = d_dat_pd.astype('category')
+        print(d_dat_pd.cat.categories)
+        if cnew_dict['with_output']:
+            print('Automatic recoding of treatment variable')
+            numerical_codes = pd.unique(d_dat_pd.cat.codes)
+            print(numerical_codes)
+        d_dat_pd = d_dat_pd.cat.codes
+    d_dat = d_dat_pd.to_numpy()
     d_values = np.unique(d_dat)
     d_values = np.int16(np.round(d_values))
     d_values = d_values.tolist()
@@ -414,18 +417,15 @@ def get_controls(c_dict, v_dict):
         if c_dict['stop_empty'] is None:
             c_dict['stop_empty'] = -1
         if c_dict['stop_empty'] < 1:
-            cnew_dict['stop_empty'] = 25
+            cnew_dict['stop_empty'] = 5
         else:
             cnew_dict['stop_empty'] = round(c_dict['stop_empty'])
         if c_dict['random_thresholds'] is None:
             c_dict['random_thresholds'] = -1
         if c_dict['random_thresholds'] < 0:     # Saves computation time
-            cnew_dict['random_thresholds'] = round(math.sqrt(n_train) / 5)
+            cnew_dict['random_thresholds'] = round(4 + n_train**0.2)
             # Feature preselection
-        if c_dict['fs_yes'] is True:
-            cnew_dict['fs_yes'] = True
-        else:
-            cnew_dict['fs_yes'] = False
+        cnew_dict['fs_yes'] = bool(c_dict['fs_yes'])
         if c_dict['fs_rf_threshold'] is None:
             c_dict['fs_rf_threshold'] = -1
         if c_dict['fs_rf_threshold'] <= 0:
@@ -454,15 +454,19 @@ def get_controls(c_dict, v_dict):
         if (c_dict['mce_vart'] == 1) or (c_dict['mce_vart'] == -1):
             mtot = 1
             mtot_no_mce = 0        # MSE + MCE rule
+            estimator_str = 'MSE & MCE'
         elif c_dict['mce_vart'] == 2:
             mtot = 2
             mtot_no_mce = 1        # -Var(treatment effect) rule
+            estimator_str = '-Var(effect)'
         elif c_dict['mce_vart'] == 0:
             mtot = 3
             mtot_no_mce = 1        # MSE rule
+            estimator_str = 'MSE'
         elif c_dict['mce_vart'] == 3:
             mtot = 4               # MSE + MCE rule or penalty function rule
             mtot_no_mce = 0        # (randomly decided)
+            estimator_str = 'MSE,MCE or penalty (random)'
         else:
             raise Exception('Inconsistent MTOT definition of  MCE_VarT.')
         if c_dict['mtot_p_diff_penalty'] is None:
@@ -475,13 +479,13 @@ def get_controls(c_dict, v_dict):
                 cnew_dict['mtot_p_diff_penalty'] = 0.5
             else:                                   # Approx 1 for N = 1000
                 cnew_dict['mtot_p_diff_penalty'] = (
-                    4 * ((n_train * subsam_share_forest)**0.8)
+                    2 * ((n_train * subsam_share_forest)**0.9)
                     / (n_train * subsam_share_forest))
                 if mtot == 2:
                     cnew_dict['mtot_p_diff_penalty'] = 100 * cnew_dict[
                         'mtot_p_diff_penalty']
-                cnew_dict['mtot_p_diff_penalty'] *= (no_of_treatments *
-                                                     (no_of_treatments-1)/2)
+                cnew_dict['mtot_p_diff_penalty'] *= np.sqrt(
+                    no_of_treatments * (no_of_treatments-1)/2)
         else:
             if mtot == 4:
                 if c_dict['mtot_p_diff_penalty'] > 1:  # if accidently scaled %
@@ -492,7 +496,9 @@ def get_controls(c_dict, v_dict):
                 if cnew_dict['mtot_p_diff_penalty'] > 1:
                     raise Exception('Probability of using p-score larger '
                                     + 'than 1. Programm terminated.')
-        if c_dict['l_centering'] is True:
+        if cnew_dict['mtot_p_diff_penalty']:
+            estimator_str += ' penalty fct'
+        if c_dict['l_centering'] is not False:
             cnew_dict['l_centering'] = True
             if c_dict['l_centering_share'] is None:
                 c_dict['l_centering_share'] = -1
@@ -543,6 +549,7 @@ def get_controls(c_dict, v_dict):
         subsam_share_forest = None
         mtot = None
         mtot_no_mce = None
+        estimator_str = 'Estimates loaded.'
     if c_dict['pred_mcf']:
         if c_dict['cluster_std'] is True:
             cnew_dict['cluster_std'] = True
@@ -584,10 +591,7 @@ def get_controls(c_dict, v_dict):
             cnew_dict['cond_var'] = False  # True: cond. mean & variances used
         else:
             cnew_dict['cond_var'] = True
-        if c_dict['knn'] != 1:
-            cnew_dict['knn'] = False
-        else:
-            cnew_dict['knn'] = True
+        cnew_dict['knn'] = c_dict['knn'] is not False
         if c_dict['knn_min_k'] is None:
             c_dict['knn_min_k'] = -1
         if c_dict['knn_min_k'] < 0:     # minimum number of neighbours in k-NN
@@ -604,25 +608,32 @@ def get_controls(c_dict, v_dict):
             c_dict['nw_kern'] = -1
         if c_dict['nw_kern'] != 2:  # kernel for NW: 1: Epanechikov 2: Normal
             cnew_dict['nw_kern'] = 1
+        bnr = 199
         if c_dict['se_boot_ate'] is None:
-            c_dict['se_boot_ate'] = False
+            c_dict['se_boot_ate'] = bnr if cnew_dict['cluster_std'] else False
         if c_dict['se_boot_gate'] is None:
-            c_dict['se_boot_gate'] = False
+            c_dict['se_boot_gate'] = bnr if cnew_dict['cluster_std'] else False
         if c_dict['se_boot_iate'] is None:
-            c_dict['se_boot_iate'] = False
-        if c_dict['se_boot_ate'] < 100:   # This includes False
-            cnew_dict['se_boot_ate'] = 0
-        else:
-            cnew_dict['se_boot_ate'] = int(c_dict['se_boot_ate'])
-        if c_dict['se_boot_gate'] < 100:   # This includes False
-            cnew_dict['se_boot_gate'] = 0
-        else:
-            cnew_dict['se_boot_gate'] = int(c_dict['se_boot_gate'])
-        if c_dict['se_boot_iate'] < 100:   # This includes False
-            cnew_dict['se_boot_iate'] = 0
-        else:
-            cnew_dict['se_boot_iate'] = int(c_dict['se_boot_iate'])
+            c_dict['se_boot_iate'] = 199 if cnew_dict['cluster_std'] else False
 
+        if 0 < c_dict['se_boot_ate'] < 49:   # This includes False
+            cnew_dict['se_boot_ate'] = bnr
+        elif c_dict['se_boot_ate'] >= 49:
+            cnew_dict['se_boot_ate'] = int(c_dict['se_boot_ate'])
+        else:
+            cnew_dict['se_boot_ate'] = 0
+        if 0 < c_dict['se_boot_gate'] < 49:   # This includes False
+            cnew_dict['se_boot_gate'] = bnr
+        elif c_dict['se_boot_gate'] >= 49:
+            cnew_dict['se_boot_gate'] = int(c_dict['se_boot_gate'])
+        else:
+            cnew_dict['se_boot_gate'] = 0
+        if 0 < c_dict['se_boot_iate'] < 49:   # This includes False
+            cnew_dict['se_boot_iate'] = bnr
+        elif c_dict['se_boot_iate'] >= 49:
+            cnew_dict['se_boot_iate'] = int(c_dict['se_boot_iate'])
+        else:
+            cnew_dict['se_boot_iate'] = 0
         # Balancing test based on weights
         if c_dict['balancing_test_w'] is False:
             cnew_dict['balancing_test_w'] = False
@@ -631,10 +642,7 @@ def get_controls(c_dict, v_dict):
         if (v_dict['x_balance_name_ord'] == []) and (
                 v_dict['x_balance_name_unord'] == []):
             cnew_dict['balancing_test_w'] = False
-        if c_dict['atet_flag'] is True:      # Compute ATET as well
-            cnew_dict['atet_flag'] = True
-        else:
-            cnew_dict['atet_flag'] = False
+        cnew_dict['atet_flag'] = bool(c_dict['atet_flag'])
         if c_dict['gatet_flag'] is True:
             cnew_dict['gatet_flag'] = True
             cnew_dict['atet_flag'] = True  # GTET with Z=D will be computed
@@ -672,6 +680,16 @@ def get_controls(c_dict, v_dict):
         else:
             cnew_dict['sgates_no_evaluation_points'] = round(
                 c_dict['sgates_no_evaluation_points'])
+        if c_dict['iate_flag'] is False:
+            cnew_dict['iate_flag'] = False
+            cnew_dict['iate_se_flag'] = False
+            c_dict['post_est_stats'] = False
+        else:
+            cnew_dict['iate_flag'] = True
+            if c_dict['iate_se_flag'] is False:
+                cnew_dict['iate_se_flag'] = False
+            else:
+                cnew_dict['iate_se_flag'] = True
         # Post estimation parameters
         if c_dict['post_est_stats'] is False:
             cnew_dict['post_est_stats'] = False
@@ -839,6 +857,7 @@ def get_controls(c_dict, v_dict):
     else:
         mem_object_store_1 = None
         mem_object_store_2 = None
+        n_train = 0
     if c_dict['pred_mcf']:
         min_obj_str_n_3 = (n_pred / 60000) * (120 * 1024 * 1024 * 1024)
         mem_object_store_3 = min(memory.available*0.5, min_obj_str_n_3)
@@ -850,17 +869,77 @@ def get_controls(c_dict, v_dict):
             mem_object_store_3 = None             # GATE
     else:
         mem_object_store_3 = 3
+        n_pred = 0
     mp_automatic = False
     if c_dict['no_parallel'] is None:
         c_dict['no_parallel'] = -1
     if c_dict['no_parallel'] < -0.5:
-        cnew_dict['no_parallel'] = round(psutil.cpu_count(logical=True) * 0.8)
+        cnew_dict['no_parallel'] = psutil.cpu_count(logical=True) - 2
         mp_automatic = True
     elif -0.5 <= c_dict['no_parallel'] <= 1.5:
         cnew_dict['no_parallel'] = 1
     else:
         cnew_dict['no_parallel'] = round(c_dict['no_parallel'])
     sys_share = 0.7 * getattr(psutil.virtual_memory(), 'percent') / 100
+
+    if c_dict['_mp_ray_del'] is None:
+        cnew_dict['_mp_ray_del'] = ('refs',)
+    else:
+        possible_vals = ('refs', 'rest', 'none')
+        if isinstance(c_dict['_mp_ray_del'], (str, list)):
+            cnew_dict['_mp_ray_del'] = tuple(c_dict['_mp_ray_del'])
+        if len(cnew_dict['_mp_ray_del']) > 2:
+            print(cnew_dict['_mp_ray_del'])
+            raise Exception('Too many parameters for _mp_ray_del')
+        if not isinstance(cnew_dict['_mp_ray_del'], tuple):
+            raise Exception('_mp_ray_del is no Tuple')
+        if not all(i in possible_vals for i in cnew_dict['_mp_ray_del']):
+            raise Exception('Wrong parameters for _mp_ray_del')
+    if c_dict['_mp_ray_shutdown'] is None:
+        cnew_dict['_mp_ray_shutdown'] = not ((n_train < 20000) and
+                                             (n_pred < 20000))
+    if cnew_dict['train_mcf'] and cnew_dict['pred_mcf'] and (
+            cnew_dict['indata'] == cnew_dict['preddata']):
+        if c_dict['reduce_split_sample'] is not True:
+            cnew_dict['reduce_split_sample'] = False
+        if c_dict['reduce_split_sample']:
+            if cnew_dict['reduce_split_sample_pred_share'] is None:
+                cnew_dict['reduce_split_sample_pred_share'] = 0.5
+        else:
+            cnew_dict['reduce_split_sample_pred_share'] = 0
+    else:
+        if c_dict['reduce_split_sample'] is True:
+            raise Exception('No sample split possible. Training file differs'
+                            + ' from prediction file (or no training and'
+                            + ' prediction).')
+        cnew_dict['reduce_split_sample'] = False
+        cnew_dict['reduce_split_sample_pred_share'] = 0
+    if not 0 <= cnew_dict['reduce_split_sample_pred_share'] <= 1:
+        raise Exception('reduce_split_sample_pred_share outside [0,1]')
+    if c_dict['reduce_training'] is not True:
+        cnew_dict['reduce_training'] = False
+        cnew_dict['reduce_training_share'] = 0
+    else:
+        if c_dict['reduce_training_share'] is None:
+            cnew_dict['reduce_training_share'] = 0.5
+    if not 0 <= cnew_dict['reduce_training_share'] <= 1:
+        raise Exception('reduce_training_share outside [0,1]')
+    if c_dict['reduce_prediction'] is not True:
+        cnew_dict['reduce_prediction'] = False
+        cnew_dict['reduce_prediction_share'] = 0
+    else:
+        if c_dict['reduce_prediction_share'] is None:
+            cnew_dict['reduce_prediction_share'] = 0.5
+    if not 0 <= cnew_dict['reduce_prediction_share'] <= 1:
+        raise Exception('reduce_prediction_share outside [0,1]')
+    if c_dict['reduce_largest_group_train'] is not True:
+        cnew_dict['reduce_largest_group_train'] = False
+        cnew_dict['reduce_largest_group_train_share'] = 0
+    else:
+        if c_dict['reduce_largest_group_train_share'] is None:
+            cnew_dict['reduce_largest_group_train_share'] = 0.5
+    if not 0 <= cnew_dict['reduce_largest_group_train_share'] <= 1:
+        raise Exception('reduce_largest_group_train_share outside [0,1]')
 
     cn_add = {'temppfad':           temppfad,
               'fig_pfad_jpeg':      fig_pfad_jpeg,
@@ -902,8 +981,8 @@ def get_controls(c_dict, v_dict):
               'save_forest_file_pickle': save_forest_file_pickle,
               'save_forest_file_csv': save_forest_file_csv,
               'save_forest_file_ps': save_forest_file_ps,
-              'save_forest_file_d_train_tree': save_forest_file_d_train_tree
-              }
+              'save_forest_file_d_train_tree': save_forest_file_d_train_tree,
+              'estimator_str': estimator_str}
     cnew_dict.update(cn_add)
     if c_dict['train_mcf']:
         if v_dict['y_name'] is None or v_dict['y_name'] == []:
@@ -1062,7 +1141,7 @@ def get_controls(c_dict, v_dict):
         'names_to_check_train': names_to_check_train,
         'names_to_check_pred':  names_to_check_pred}
     vnew_dict.update(vn_add)
-    
+
     return cnew_dict, vnew_dict, text_to_print
 
 
@@ -1094,7 +1173,12 @@ def controls_into_dic(
         boot_by_boot, obs_by_obs, max_elements_per_split, mp_with_ray,
         mp_ray_objstore_multiplier, verbose, no_ray_in_forest_building,
         predict_mcf, train_mcf, forest_files, match_nn_prog_score,
-        se_boot_ate, se_boot_gate, se_boot_iate, support_max_del_train):
+        se_boot_ate, se_boot_gate, se_boot_iate, support_max_del_train,
+        _mp_ray_del, _mp_ray_shutdown,
+        reduce_split_sample, reduce_split_sample_pred_share, reduce_training,
+        reduce_training_share, reduce_prediction, reduce_prediction_share,
+        reduce_largest_group_train, reduce_largest_group_train_share,
+        iate_flag, iate_se_flag):
     """Build dictionary with parameters.
 
     Parameters
@@ -1166,6 +1250,16 @@ def controls_into_dic(
         'save_forest_files': forest_files,
         'se_boot_ate': se_boot_ate, 'se_boot_gate': se_boot_gate,
         'se_boot_iate': se_boot_iate,
-        'support_max_del_train': support_max_del_train
+        'support_max_del_train': support_max_del_train,
+        '_mp_ray_del': _mp_ray_del, '_mp_ray_shutdown': _mp_ray_shutdown,
+        'reduce_split_sample': reduce_split_sample,
+        'reduce_split_sample_pred_share': reduce_split_sample_pred_share,
+        'reduce_training': reduce_training,
+        'reduce_training_share': reduce_training_share,
+        'reduce_prediction': reduce_prediction,
+        'reduce_prediction_share': reduce_prediction_share,
+        'reduce_largest_group_train': reduce_largest_group_train,
+        'reduce_largest_group_train_share': reduce_largest_group_train_share,
+        'iate_flag': iate_flag, 'iate_se_flag': iate_se_flag
             }
     return controls_dict

@@ -41,18 +41,13 @@ def predict_hf(weights, data_file, y_data, cl_data, w_data, v_dict, c_dict,
     n_x = len(weights)
     n_y = np.size(y_data, axis=0)
     no_of_out = len(v_dict['y_name'])
-    larger_0 = 0
-    equal_0 = 0
-    mean_pos = 0
-    std_pos = 0
-    gini_all = 0
-    gini_pos = 0
+    larger_0 = equal_0 = mean_pos = std_pos = gini_all = gini_pos = 0
     share_censored = 0
     share_largest_q = np.zeros(3)
     sum_larger = np.zeros(len(c_dict['q_w']))
-    obs_larger = np.zeros(len(c_dict['q_w']))
+    obs_larger = np.zeros_like(sum_larger)
     pred_y = np.empty((n_x, no_of_out))
-    pred_y_se = np.empty((n_x, no_of_out))
+    pred_y_se = np.empty_like(pred_y)
     if not c_dict['w_yes']:
         w_data = None
     else:
@@ -235,13 +230,16 @@ def analyse_weights_pred(weights, c_dict):
     w_j = weights.flatten()
     w_j = w_j / np.sum(w_j)
     w_pos = w_j[w_j > 1e-15]
-    n_pos = np.size(w_pos)
+    # n_pos = np.size(w_pos)
+    n_pos = len(w_pos)
     larger_0 = (w_j > 1e-15).sum()
     equal_0 = (w_j <= 1e-15).sum()
     mean_pos = np.mean(w_pos)
     std_pos = np.std(w_pos)
-    gini_all = gp_est.gini_coefficient(w_j) * 100
-    gini_pos = gp_est.gini_coefficient(w_pos) * 100
+    # gini_all = gp_est.gini_coefficient(w_j) * 100
+    # gini_pos = gp_est.gini_coefficient(w_pos) * 100
+    gini_all = gp_est.gini_coeff_pos(w_j, len(w_j)) * 100
+    gini_pos = gp_est.gini_coeff_pos(w_pos, n_pos) * 100
     qqq = np.quantile(w_pos, (0.99, 0.95, 0.9))
     share_largest_q = np.empty(3)
     sum_larger = np.empty(len(c_dict['q_w']))

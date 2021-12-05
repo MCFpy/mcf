@@ -61,12 +61,15 @@ def analyse_weights_ate(weights, title, c_dict, ate=True):
         w_pos = w_j[w_j > 1e-15]
         n_pos = len(w_pos)
         larger_0[j] = n_pos
-        equal_0[j] = len(w_j) - n_pos
+        n_all = len(w_j)
+        equal_0[j] = n_all - n_pos
         mean_pos[j] = np.mean(w_pos)
         std_pos[j] = np.std(w_pos)
-        gini_all[j] = gp_est.gini_coefficient(w_j) * 100
-        gini_pos[j] = gp_est.gini_coefficient(w_pos) * 100
-        if len(w_pos) > 5:
+        # gini_all[j] = gp_est.gini_coefficient(w_j) * 100
+        # gini_pos[j] = gp_est.gini_coefficient(w_pos) * 100
+        gini_all[j] = gp_est.gini_coeff_pos(w_j, n_all) * 100
+        gini_pos[j] = gp_est.gini_coeff_pos(w_pos, n_pos) * 100
+        if n_pos > 5:
             qqq = np.quantile(w_pos, (0.99, 0.95, 0.9))
             for i in range(3):
                 share_largest_q[j, i] = np.sum(w_pos[w_pos >=
@@ -255,7 +258,7 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
                 w_ate[ind_d_val[d_p[i] == c_dict['d_values']]+1, :, :] += w_add
     # Step 2: Get potential outcomes
     pot_y = np.empty((no_of_ates, c_dict['no_of_treat'], no_of_out))
-    pot_y_var = np.empty((no_of_ates, c_dict['no_of_treat'], no_of_out))
+    pot_y_var = np.empty_like(pot_y)
     # Normalize weights
     sumw = np.sum(w_ate, axis=2)
     for a_idx in range(no_of_ates):
@@ -289,7 +292,7 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
                           'Treatment: {:2}'.format(ta_idx))
     if w_ate_only:
         return w_ate_export, None, None, None, None, None
-    if c_dict['cluster_std']:
+    if c_dict['cluster_std'] and not c_dict['se_boot_ate']:
         w_ate_1dim = np.zeros((no_of_ates, c_dict['no_of_treat'],
                                len(np.unique(cl_dat))))
     else:
@@ -341,8 +344,7 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
         print('-' * 80)
     ate = np.empty((no_of_out, no_of_ates, round(c_dict['no_of_treat'] * (
                    c_dict['no_of_treat'] - 1) / 2)))
-    ate_se = np.empty((no_of_out, no_of_ates, round(c_dict['no_of_treat'] * (
-                   c_dict['no_of_treat'] - 1) / 2)))
+    ate_se = np.empty_like(ate)
     for o_idx in range(no_of_out):
         if c_dict['with_output']:
             print('\nOutcome variable: ', v_dict['y_name'][o_idx])
@@ -363,6 +365,8 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
             ate_se[o_idx, a_idx] = stderr
             if c_dict['with_output']:
                 gp.print_effect(est, stderr, t_val, p_val, effect_list)
+                gp_est.print_se_info(c_dict['cluster_std'],
+                                     c_dict['se_boot_ate'])
     return w_ate_export, pot_y, pot_y_var, ate, ate_se, effect_list
 
 

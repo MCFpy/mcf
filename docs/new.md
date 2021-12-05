@@ -1,5 +1,43 @@
 # Release Updates
 
+## Version 0.1.2 
+
+### Bug fixes
+
+- Common support with very few observations is turned off.
+- Minor fix of MSE computation for multiple treatments.  
+
+### What's New  
+- New default values for  
+	- [alpha_reg_grid](./core_6.md#alpha_reg_grid), 
+	- [alpha_reg_max](./core_6.md#alpha_reg_max), 
+	- [alpha_reg_min](./core_6.md#alpha_reg_min),
+	- [knn_flag](./core_6.md#knn_flag), 
+	- [l_centering](./core_6.md#l_centering), 
+	- [mp_parallel](./core_6.md#mp_parallel)
+	- [p_diff_penalty](./core_6.md#p_diff_penalty),
+	- [random_thresholds](./core_6.md#random_thresholds), 
+	- [se_boot_ate](./core_6.md#se_boot_ate), 
+	- [se_boot_gate](./core_6.md#se_boot_gate), 
+	- [se_boot_iate](./core_6.md#se_boot_iate), 
+	- [stop_empty](./core_6.md#stop_empty).
+- Consistent use of a new random number generator.
+- Ray is initialized once.
+- Ray can be fine-tuned via 
+	- [_mp_ray_del](./core_6.md#_mp_ray_del),
+	- [_mp_ray_shutdown](./core_6.md#_mp_ray_shutdown),
+	- [_mp_ray_shutdown](./core_6.md#_mp_ray_shutdown), 
+	- [mp_ray_objstore_multiplier](./core_6.md#_mp_ray_objstore_multiplier) becomes [_mp_ray_objstore_multiplier](./core_6.md#_mp_ray_objstore_multiplier).
+- New options to deal with larger data sets:
+	- [reduce_split_sample](./core_6.md#reduce_split_sample): split sample in a part used for estimation and predicting the effects for given x; large prediction sample may increase running time. 
+	- [reduce_training](./core_6.md#reduce_training): take a random sample from training data.
+	- [reduce_prediction](./core_6.md#reduce_prediction): take a random sample from prediction data.
+	- [reduce_largest_group_train](./core_6.md#reduce_largest_group_train): reduce the largest group in the training data; this should be less costly in terms of precision than taking random samples. 
+- Optional IATEs via [iate_flag](./core_6.md#iate_flag) and optional standard errors via [iate_se_flag](./core_6.md#iate_se_flag). 
+- ``ModifiedCausalForest()`` now also returns potential outcomes and their variances.
+- [mp_with_ray](./opt_pol_1.md#mp_with_ray) is a new input argument to ``‌optpoltree()`` ;  Ray can be used for multiprocessing when calling ``‌optpoltree()``. 
+- Block-bootstrap on $w_i*y_i$ is the new clustered standard errors default. This is slower but likely to be more accurate  than the aggregation within-clusters deployed before.
+
 ## Version 0.1.1
 
 ### Bug fixes

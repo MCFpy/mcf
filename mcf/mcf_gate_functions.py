@@ -52,6 +52,7 @@ def marg_gates_est(forest, fill_y_sample, pred_sample, v_dict, c_dict,
     any_plots_amgate = False
     c_dict_mgate = copy.deepcopy(c_dict)
     c_dict_mgate['with_output'] = False       # reduce unnecessary infos
+    c_dict_mgate['iate_se_flag'] = True
     if v_dict['z_name_mgate'] and c_dict['with_output']:
         any_plots_mgate = mgate_function(
             forest, fill_y_sample, pred_sample, v_dict, c_dict, x_name_mcf,
@@ -322,6 +323,7 @@ def plot_marginal(pred, pred_se, names_pred, x_name, x_values_in, x_type,
                 axs.plot(x_values, zeros, line_0, label=label_0)
         if c_dict['with_output']:
             print_mgate(pred_temp, pred_se_temp, titel, x_values)
+            gp_est.print_se_info(c_dict['cluster_std'], c_dict['se_boot_gate'])
         axs.set_ylabel(label_m)
         axs.legend(loc='lower right', shadow=True,
                    fontsize=c_dict['fig_fontsize'])
@@ -661,10 +663,12 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
         print('Number of parallel processes: ', maxworkers, flush=True)
     if c_dict['mp_with_ray']:
         if c_dict['mem_object_store_3'] is None:
-            ray.init(num_cpus=maxworkers, include_dashboard=False)
+            if not ray.is_initialized():
+                ray.init(num_cpus=maxworkers, include_dashboard=False)
         else:
-            ray.init(num_cpus=maxworkers, include_dashboard=False,
-                     object_store_memory=c_dict['mem_object_store_3'])
+            if not ray.is_initialized():
+                ray.init(num_cpus=maxworkers, include_dashboard=False,
+                         object_store_memory=c_dict['mem_object_store_3'])
             if c_dict['with_output'] and c_dict['verbose']:
                 print("Size of Ray Object Store: ",
                       round(c_dict['mem_object_store_3']/(1024*1024)), " MB")
@@ -717,16 +721,12 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                      w_gate, w_gate_unc, w_censored, results_fut_zj, zj_idx)
         else:
             if c_dict['mp_with_ray']:
-                # ray.init(num_cpus=maxworkers, include_dashboard=False,
-                #          object_store_memory=c_dict['mem_object_store'])
-                # weights_all_ref = ray.put(weights_all)
-                tasks = [ray_gate_zj_mp.remote(
+                still_running = [ray_gate_zj_mp.remote(
                          z_values[zj_idx], zj_idx, y_dat, cl_dat,
                          w_dat, z_p, d_p, w_p, z_name_j, weights_all_ref,
                          w_gate0_dim, w_ate, i_d_val, t_probs, no_of_tgates,
                          no_of_out, c_dict, n_y, bandw_z, kernel, save_w_file,
                          z_smooth) for zj_idx in range(no_of_zval)]
-                still_running = list(tasks)
                 while len(still_running) > 0:
                     finished, still_running = ray.wait(still_running)
                     finished_res = ray.get(finished)
@@ -738,9 +738,6 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                         w_gate, w_gate_unc, w_censored = assign_w(
                             w_gate, w_gate_unc, w_censored, results_fut_idx,
                             results_fut_idx[6])
-                del finished, still_running, tasks
-                # del finished, still_running, tasks, weights_all_ref
-                # ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
                                                  ) as fpp:
@@ -839,9 +836,12 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                           ref_pop_lab[a_idx])
                     gp_mcf.print_effect_z(ret_gate, ret_gate_mate, z_values,
                                           gate_str)
+                    gp_est.print_se_info(c_dict['cluster_std'],
+                                         c_dict['se_boot_gate'])
         if c_dict['with_output']:   # figures
             primes = gp.primes_list()
             for a_idx, a_lab in enumerate(ref_pop_lab):
+                gatet_yes = False if a_idx == 0 else True
                 for o_idx, o_lab in enumerate(v_dict['y_name']):
                     for t_idx, t_lab in enumerate(treat_comp_label):
                         for e_idx, e_lab in enumerate(effect_type_label):
@@ -864,14 +864,21 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                             make_gate_figures(
                                 e_lab + z_name + a_lab + o_lab + t_lab, z_name,
                                 z_values_f, z_type_l, effects, ste, c_dict,
-                                ate_f, ate_f_se, amgate_flag, z_smooth)
+                                ate_f, ate_f_se, amgate_flag, z_smooth,
+                                gatet_yes=gatet_yes)
         if c_dict['with_output']:
             print('-' * 80)
         gate[z_name_j] = gate_z
         gate_se[z_name_j] = gate_z_se
     if c_dict['mp_with_ray']:
-        del weights_all_ref
-        ray.shutdown()
+        if 'refs' in c_dict['_mp_ray_del']:
+            del weights_all_ref
+        # if 'remote' in c_dict['_mp_ray_del']:
+        #     del tasks
+        if 'rest' in c_dict['_mp_ray_del']:
+            del finished_res, finished
+        if c_dict['_mp_ray_shutdown']:
+            ray.shutdown()
     if files_to_delete:  # delete temporary files
         for file in files_to_delete:
             os.remove(file)
@@ -1198,7 +1205,7 @@ def wald_test(z_name, no_of_zval, w_gate, y_dat, w_dat, cl_dat, a_idx, o_idx,
 
 def make_gate_figures(titel, z_name, z_values, z_type, effects, stderr,
                       c_dict, ate=0, ate_se=None, am_gate=False,
-                      z_smooth=False):
+                      z_smooth=False, gatet_yes=False):
     """Generate the figures for GATE results.
 
     Parameters
@@ -1239,12 +1246,18 @@ def make_gate_figures(titel, z_name, z_values, z_type, effects, stderr,
                 if am_gate:
                     label_m = 'AMGATE-ATE'
                 else:
-                    label_m = 'GATE-ATE'
+                    if gatet_yes:
+                        label_m = 'GATET-ATE'
+                    else:    
+                        label_m = 'GATE-ATE'
             else:
                 if am_gate:
                     label_m = 'AMGATE'
                 else:
-                    label_m = 'GATE'
+                    if gatet_yes:
+                        label_m = 'GATET'
+                    else:
+                        label_m = 'GATE'
             axs.plot(z_values, effects, label=label_m, color='b')
             axs.fill_between(z_values, upper, lower, alpha=0.3, color='b',
                              label=label_ci)

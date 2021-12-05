@@ -2,7 +2,7 @@
 
 
 ```python 
-optpoltree(x_ord_name=x_ord_name, x_unord_name=x_unord_name, check_perfectcorr=check_perfectcorr, clean_data_flag=clean_data_flag, costs_of_treat=costs_of_treat, costs_of_treat=costs_of_treat, costs_of_treat_mult=costs_of_treat_mult, datpath=datpath, depth_of_tree=depth_of_tree, effect_vs_0‌=effect_vs_0‌, effect_vs_0_se=effect_vs_0_se, how_many_parallel=how_many_parallel, id_name=id_name, indata=indata, only_if_sig_better_vs_0=only_if_sig_better_vs_0, outfiletext=outfiletext, outpath=outpath, output_type=output_type, parallel_processing=parallel_processing, polscore_name=polscore_name, min_dummy_obs=min_dummy_obs, min_leaf_size=min_leaf_size, max_shares=max_shares, no_of_evalupoints=no_of_evalupoints, with_numba=with_numba, screen_covariates=screen_covariates, sig_level_vs_0=sig_level_vs_0, _smaller_sample=_smaller_sample, _with_output=_with_output)
+optpoltree(x_ord_name=x_ord_name, x_unord_name=x_unord_name, check_perfectcorr=check_perfectcorr, clean_data_flag=clean_data_flag, costs_of_treat=costs_of_treat, costs_of_treat=costs_of_treat, costs_of_treat_mult=costs_of_treat_mult, datpath=datpath, depth_of_tree=depth_of_tree, effect_vs_0‌=effect_vs_0‌, effect_vs_0_se=effect_vs_0_se, how_many_parallel=how_many_parallel, id_name=id_name, indata=indata, only_if_sig_better_vs_0=only_if_sig_better_vs_0, outfiletext=outfiletext, outpath=outpath, output_type=output_type, parallel_processing=parallel_processing, polscore_name=polscore_name, min_dummy_obs=min_dummy_obs, min_leaf_size=min_leaf_size, max_shares=max_shares, mp_with_ray = mp_with_ray, no_of_evalupoints=no_of_evalupoints, with_numba=with_numba, screen_covariates=screen_covariates, sig_level_vs_0=sig_level_vs_0, _smaller_sample=_smaller_sample, _with_output=_with_output)
 ```
 
 ## Variable Names 
@@ -70,6 +70,8 @@ optpoltree(x_ord_name=x_ord_name, x_unord_name=x_unord_name, check_perfectcorr=c
 	* If the program also screens covariates, i.e. when **screen_covariates** is True, the **min_dummy_obs** regulates the minimal number of observations in one category of a dummy variable for the dummy variable not to be removed from the data set; the default is set to 10.
 * <a id="min_leaf_size">**min_leaf_size**</a> - positive **integer**
 	* Specifies minimum leaf size; the default is the integer part of 10% of the sample size divided by the number of leaves. 
+* <a id="mp_with_ray">**mp_with_ray**</a> - **Boolean** 
+	* If True, Ray is used for multiprocessing. If False, concurrent futures is used; the default ist True. 
 
 
 **n**

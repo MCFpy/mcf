@@ -24,7 +24,7 @@ dpi=dpi,  fontsize=fontsize, forest_files=forest_files, fs_other_sample=fs_other
 fs_other_sample_share=fs_other_sample_share, fs_rf_threshold=fs_rf_threshold,
 fs_yes=fs_yes, gatet_flag=gatet_flag,
 gmate_no_evaluation_points=gmate_no_evaluation_points,
-gmate_sample_share=gmate_sample_share, indata=indata,
+gmate_sample_share=gmate_sample_share, iate_flag=iate_flag, iate_se_flag = iate_se_flag, indata=indata,
 knn_const=knn_const, knn_flag=knn_flag, knn_min_k=knn_min_k,
 l_centering=l_centering, l_centering_cv_k=l_centering_cv_k,
 l_centering_new_sample=l_centering_new_sample,
@@ -32,7 +32,6 @@ l_centering_share=l_centering_share,
 match_nn_prog_score=match_nn_prog_score, max_cats_z_vars=max_cats_z_vars,
 max_weight_share=max_weight_share, mce_vart=mce_vart,
 min_dummy_obs=min_dummy_obs, mp_parallel=mp_parallel,
-mp_ray_objstore_multiplier=mp_ray_objstore_multiplier,
 mp_vim_type=mp_vim_type, mp_weights_tree_batch=mp_weights_tree_batch,
 mp_weights_type=mp_weights_type, mp_with_ray=mp_with_ray,
 m_grid=m_grid, m_max_share=m_max_share, m_min_share=m_min_share,
@@ -46,7 +45,7 @@ post_kmeans_no_of_groups=post_kmeans_no_of_groups,
 post_kmeans_replications=post_kmeans_replications,
 post_kmeans_yes=post_kmeans_yes, post_plots=post_plots,
 post_random_forest_vi=post_random_forest_vi, preddata=preddata, predict_mcf=predict_mcf, p_diff_penalty=p_diff_penalty, random_thresholds=random_thresholds,
-relative_to_first_group_only=relative_to_first_group_only,
+relative_to_first_group_only=relative_to_first_group_only, reduce_split_sample=reduce_split_sample, reduce_split_sample_pred_share=reduce_split_sample_pred_share, reduce_training=reduce_training, reduce_training_share=reduce_training_share, reduce_prediction=reduce_prediction, reduce_prediction_share=reduce_prediction_share, reduce_largest_group_train=reduce_largest_group_train, reduce_largest_group_train_share=reduce_largest_group_train_share,
 save_forest=save_forest, screen_covariates=screen_covariates,
 se_boot_ate=se_boot_ate, se_boot_gate=se_boot_gate, se_boot_iate=se_boot_iate,
 share_forest_sample=share_forest_sample, show_plots=show_plots,
@@ -56,7 +55,8 @@ stop_empty=stop_empty, subsample_factor=subsample_factor,
 support_check=support_check, support_max_del_train=support_max_del_train, support_min_p=support_min_p,support_quantil=support_quantil, weighted=weighted,
 weight_as_sparse=weight_as_sparse, train_mcf=train_mcf,  
 variable_importance_oob=variable_importance_oob, verbose=verbose,
-_max_cats_cont_vars=_max_cats_cont_vars, _max_save_values=_max_save_values,
+_max_cats_cont_vars=_max_cats_cont_vars, _max_save_values=_max_save_values, _mp_ray_del=_mp_ray_del, _mp_ray_shutdown=_mp_ray_shutdown, 
+_mp_ray_objstore_multiplier=mp_ray_objstore_multiplier, 
 _seed_sample_split=_seed_sample_split, _smaller_sample=_smaller_sample,
 _with_output=_with_output)
 ```
@@ -129,11 +129,11 @@ _with_output=_with_output)
 **a**
 
 * <a id="alpha_reg_grid">**alpha_reg_grid**</a> - positive **integer**
-	* Sets the number of grid values; the default is 2.
+	* Sets the number of grid values; the default is 1.
 * <a id="alpha_reg_max">**alpha_reg_max**</a> - **float** between **0, 0.5**
-	* Determines the maximal $\alpha$ for $0 < \alpha < 0.5$; the default is 0.2.
+	* Determines the maximal $\alpha$ for $0 < \alpha < 0.5$; the default is 0.
 * <a id="alpha_reg_min">**alpha_reg_min**</a> - **float** between **0, 0.4**
-	* Determines smallest $\alpha$ for $0 < \alpha < 0.4$; the default is 0.1.
+	* Determines smallest $\alpha$ for $0 < \alpha < 0.4$; the default is 0.
 * <a id="atet_flag">**atet_flag**</a> - **Boolean**
 	* If  True, average effects for subpopulations are computed by treatments (if available); this works only if at least one $z$ variable is specified; the default is False.
 
@@ -196,6 +196,10 @@ _with_output=_with_output)
 	*  Specifies the share of the the prediction data used; the default is None. For the default, the share is computed as follows: if the number of observations in the prediction sample, $no^{\text{pred}}$, is smaller than $1,000$ the share is set to $1$; else the share is computed as $\frac{1000 + (no^{\text{pred}} - 1000)^{0.75}}{no^{\text{pred}}}$. If you set a number less or equal to $0$, the program sets the share according to the previous rule; else you may specify a valid share greater $0$, which the program uses.
 
 **i**
+* <a id="iate_flag">**iate_flag**</a> - **Boolean**
+	* If set True, the IATEs are computed. If set False, the IATEs are not computed; the default is True. 
+* <a id="iate_se_flag">**iate_se_flag**</a> - **Boolean**
+	* If set True, the standard errors of the IATEs are computed. If set False, they are not computed; the default is True.
 * <a id="indata">**indata**</a> - **string**
 	* Specifies the file name for the data, which is used for estimation; the file needs to be in *csv* format.
 
@@ -211,7 +215,7 @@ _with_output=_with_output)
 **l**
 
 * <a id="l_centering">**l_centering**</a>  - **Boolean**
-	* Determines whether local centering is used; the default value is False.
+	* Determines whether local centering is used; the default value is True.
 * <a id="l_centering_cv_k">**l_centering_cv_k**</a> - **Boolean**
 	* Specifies number of folds used in cross-validation; only valid if *l_centering_new_sample* is False;  the default is 5; note that the larger the value the better estimation quality but the longer computation time.
 * <a id="l_centering_new_sample">**l_centering_new_sample**</a> - **Boolean**
@@ -232,10 +236,8 @@ _with_output=_with_output)
 	* Determines the rule, deployed for splitting when growing trees; if the value is 0, only the mean squared error of the regressions are considered; if the value is 1, the sum of the outcome MSE and MCE are considered; if the value is 2, the variance of the effect is chosen as the splitting criterion; with a value of 3, the criterion randomly switches between outcome MSE and MCE and penalty functions.
 * <a id="min_dummy_obs">**min_dummy_obs**</a> - **Boolean**
 	* If the program also screens covariates, i.e. when **screen_covariates** is True, the **min_dummy_obs** regulates the minimal number of observations in one category of a dummy variable for the dummy variable not to be removed from the data set; the default is set to 10.   
-* <a id="mp_parallel">**mp_parallel**</a> - **None** or **integer number** larger **0**
-	* Specifies the number of parallel processes; the default value is None; for a value of None the number of parallel processes is set to the integer part of 80 percent of the number of the cores; for values of 0 and 1, there are no parallel computations.
-* <a id="mp_ray_objstore_multiplier">**mp_ray_objstore_multiplier**</a>  - **integer**
-	* Increases internal default values for Ray object store to avoid crashes induced by full object stores; the default value is 1.
+* <a id="mp_parallel">**mp_parallel**</a> - **None** or **float** larger **0**
+	* Specifies the number of parallel processes; the default value is None; for a value of None the number of parallel processes is set to two less than the number of logical cores; for values between -0.5 and 1.5, the value is set to 1; for number greater than 1.5, the value is set to the integer part of the specified processes.
 * <a id="mp_vim_type">**mp_vim_type**</a> - **integer** taking values **1, 2**
 	* Decides how multiprocessing is implemented in the computation of feature importance; 1: multiprocessing over variables (fast but demanding in terms of memory), 2: multiprocessing over the  trees (slower but less demanding in terms of memory); the default is an automated rule; if the number of observations is less than 20,000 multiprocessing is done over variables else over trees.
 * <a id="mp_weights_tree_batch">**mp_weights_tree_batch**</a> - **None** or **integer**
@@ -306,12 +308,28 @@ _with_output=_with_output)
 * <a id="pred_mcf">**pred_mcf**</a> - **string**
 	* If True, effects are estimated; default is True.
 * <a id="p_diff_penalty">**p_diff_penalty**</a> - **None** or **integer** taking values **-1, 0** or float larger **0**
-	* Sets value to further specify the utilized penalty function in combination with *mce_vart*; if *mce_vart* is 0, the *p_diff_penalty* is irrelevant; if  *mce_vart* is 1, for the default value of None or -1 the penalty is computed as follows $4\times((no^{\text{training}}\times \text{subsample share})^{0.8})/(no^{\text{training}} \times \text{subsample share})\times no^{\text{treatment}} \times (no^{\text{treatment}} -1)/2$; if the balancing tests indicate bad balance, you should increase the penalty above the default. If *mce_vart* is 2, the penalty is set by the program as follows: for the default value of None or -1, the penalty is $400\times((no^{\text{training}}\times \text{subsample share})^{0.8})/(no^{\text{training}} \times \text{subsample share})\times no^{\text{treatment}} \times (no^{\text{treatment}} -1)/2$. If the value is set to 0, there is no penalty; if *mce_vart* is equal to 3, by default (or if set to -1) the probability of setting the p-score is 0.5; if the specified probability is larger $1$, the program checks if the user-defined probability has been accidentally scaled in percent and rescales the number to obtain valid scores in the zero-one interval.    
+	* Sets value to further specify the utilized penalty function in combination with *mce_vart*; if *mce_vart* is 0, the *p_diff_penalty* is irrelevant; if  *mce_vart* is 1, for the default value of None or -1 the multiplier of the penalty is computed as follows $2((no^{train} \times \text{subsample share} )^{0.9})/(no^{train}\times \text{subsample share})\times(\text{no of treatments} \times(\text{no of treatments}-1)/2)^{0.5}$; if the balancing tests indicate bad balance, you should increase the penalty above the default. If *mce_vart* is 2, the penalty is set by the program as follows: for the default value of None or -1, the penalty is $200((no^{train} \times \text{subsample share} )^{0.9})/(no^{train}\times \text{subsample share})\times(\text{no of treatments} \times(\text{no of treatments}-1)/2)^{0.5}$; increase the penalty if balancing tests indicate bad balance. If the value is set to 0, there is no penalty; if *mce_vart* is equal to 3, by default the probability of setting the p-score is 0.5; if the specified probability is larger $1$, the program checks if the user-defined probability has been accidentally scaled in percent and rescales the number to obtain valid scores in the zero-one interval.    
 
 **r**
 
-* <a id="random_thresholds">**random_thresholds**</a> - **-1** or **integer** larger **0**
-	* Regulates the number of random thresholds; by default, the number of thresholds equals $\sqrt{n_{\text{training}}}/5$, where $n_{\text{training}}$ equals the number of observations in the training data.
+* <a id="random_thresholds">**random_thresholds**</a> - **0** or **integer** larger **0**
+	* Regulates the number of random thresholds; if set to 0, there are no thresholds. If set to an integer larger 0, this specifies the number of thresholds used. By default, the number of thresholds equals $4 + n_{\text{training}}^{0.2}$, where $n_{\text{training}}$ equals the number of observations in the training data.
+* <a id="reduce_split_sample">**reduce_split_sample**</a> - **Boolean**
+	* If True, the sample is randomly split in parts used fro estimation the effects and prediction of the effects for given x. If False, the sample is not split; the default is False. 
+* <a id="reduce_split_sample_pred_share">**reduce_split_sample_pred_share**</a> - **float** between **0** and **1**
+	* Regulates the share used for prediction; the default is 0.5.
+* <a id="reduce_training">**reduce_training**</a>  - **Boolean**
+	* If True, a random sample of the indata is deployed for training; the default is False.
+* <a id="reduce_training_share">**reduce_training_share**</a> - **float** between **0** and **1**
+	* Regulates the share kept for training; default is 0.5.
+* <a id="reduce_prediction">**reduce_prediction**</a> - **Boolean**
+	* If True, a random sample of the preddata is used for prediction; the default is False. 
+* <a id="reduce_prediction_share">**reduce_prediction_share**</a>  - **float** between **0** and **1** 
+	* Regulates the share kept of preddata used for prediction; the default is 0.5.
+* <a id="reduce_largest_group_train">**reduce_largest_group_train**</a>  
+	* If True, only a share of the observations from the largest treatment group is kept; the default is False. 
+* <a id="reduce_largest_group_train_share">**reduce_largest_group_train_share**</a> 
+	* Regulates the share fo the largest group kept in indata. The  program guarantees that the largest group will never become than the second largest group; the default is 0.5.  
 * <a id="relative_to_first_group_only">**relative_to_first_group_only**</a> - **Boolean**
 	* If True, uses only effects relative to lowest treatment value; the default is True.
 
@@ -321,12 +339,12 @@ _with_output=_with_output)
 	* If set True, the forest is saved for prediction.
 * <a id="screen_covariates">**screen_covariates**</a> - **Boolean**
 	* Determines whether the covariates are screened; the default is  True; to omit screening stage specify False.
-* <a id="se_boot_ate">**se_boot_ate**</a> - **integer** larger than **99**
-  * Number of replications to estimate the bootstrap standard error of ATEs; bootstrapping is only activated for more than 99 replications; the default is *False* (no bootstrapping).
-* <a id="se_boot_gate">**se_boot_gate**</a> - **integer** larger than **99**
-  * Number of replications to estimate the bootstrap standard error of GATEs; bootstrapping is only activated for more than 99 replications; the default is *False* (no bootstrapping).
-* <a id="se_boot_iate">**se_boot_iate**</a> - **integer** larger than **99**
-  * Number of replications to estimate the bootstrap standard error of IATEs; bootstrapping is only activated for more than 99 replications; the default is *False* (no bootstrapping).
+* <a id="se_boot_ate">**se_boot_ate**</a> - **integer** larger than **49**
+	 * Number of replications to estimate the bootstrap standard error of ATEs; bootstrapping is only activated for more than 99 replications; the default is *False* (no bootstrapping).
+* <a id="se_boot_gate">**se_boot_gate**</a> - **integer** larger than **49**
+	 * Number of replications to estimate the bootstrap standard error of GATEs; bootstrapping is only activated for more than 99 replications; for all values smaller 49 and the default *False*, the number of bootstraps is set to 199; else number is set equal to the specified number.
+* <a id="se_boot_iate">**se_boot_iate**</a> - **integer** larger than **49**
+	 * Number of replications to estimate the bootstrap standard error of IATEs; bootstrapping is only activated for more than 99 replications; for all values smaller 49 and the default *False*, the number of bootstraps is set to 199; else number is set equal to the specified number.
 * <a id="share_forest_sample">**share_forest_sample**</a> - **float** between **0, 1**
 	* Determines the share used for predicting the outcome of interest, $y$; admissible values range from 0 to 1; the default is  0.5; the other share of the sample is used for building the forest.
 * <a id="show_plots">**show_plots**</a> - **Boolean**
@@ -338,7 +356,7 @@ _with_output=_with_output)
 * <a id="smooth_gates_no_evaluation_points">**smooth_gates_no_evaluation_points**</a> - positive **integer**
 	* Sets the number of evaluation points for the GATE; the default is 50.
 * <a id="stop_empty">**stop_empty**</a> - **integer** taking value **0** or integer larger **0**
-	* Determines a stopping rule for splitting; the default is None. The program stops splitting the tree if the next $25$ randomly chosen variable did not lead to a new leaf; if  a value smaller is given, the program stops splitting after $25$ unsuccessful trials, else the stopping rule is governed by the user-defined number (rounded).
+	* Determines a stopping rule for splitting; the default is None. The program stops splitting the tree if the next $5$ randomly chosen variable did not lead to a new leaf; else the stopping rule is governed by the user-defined number (rounded).
 *  <a id="subsample_factor">**subsample_factor**</a> - **float** between **0, 1**
 	* Sets the size of the subsampling sample; reduces the default subsample size by 1-subsample_factor; the default is $\min(0.67,(2*(n^{0.8})/n))$ ; $n$ is computed as twice the sample size in the smallest treatment group.
 * <a id="support_check">**support_check**</a> - **integer** taking values **0, 1, 2**
@@ -377,6 +395,12 @@ _with_output=_with_output)
 	* Determines how to discretise continuous variables, i.e. regulates the maximum number of categories for continuous variables.
 * <a id="_max_save_values">**_max_save_values**</a> - positive **integer**
 	* Is only relevant for continuous features; saves value of $x$ only if less than specified; default value is 50.
+* <a id="_mp_ray_del">**_mp_ray_del**</a>  - **Tuple**
+	* If `refs`, delete reference to object store; if `rest` delta all other objects of Ray task; `rest` and `refs` can be combined; by default, nothing is deleted. 
+* <a id="_mp_ray_objstore_multiplier">**_mp_ray_objstore_multiplier**</a>  - **integer**
+	* Increases internal default values for Ray object store to avoid crashes induced by full object stores; the default value is 1.
+* <a id="_mp_ray_shutdown">**_mp_ray_shutdown**</a>  - **Boolean**
+	* If True, shut Ray down task by task; default is False if N < 20,000; in Monte Carlo studies we recommend to specify True. 
 * <a id="_seed_sample_split">**_seed_sample_split**</a> - positive **integer**
 	* Sets seed for building forest; the default is 67567885.
 * <a id="_smaller_sample">**_smaller_sample**</a> - **float** between **0,1**

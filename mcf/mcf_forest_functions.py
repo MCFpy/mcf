@@ -71,18 +71,19 @@ def fill_trees_with_y_indices_mp(forest, indatei, v_dict, v_x_type, v_x_values,
     else:
         if c_dict['mp_with_ray']:
             if c_dict['mem_object_store_2'] is None:
-                ray.init(num_cpus=maxworkers, include_dashboard=False)
+                if not ray.is_initialized():
+                    ray.init(num_cpus=maxworkers, include_dashboard=False)
             else:
-                ray.init(num_cpus=maxworkers, include_dashboard=False,
-                         object_store_memory=c_dict['mem_object_store_2'])
+                if not ray.is_initialized():
+                    ray.init(num_cpus=maxworkers, include_dashboard=False,
+                             object_store_memory=c_dict['mem_object_store_2'])
                 if c_dict['with_output'] and c_dict['verbose']:
                     print("Size of Ray Object Store: ", round(
                         c_dict['mem_object_store_2']/(1024*1024)), " MB")
             x_dat_ref = ray.put(x_dat)
-            tasks = [ray_fill_mp.remote(
+            still_running = [ray_fill_mp.remote(
                 forest[idx], obs, d_dat, x_dat_ref, idx, c_dict, regrf)
                 for idx in range(c_dict['boot'])]
-            still_running = list(tasks)
             jdx = 0
             while len(still_running) > 0:
                 finished, still_running = ray.wait(still_running)
@@ -95,8 +96,12 @@ def fill_trees_with_y_indices_mp(forest, indatei, v_dict, v_x_type, v_x_values,
                     if c_dict['with_output'] and c_dict['verbose']:
                         gp.share_completed(jdx+1, c_dict['boot'])
                     jdx += 1
-            del x_dat_ref, finished, still_running, tasks
-            ray.shutdown()
+            if 'refs' in c_dict['_mp_ray_del']:
+                del x_dat_ref
+            if 'rest' in c_dict['_mp_ray_del']:
+                del finished_res, finished
+            if c_dict['_mp_ray_shutdown']:
+                ray.shutdown()
         else:
             with futures.ProcessPoolExecutor(max_workers=maxworkers) as fpp:
                 ret_fut = {fpp.submit(fill_mp, forest[idx], obs, d_dat, x_dat,
@@ -155,8 +160,8 @@ def fill_mp(node_table, obs, d_dat, x_dat, b_idx, c_dict, regrf=False):
     indices = np.arange(obs)
     if subsam:
         obs = round(obs * c_dict['subsam_share_eval'])
-        np.random.seed((10+b_idx)**2+121)
-        indices = np.random.choice(indices, size=obs, replace=False)
+        rng=np.random.default_rng((10+b_idx)**2+121)
+        indices = rng.choice(indices, size=obs, replace=False)
         obs_in_leaf = np.zeros((obs, 1), dtype=np.uint32)
         for i, idx in enumerate(indices):
             obs_in_leaf[i] = get_terminal_leaf_no(node_table, x_dat[idx, :])
@@ -248,8 +253,9 @@ def fs_adjust_vars(vi_i, vi_g, vi_ag, v_dict, v_x_type, v_x_values, x_name,
                 forbidden_vars = (v_dict['x_name_always_in']
                                   + v_dict['x_name_remain'])
             else:
-                forbidden_vars = (v_dict['x_name_always_in'] + v_dict['z_name']
+                forbidden_vars = (v_dict['x_name_always_in']
                                   + v_dict['x_name_remain']
+                                  + v_dict['z_name'] + v_dict['z_name_list']
                                   + v_dict['z_name_mgate']
                                   + v_dict['z_name_amgate'])
             names_to_remove2 = []
@@ -293,9 +299,7 @@ def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
 
     """
     leaf_no = np.unique(obs_in_leaf[:, 1])
-    oob_tree = 0
-    n_lost = 0
-    n_total = 0
+    oob_tree = n_lost = n_total = 0
     if not regrf:
         mse_mce_tree = np.zeros((no_of_treat, no_of_treat))
         obs_t_tree = np.zeros(no_of_treat)
@@ -406,7 +410,7 @@ def get_tree_infos(forest):
         for leaf in tree:
             if leaf[4] == 1:
                 leaf_info_tree[j] = leaf[5]
-                j = j + 1
+                j += 1
         leaf_info_tmp[boot, 1] = np.mean(leaf_info_tree)
         leaf_info_tmp[boot, 2] = np.median(leaf_info_tree)
         leaf_info_tmp[boot, 3] = np.min(leaf_info_tree)
@@ -517,8 +521,7 @@ def best_m_n_min_alpha_reg(forest, c_dict):
         trees_without_oob = np.zeros(dim_m_n_min_ar)
         for trees_m_n_min_ar in forest:                  # different forests
             for j, tree in enumerate(trees_m_n_min_ar):  # trees within forest
-                n_lost = 0
-                n_total = 0
+                n_lost = n_total = 0
                 if c_dict['no_of_treat'] is not None:
                     mse_mce_tree = np.zeros((c_dict['no_of_treat'],
                                              c_dict['no_of_treat']))
@@ -816,7 +819,7 @@ def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat,
                         d_dat == treat_values[m_idx])
                     n_ml = np.sum(d_ml)
                     y_nn_l = np.empty(n_ml)
-                    y_nn_m = np.empty(n_ml)
+                    y_nn_m = np.empty_like(y_nn_l)
                     j = 0
                     for i in range(obs):
                         if d_ml[i]:
@@ -824,10 +827,11 @@ def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat,
                             y_nn_m[j] = y_nn[i, m_idx]
                             j += 1
                     if w_yes:
-                        pass
+                        raise Exception('Numba version not implemented for' +
+                                        ' weighted estimation.')
                     else:
                         aaa = np.sum(y_nn_m) / n_ml * np.sum(y_nn_l) / n_ml
-                        bbb = np.dot(y_nn_m, y_nn_l) / len(y_nn_m)
+                        bbb = np.dot(y_nn_m, y_nn_l) / n_ml
                         mce_ml = bbb - aaa
                 mse_mce[m_idx, v_idx] = mce_ml
     return mse_mce, treat_shares, no_of_obs_by_treat
@@ -871,27 +875,37 @@ def add_rescale_mse_mce(mse_mce, obs_by_treat, mtot, no_of_treat,
 
 def get_avg_mse_mce(mse_mce, obs_by_treat, mtot, no_of_treat):
     """Bring MSE_MCE matrix in average form."""
+    mse_mce_avg = mse_mce.copy()
     for m_idx in range(no_of_treat):
-        mse_mce[m_idx, m_idx] = mse_mce[m_idx, m_idx] / obs_by_treat[m_idx]
+        mse_mce_avg[m_idx, m_idx] = mse_mce[m_idx, m_idx] / obs_by_treat[m_idx]
         if mtot != 3:
             for v_idx in range(m_idx+1, no_of_treat):
-                mse_mce[m_idx, v_idx] = mse_mce[m_idx, v_idx] / (
+                mse_mce_avg[m_idx, v_idx] = mse_mce[m_idx, v_idx] / (
                     obs_by_treat[m_idx] + obs_by_treat[v_idx])
-    return mse_mce
+    return mse_mce_avg
 
 
 def compute_mse_mce(mse_mce, mtot, no_of_treat):
     """Sum up MSE parts for use in splitting rule and else."""
-    mse = 0
-    mce = 0
-    for m_idx in range(no_of_treat):
+    if no_of_treat > 4:
         if mtot in (1, 4):
-            mse_mce[m_idx, m_idx] = (no_of_treat - 1) * mse_mce[m_idx, m_idx]
-        mse += mse_mce[m_idx, m_idx]
-        if mtot != 3:
-            for v_idx in range(m_idx+1, no_of_treat):
-                mce += mse_mce[m_idx, v_idx]
-    mse -= 2 * mce
+            mse = no_of_treat * np.trace(mse_mce) - mse_mce.sum()
+        elif mtot == 2:
+            mse = 2 * np.trace(mse_mce) - mse_mce.sum()
+        elif mtot == 3:
+            mse = np.trace(mse_mce)
+    else:
+        mse = mce = 0
+        for m_idx in range(no_of_treat):
+            if mtot in (1, 4):
+                mse_a = (no_of_treat - 1) * mse_mce[m_idx, m_idx]
+            else:
+                mse_a = mse_mce[m_idx, m_idx]
+            mse += mse_a
+            if mtot != 3:
+                for v_idx in range(m_idx+1, no_of_treat):
+                    mce += mse_mce[m_idx, v_idx]
+        mse -= 2 * mce
     return mse
 
 
@@ -920,13 +934,8 @@ def term_or_data(data_tr_ns, data_oob_ns, y_i, d_i, x_i_ind_split,
     terminal2 : Boolean. Try new variables.
 
     """
-    terminal = False
-    terminal_x = False
-    y_oob = None
-    d_dat = None
-    d_oob = None
-    x_dat = None
-    x_oob = None
+    terminal = terminal_x = False
+    y_oob = d_dat = d_oob = x_dat = x_oob = None
     x_no_variation = []
     y_dat = data_tr_ns[:, y_i]
     if np.all(np.isclose(y_dat, y_dat[0])):    # all elements are equal
@@ -935,7 +944,6 @@ def term_or_data(data_tr_ns, data_oob_ns, y_i, d_i, x_i_ind_split,
         y_oob = data_oob_ns[:, y_i]
         d_dat = data_tr_ns[:, d_i]
         if not regrf:
-            # if np.size(np.unique(d)) < no_of_treat:
             if len(np.unique(d_dat)) < no_of_treat:
                 terminal = True
         if not terminal:
@@ -989,8 +997,7 @@ def next_split(current_node, data_tr, data_oob, y_i, y_nn_i, d_i, x_i, w_i,
     """
     data_tr_ns = data_tr[current_node[11], :]   # Train. data of node
     data_oob_ns = data_oob[current_node[12], :]   # OOB data of  node
-    terminal = False
-    split_done = False
+    terminal = split_done = False
     p_all_x = len(x_ind)
     if current_node[5] < (2 * n_min):
         terminal = True
@@ -1049,9 +1056,7 @@ def next_split(current_node, data_tr, data_oob, y_i, y_nn_i, d_i, x_i, w_i,
                 if (c_dict['mtot'] == 1) or (c_dict['mtot'] == 4):
                     y_nn = data_tr_ns[:, y_nn_i]
                 else:
-                    y_nn = 0
-                    y_nn_l = 0
-                    y_nn_r = 0
+                    y_nn = y_nn_l = y_nn_r = 0
             if c_dict['w_yes']:
                 w_dat = data_tr_ns[:, [w_i]]
             else:
@@ -1101,14 +1106,12 @@ def next_split(current_node, data_tr, data_oob, y_i, y_nn_i, d_i, x_i, w_i,
                                 y_nn_l = y_nn[leaf_l, :]
                                 y_nn_r = y_nn[leaf_r, :]
                             else:
-                                y_nn_l = 0
-                                y_nn_r = 0
+                                y_nn_l = y_nn_r = 0
                         if c_dict['w_yes']:
                             w_l = w_dat[leaf_l]
                             w_r = w_dat[leaf_r]
                         else:
-                            w_l = 0
-                            w_r = 0
+                            w_l = w_r = 0
                         # compute objective functions given particular method
                         if regrf:
                             mse_l = regrf_mse(y_dat[leaf_l],  w_l, n_l,
@@ -1195,36 +1198,24 @@ def next_split(current_node, data_tr, data_oob, y_i, y_nn_i, d_i, x_i, w_i,
         newleaf_r[0] = trl + 1
         newleaf_l[1] = copy.deepcopy(current_node[0])  # Parent nodes
         newleaf_r[1] = copy.deepcopy(current_node[0])
-        newleaf_l[2] = None             # Following splits l
-        newleaf_r[2] = None
-        newleaf_l[3] = None             # Following splits r
-        newleaf_r[3] = None
-        newleaf_l[4] = 2                # Node is active
-        newleaf_r[4] = 2
+        newleaf_l[2] = newleaf_r[2] = None             # Following splits l
+        newleaf_l[3] = newleaf_r[3] = None             # Following splits r
+        newleaf_l[4] = newleaf_r[4] = 2                # Node is active
         newleaf_l[5] = best_n_l         # Leaf size training
         newleaf_r[5] = best_n_r
         newleaf_l[6] = best_n_oob_l     # Leaf size OOB
         newleaf_r[6] = best_n_oob_r
-        newleaf_l[7] = None             # OOB MSE without penalty
-        newleaf_r[7] = None
-        newleaf_l[8] = None             # Variable for next split
-        newleaf_r[8] = None
-        newleaf_l[9] = None
-        newleaf_r[9] = None
-        newleaf_l[10] = None
-        newleaf_r[10] = None
+        newleaf_l[7] = newleaf_r[7] = None         # OOB MSE without penalty
+        newleaf_l[8] = newleaf_r[8] = None         # Variable for next split
+        newleaf_l[9] = newleaf_r[9] = newleaf_l[10] = newleaf_r[10] = None
         train_list = np.array(current_node[11], copy=True)
         oob_list = np.array(current_node[12], copy=True)
         newleaf_l[11] = train_list[best_leaf_l].tolist()
         newleaf_r[11] = train_list[best_leaf_r].tolist()
         newleaf_l[12] = oob_list[best_leaf_oob_l].tolist()
         newleaf_r[12] = oob_list[best_leaf_oob_r].tolist()
-        newleaf_l[13] = None
-        newleaf_r[13] = None
-        newleaf_l[14] = None
-        newleaf_r[14] = None
-        newleaf_l[15] = None
-        newleaf_r[15] = None
+        newleaf_l[13] = newleaf_r[13] = newleaf_l[14] = newleaf_r[14] = None
+        newleaf_l[15] = newleaf_r[15] = None
         current_node[2] = copy.copy(newleaf_l[0])  # ID of daughter leaf
         current_node[3] = copy.copy(newleaf_r[0])
         current_node[4] = 0     # not active, not terminal - intermediate
@@ -1233,8 +1224,7 @@ def next_split(current_node, data_tr, data_oob, y_i, y_nn_i, d_i, x_i, w_i,
             best_value = gp.list_product(best_value)   # int
         current_node[9] = copy.copy(best_value)    # <= -> left
         current_node[10] = copy.copy(best_type)
-        current_node[11] = 0    # Data, no longer needed, saves memory
-        current_node[12] = 0
+        current_node[11] = current_node[12] = 0   # Data, no longer needed
         if current_node[0] != 0:
             current_node[16] = 0
         else:    # Need to keep OOB data in first leaf for VIB, Feature select
@@ -1258,9 +1248,10 @@ def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, c_dict, mmm):
     x_i_for_split : List of indices in x of splitting variables.
 
     """
+    rng=np.random.default_rng()
     qqq = len(x_ind_pos)
     if c_dict['m_random_poisson']:
-        m_l = 1 + np.random.poisson(lam=mmm-1, size=1)
+        m_l = 1 + rng.poisson(lam=mmm-1, size=1)
         if m_l < 1:
             m_l = 1
         elif m_l > qqq:
@@ -1268,12 +1259,12 @@ def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, c_dict, mmm):
     else:
         m_l = mmm
     if x_ai_ind_pos == []:
-        x_i_for_split = np.random.choice(x_ind_pos, m_l, replace=False)
+        x_i_for_split = rng.choice(x_ind_pos, m_l, replace=False)
         x_i_for_split_list = x_i_for_split.tolist()
     else:
         if m_l > len(x_ai_ind_pos):
-            x_i_for_split = np.random.choice(x_ind_pos, m_l-len(x_ai_ind_pos),
-                                             replace=False)
+            x_i_for_split = rng.choice(x_ind_pos, m_l-len(x_ai_ind_pos),
+                                       replace=False)
             x_i_for_split = np.concatenate((x_i_for_split, x_ai_ind_pos))
             x_i_for_split = np.unique(x_i_for_split)
             x_i_for_split_list = x_i_for_split.tolist()
@@ -1392,21 +1383,15 @@ def init_node_table(n_tr, n_oob, indices_oob):
     """
     node_table = []
     id_node_0 = 0
-    id_parent_1 = None
-    id_child_left_2 = None
-    id_child_right_3 = None
+    id_parent_1 = id_child_left_2 = id_child_right_3 = None
     active_4 = 2
     leaf_size_tr_5 = n_tr
     leaf_size_oob_6 = n_oob
-    objective_fct_value_oob_7 = None
-    next_split_i_8 = None
-    cut_off_prime_l_9 = None
+    objective_fct_value_oob_7 = next_split_i_8 = cut_off_prime_l_9 = None
     x_type_10 = None
     data_tr_indi_11 = list(range(n_tr))
     data_oob_indi_12 = list(range(n_oob))
-    pot_outcomes_13 = None
-    pot_variables_used_indi_14 = None
-    leaf_size_pot_15 = None
+    pot_outcomes_13 = pot_variables_used_indi_14 = leaf_size_pot_15 = None
     indices_oob_16 = indices_oob
     node_table.append(id_node_0)
     node_table.append(id_parent_1)
@@ -1591,10 +1576,13 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
         if boot_by_boot == 1:
             if c_dict['mp_with_ray']:
                 if c_dict['mem_object_store_1'] is None:
-                    ray.init(num_cpus=maxworkers, include_dashboard=False)
+                    if not ray.is_initialized():
+                        ray.init(num_cpus=maxworkers, include_dashboard=False)
                 else:
-                    ray.init(num_cpus=maxworkers, include_dashboard=False,
-                             object_store_memory=c_dict['mem_object_store_1'])
+                    if not ray.is_initialized():
+                        ray.init(
+                            num_cpus=maxworkers, include_dashboard=False,
+                            object_store_memory=c_dict['mem_object_store_1'])
                     if c_dict['with_output'] and c_dict['verbose']:
                         print("Size of Ray Object Store: ", round(
                             c_dict['mem_object_store_1']/(1024*1024)), " MB")
@@ -1609,15 +1597,18 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
                     finished_res = ray.get(finished)
                     for ret_all_i in finished_res:
                         forest.append(ret_all_i)
-                        del ret_all_i
+                        # del ret_all_i
                         if c_dict['with_output'] and c_dict['verbose']:
                             gp.share_completed(jdx+1, c_dict['boot'])
                         jdx += 1
-                    del finished_res
                     if jdx % 50 == 0:   # every 50'th tree
                         gp_sys.auto_garbage_collect(50)  # do if half mem full
-                del data_np_ref, finished, still_running
-                ray.shutdown()
+                if 'refs' in c_dict['_mp_ray_del']:
+                    del data_np_ref
+                if 'rest' in c_dict['_mp_ray_del']:
+                    del finished_res, finished
+                if c_dict['_mp_ray_shutdown']:
+                    ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
                                                  ) as fpp:
@@ -1643,31 +1634,35 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
                     round(c_dict['boot'] / no_of_split, 2)))
             if c_dict['mp_with_ray']:
                 if c_dict['mem_object_store_1'] is None:
-                    ray.init(num_cpus=maxworkers, include_dashboard=False)
+                    if not ray.is_initialized():
+                        ray.init(num_cpus=maxworkers, include_dashboard=False)
                 else:
-                    ray.init(num_cpus=maxworkers, include_dashboard=False,
-                             object_store_memory=c_dict['mem_object_store_1'])
+                    if not ray.is_initialized():
+                        ray.init(
+                            num_cpus=maxworkers, include_dashboard=False,
+                            object_store_memory=c_dict['mem_object_store_1'])
                 data_np_ref = ray.put(data_np)
-                tasks = [ray_build_many_trees_mcf.remote(
+                still_running = [ray_build_many_trees_mcf.remote(
                     data_np_ref, y_i, y_nn_i, x_i, d_i, cl_i, w_i, x_type,
                     x_values, x_ind, x_ai_ind, c_dict, boot, pen_mult, regrf)
                     for boot in boot_indx_list]
-                still_running = list(tasks)
                 jdx = 0
                 while len(still_running) > 0:
                     finished, still_running = ray.wait(still_running)
                     finished_res = ray.get(finished)
                     for ret_all_i in finished_res:
                         forest.extend(ret_all_i)
-                        del ret_all_i
                         if c_dict['with_output'] and c_dict['verbose']:
                             gp.share_completed(jdx+1, len(boot_indx_list))
                         jdx += 1
-                    del finished_res
                     if jdx % 50 == 0:   # every 50'th tree
                         gp_sys.auto_garbage_collect(50)  # do if 0.5 mem. full
-                del data_np_ref, finished, still_running, tasks
-                ray.shutdown()
+                if 'refs' in c_dict['_mp_ray_del']:
+                    del data_np_ref
+                if 'rest' in c_dict['_mp_ray_del']:
+                    del finished_res, finished
+                if c_dict['_mp_ray_shutdown']:
+                    ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
                                                  ) as fpp:
@@ -1734,6 +1729,7 @@ def get_split_values(y_dat, w_dat, x_dat, x_type, x_values, leaf_size, c_dict):
     splits : List. Splitting values to use.
 
     """
+    rng=np.random.default_rng()
     if x_type == 0:
         if bool(x_values):  # Limited number of values in x_value
             min_x = np.amin(x_dat)
@@ -1753,7 +1749,7 @@ def get_split_values(y_dat, w_dat, x_dat, x_type, x_values, leaf_size, c_dict):
                         splits, c_dict['random_thresholds']))
         else:  # Continoues variable with very many values; x_values empty
             if 0 < c_dict['random_thresholds'] < (leaf_size - 1):
-                x_vals_np = np.random.choice(
+                x_vals_np = rng.choice(
                     x_dat, c_dict['random_thresholds'], replace=False)
                 x_vals_np = np.unique(x_vals_np)
                 splits = x_vals_np.tolist()

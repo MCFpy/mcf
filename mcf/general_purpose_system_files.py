@@ -9,6 +9,7 @@ from concurrent import futures
 import pickle
 import importlib.util
 import os.path
+from shutil import rmtree
 import gc
 import sys
 from itertools import chain
@@ -23,6 +24,44 @@ def delete_file_if_exists(file_name):
     """
     if os.path.exists(file_name):
         os.remove(file_name)
+
+
+def delete_dir(dir_path):
+    """Delete directory."""
+    if os.path.isdir(dir_path):
+        for file in os.listdir(dir_path):
+            remove_files_and_subdir(dir_path, file)
+        try:
+            os.rmdir(dir_path)
+        except OSError:
+            print("Removal of the temorary directory %s failed" % dir_path)
+    else:
+        raise Exception('Directory %s to remove not found.')
+
+
+def remove_files_and_subdir(path, file_or_dir):
+    """Remove files or subdirectories."""
+    if os.path.isdir(os.path.join(path, file_or_dir)):
+        rmtree(os.path.join(path, file_or_dir))  # del dir+all subdirs
+    else:
+        os.remove(os.path.join(path, file_or_dir))
+
+
+def create_dir(dir_path):
+    """Create directory."""
+    if os.path.isdir(dir_path):
+        file_list = os.listdir(dir_path)
+        if file_list:
+            for file in file_list:
+                remove_files_and_subdir(dir_path, file)
+    else:
+        try:
+            os.mkdir(dir_path)
+        except OSError as oserr:
+            raise Exception("Creation of the directory %s failed" % dir_path
+                            ) from oserr
+    return dir_path
+
 
 
 def auto_garbage_collect(pct=80.0):

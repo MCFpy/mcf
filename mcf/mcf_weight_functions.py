@@ -37,7 +37,7 @@ def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
     cl_dat : N_y x 1 Numpy array. Cluster number.
     w_dat: N_y x 1 Numpy array. Sampling weights (if used).
     """
-    gp_sys.clean_futures()
+    # gp_sys.clean_futures()
     if c_dict['with_output'] and c_dict['verbose']:
         print('\nObtaining weights from estimated forest')
     data_x = pd.read_csv(x_file)
@@ -180,20 +180,26 @@ def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
                     forest_temp = forest
             if c_dict['mp_with_ray']:
                 if c_dict['mem_object_store_3'] is None:
-                    ray.init(num_cpus=maxworkers, include_dashboard=False)
+                    if not ray.is_initialized():
+                        ray.init(num_cpus=maxworkers, include_dashboard=False)
                 else:
-                    ray.init(num_cpus=maxworkers, include_dashboard=False,
-                             object_store_memory=c_dict['mem_object_store_3'])
+                    if not ray.is_initialized():
+                        ray.init(
+                            num_cpus=maxworkers, include_dashboard=False,
+                            object_store_memory=c_dict['mem_object_store_3'])
                     if c_dict['with_output'] and c_dict['verbose']:
                         print("Size of Ray Object Store: ",
                               round(c_dict['mem_object_store_3']/(1024*1024)),
                               " MB")
                 x_dat_ref = ray.put(x_dat)
                 forest_ref = ray.put(forest)
-                tasks = [ray_weights_many_obs_i.remote(
+                # tasks = [ray_weights_many_obs_i.remote(
+                #     idx_list, n_y, forest_ref, x_dat_ref, d_dat, c_dict, regrf,
+                #     split_forest) for idx_list in all_idx_split]
+                # still_running = list(tasks)
+                still_running = [ray_weights_many_obs_i.remote(
                     idx_list, n_y, forest_ref, x_dat_ref, d_dat, c_dict, regrf,
                     split_forest) for idx_list in all_idx_split]
-                still_running = list(tasks)
                 jdx = 0
                 while len(still_running) > 0:
                     finished, still_running = ray.wait(still_running)
@@ -224,8 +230,14 @@ def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
                                 weights[val_list] = results_fut_idx[1][idx]
                         empty_leaf_counter += results_fut_idx[2]
                         merge_leaf_counter += results_fut_idx[3]
-                del x_dat_ref, forest_ref, finished, still_running, tasks
-                ray.shutdown()
+                if 'refs' in c_dict['_mp_ray_del']:
+                    del x_dat_ref, forest_ref
+                # if 'remote' in c_dict['_mp_ray_del']:
+                #     del tasks
+                if 'rest' in c_dict['_mp_ray_del']:
+                    del finished_res, finished
+                if c_dict['_mp_ray_shutdown']:
+                    ray.shutdown()
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
                                                  ) as fpp:

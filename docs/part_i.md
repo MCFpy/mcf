@@ -173,8 +173,8 @@ The program allows for a grid search over tree tuning parameters: (i) the number
 |[n_min_min](./core_6.md#n_min_min) | Smallest minimum leaf size for grid-search,  (default is -1, for which the leaf size is computed as $\max(n^{0.4}/10, 5)$, where $n$ is twice the number of observations in the smallest treatment group).|
 |[n_min_max](./core_6.md#n_min_max)| Largest minimum leaf size for grid-search (default is -1, for which the leaf size is computed as $\max(\sqrt{n}/5, 5)$, where $n$ is twice the number of observations in the smallest treatment group).|
 |[alpha_reg_grid](./core_6.md#alpha_reg_grid) | Number of grid values for the  alpha-regularity parameter (default is 1).|
-|[alpha_reg_max](./core_6.md#alpha_reg_max)  | Largest value for the  alpha-regularity parameter (default is 0).|
-|[alpha_reg_min](./core_6.md#alpha_reg_min)  | Smallest value for the  alpha-regularity parameter (default is 0).|
+|[alpha_reg_max](./core_6.md#alpha_reg_max)  | Largest value for the  alpha-regularity parameter (default is 0.1).|
+|[alpha_reg_min](./core_6.md#alpha_reg_min)  | Smallest value for the  alpha-regularity parameter (default is 0.1).|
 |[m_min_share](./core_6.md#m_min_share) | Minimum share of variables used for splitting (default is -1, for which this share is computed as $0.1*q$, where $q$ denotes the number of variables).|
 |[m_max_share](./core_6.md#m_max_share) | Maximum share of variables used for next split (default is -1, for which this share is computed as $0.66*q$, where $q$ denotes the number of variables).|
 |[m_grid](./core_6.md#m_grid) | Number of grid values which are logarithmically spaced (default is 2).|

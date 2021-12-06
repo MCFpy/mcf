@@ -8,9 +8,9 @@ optpoltree(x_ord_name=x_ord_name, x_unord_name=x_unord_name, check_perfectcorr=c
 ## Variable Names
 
 **x**
-* <a id="x_ord_name">**x_ord_name**</a> - list with **string**
+* <a id="x_ord_name">**x_ord_name**</a> - list with **String**
 	* Specifies names of ordered variables used to build the policy tree.  
-* <a id="x_unord_name">**x_unord_name**</a> - list with **string**
+* <a id="x_unord_name">**x_unord_name**</a> - list with **String**
 	* Specifies names of unordered variables used to build the policy tree.
 
 ## Parameters
@@ -26,7 +26,7 @@ optpoltree(x_ord_name=x_ord_name, x_unord_name=x_unord_name, check_perfectcorr=c
 	* Specifies a multiplier to costs; valid values range from 0 to 1; the default is 1. Note that parameter is only relevant if **costs_of_treat** is set to its default None.
 
 **d**
-* <a id="datpath">**datpath**</a> - **string**
+* <a id="datpath">**datpath**</a> - **String**
 	* Specifies the directory, where the data for estimation is located.
 * <a id="depth_of_tree">**depth_of_tree**</a> - positive **Integer**
 	* Regulates depth of the policy tree; the default is 3; the programme accepts any number strictly greater 0.
@@ -42,17 +42,17 @@ optpoltree(x_ord_name=x_ord_name, x_unord_name=x_unord_name, check_perfectcorr=c
 	* Specifies the number of parallel processes; the default number of processes is set equal to the number of logical cores.
 
 **i**
-* <a id="id_name">**id_name**</a> - **string**
+* <a id="id_name">**id_name**</a> - **String**
 	* Specifies an identifier; if there is no identifier, an identifier will be added to the data.
-* <a id="indata">**indata**</a> - **string**
+* <a id="indata">**indata**</a> - **String**
 	* Specifies the file name for the data, which is used for estimation; the file needs to be in *csv* format.
 
 **o**
 * <a id="only_if_sig_better_vs_0">**only_if_sig_better_vs_0**</a> - **Boolean**
 	* If True, the assignment is based on policy scores, which are  significantly better than the first score in **polscore_name**; the default is False.
-* <a id="outfiletext">**outfiletext**</a> - **string**
+* <a id="outfiletext">**outfiletext**</a> - **String**
 	* Specifies the name for the file, in which the text output from the program is written; if the name is not specified the default is set to the name of the data, deployed for estimation - **indata** - with the extension *txt* is used.
-* <a id="outpath">**outpath**</a> - **string**
+* <a id="outpath">**outpath**</a> - **String**
 	* Creates a folder *out* in the application directory, in which the output files are written.
 * <a id="output_type">**output_type**</a> - **Integer** taking value **0**, **1**, **2** or **None**
 	* Determines where the output goes; for a value of 0 the output goes to the terminal; for a value of 1, the output is sent to a file; for a value of 2, the output is sent to both terminal and file; the default is None.
@@ -60,7 +60,7 @@ optpoltree(x_ord_name=x_ord_name, x_unord_name=x_unord_name, check_perfectcorr=c
 **p**
 * <a id="parallel_processing">**parallel_processing**</a> - **Boolean**
 	* If True, the program is run in parallel with the number of processes equal to **how_many_parallel**. If False, the program is run on one core; the default is True.
-* <a id="polscore_name">**polscore_name**</a> - list of **strings**
+* <a id="polscore_name">**polscore_name**</a> - list of **Strings**
 	* Specifies the policy score, the potential outcomes.
 
 **m**

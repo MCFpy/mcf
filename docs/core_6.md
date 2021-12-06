@@ -66,62 +66,62 @@ _with_output=_with_output)
 
 **c**
 
-* <a id="cluster_name">**cluster_name**</a> - list with **string**
+* <a id="cluster_name">**cluster_name**</a> - list with **String**
 	* Specifies variable defining the clusters.
 
 **d**
 
-* <a id="d_name">**d_name**</a> - list with **string**
+* <a id="d_name">**d_name**</a> - list with **String**
 	* Specifies name of treatment, which must be discrete.
 
 **i**
 
-* <a id="id_name">**id_name**</a> - list with **string**
+* <a id="id_name">**id_name**</a> - list with **String**
 	* Specifies an identifier; if there is no identifier, an identifier will be added to the data.
 
 **w**
 
-* <a id="w_name">**w_name**</a> - list with **string**
+* <a id="w_name">**w_name**</a> - list with **String**
   * Specifies the name of the weight, if the weighting option is used.
 
 **x**
 
-* <a id="x_balance_name_ord">**x_balance_name_ord**</a> - list with **string**
+* <a id="x_balance_name_ord">**x_balance_name_ord**</a> - list with **String**
 	* Specifies names of ordered variables for balancing tests (also excluded from feature selection).
-* <a id="x_balance_name_unord">**x_balance_name_unord**</a> - list with **string**
+* <a id="x_balance_name_unord">**x_balance_name_unord**</a> - list with **String**
 	* Specifies names of unordered variables for balancing tests (also excluded from feature selection).
-* <a id="x_name_always_in_ord">**x_name_always_in_ord**</a> - list with **string**
+* <a id="x_name_always_in_ord">**x_name_always_in_ord**</a> - list with **String**
 	* Specifies names of ordered features, which are always included when deciding upon the next split.
-* <a id="x_name_always_in_unord">**x_name_always_in_unord**</a> - list with **string**
+* <a id="x_name_always_in_unord">**x_name_always_in_unord**</a> - list with **String**
 	* Specifies names of unordered variables, which are always included when deciding upon next split.
-* <a id="x_name_ord">**x_name_ord**</a> - list with **string**
+* <a id="x_name_ord">**x_name_ord**</a> - list with **String**
 	* Specifies names of ordered variables.
-* <a id="x_name_remain_ord">**x_name_remain_ord**</a> - list with **string**
+* <a id="x_name_remain_ord">**x_name_remain_ord**</a> - list with **String**
 	* Specifies names of ordered variables to be excluded from preliminary feature selection.
-* <a id="x_name_remain_unord">**x_name_remain_unord**</a> - list with **string**
+* <a id="x_name_remain_unord">**x_name_remain_unord**</a> - list with **String**
 	* Specifies names of unordered variables to be excluded from preliminary feature selection.
-* <a id="x_name_unord">**x_name_unord**</a> - list with **string**
+* <a id="x_name_unord">**x_name_unord**</a> - list with **String**
 	* Specifies names of unordered variables.
 
 **y**
 
-* <a id="y_name">**y_name**</a> - list with **string**
+* <a id="y_name">**y_name**</a> - list with **String**
 	* Specifies outcome variables.
-* <a id="y_tree_name">**y_tree_name**</a> - list with **string**
+* <a id="y_tree_name">**y_tree_name**</a> - list with **String**
 	*  Specifies variable to build trees; if None or [], the first variable in **y_name** is used to build trees; it will be added to the list of outcome variables.
 
 
 **z**
 
-* <a id="z_name_amgate">**z_name_amgate**</a> - list with **string**
+* <a id="z_name_amgate">**z_name_amgate**</a> - list with **String**
 	* Specifies names of variables for which average marginal GATE will be computed; variable must be in included in **x_name_ord** or **x_name_unord**; otherwise, variables will be deleted from list.
-* <a id="z_name_mgate">**z_name_mgate**</a> - list with **string**
+* <a id="z_name_mgate">**z_name_mgate**</a> - list with **String**
 	* Specifies names of variables for which marginal GATE (at median) will be computed; variable must be in included in **x_name_ord** or **x_name_unord**; otherwise, variables will be deleted from list.
-* <a id="z_name_list">**z_name_list**</a> - list with **string**
+* <a id="z_name_list">**z_name_list**</a> - list with **String**
 	* Specifies names of ordered variables with many values; these variables are recoded to define the split, they will be added to the list of confounders. Since they are broken up in categories for all their observed values, it does not matter whether they are coded as ordered or unordered.
-* <a id="z_name_split_ord">**z_name_split_ord**</a> - list with **string**
+* <a id="z_name_split_ord">**z_name_split_ord**</a> - list with **String**
 	* Specifies names of ordered variables that are discrete and define a unique sample split for each value.
-* <a id="z_name_split_unord">**z_name_split_unord**</a> - list with **string**
+* <a id="z_name_split_unord">**z_name_split_unord**</a> - list with **String**
 	* Specifies names of unordered variables that are discrete and define a unique sample split for each value.
 
 ## Parameters
@@ -165,7 +165,7 @@ _with_output=_with_output)
 
 
 **d**
-* <a id="datpfad">**datpfad**</a>  - **string**
+* <a id="datpfad">**datpfad**</a>  - **String**
 	* Specifies the directory, in which the data is saved for estimation and/or prediction.
 * <a id="descriptive_stats">**descriptive_stats**</a> - **Boolean**
 	* If True, the descriptive statistics are printed to the input and output files; the default is True.
@@ -200,7 +200,7 @@ _with_output=_with_output)
 	* If set True, the IATEs are computed. If set False, the IATEs are not computed; the default is True.
 * <a id="iate_se_flag">**iate_se_flag**</a> - **Boolean**
 	* If set True, the standard errors of the IATEs are computed. If set False, they are not computed; the default is True.
-* <a id="indata">**indata**</a> - **string**
+* <a id="indata">**indata**</a> - **String**
 	* Specifies the file name for the data, which is used for estimation; the file needs to be in *csv* format.
 
 **k**
@@ -275,9 +275,9 @@ _with_output=_with_output)
 
 **o**
 
-* <a id="outfiletext">**outfiletext**</a> - **string**
+* <a id="outfiletext">**outfiletext**</a> - **String**
 	* Specifies the name for the file, in which the text output from the program is written; if the name is not specified the default is set to the name of the data, deployed for estimation - **indata** - with the extension *txt* is used.
-* <a id="outpfad">**outpfad**</a> - **string**
+* <a id="outpfad">**outpfad**</a> - **String**
 	* Creates a folder *out* in the application directory, in which the output files are written.
 * <a id="output_type">**output_type**</a> - **Integer** taking value **0, 1, 2** or **None**
 	* Determines where the output goes; for a value of 0 the output goes to the terminal; for a value of 1, the output is sent to a file; for a value of 2, the output is sent to both terminal and file; the default is None.
@@ -303,9 +303,9 @@ _with_output=_with_output)
 	* If True, the program delivers plots of estimated treatment effects in **pred_eff_data**; the default is True.  
 * <a id="post_random_forest_vi">**post_random_forest_vi**</a> - **Boolean**
 	* If True, program uses variable importance measure of predictive random forests to learn major factors influencing IATEs; the default is True.
-* <a id="preddata">**preddata**</a> - **string**
+* <a id="preddata">**preddata**</a> - **String**
 	* Specifies the file name for the data for the effects estimation; the file needs to be in *csv* format.
-* <a id="pred_mcf">**pred_mcf**</a> - **string**
+* <a id="pred_mcf">**pred_mcf**</a> - **String**
 	* If True, effects are estimated; default is True.
 * <a id="p_diff_penalty">**p_diff_penalty**</a> - **None** or **Integer** taking values **-1, 0** or **Float** larger **0**
 	* Sets value to further specify the utilized penalty function in combination with *mce_vart*; if *mce_vart* is 0, the *p_diff_penalty* is irrelevant; if  *mce_vart* is 1, for the default value of None or -1 the multiplier of the penalty is computed as follows $2((no^{train} \times \text{subsample share} )^{0.9})/(no^{train}\times \text{subsample share})\times(\text{no of treatments} \times(\text{no of treatments}-1)/2)^{0.5}$; if the balancing tests indicate bad balance, you should increase the penalty above the default. If *mce_vart* is 2, the penalty is set by the program as follows: for the default value of None or -1, the penalty is $200((no^{train} \times \text{subsample share} )^{0.9})/(no^{train}\times \text{subsample share})\times(\text{no of treatments} \times(\text{no of treatments}-1)/2)^{0.5}$; increase the penalty if balancing tests indicate bad balance. If the value is set to 0, there is no penalty; if *mce_vart* is equal to 3, by default the probability of setting the p-score is 0.5; if the specified probability is larger $1$, the program checks if the user-defined probability has been accidentally scaled in percent and rescales the number to obtain valid scores in the zero-one interval.    

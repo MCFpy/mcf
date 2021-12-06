@@ -18,3 +18,4 @@ mcf/mcf_init_functions.py
 mcf/mcf_loccent_functions.py
 mcf/mcf_vi_functions.py
 mcf/mcf_weight_functions.py
+mcf/optp_functions.py

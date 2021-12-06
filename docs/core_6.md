@@ -131,9 +131,9 @@ _with_output=_with_output)
 * <a id="alpha_reg_grid">**alpha_reg_grid**</a> - positive **integer**
 	* Sets the number of grid values; the default is 1.
 * <a id="alpha_reg_max">**alpha_reg_max**</a> - **float** between **0, 0.5**
-	* Determines the maximal $\alpha$ for $0 < \alpha < 0.5$; the default is 0.
+	* Determines the maximal $\alpha$ for $0 < \alpha < 0.5$; the default is 0.1.
 * <a id="alpha_reg_min">**alpha_reg_min**</a> - **float** between **0, 0.4**
-	* Determines smallest $\alpha$ for $0 < \alpha < 0.4$; the default is 0.
+	* Determines smallest $\alpha$ for $0 < \alpha < 0.4$; the default is 0.1.
 * <a id="atet_flag">**atet_flag**</a> - **Boolean**
 	* If  True, average effects for subpopulations are computed by treatments (if available); this works only if at least one $z$ variable is specified; the default is False.
 
@@ -315,7 +315,7 @@ _with_output=_with_output)
 * <a id="random_thresholds">**random_thresholds**</a> - **0** or **integer** larger **0**
 	* Regulates the number of random thresholds; if set to 0, there are no thresholds. If set to an integer larger 0, this specifies the number of thresholds used. By default, the number of thresholds equals $4 + n_{\text{training}}^{0.2}$, where $n_{\text{training}}$ equals the number of observations in the training data.
 * <a id="reduce_split_sample">**reduce_split_sample**</a> - **Boolean**
-	* If True, the sample is randomly split in parts used fro estimation the effects and prediction of the effects for given x. If False, the sample is not split; the default is False. 
+	* If True, the sample is randomly split in parts used for estimation and prediction of the effects for given x. If False, the sample is not split; the default is False. 
 * <a id="reduce_split_sample_pred_share">**reduce_split_sample_pred_share**</a> - **float** between **0** and **1**
 	* Regulates the share used for prediction; the default is 0.5.
 * <a id="reduce_training">**reduce_training**</a>  - **Boolean**
@@ -356,7 +356,7 @@ _with_output=_with_output)
 * <a id="smooth_gates_no_evaluation_points">**smooth_gates_no_evaluation_points**</a> - positive **integer**
 	* Sets the number of evaluation points for the GATE; the default is 50.
 * <a id="stop_empty">**stop_empty**</a> - **integer** taking value **0** or integer larger **0**
-	* Determines a stopping rule for splitting; the default is None. The program stops splitting the tree if the next $5$ randomly chosen variable did not lead to a new leaf; else the stopping rule is governed by the user-defined number (rounded).
+	* Determines a stopping rule for splitting; the default is None. The program stops splitting the tree if the next  [stop_empty](./core_6.md#stop_empty) randomly chosen variable did not lead to a new leaf; the default is 5.
 *  <a id="subsample_factor">**subsample_factor**</a> - **float** between **0, 1**
 	* Sets the size of the subsampling sample; reduces the default subsample size by 1-subsample_factor; the default is $\min(0.67,(2*(n^{0.8})/n))$ ; $n$ is computed as twice the sample size in the smallest treatment group.
 * <a id="support_check">**support_check**</a> - **integer** taking values **0, 1, 2**
@@ -396,7 +396,7 @@ _with_output=_with_output)
 * <a id="_max_save_values">**_max_save_values**</a> - positive **integer**
 	* Is only relevant for continuous features; saves value of $x$ only if less than specified; default value is 50.
 * <a id="_mp_ray_del">**_mp_ray_del**</a>  - **Tuple**
-	* If `refs`, delete reference to object store; if `rest` delta all other objects of Ray task; `rest` and `refs` can be combined; by default, nothing is deleted. 
+	* If `refs`, delete reference to object store; if `rest` delete all other objects of Ray task; `rest` and `refs` can be combined; by default, nothing is deleted. 
 * <a id="_mp_ray_objstore_multiplier">**_mp_ray_objstore_multiplier**</a>  - **integer**
 	* Increases internal default values for Ray object store to avoid crashes induced by full object stores; the default value is 1.
 * <a id="_mp_ray_shutdown">**_mp_ray_shutdown**</a>  - **Boolean**

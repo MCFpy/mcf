@@ -12,10 +12,10 @@
 - New default value for [stop_empty](./core_6.md#stop_empty).
 - Optimal policy module computes the policy tree also sequentially. For this purpose, the ``optpoltree`` API has changed slightly. Renamed input arguments are
   - [ft_yes](./opt_pol_1.md#ft_yes),
-	- [ft_depth](./opt_pol_1.md#ft_depth),
-	- [ft_min_leaf_size](./opt_pol_1.md#ft_min_leaf_size),
-	- [ft_no_of_evalupoints](./opt_pol_1.md#ft_no_of_evalupoints)
-	- [ft_yes](./opt_pol_1.md#ft_yes),
+  - [ft_depth](./opt_pol_1.md#ft_depth),
+  - [ft_min_leaf_size](./opt_pol_1.md#ft_min_leaf_size),
+  - [ft_no_of_evalupoints](./opt_pol_1.md#ft_no_of_evalupoints)
+  - [ft_yes](./opt_pol_1.md#ft_yes),
 - the new input arguments for the sequential tree are:
 	- [st_yes](./opt_pol_1.md#st_yes),
 	- [st_depth](./opt_pol_1.md#st_depth),

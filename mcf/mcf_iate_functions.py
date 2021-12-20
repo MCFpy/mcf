@@ -22,7 +22,8 @@ from mcf import general_purpose_mcf as gp_mcf
 
 
 def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
-                w_ate=None, balancing_test=False, save_predictions=True):
+                w_ate=None, balancing_test=False, save_predictions=True,
+                lc_forest=None):
     """
     Estimate IATE and their standard errors, plot & save them, MP version.
 
@@ -53,7 +54,7 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
     """
     def warn_text(c_dict):
         if c_dict['with_output'] and c_dict['verbose']:
-            print('If prediction file is large, this step may take. If ',
+            print('If prediction file is large, this step may take long. If ',
                   'nothing seems to happen, it may be worth to try do the ',
                   'estimation without sparse weight matrix. This needs more '
                   'memory, but could be substantially faster ',
@@ -336,7 +337,7 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                 if c_dict['with_output'] and c_dict['verbose']:
                     print("Size of Ray Object Store: ", round(
                         c_dict['mem_object_store_3']/(1024*1024)), " MB")
-            if c_dict['iate_se_flag']:        
+            if c_dict['iate_se_flag']:
                 still_running = [ray_iate_func2_for_mp.remote(
                     idx, no_of_out, pot_y[idx], pot_y_var[idx],
                     pot_y_m_ate[idx], pot_y_m_ate_var[idx], c_dict)
@@ -478,7 +479,7 @@ def assign_ret_all_i(pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var, l1_to_9,
     if idx is None:
         idx = ret_all_i[0]
     pot_y[idx, :, :] = ret_all_i[1]
-    if not pot_y_var is None:
+    if pot_y_var is not None:
         pot_y_var[idx, :, :] = ret_all_i[2]
         pot_y_m_ate[idx, :, :] = ret_all_i[3]
         pot_y_m_ate_var[idx, :, :] = ret_all_i[4]
@@ -632,7 +633,7 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
         w_add = np.zeros((c_dict['no_of_treat'], no_of_cluster))
     else:
         w_add = np.zeros((c_dict['no_of_treat'], n_y))
-    if c_dict['iate_se_flag']:        
+    if c_dict['iate_se_flag']:
         w_add_unc = np.zeros((c_dict['no_of_treat'], n_y))
     for t_idx in range(c_dict['no_of_treat']):
         if c_dict['weight_as_sparse']:
@@ -818,7 +819,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
     x_name = delete_x_with_catv(v_x_type.keys())
     x_dat = data[x_name]
     cint = sct.norm.ppf(c_dict['fig_ci_level'] +
-                    0.5 * (1 - c_dict['fig_ci_level']))
+                        0.5 * (1 - c_dict['fig_ci_level']))
     if c_dict['bin_corr_yes']:
         print('\n' + ('=' * 80), '\nCorrelations of effects with ... in %')
         print('-' * 80)
@@ -836,7 +837,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
             name_iate_t = iate_pot_name[name_eff][idx]
             if c_dict['iate_se_flag']:
                 name_se = name_eff + '_se'
-                name_iate_se_t = iate_pot_name[name_se][idx]    
+                name_iate_se_t = iate_pot_name[name_se][idx]
             else:
                 name_se = name_iate_se_t = None
             titel = 'Sorted' + name_iate_t

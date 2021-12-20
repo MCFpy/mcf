@@ -51,8 +51,8 @@ se_boot_ate=se_boot_ate, se_boot_gate=se_boot_gate, se_boot_iate=se_boot_iate,
 share_forest_sample=share_forest_sample, show_plots=show_plots,
 smooth_gates=smooth_gates, smooth_gates_bandwidth=smooth_gates_bandwidth,
 smooth_gates_no_evaluation_points=smooth_gates_no_evaluation_points,
-stop_empty=stop_empty, subsample_factor=subsample_factor,
-support_check=support_check, support_max_del_train=support_max_del_train, support_min_p=support_min_p,support_quantil=support_quantil, weighted=weighted,
+stop_empty=stop_empty, subsample_factor_eval=subsample_factor_eval,
+subsample_factor_forest=subsample_factor_forest, support_check=support_check, support_max_del_train=support_max_del_train, support_min_p=support_min_p,support_quantil=support_quantil, weighted=weighted,
 weight_as_sparse=weight_as_sparse, train_mcf=train_mcf,  
 variable_importance_oob=variable_importance_oob, verbose=verbose,
 _max_cats_cont_vars=_max_cats_cont_vars, _max_save_values=_max_save_values, _mp_ray_del=_mp_ray_del, _mp_ray_shutdown=_mp_ray_shutdown,
@@ -356,9 +356,11 @@ _with_output=_with_output)
 * <a id="smooth_gates_no_evaluation_points">**smooth_gates_no_evaluation_points**</a> - positive **Integer**
 	* Sets the number of evaluation points for the GATE; the default is 50.
 * <a id="stop_empty">**stop_empty**</a> - **Integer** taking value **0** or **Integer** larger **0**
-	* Determines a stopping rule for splitting; the default is None. The program stops splitting the tree if the next  [stop_empty](./core_6.md#stop_empty) randomly chosen variable did not lead to a new leaf; the default is 5.
-*  <a id="subsample_factor">**subsample_factor**</a> - **Float** between **0, 1**
-	* Sets the size of the subsampling sample; reduces the default subsample size by 1-subsample_factor; the default is $\min(0.67,(2*(n^{0.8})/n))$ ; $n$ is computed as twice the sample size in the smallest treatment group.
+	* Determines a stopping rule for splitting; the default is None. The program stops splitting the tree if the next  [stop_empty](./core_6.md#stop_empty) randomly chosen variable did not lead to a new leaf; the default is 1.
+*  <a id="subsample_factor_eval">**subsample_factor_eval**</a> - **Boolean** or **Float** larger **0**
+			* Sets the size of the subsampling sample in the evaluation sample; if False, there is no subsampling. If True, the value is set to [subsample_factor_forest](./core_6.md#subsample_factor_forest). If a strict positive **Float** is given, the multiplier of the subsample size is deployed.
+*  <a id="subsample_factor_forest">**subsample_factor_forest**</a> - **Float** between **0, 1**
+	* Sets the size of the subsampling sample; reduces the default subsample size by 1-subsample_factor; the default share is $\min(0.67,(2*(n^{0.8})/n))$ ; $n$ is computed as twice the sample size in the smallest treatment group; the actual share of the subsample obtains as the product of the default share and the [subsample_factor_forest](./core_6.md#subsample_factor_forest); the default for latter is 1.
 * <a id="support_check">**support_check**</a> - **Integer** taking values **0, 1, 2**
 	* Determines whether program checks for common support and sets rule how common support is enforced; for a value of 0 no common support is checked and enforced; for values of 1 and 2 common support is checked and enforced; for values 1 and 2, the support check is based on the estimated predictive random forests for each treatment probability but one; if the value is set to 1, the program uses min and max rules to enforce common support; for a value of 2, the program enforces minimum and maximum probabilities for all observations and all observations off support are removed. Out-of-bag predictions are used to avoid overfitting.
 * <a id="support_max_del_train">**support_max_del_train**</a> - **Float** between **0, 1**

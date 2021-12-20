@@ -718,7 +718,7 @@ def weight_var(w0_dat, y0_dat, cl_dat, c_dict, norm=True, w_for_diff=None,
         if zeros_to_switch <= 2:
             only_copy = True
         else:
-            ind_of_0 = np.where(w_pos == False)
+            ind_of_0 = np.where(w_pos is False)
             rng = np.random.default_rng(123345)
             ind_to_true = rng.choice(
                 ind_of_0[0], size=zeros_to_switch, replace=False)

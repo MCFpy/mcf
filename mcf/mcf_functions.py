@@ -43,7 +43,7 @@ def ModifiedCausalForest(
         fs_other_sample_share=0.2, fs_other_sample=True, fs_rf_threshold=0,
         fs_yes=None, fontsize=2, forest_files=None, gatet_flag=False,
         gmate_no_evaluation_points=50, gmate_sample_share=None, iate_flag=True,
-        iate_se_flag=True,indata=None, knn_flag=False, knn_min_k=10,
+        iate_se_flag=True, indata=None, knn_flag=True, knn_min_k=10,
         knn_const=1, l_centering=True, l_centering_share=0.25,
         l_centering_cv_k=5, l_centering_new_sample=False, m_min_share=-1,
         m_max_share=-1, m_grid=2, m_random_poisson=True,
@@ -65,8 +65,8 @@ def ModifiedCausalForest(
         screen_covariates=True, se_boot_ate=False, se_boot_gate=False,
         se_boot_iate=False, share_forest_sample=0.5, show_plots=True,
         smooth_gates=True, smooth_gates_bandwidth=1,
-        smooth_gates_no_evaluation_points=50, stop_empty=5,
-        subsample_factor_forest=None, subsample_factor_eval=None,
+        smooth_gates_no_evaluation_points=50, stop_empty=1,
+        subsample_factor_forest=None, subsample_factor_eval=False,
         support_check=1, support_min_p=None, support_quantil=1,
         support_max_del_train=0.5, train_mcf=True,
         variable_importance_oob=False, verbose=True, weight_as_sparse=True,
@@ -84,6 +84,7 @@ def ModifiedCausalForest(
     _max_elements_per_split = 100 * 10e5  # reduce if breakdown (weights)
     _load_old_forest = False  # Useful for testing to save time
     _no_ray_in_forest_building = False
+    _l_centering_uncenter=False
 
 # Collect vars in a dictionary
     variable_dict = mcf_init.make_user_variable(
@@ -141,7 +142,7 @@ def ModifiedCausalForest(
         reduce_split_sample, reduce_split_sample_pred_share, reduce_training,
         reduce_training_share, reduce_prediction, reduce_prediction_share,
         reduce_largest_group_train, reduce_largest_group_train_share,
-        iate_flag, iate_se_flag)
+        iate_flag, iate_se_flag, _l_centering_uncenter)
 # Set defaults for many control variables of the MCF & define variables
 
     c_dict, v_dict, text_to_print = mcf_init.get_controls(controls_dict,
@@ -209,6 +210,7 @@ def ModifiedCausalForest(
         z_new_name_dict = loaded_tuple[10]
         z_new_dic_dict = loaded_tuple[11]
         c_dict['max_cats_cont_vars'] = loaded_tuple[12]
+        lc_forest = loaded_tuple[13]
     else:
         d_in_values = None
         no_val_dict = None
@@ -219,6 +221,8 @@ def ModifiedCausalForest(
         common_support_list = None
         z_new_name_dict = None
         z_new_dic_dict = None
+        lc_forest = None
+
 # Prepare data: Add and recode variables for GATES (Z)
 #               Recode categorical variables to prime numbers, cont. vars
     (v_dict, var_x_type, var_x_values, c_dict, indata_with_z, predata_with_z,
@@ -276,13 +280,14 @@ def ModifiedCausalForest(
                     mcf_data.adjust_variables(v_dict, var_x_type, var_x_values,
                                               c_dict, x_variables_out))
         time11 = time.time()
+        lc_forest = None
         if c_dict['l_centering'] and c_dict['l_centering_new_sample']:
             l_cent_sample, nonlc_sample, _ = gp.sample_split_2_3(
                 indata2, c_dict['lc_sample'], c_dict['l_centering_share'],
                 c_dict['nonlc_sample'], 1-c_dict['l_centering_share'],
                 random_seed=_seed_sample_split,
                 with_output=c_dict['with_output'])
-            (indata2, old_y_name, new_y_name
+            (indata2, old_y_name, new_y_name, lc_forest
              ) = mcf_lc.local_centering_new_sample(
                 l_cent_sample, nonlc_sample, v_dict, var_x_type, c_dict)
             v_dict = mcf_data.adjust_y_names(v_dict, old_y_name, new_y_name,
@@ -303,7 +308,7 @@ def ModifiedCausalForest(
                 files_to_center = (tree_sample, fill_y_sample, fs_sample)
             else:
                 files_to_center = (tree_sample, fill_y_sample)
-            old_y_name, new_y_name = mcf_lc.local_centering_cv(
+            old_y_name, new_y_name, lc_forest = mcf_lc.local_centering_cv(
                 files_to_center, v_dict, var_x_type, c_dict)
             time12 = time.time()
             v_dict = mcf_data.adjust_y_names(v_dict, old_y_name, new_y_name,
@@ -466,7 +471,7 @@ def ModifiedCausalForest(
             (forest, x_name_mcf, c_dict['max_cats_z_vars'], d_in_values,
              no_val_dict, q_inv_dict, q_inv_cr_dict, prime_values_dict,
              unique_val_dict, common_support_list, z_new_name_dict,
-             z_new_dic_dict, c_dict['max_cats_cont_vars']),
+             z_new_dic_dict, c_dict['max_cats_cont_vars'], lc_forest),
             save=True, output=c_dict['with_output'])
     del prob_score, d_train_tree, common_support_list, unique_val_dict
     del z_new_name_dict, d_in_values, no_val_dict, q_inv_dict, q_inv_cr_dict
@@ -487,9 +492,9 @@ def ModifiedCausalForest(
             print('-' * 80)
         if not (c_dict['marg_plots'] and c_dict['with_output']):
             del forest
+
         # Estimation and inference given weights
         time8 = time.time()
-
         w_ate, _, _, ate, ate_se, effect_list = mcf_ate.ate_est(
             weights, preddata3, y_train, cl_train, w_train, v_dict, c_dict)
         time9_ate = time.time()
@@ -511,7 +516,7 @@ def ModifiedCausalForest(
             (pred_outfile, pot_y, pot_y_var, iate, iate_se, names_pot_iate
              ) = mcf_iate.iate_est_mp(
                 weights, preddata3, y_train, cl_train, w_train, v_dict, c_dict,
-                w_ate)
+                w_ate, lc_forest=None)
         else:
             pot_y = pot_y_var = iate = iate_se = None
             pred_outfile = names_pot_iate = None
@@ -520,7 +525,7 @@ def ModifiedCausalForest(
 
         if c_dict['with_output'] and c_dict['balancing_test_w']:
             mcf_ate.ate_est(weights, preddata3, x_bala_train, cl_train,
-                            w_train, v_dict, c_dict, True)
+                            w_train, v_dict, c_dict, True, None)
         del weights, y_train, x_bala_train, cl_train, w_train
         time9_bal = time.time()
 

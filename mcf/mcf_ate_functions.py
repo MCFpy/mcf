@@ -167,7 +167,7 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
     v_dict : Dict. Variables.
     c_dict : Dict. Parameters.
     balancing_test: Boolean. Default is False.
-    w_ate_only : only weihghts are needede as output. Default is False.
+    w_ate_only : only weights are needede as output. Default is False.
 
     Returns
     -------

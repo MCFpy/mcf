@@ -100,7 +100,7 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
         maxworkers = min(maxworkers, number_of_oobs)
         if c_dict['mp_with_ray']:
             # tasks = [ray_get_oob_mcf.remote(
-            #     data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx, True, [],
+            #     data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx,True,[],
             #     forest_ref, True, regrf, partner_k[idx])
             #     for idx in range(number_of_oobs)]
             # still_running = list(tasks)
@@ -230,7 +230,7 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
         if 'rest' in c_dict['_mp_ray_del']:
             del finished_res, finished
             #     del ret_all_i_list
-        if c_dict['_mp_ray_shutdown']:    
+        if c_dict['_mp_ray_shutdown']:
             ray.shutdown()
     return vim, vim_g, vim_mg, x_name
 
@@ -370,9 +370,10 @@ def vim_print(mse_ref, mse_values, x_name, ind_list=0, with_output=True,
         print('Computed as share of OOB MSE of estimated forest relative to',
               'OOB MSE of variable (or group of variables) with randomized',
               'covariate values in %.')
-        ind_sorted.reverse()
-        vim_sorted = np.flip(vim_sorted)
-        vim = (vim_sorted, ind_sorted)
+    ind_sorted.reverse()
+    vim_sorted = np.flip(vim_sorted)
+    vim = (vim_sorted, ind_sorted)
+    if with_output:
         first_time = True
         if partner_k is not None:
             for idx, val in enumerate(partner_k):

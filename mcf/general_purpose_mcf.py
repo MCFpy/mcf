@@ -111,7 +111,7 @@ def effect_from_potential(pot_y, pot_y_var, d_values, se_yes=True):
                 stderr[j] = np.sqrt(pot_y_var[jnd] + pot_y_var[idx])
             comparison[j] = [treat2, treat1]
             j = j + 1
-    if se_yes:        
+    if se_yes:
         t_val = np.abs(est / stderr)
         p_val = sct.t.sf(t_val, 1000000) * 2
     else:

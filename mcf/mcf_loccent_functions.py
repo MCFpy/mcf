@@ -77,12 +77,16 @@ def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
     for indx, y_name in enumerate(v_dict['y_name']):
         y_train = lc_y_df[y_name].to_numpy()
         y_nonlc = nonlc_y_df[y_name].to_numpy()
-        y_pred, _, _, _, _, _, _ = gp_est.RandomForest_scikit(
+        save_forest = indx == 0 and c_dict['l_centering_uncenter']
+        y_pred, _, _, _, _, _, lc_forest_temp = gp_est.RandomForest_scikit(
             x_train, y_train, x_pred, y_name=y_name, boot=c_dict['boot'],
             n_min=c_dict['grid_n_min'], no_features=c_dict['m_grid'],
             workers=max_workers, pred_p_flag=True,
             pred_t_flag=False, pred_oob_flag=False,
-            with_output=c_dict['with_output'])
+            with_output=c_dict['with_output'],
+            return_forest_object=save_forest)
+        if indx == 0:
+            lc_forest = lc_forest_temp
         y_m_yx[:, indx] = y_nonlc - y_pred  # centered outcomes
         centered_y_name.append(y_name + 'LC')
     y_m_yx_df = pd.DataFrame(data=y_m_yx, columns=centered_y_name)
@@ -95,7 +99,7 @@ def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
             all_y_name.append(name)
         gp.print_descriptive_stats_file(
             nonlc_csvfile, all_y_name, c_dict['print_to_file'])
-    return nonlc_csvfile, v_dict['y_name'], centered_y_name
+    return nonlc_csvfile, v_dict['y_name'], centered_y_name, lc_forest
 
 
 def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict):
@@ -153,12 +157,17 @@ def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict):
             x_train = x_np[index_train]
             for indx, y_name in enumerate(v_dict['y_name']):
                 y_train = y_np[index_train, indx]
-                y_pred_rf, _, _, _, _, _, _ = gp_est.RandomForest_scikit(
+                save_forest = indx == 0 and c_dict['l_centering_uncenter']
+                (y_pred_rf, _, _, _, _, _, lc_forest_temp
+                 ) = gp_est.RandomForest_scikit(
                     x_train, y_train, x_pred, y_name=y_name,
                     boot=c_dict['boot'], n_min=c_dict['grid_n_min'],
                     no_features=c_dict['m_grid'], workers=max_workers,
                     pred_p_flag=True, pred_t_flag=False, pred_oob_flag=False,
-                    with_output=c_dict['with_output'])
+                    with_output=c_dict['with_output'],
+                    return_forest_object=save_forest)
+                if indx == 0:
+                    lc_forest = lc_forest_temp
                 y_m_yx[index_pred, indx] = y_np[index_pred, indx] - y_pred_rf
                 if add_yx_names:
                     centered_y_name.append(y_name + 'LC')
@@ -173,4 +182,4 @@ def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict):
                 all_y_name.append(name)
             gp.print_descriptive_stats_file(
                 file_name, all_y_name, c_dict['print_to_file'])
-    return v_dict['y_name'], centered_y_name
+    return v_dict['y_name'], centered_y_name, lc_forest

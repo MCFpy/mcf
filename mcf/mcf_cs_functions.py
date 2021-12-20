@@ -119,10 +119,12 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
                     d_delete = d_delete[obs_to_del_np]
                     d_keep_count = d_keep.value_counts(sort=False)
                     d_delete_count = d_delete.value_counts(sort=False)
-                    d_keep_count = pd.concat([d_keep_count,
-                        d_keep_count / np.sum(obs_to_keep) * 100], axis=1)
-                    d_delete_count = pd.concat([d_delete_count,
-                        d_delete_count / np.sum(obs_to_del_np) * 100], axis=1)
+                    d_keep_count = pd.concat(
+                        [d_keep_count,
+                         d_keep_count / np.sum(obs_to_keep) * 100], axis=1)
+                    d_delete_count = pd.concat(
+                        [d_delete_count,
+                         d_delete_count / np.sum(obs_to_del_np) * 100], axis=1)
                     d_keep_count.columns = ['Obs.', 'Share in %']
                     d_delete_count.columns = ['Obs.', 'Share in %']
                     if c_dict['panel_data']:
@@ -185,7 +187,7 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
         data_tr, x_tr, obs_tr = get_data(tree_file, x_name)  # train,adj.
         data_fy, x_fy, obs_fy = get_data(fill_y_file, x_name)  # adj.
         if c_dict['fs_yes']:
-            #if not ((fs_file == tree_file) or (fs_file == fill_y_file)):
+            # if not ((fs_file == tree_file) or (fs_file == fill_y_file)):
             if fs_file not in (tree_file, fill_y_file):
                 data_fs, x_fs, obs_fs = get_data(fs_file, x_name)  # adj.
                 fs_adjust = True

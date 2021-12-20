@@ -2,7 +2,10 @@
 
 
 ```python
-optpoltree(x_ord_name=x_ord_name, x_unord_name=x_unord_name, check_perfectcorr=check_perfectcorr, clean_data_flag=clean_data_flag, costs_of_treat=costs_of_treat, costs_of_treat=costs_of_treat, costs_of_treat_mult=costs_of_treat_mult, datpath=datpath, depth_of_tree=depth_of_tree, effect_vs_0‌=effect_vs_0‌, effect_vs_0_se=effect_vs_0_se, how_many_parallel=how_many_parallel, id_name=id_name, indata=indata, only_if_sig_better_vs_0=only_if_sig_better_vs_0, outfiletext=outfiletext, outpath=outpath, output_type=output_type, parallel_processing=parallel_processing, polscore_name=polscore_name, min_dummy_obs=min_dummy_obs, min_leaf_size=min_leaf_size, max_shares=max_shares, mp_with_ray = mp_with_ray, no_of_evalupoints=no_of_evalupoints, with_numba=with_numba, screen_covariates=screen_covariates, sig_level_vs_0=sig_level_vs_0, _smaller_sample=_smaller_sample, _with_output=_with_output)
+optpoltree(x_ord_name=x_ord_name, x_unord_name=x_unord_name, check_perfectcorr=check_perfectcorr, clean_data_flag=clean_data_flag, costs_of_treat=costs_of_treat, costs_of_treat=costs_of_treat, costs_of_treat_mult=costs_of_treat_mult, datpath=datpath,  effect_vs_0‌=effect_vs_0‌, effect_vs_0_se=effect_vs_0_se, ft_depth = ft_depth,
+ft_min_leaf_size=ft_min_leaf_size, ft_no_of_evalupoints=ft_no_of_evalupoints,
+ft_yes = ft_yes, how_many_parallel=how_many_parallel, id_name=id_name, indata=indata, only_if_sig_better_vs_0=only_if_sig_better_vs_0, outfiletext=outfiletext, outpath=outpath, output_type=output_type, parallel_processing=parallel_processing, polscore_name=polscore_name, min_dummy_obs=min_dummy_obs,  max_shares=max_shares, mp_with_ray = mp_with_ray,  with_numba=with_numba, screen_covariates=screen_covariates, sig_level_vs_0=sig_level_vs_0, st_depth = st_depth, st_min_leaf_size=st_min_leaf_size, st_yes=st_yes,
+_smaller_sample=_smaller_sample, _with_output=_with_output)
 ```
 
 ## Variable Names
@@ -28,14 +31,23 @@ optpoltree(x_ord_name=x_ord_name, x_unord_name=x_unord_name, check_perfectcorr=c
 **d**
 * <a id="datpath">**datpath**</a> - **String**
 	* Specifies the directory, where the data for estimation is located.
-* <a id="depth_of_tree">**depth_of_tree**</a> - positive **Integer**
-	* Regulates depth of the policy tree; the default is 3; the programme accepts any number strictly greater 0.
 
 **e**
 * <a id="effect_vs_0‌">**effect_vs_0‌**</a>
 	* Specifies effects relative to the default treatment zero.
 * <a id="effect_vs_0_se">**effect_vs_0_se**</a>
 	* Specifies standard errors of the effects given in **effect_vs_0**.
+
+**f**
+* <a id="ft_depth">**ft_depth**</a> - positive **Integer**
+	* Regulates depth of the policy tree; the default is 3; the programme accepts any number strictly greater 0.
+* <a id="ft_min_leaf_size">**ft_min_leaf_size**</a> - positive **Integer**
+			* Specifies minimum leaf size; the default is the integer part of 10% of the sample size divided by the number of leaves.
+* <a id="ft_no_of_evalupoints">**ft_no_of_evalupoints**</a> - positive **Integer**
+	* Implicitly set the approximation parameter of [Zhou, Athey, and Wager (2018)](https://arxiv.org/abs/1810.04778) - $A$. Accordingly, $A = N/n_{\text{evalupoints}}$, where $N$ is the number of observations and $n_{\text{evalupoints}}$ the number of evaluation points; default value is 100.
+* <a id="ft_yes">**ft_yes**</a> - **Boolean**
+	* If True, builds a full decision tree; default is True.
+
 
 **h**
 * <a id="how_many_parallel">**how_many_parallel**</a> - positive **Integer**
@@ -68,15 +80,9 @@ optpoltree(x_ord_name=x_ord_name, x_unord_name=x_unord_name, check_perfectcorr=c
 	* Specifies maximum shares of treated for each policy.
 * <a id="min_dummy_obs">**min_dummy_obs**</a> - positive **Integer**
 	* If the program also screens covariates, i.e. when **screen_covariates** is True, the **min_dummy_obs** regulates the minimal number of observations in one category of a dummy variable for the dummy variable not to be removed from the data set; the default is set to 10.
-* <a id="min_leaf_size">**min_leaf_size**</a> - positive **Integer**
-	* Specifies minimum leaf size; the default is the integer part of 10% of the sample size divided by the number of leaves.
 * <a id="mp_with_ray">**mp_with_ray**</a> - **Boolean**
 	* If True, Ray is used for multiprocessing. If False, concurrent futures is used; the default ist True.
 
-
-**n**
-* <a id="no_of_evalupoints">**no_of_evalupoints**</a> - positive **Integer**
-	* Implicitly set the approximation parameter of [Zhou, Athey, and Wager (2018)](https://arxiv.org/abs/1810.04778) - $A$. Accordingly, $A = N/n_{\text{evalupoints}}$, where $N$ is the number of observations and $n_{\text{evalupoints}}$ the number of evaluation points; default value is 100.
 
 **w**
 * <a id="with_numba">**with_numba**</a> - **Boolean**
@@ -87,6 +93,12 @@ optpoltree(x_ord_name=x_ord_name, x_unord_name=x_unord_name, check_perfectcorr=c
 	* If True, the program screens the covariates.
 * <a id="sig_level_vs_0">**sig_level_vs_0**</a> **Float** between **0, 1**
 	* Specifies relevant significance level for statistical testing; the default is 0.05.
+* <a id="st_depth">**st_depth**</a> - positive **Integer**
+	* Regulates depth of the sequential tree; the default is 4; the programme accepts any number strictly greater 0.
+* <a id="st_min_leaf_size">**st_min_leaf_size**</a> - positive **Integer**
+		* Specifies minimum leaf size; the default is the integer part of 10% of the sample size divided by the number of leaves.
+* <a id="st_yes">**st_yes**</a>
+	* If True, the sequential decision tree is built; the default is True.
 
 **_**
 * <a id="_smaller_sample"> **_smaller_sample**</a> - **Float** between **0, 1**

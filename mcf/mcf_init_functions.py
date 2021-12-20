@@ -87,7 +87,7 @@ def get_controls(c_dict, v_dict):
             break
         if os.path.isdir(out_temp):
             if not ((c_dict['with_output'] is False)
-                or (c_dict['verbose'] is False)):
+                    or (c_dict['verbose'] is False)):
                 print("Directory for output %s already exists" % out_temp,
                       "A new directory is created for the output.")
             out_temp = c_dict['outpfad'] + str(i)
@@ -417,7 +417,7 @@ def get_controls(c_dict, v_dict):
         if c_dict['stop_empty'] is None:
             c_dict['stop_empty'] = -1
         if c_dict['stop_empty'] < 1:
-            cnew_dict['stop_empty'] = 5
+            cnew_dict['stop_empty'] = 1
         else:
             cnew_dict['stop_empty'] = round(c_dict['stop_empty'])
         if c_dict['random_thresholds'] is None:
@@ -445,7 +445,15 @@ def get_controls(c_dict, v_dict):
 
         # size of subsampling samples         n/2: size of forest sample
         subsam_share_forest = sub_size(
-            n_train, c_dict['subsample_factor_forest'], 0.8)
+            n_train, c_dict['subsample_factor_forest'], 0.67)
+        if c_dict['subsample_factor_eval'] is None:
+            c_dict['subsample_factor_eval'] = False  # Default
+        if c_dict['subsample_factor_eval'] is False:
+            c_dict['subsample_factor_eval'] = 1000000000
+        if c_dict['subsample_factor_eval'] is True:
+            c_dict['subsample_factor_eval'] = 1
+        if c_dict['subsample_factor_eval'] < 0.01:
+            c_dict['subsample_factor_eval'] = 1000000000
         subsam_share_eval = sub_size(
             n_train, c_dict['subsample_factor_eval'], 1)
         # Define method to be used later on
@@ -517,10 +525,13 @@ def get_controls(c_dict, v_dict):
                 else:
                     cnew_dict['l_centering_cv_k'] = int(
                         round(c_dict['l_centering_cv_k']))
+            if c_dict['l_centering_uncenter'] is not True:
+                cnew_dict['l_centering_uncenter'] = False
         else:
             cnew_dict['l_centering'] = False
             cnew_dict['l_centering_new_sample'] = None
             cnew_dict['l_centering_cv_k'] = None
+            cnew_dict['l_centering_uncenter'] = None
         if c_dict['match_nn_prog_score'] is False:
             cnew_dict['match_nn_prog_score'] = False
         else:
@@ -1102,7 +1113,7 @@ def get_controls(c_dict, v_dict):
             names_to_check_pred.extend(vnew_dict['z_name_unord'])
         z_name = vnew_dict['z_name_ord'] + vnew_dict['z_name_unord']
     if (cnew_dict['atet_flag'] or cnew_dict['gatet_flag'] or
-        cnew_dict['choice_based_yes']) and c_dict['pred_mcf']:
+            cnew_dict['choice_based_yes']) and c_dict['pred_mcf']:
         data2 = pd.read_csv(cnew_dict['preddata'], nrows=2)
         var_names = list(data2.columns)
         var_names_up = [s.upper() for s in var_names]
@@ -1129,6 +1140,11 @@ def get_controls(c_dict, v_dict):
                                 'MISSING!')
     else:
         text_to_print = None
+
+    if (name_unordered != []) or (len(vnew_dict['y_name']) > 1) or cnew_dict[
+            'fs_yes']:
+        cnew_dict['l_centering_uncenter'] = False
+
     vn_add = {
         'x_name_remain':        x_name_remain,
         'x_name':               x_name,
@@ -1178,7 +1194,7 @@ def controls_into_dic(
         reduce_split_sample, reduce_split_sample_pred_share, reduce_training,
         reduce_training_share, reduce_prediction, reduce_prediction_share,
         reduce_largest_group_train, reduce_largest_group_train_share,
-        iate_flag, iate_se_flag):
+        iate_flag, iate_se_flag, l_centering_uncenter):
     """Build dictionary with parameters.
 
     Parameters
@@ -1233,6 +1249,7 @@ def controls_into_dic(
         'l_centering': l_centering, 'l_centering_share': l_centering_share,
         'l_centering_new_sample': l_centering_new_sample,
         'l_centering_cv_k': l_centering_cv_k,
+        'l_centering_uncenter': l_centering_uncenter,
         'post_random_forest_vi': post_random_forest_vi,
         'gmate_no_evaluation_points': gmate_no_evaluation_points,
         'gmate_sample_share': gmate_sample_share, 'no_filled_plot':

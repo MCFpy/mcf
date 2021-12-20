@@ -160,7 +160,7 @@ def fill_mp(node_table, obs, d_dat, x_dat, b_idx, c_dict, regrf=False):
     indices = np.arange(obs)
     if subsam:
         obs = round(obs * c_dict['subsam_share_eval'])
-        rng=np.random.default_rng((10+b_idx)**2+121)
+        rng = np.random.default_rng((10+b_idx)**2+121)
         indices = rng.choice(indices, size=obs, replace=False)
         obs_in_leaf = np.zeros((obs, 1), dtype=np.uint32)
         for i, idx in enumerate(indices):
@@ -1018,7 +1018,7 @@ def next_split(current_node, data_tr, data_oob, y_i, y_nn_i, d_i, x_i, w_i,
                                                      mmm)
                 if ((p_all_x - mmm) > 5) and (p_all_x > 10):
                     break
-                if trials == 0:  # Avoid drawing samve vars again
+                if trials == 0:  # Avoid drawing same vars again
                     if c_dict['stop_empty'] > 1:
                         x_ind_split_prev = x_ind_split[:]
                     break
@@ -1248,7 +1248,7 @@ def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, c_dict, mmm):
     x_i_for_split : List of indices in x of splitting variables.
 
     """
-    rng=np.random.default_rng()
+    rng = np.random.default_rng()
     qqq = len(x_ind_pos)
     if c_dict['m_random_poisson']:
         m_l = 1 + rng.poisson(lam=mmm-1, size=1)
@@ -1729,7 +1729,7 @@ def get_split_values(y_dat, w_dat, x_dat, x_type, x_values, leaf_size, c_dict):
     splits : List. Splitting values to use.
 
     """
-    rng=np.random.default_rng()
+    rng = np.random.default_rng()
     if x_type == 0:
         if bool(x_values):  # Limited number of values in x_value
             min_x = np.amin(x_dat)

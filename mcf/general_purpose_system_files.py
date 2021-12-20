@@ -63,7 +63,6 @@ def create_dir(dir_path):
     return dir_path
 
 
-
 def auto_garbage_collect(pct=80.0):
     """
     Call garbage collector if memory used > pct% of total available memory.

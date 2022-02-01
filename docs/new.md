@@ -1,5 +1,16 @@
 # Release Updates
 
+## Version 0.1.4 
+
+## Bug fixes
+
+- Bug fix for predicting from previously trained and saved forests.
+- Bug fix in [mcf_init_function](./core_6.md#mcf_init_function) when there are missing values. 
+
+## What's New 
+
+- [_mp_ray_shutdown](./core_6.md#_mp_ray_shutdown) new defaults. If object size is smaller 100,000, the default is False and else True.
+
 ## Version 0.1.3
 
 ### Bug fixes

@@ -83,7 +83,7 @@ def get_controls(c_dict, v_dict):
         c_dict['outpfad'] = path_programme_run + '/out'
     out_temp = c_dict['outpfad']
     for i in range(1000):
-        if not c_dict['with_output']:
+        if not (c_dict['with_output'] and c_dict['train_mcf']):
             break
         if os.path.isdir(out_temp):
             if not ((c_dict['with_output'] is False)
@@ -293,6 +293,7 @@ def get_controls(c_dict, v_dict):
     v_dict['d_name'][0] = gp.adjust_var_name(v_dict['d_name'][0],
                                              data_train.columns.tolist())
     d_dat_pd = data_train[v_dict['d_name']].squeeze()
+    d_dat_pd.dropna(inplace=True)
     if d_dat_pd.dtype == 'object':
         d_dat_pd = d_dat_pd.astype('category')
         print(d_dat_pd.cat.categories)
@@ -326,8 +327,10 @@ def get_controls(c_dict, v_dict):
         vcount = data_train.groupby(v_dict['d_name']).size()
         n_d = vcount.to_numpy()         # Number of obs in treatments
         if n_train != n_d.sum():
-            raise Exception(
-                "Counting treatments does not work. Stop treatment")
+            print('-' * 80)
+            print('Counting treatments does not work. ' + 
+                f'n_d_sum: {n_d.sum()}, n_train: {n_train}.')
+            print('Difference could be due to missing values.')
         n_d_subsam = n_d.min() * cnew_dict['share_forest_sample']
         if c_dict['n_min_min'] is None:
             c_dict['n_min_min'] = -1
@@ -907,8 +910,8 @@ def get_controls(c_dict, v_dict):
         if not all(i in possible_vals for i in cnew_dict['_mp_ray_del']):
             raise Exception('Wrong parameters for _mp_ray_del')
     if c_dict['_mp_ray_shutdown'] is None:
-        cnew_dict['_mp_ray_shutdown'] = not ((n_train < 20000) and
-                                             (n_pred < 20000))
+        cnew_dict['_mp_ray_shutdown'] = not ((n_train < 100000) and
+                                             (n_pred < 100000))
     if cnew_dict['train_mcf'] and cnew_dict['pred_mcf'] and (
             cnew_dict['indata'] == cnew_dict['preddata']):
         if c_dict['reduce_split_sample'] is not True:

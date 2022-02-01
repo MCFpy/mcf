@@ -84,7 +84,7 @@ def ModifiedCausalForest(
     _max_elements_per_split = 100 * 10e5  # reduce if breakdown (weights)
     _load_old_forest = False  # Useful for testing to save time
     _no_ray_in_forest_building = False
-    _l_centering_uncenter=False
+    _l_centering_uncenter = False  # Not yet implemented
 
 # Collect vars in a dictionary
     variable_dict = mcf_init.make_user_variable(
@@ -211,17 +211,13 @@ def ModifiedCausalForest(
         z_new_dic_dict = loaded_tuple[11]
         c_dict['max_cats_cont_vars'] = loaded_tuple[12]
         lc_forest = loaded_tuple[13]
+        old_y_name = loaded_tuple[14]
+        new_y_name = loaded_tuple[15]
     else:
-        d_in_values = None
-        no_val_dict = None
-        q_inv_dict = None
-        q_inv_cr_dict = None
-        prime_values_dict = None
-        unique_val_dict = None
-        common_support_list = None
-        z_new_name_dict = None
-        z_new_dic_dict = None
-        lc_forest = None
+        d_in_values = no_val_dict = q_inv_dict = q_inv_cr_dict = None
+        prime_values_dict = unique_val_dict = common_support_list = None
+        z_new_name_dict = z_new_dic_dict = lc_forest = None
+        old_y_name = new_y_name = None
 
 # Prepare data: Add and recode variables for GATES (Z)
 #               Recode categorical variables to prime numbers, cont. vars
@@ -471,14 +467,17 @@ def ModifiedCausalForest(
             (forest, x_name_mcf, c_dict['max_cats_z_vars'], d_in_values,
              no_val_dict, q_inv_dict, q_inv_cr_dict, prime_values_dict,
              unique_val_dict, common_support_list, z_new_name_dict,
-             z_new_dic_dict, c_dict['max_cats_cont_vars'], lc_forest),
-            save=True, output=c_dict['with_output'])
+             z_new_dic_dict, c_dict['max_cats_cont_vars'], lc_forest,
+             old_y_name, new_y_name), save=True, output=c_dict['with_output'])
     del prob_score, d_train_tree, common_support_list, unique_val_dict
     del z_new_name_dict, d_in_values, no_val_dict, q_inv_dict, q_inv_cr_dict
     del prime_values_dict, z_new_dic_dict
     if c_dict['pred_mcf']:
         if not c_dict['train_mcf']:
             fill_y_sample = c_dict['save_forest_file_csv']
+            if c_dict['l_centering']:
+                v_dict = mcf_data.adjust_y_names(
+                    v_dict, old_y_name, new_y_name, c_dict['with_output'])
         # compute weights
         time7 = time.time()
         (weights, y_train, x_bala_train, cl_train, w_train
@@ -537,6 +536,8 @@ def ModifiedCausalForest(
     else:
         time7 = time8 = time9_ate = time9_marg = time9_gate = time.time()
         time9_iate = time9_bal = time10 = time.time()
+        ate = ate_se = gate = gate_se = iate = iate_se = pot_y = None
+        pot_y_var = pred_outfile = None
 # Finally, save everything: Con, Var (auch wegen recoding), forests etc.
 
     # Print timing information

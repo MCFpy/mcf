@@ -399,6 +399,8 @@ _with_output=_with_output)
 	* Is only relevant for continuous features; saves value of $x$ only if less than specified; default value is 50.
 * <a id="_mp_ray_del">**_mp_ray_del**</a>  - **Tuple**
 	* If `refs`, delete reference to object store; if `rest` delete all other objects of Ray task; `rest` and `refs` can be combined; by default, nothing is deleted.
+* <a id="_mp_ray_shutdown">**_mp_ray_shutdown**</a>  - **Boolean** 
+	* Regulates if Ray shut downs; default for N < 100,00 is False, else True. 
 * <a id="_mp_ray_objstore_multiplier">**_mp_ray_objstore_multiplier**</a>  - **Integer**
 	* Increases internal default values for Ray object store to avoid crashes induced by full object stores; the default value is 1.
 * <a id="_mp_ray_shutdown">**_mp_ray_shutdown**</a>  - **Boolean**

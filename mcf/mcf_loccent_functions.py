@@ -53,8 +53,7 @@ def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
     nonlc_x_df = nonlc_data_df[x_names]
     nonlc_y_df = nonlc_data_df[v_dict['y_name']]
     if c_dict['with_output']:
-        print()
-        print('Independent sample used for local centering.')
+        print('\nIndependent sample used for local centering.')
         print('Number of observations used only for computing E(y|x): ',
               len(lc_y_df.index))
     names_unordered = []
@@ -78,7 +77,7 @@ def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
         y_train = lc_y_df[y_name].to_numpy()
         y_nonlc = nonlc_y_df[y_name].to_numpy()
         save_forest = indx == 0 and c_dict['l_centering_uncenter']
-        y_pred, _, _, _, _, _, lc_forest_temp = gp_est.RandomForest_scikit(
+        y_pred, _, _, _, _, _, lc_forest_temp = gp_est.random_forest_scikit(
             x_train, y_train, x_pred, y_name=y_name, boot=c_dict['boot'],
             n_min=c_dict['grid_n_min'], no_features=c_dict['m_grid'],
             workers=max_workers, pred_p_flag=True,
@@ -121,9 +120,8 @@ def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict):
     """
     max_workers = copy.copy(c_dict['no_parallel'])
     if c_dict['with_output']:
-        print()
-        print('Cross-validation used for local centering.',
-              ' {:2} folds used.'. format(c_dict['l_centering_cv_k']))
+        print('\nCross-validation used for local centering.',
+              f' {c_dict["l_centering_cv_k"]:2} folds used.')
     seed = 9324561
     rng = np.random.default_rng(seed)
     add_yx_names = True
@@ -159,7 +157,7 @@ def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict):
                 y_train = y_np[index_train, indx]
                 save_forest = indx == 0 and c_dict['l_centering_uncenter']
                 (y_pred_rf, _, _, _, _, _, lc_forest_temp
-                 ) = gp_est.RandomForest_scikit(
+                 ) = gp_est.random_forest_scikit(
                     x_train, y_train, x_pred, y_name=y_name,
                     boot=c_dict['boot'], n_min=c_dict['grid_n_min'],
                     no_features=c_dict['m_grid'], workers=max_workers,

@@ -7,13 +7,14 @@ Created on Thu Apr  2 17:55:24 2020
 """
 import copy
 import math
+
 import scipy.stats as sct
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 
 
-def RandomForest_scikit(
+def random_forest_scikit(
         x_train, y_train, x_pred, x_name=None, y_name='y', boot=1000,
         n_min=2, no_features='sqrt', workers=-1,  max_depth=None, alpha=0,
         max_leaf_nodes=None, pred_p_flag=True, pred_t_flag=False,
@@ -81,8 +82,7 @@ def RandomForest_scikit(
         print('\n')
         print('Computing forests')
     oob_best = -1e15
-    pred_p = []
-    pred_t = []
+    pred_p, pred_t = [], []
     y_1d = y_train.ravel()
     no_of_vars = np.size(x_train, axis=1)
     if no_features is None:
@@ -118,13 +118,11 @@ def RandomForest_scikit(
                 if with_output and not ((len(no_features) == 1)
                                         and (len(n_min) == 1)
                                         and (len(alpha) == 1)):
-                    print(' N_min: {:2}'.format(nval), ' M_Try: {:2}'.format(
-                        mval), ' Alpha: {:5.3f}'.format(aval),
-                        '|  OOB R2 (in %): {:8.4f}'.format(
-                        regr.oob_score_*100))
+                    print(f' N_min: {nval:2}  M_Try: {mval:2}',
+                          f' Alpha: {aval:5.3f}',
+                          f' |  OOB R2 (in %): {regr.oob_score_*100:8.4f}')
                 if regr.oob_score_ > oob_best:
-                    m_opt = copy.copy(mval)
-                    n_opt = copy.copy(nval)
+                    m_opt, n_opt = copy.copy(mval), copy.copy(nval)
                     a_opt = copy.copy(aval)
                     oob_best = copy.copy(regr.oob_score_)
                     regr_best = copy.deepcopy(regr)
@@ -133,9 +131,9 @@ def RandomForest_scikit(
         print('-' * 80)
         print('Tuning values choosen for forest (if any)')
         print('-' * 80)
-        print('Dependent variable: ', y_name[0], 'N_min: {:2}'.format(n_opt),
-              'M_Try: {:2}'.format(m_opt), 'Alpha: {:5.3f}'.format(a_opt),
-              '|  OOB R2 (in %): {:8.4f}'.format(oob_best * 100))
+        print('Dependent variable: ', y_name[0], f'N_min: {n_opt:2}',
+              f'M_Try: {m_opt:2} Alpha: {a_opt:5.3f}',
+              f'|  OOB R2 (in %): {oob_best * 100:8.4f}')
         print('-' * 80)
     if pred_p_flag:
         pred_p = regr_best.predict(x_pred)
@@ -152,8 +150,7 @@ def RandomForest_scikit(
     if with_output:
         print(regr_best.get_params())
         print('-' * 80)
-        print(y_name, ': ',
-              'R2(%) OOB: {:8.4f}'.format(regr_best.oob_score_*100))
+        print(y_name, f': R2(%) OOB: {regr_best.oob_score_*100:8.4f}')
         print('-' * 80)
     if variable_importance:
         if variable_importance_oob_flag:
@@ -179,37 +176,23 @@ def RandomForest_scikit(
                 print('Symmetric intervals used')
             quant = np.quantile(np.absolute(resid_oob), 1-pu_ci_level)
             if pred_t_flag:
-                upper_t = pred_t + quant
-                lower_t = pred_t - quant
+                upper_t, lower_t = pred_t + quant, pred_t - quant
             if pred_p_flag:
-                upper_p = pred_p + quant
-                lower_p = pred_p - quant
+                upper_p, lower_p = pred_p + quant, pred_p - quant
         else:
             if with_output:
                 print('Asymmetric intervals used')
-            quant = np.quantile(resid_oob, [(1-pu_ci_level)/2,
-                                            1-(1-pu_ci_level)/2])
+            quant = np.quantile(resid_oob,
+                                [(1-pu_ci_level)/2, 1-(1-pu_ci_level)/2])
             if pred_t_flag:
-                upper_t = pred_t + quant[1]
-                lower_t = pred_t + quant[0]
+                upper_t, lower_t = pred_t + quant[1], pred_t + quant[0]
             if pred_p_flag:
-                upper_p = pred_p + quant[1]
-                lower_p = pred_p + quant[0]
-        if pred_t_flag:
-            pu_ci_t = (lower_t, upper_t)
-        else:
-            pu_ci_t = None
-        if pred_p_flag:
-            pu_ci_p = (lower_p, upper_p)
-        else:
-            pu_ci_p = None
+                upper_p, lower_p = pred_p + quant[1], pred_p + quant[0]
+        pu_ci_t = (lower_t, upper_t) if pred_t_flag else None
+        pu_ci_p = (lower_p, upper_p) if pred_p_flag else None
     else:
-        pu_ci_p = None
-        pu_ci_t = None
-    if return_forest_object:
-        forest = regr_best
-    else:
-        forest = None
+        pu_ci_p, pu_ci_t = None, None
+    forest = regr_best if return_forest_object else None
     return pred_p, pred_t, oob_best, vi_names_shares, pu_ci_p, pu_ci_t, forest
 
 
@@ -237,14 +220,15 @@ def variable_importance_testdata(
     regr_vi.fit(x_train, y_train)
     r2_full = regr_vi.score(x_test, y_test)
     # Start with single variables (without dummies)
-    # indices_of_x = range(no_of_vars)
     loss_in_r2_single = np.empty(len(x_to_check))
+    rng = np.random.default_rng(12345)
     if with_output or var_im_with_output:
         print('Variable importance for ', end='')
     for indx, name_to_randomize in enumerate(x_to_check):
         if with_output or var_im_with_output:
             print(name_to_randomize, end=' ')
-        r2_vi = get_r2_test(x_test, y_test, name_to_randomize, x_name, regr_vi)
+        r2_vi = get_r2_test(x_test, y_test, name_to_randomize, x_name, regr_vi,
+                            rng)
         loss_in_r2_single[indx] = r2_full - r2_vi
     loss_in_r2_dummy = np.empty(len(var_im_groups))
     if var_im_groups:
@@ -252,7 +236,7 @@ def variable_importance_testdata(
             if with_output or var_im_with_output:
                 print(name_to_randomize, end=' ')
             r2_vi = get_r2_test(x_test, y_test, name_to_randomize, x_name,
-                                regr_vi)
+                                regr_vi, rng)
             loss_in_r2_dummy[indx] = r2_full - r2_vi
     else:
         loss_in_r2_dummy = 0
@@ -262,9 +246,10 @@ def variable_importance_testdata(
     return vi_names_shares
 
 
-def get_r2_test(x_test, y_test, name_to_randomize, x_name, regr_vi):
+def get_r2_test(x_test, y_test, name_to_randomize, x_name, regr_vi, rng=None):
     """Get R2 for variable importance."""
-    rng = np.random.default_rng()
+    if rng is None:
+        rng = np.random.default_rng()
     x_vi = x_test.copy()
     indices_to_r = find_indices_vi(name_to_randomize, x_name)
     x_to_shuffle = x_vi[:, indices_to_r]
@@ -279,10 +264,7 @@ def find_indices_vi(names, x_names):
     x_names = list(x_names)
     if isinstance(names, str):
         names = [names]
-    indices = []
-    for name in names:
-        indices_t = x_names.index(name)
-        indices.append(indices_t)
+    indices = [x_names.index(name) for name in names]
     return indices
 
 
@@ -352,9 +334,10 @@ def print_vi(x_to_check, var_im_groups, loss_in_r2_single, loss_in_r2_dummy,
     """
     if var_im_groups:
         # Get single names and ignore the dummies (last element)
-        var_dummies = []
-        for name in var_im_groups:
-            var_dummies.append(name[-1])
+        var_dummies = [name[-1] for name in var_im_groups]
+        # var_dummies = []
+        # for name in var_im_groups:
+        #     var_dummies.append(name[-1])
         x_to_check.extend(var_dummies)
         loss_in_r2_single = np.concatenate(
             (loss_in_r2_single, loss_in_r2_dummy))
@@ -375,7 +358,7 @@ def print_vi(x_to_check, var_im_groups, loss_in_r2_single, loss_in_r2_dummy,
             print('Here, all elements of these variables are jointly tested ',
                   '(in Table under heading of unordered variable).')
         for idx, vim in enumerate(vim_sorted):
-            print('{:<50}: {:>7.2f}'.format(x_names_sorted[idx], vim*100), '%')
+            print(f'{x_names_sorted[idx]:<50}: {vim*100:>7.2f}', '%')
         print('-' * 80)
         print('-' * 80, '\n')
     return x_names_sorted, vim_sorted
@@ -449,8 +432,7 @@ def r_squared(y_dat, y_pred, w_dat=0):
 def gini_coefficient(x_dat):
     """Compute Gini coefficient of numpy array of values."""
     diffsum = 0
-    x_dat = np.sort(x_dat)
-    x_mean = np.mean(x_dat)
+    x_dat, x_mean = np.sort(x_dat), np.mean(x_dat)
     if not -1e-15 < x_mean < 1e-15:
         for idx, x_i in enumerate(x_dat[:-1], 1):
             diffsum += np.sum(np.abs(x_i - x_dat[idx:]))
@@ -460,9 +442,9 @@ def gini_coefficient(x_dat):
 
 def gini_coeff_pos(x_dat, len_x):
     """Compute Gini coefficient of numpy array of values with values >= 0."""
-    s = x_dat.sum()
-    r = np.argsort(np.argsort(-x_dat))  # calculates zero based ranks
-    return 1 - (2.0 * (r * x_dat).sum() + s) / (len_x * s)
+    sss = x_dat.sum()
+    rrr = np.argsort(np.argsort(-x_dat))  # calculates zero based ranks
+    return 1 - (2.0 * (rrr * x_dat).sum() + sss) / (len_x * sss)
 
 
 def kernel_density(data, grid, kernel, bandwidth):
@@ -580,17 +562,13 @@ def bandwidth_silverman(data, kernel=1):
     iqr = np.quantile(data, (0.25, 0.75))
     iqr = (iqr[1] - iqr[0]) / 1.349
     std = np.std(data)
-    if (std < iqr) or (iqr < 1e-15):
-        sss = std
-    else:
-        sss = iqr
+    sss = std if (std < iqr) or (iqr < 1e-15) else iqr
     band = 1.3643 * (obs ** (-0.2)) * sss
+    assert kernel in (1, 2), 'Wrong type of kernel in Silverman bandwidth'
     if kernel == 1:  # Epanechikov
         bandwidth = band * 1.7188
     elif kernel == 2:  # Normal distribution
         bandwidth = band * 0.7764
-    else:
-        raise Exception('Wrong type of kernel in Silverman bandwidth')
     if bandwidth < 1e-15:
         bandwidth = 1
     return bandwidth
@@ -612,16 +590,12 @@ def bandwidth_nw_rule_of_thumb(data):
 
     """
     obs = len(data)
-    if obs < 5:
-        raise Exception('Only', len(data), ' observations for',
-                        'bandwidth selection.')
+    ass_str = f'Only {len(data)} observations for bandwidth selection.'
+    assert obs >= 5, ass_str
     iqr = np.quantile(data, (0.25, 0.75))
     iqr = (iqr[1] - iqr[0]) / 1.349
     std = np.std(data)
-    if (std < iqr) or (iqr < 1e-15):
-        sss = std
-    else:
-        sss = iqr
+    sss = std if (std < iqr) or (iqr < 1e-15) else iqr
     bandwidth = sss * (obs ** (-0.2))
     if bandwidth < 1e-15:
         bandwidth = 1
@@ -641,9 +615,7 @@ def moving_avg_mean_var(data, k, mean_and_var=True):
     y_mean_movaverge : numpy array.
     y_var_movaverge : numpy array.
     """
-    var = None
-    obs = len(data)
-    k = int(k)
+    var, obs, k = None, len(data), int(k)
     if k >= obs:
         mean = np.full(obs, np.mean(data))
         if mean_and_var:
@@ -678,7 +650,7 @@ def weight_var(w0_dat, y0_dat, cl_dat, c_dict, norm=True, w_for_diff=None,
     cl_dat : Numpy array. Cluster indicator.
     c_dict : Dict. Parameters.
     norm : Boolean. Normalisation. Default is True.
-    w_for_diff : Numpy array. weights used for difference wheb clustering.
+    w_for_diff : Numpy array. weights used for difference when clustering.
                  Default is None.
     weights : Numpy array. Sampling weights. Clustering only. Default is None.
     no_agg :   Boolean. No aggregation of weights. Default is False.
@@ -689,18 +661,16 @@ def weight_var(w0_dat, y0_dat, cl_dat, c_dict, norm=True, w_for_diff=None,
     variance : Float. Variance.
 
     """
-    w_dat = w0_dat.copy()
-    y_dat = y0_dat.copy()
+    w_dat, y_dat = w0_dat.copy(), y0_dat.copy()
     if c_dict['cluster_std'] and (cl_dat is not None) and (bootstrap < 1):
         if not c_dict['w_yes']:
             weights = None
         w_dat, y_dat, _, _ = aggregate_cluster_pos_w(
             cl_dat, w_dat, y_dat, norma=norm, sweights=weights)
-    if w_for_diff is not None:
-        w_dat = w_dat - w_for_diff
+        if w_for_diff is not None:
+            w_dat = w_dat - w_for_diff
     if not c_dict['iate_se_flag']:
-        keep_some_0 = False
-        bootstrap = 0
+        keep_some_0, bootstrap = False, 0
     if norm:
         sum_w_dat = np.abs(np.sum(w_dat))
         if not ((-1e-15 < sum_w_dat < 1e-15)
@@ -726,8 +696,7 @@ def weight_var(w0_dat, y0_dat, cl_dat, c_dict, norm=True, w_for_diff=None,
     if only_copy:
         w_dat2 = w_dat.copy()
     else:
-        w_dat2 = w_dat[w_pos]
-        y_dat = y_dat[w_pos]
+        w_dat2, y_dat = w_dat[w_pos], y_dat[w_pos]
     obs = len(w_dat2)
     if obs < 5:
         return 0, 1, w_ret
@@ -766,8 +735,7 @@ def weight_var(w0_dat, y0_dat, cl_dat, c_dict, norm=True, w_for_diff=None,
         else:
             if c_dict['cond_var']:
                 sort_ind = np.argsort(w_dat2)
-                y_s = y_dat[sort_ind]
-                w_s = w_dat2[sort_ind]
+                y_s, w_s = y_dat[sort_ind], w_dat2[sort_ind]
                 if c_dict['knn']:
                     k = int(np.round(c_dict['knn_const'] * np.sqrt(obs) * 2))
                     if k < c_dict['knn_min_k']:
@@ -819,10 +787,7 @@ def aggregate_cluster_pos_w(cl_dat, w_dat, y_dat=None, norma=True, w2_dat=None,
         y_agg = np.zeros((no_cluster, q_obs))
     else:
         y_agg = None
-    if y2_compute:
-        y2_agg = np.copy(y_agg)
-    else:
-        y2_agg = None
+    y2_agg = np.copy(y_agg) if y2_compute else None
     w_agg = np.zeros(no_cluster)
     if w2_dat is not None:
         w2_agg = np.zeros(no_cluster)
@@ -896,3 +861,12 @@ def print_se_info(cluster_std, se_boot):
     if se_boot > 0:
         print('Bootstrap replications: ', se_boot)
         print('-' * 80)
+
+
+def print_minus_ate_info(weighted):
+    """Print info about effects minus ATE."""
+    print('Weights used for comparison with ATE are not truncated.',
+          'Therefore, GATEs - ATE may not aggregate to 0.')
+    if weighted:
+        print('Such differences may be particulary pronounced when ',
+              'sampling weights are used.')

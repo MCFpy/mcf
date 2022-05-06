@@ -13,6 +13,7 @@ from shutil import rmtree
 import gc
 import sys
 from itertools import chain
+
 import pandas as pd
 import psutil
 
@@ -134,9 +135,9 @@ def csv_var_names_upper(path, csvfile):
     if any_change:
         csvfile_new = csvfile + 'UP'
         outdatafile = path + '/' + csvfile_new + '.csv'
-        data_df.rename(rename_dic)
+        data_df.rename(rename_dic)   # pylint: disable=E1101
         delete_file_if_exists(outdatafile)
-        data_df.to_csv(outdatafile, index=False)
+        data_df.to_csv(outdatafile, index=False)   # pylint: disable=E1101
     else:
         csvfile_new = csvfile
     return csvfile_new
@@ -260,11 +261,8 @@ def memory_statistics(with_output=True):
     used = round(memory.used / (1024 * 1024), 2)
     free = round(memory.free / (1024 * 1024), 2)
     if with_output:
-        print(
-            'RAM total: {:6} MB, '.format(total),
-            'used: {:6} MB, '.format(used),
-            'available: {:6} MB, '.format(available),
-            'free: {:6} MB'.format(free))
+        print(f'RAM total: {total:6} MB,  used: {used:6} MB, ',
+              f'available: {available:6} MB, free: {free:6} MB')
     return total, available, used, free
 
 

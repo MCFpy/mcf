@@ -9,12 +9,15 @@ import sys
 import time
 import os
 from multiprocessing import freeze_support
+
 import pandas as pd
 import numpy as np
+
 from mcf import general_purpose as gp
 from mcf import general_purpose_system_files as gp_sys
-from mcf import general_purpose_mcf as gp_mcf
+from mcf import mcf_general_purpose as mcf_gp
 from mcf import mcf_init_functions as mcf_init
+from mcf import mcf_init_add_functions as mcf_init_add
 from mcf import mcf_data_functions as mcf_data
 from mcf import mcf_loccent_functions as mcf_lc
 from mcf import mcf_forest_functions as mcf_forest
@@ -24,12 +27,14 @@ from mcf import mcf_weight_functions as mcf_w
 from mcf import mcf_ate_functions as mcf_ate
 from mcf import mcf_gate_functions as mcf_gate
 from mcf import mcf_iate_functions as mcf_iate
+from mcf import mcf_iate_add_functions as mcf_iate_add
+from mcf import mcf_forest_add_functions as mcf_forest_add
 
 
-def ModifiedCausalForest(
+def modified_causal_forest(
         id_name=None, cluster_name=None, w_name=None, d_name=None,
-        y_tree_name=None, y_name=None, x_name_ord=None, x_name_unord=None,
-        x_name_always_in_ord=None, z_name_list=None,
+        d_type='discrete', y_tree_name=None, y_name=None, x_name_ord=None,
+        x_name_unord=None, x_name_always_in_ord=None, z_name_list=None,
         x_name_always_in_unord=None, z_name_split_ord=None,
         z_name_split_unord=None, z_name_mgate=None, z_name_amgate=None,
         x_name_remain_ord=None, x_name_remain_unord=None,
@@ -39,38 +44,40 @@ def ModifiedCausalForest(
         bin_corr_yes=True, boot=1000, ci_level=0.9, check_perfectcorr=True,
         choice_based_sampling=False, choice_based_weights=None,
         clean_data_flag=True, cluster_std=False, cond_var_flag=True,
-        datpfad=None, descriptive_stats=True, dpi=500,
-        fs_other_sample_share=0.2, fs_other_sample=True, fs_rf_threshold=0,
-        fs_yes=None, fontsize=2, forest_files=None, gatet_flag=False,
+        ct_grid_nn=10, ct_grid_w=10, ct_grid_dr=100,
+        datpfad=None, fs_other_sample_share=0.2, fs_other_sample=True,
+        fs_rf_threshold=0, fs_yes=None, forest_files=None, gatet_flag=False,
         gmate_no_evaluation_points=50, gmate_sample_share=None, iate_flag=True,
         iate_se_flag=True, indata=None, knn_flag=True, knn_min_k=10,
         knn_const=1, l_centering=True, l_centering_share=0.25,
         l_centering_cv_k=5, l_centering_new_sample=False, m_min_share=-1,
         m_max_share=-1, m_grid=2, m_random_poisson=True,
         match_nn_prog_score=True, max_cats_z_vars=None, max_weight_share=0.05,
-        mce_vart=1, min_dummy_obs=10,  mp_parallel=None, mp_with_ray=True,
-        mp_vim_type=None, mp_weights_tree_batch=None,  mp_weights_type=1,
+        mce_vart=1, min_dummy_obs=10,  mp_parallel=None,
         n_min_grid=1, n_min_min=-1, n_min_max=-1, nn_main_diag_only=False,
-        no_filled_plot=20, nw_kern_flag=1, nw_bandw=None, outfiletext=None,
+        nw_kern_flag=1, nw_bandw=None, outfiletext=None,
         outpfad=None, output_type=2, panel_data=False, panel_in_rf=True,
         preddata=None, p_diff_penalty=None, post_est_stats=True,
         post_plots=True, post_kmeans_yes=True, post_kmeans_max_tries=1000,
         post_kmeans_no_of_groups=None, post_kmeans_replications=10,
-        post_random_forest_vi=True, predict_mcf=True, random_thresholds=None,
+        post_random_forest_vi=True, predict_mcf=True,
         reduce_prediction=False, reduce_prediction_share=0.5,
         reduce_split_sample=False, reduce_split_sample_pred_share=0.5,
         reduce_training=False, reduce_training_share=0.5,
         relative_to_first_group_only=True, reduce_largest_group_train=False,
         reduce_largest_group_train_share=0.5, save_forest=False,
         screen_covariates=True, se_boot_ate=False, se_boot_gate=False,
-        se_boot_iate=False, share_forest_sample=0.5, show_plots=True,
-        smooth_gates=True, smooth_gates_bandwidth=1,
-        smooth_gates_no_evaluation_points=50, stop_empty=1,
+        se_boot_iate=False, smooth_gates=True, smooth_gates_bandwidth=1,
+        smooth_gates_no_evaluation_points=50, random_thresholds=None,
         subsample_factor_forest=None, subsample_factor_eval=False,
         support_check=1, support_min_p=None, support_quantil=1,
-        support_max_del_train=0.5, train_mcf=True,
-        variable_importance_oob=False, verbose=True, weight_as_sparse=True,
-        weighted=False, _smaller_sample=0, _with_output=True,
+        support_max_del_train=0.5, support_adjust_limits=None, train_mcf=True,
+        variable_importance_oob=False, weighted=False,
+        _share_forest_sample=0.5, _weight_as_sparse=True, _mp_with_ray=True,
+        _mp_vim_type=None, _mp_weights_type=1, _mp_weights_tree_batch=None,
+        _verbose=True, _fontsize=2, _descriptive_stats=True,
+        _no_filled_plot=20, _show_plots=True,
+        _smaller_sample=0, _with_output=True, _dpi=500,
         _max_cats_cont_vars=None, _max_save_values=50,
         _seed_sample_split=67567885, _mp_ray_del=None,
         _mp_ray_shutdown=None, _mp_ray_objstore_multiplier=None):
@@ -87,7 +94,7 @@ def ModifiedCausalForest(
     _l_centering_uncenter = False  # Not yet implemented
 
 # Collect vars in a dictionary
-    variable_dict = mcf_init.make_user_variable(
+    variable_dict = mcf_init_add.make_user_variable(
         id_name, cluster_name, w_name, d_name, y_tree_name, y_name, x_name_ord,
         x_name_unord, x_name_always_in_ord, z_name_list,
         x_name_always_in_unord, z_name_split_ord, z_name_split_unord,
@@ -95,54 +102,54 @@ def ModifiedCausalForest(
         x_balance_name_ord, x_balance_name_unord)
 
 # use smaller random sample (usually for testing purposes)
-    if 0 < _smaller_sample < 1:
+    if isinstance(_smaller_sample, (int, float)) and 0 < _smaller_sample < 1:
         if train_mcf:
             gp.randomsample(datpfad, indata + '.csv', 'smaller_indata.csv',
-                            _smaller_sample, True)
+                            _smaller_sample, True, seed=_seed_sample_split)
         if preddata is None:
             preddata = 'smaller_indata'
         if predict_mcf and preddata != indata:
             gp.randomsample(datpfad, preddata + '.csv', 'smaller_preddata.csv',
-                            _smaller_sample, True)
+                            _smaller_sample, True, seed=_seed_sample_split)
             preddata = 'smaller_preddata'
         else:
             preddata = 'smaller_indata'
         indata = 'smaller_indata'
 # set values for control variables
-    controls_dict = mcf_init.controls_into_dic(
-        mp_parallel, mp_vim_type, output_type, outpfad,
+    controls_dict = mcf_init_add.controls_into_dic(
+        mp_parallel, _mp_vim_type, output_type, outpfad,
         datpfad, indata, preddata, outfiletext, screen_covariates,
         n_min_grid, check_perfectcorr, n_min_min, clean_data_flag,
         min_dummy_obs, mce_vart, p_diff_penalty, boot, n_min_max,
         support_min_p, weighted, support_check, support_quantil,
         subsample_factor_forest, subsample_factor_eval, m_min_share, m_grid,
-        stop_empty, m_random_poisson, alpha_reg_min, alpha_reg_max,
-        alpha_reg_grid, random_thresholds, knn_min_k, share_forest_sample,
-        descriptive_stats, m_max_share, max_cats_z_vars,
-        variable_importance_oob,
-        balancing_test, choice_based_sampling, knn_const, choice_based_weights,
-        nw_kern_flag, post_kmeans_max_tries, cond_var_flag, knn_flag, nw_bandw,
-        panel_data, _max_cats_cont_vars, cluster_std, fs_yes,
-        fs_other_sample_share, gatet_flag, fs_other_sample, bin_corr_yes,
-        panel_in_rf, fs_rf_threshold, post_plots, post_est_stats,
-        relative_to_first_group_only, post_kmeans_yes, atet_flag,
-        bin_corr_threshold, post_kmeans_no_of_groups, post_kmeans_replications,
-        _with_output, _max_save_values, nn_main_diag_only, fontsize, dpi,
-        ci_level, max_weight_share, save_forest, l_centering,
-        l_centering_share, l_centering_new_sample, l_centering_cv_k,
-        post_random_forest_vi, gmate_no_evaluation_points,
-        gmate_sample_share, no_filled_plot, smooth_gates,
-        smooth_gates_bandwidth, smooth_gates_no_evaluation_points, show_plots,
-        weight_as_sparse, mp_weights_type, mp_weights_tree_batch,
-        _boot_by_boot, _obs_by_obs, _max_elements_per_split, mp_with_ray,
-        _mp_ray_objstore_multiplier, verbose, _no_ray_in_forest_building,
-        predict_mcf, train_mcf, forest_files, match_nn_prog_score,
-        se_boot_ate, se_boot_gate, se_boot_iate, support_max_del_train,
-        _mp_ray_del, _mp_ray_shutdown,
+        m_random_poisson, alpha_reg_min, alpha_reg_max, alpha_reg_grid,
+        random_thresholds, knn_min_k, _share_forest_sample,
+        _descriptive_stats, m_max_share, max_cats_z_vars,
+        variable_importance_oob, balancing_test, choice_based_sampling,
+        knn_const, choice_based_weights, nw_kern_flag, post_kmeans_max_tries,
+        cond_var_flag, knn_flag, nw_bandw, panel_data, _max_cats_cont_vars,
+        cluster_std, fs_yes, fs_other_sample_share, gatet_flag,
+        fs_other_sample, bin_corr_yes, panel_in_rf, fs_rf_threshold,
+        post_plots, post_est_stats, relative_to_first_group_only,
+        post_kmeans_yes, atet_flag, bin_corr_threshold,
+        post_kmeans_no_of_groups, post_kmeans_replications, _with_output,
+        _max_save_values, nn_main_diag_only, _fontsize, _dpi, ci_level,
+        max_weight_share, save_forest, l_centering, l_centering_share,
+        l_centering_new_sample, l_centering_cv_k, post_random_forest_vi,
+        gmate_no_evaluation_points, gmate_sample_share, _no_filled_plot,
+        smooth_gates, smooth_gates_bandwidth,
+        smooth_gates_no_evaluation_points, _show_plots, _weight_as_sparse,
+        _mp_weights_type, _mp_weights_tree_batch, _boot_by_boot, _obs_by_obs,
+        _max_elements_per_split, _mp_with_ray, _mp_ray_objstore_multiplier,
+        _verbose, _no_ray_in_forest_building, predict_mcf, train_mcf,
+        forest_files, match_nn_prog_score, se_boot_ate, se_boot_gate,
+        se_boot_iate, support_max_del_train, _mp_ray_del, _mp_ray_shutdown,
         reduce_split_sample, reduce_split_sample_pred_share, reduce_training,
         reduce_training_share, reduce_prediction, reduce_prediction_share,
         reduce_largest_group_train, reduce_largest_group_train_share,
-        iate_flag, iate_se_flag, _l_centering_uncenter)
+        iate_flag, iate_se_flag, _l_centering_uncenter, d_type, ct_grid_nn,
+        ct_grid_w, ct_grid_dr, support_adjust_limits)
 # Set defaults for many control variables of the MCF & define variables
 
     c_dict, v_dict, text_to_print = mcf_init.get_controls(controls_dict,
@@ -164,12 +171,11 @@ def ModifiedCausalForest(
             c_dict['indata'], outdatei1,
             1-c_dict['reduce_split_sample_pred_share'], outdatei2,
             c_dict['reduce_split_sample_pred_share'],
-            random_seed=_seed_sample_split,
-            with_output=c_dict['with_output'])
+            random_seed=_seed_sample_split, with_output=c_dict['with_output'])
     if c_dict['with_output'] and c_dict['verbose']:
         if c_dict['train_mcf']:
             if text_to_print is not None:
-                print(text_to_print, '{:<5} '.format(c_dict['n_min_min']))
+                print(text_to_print, '{c_dict["n_min_min"]:<5} ')
             print('\nParameter for MCF:')
             gp.print_dic(c_dict)
             print('\nVariables used:')
@@ -177,7 +183,7 @@ def ModifiedCausalForest(
             print('-' * 80)
             print('Estimator used: ', c_dict['estimator_str'])
             print('\nValue of penalty multiplier:',
-                  '{:8.3f}'.format(c_dict['mtot_p_diff_penalty']))
+                  f'{c_dict["mtot_p_diff_penalty"]:8.3f}')
             print('-' * 80)
             if c_dict['desc_stat']:
                 gp.print_descriptive_stats_file(c_dict['indata'], 'all',
@@ -197,22 +203,16 @@ def ModifiedCausalForest(
         loaded_tuple = gp_sys.save_load(c_dict['save_forest_file_pickle'],
                                         save=False,
                                         output=c_dict['with_output'])
-        forest = loaded_tuple[0]
-        x_name_mcf = loaded_tuple[1]
+        forest, x_name_mcf = loaded_tuple[0], loaded_tuple[1]
         c_dict['max_cats_z_vars'] = loaded_tuple[2]
-        d_in_values = loaded_tuple[3]
-        no_val_dict = loaded_tuple[4]
-        q_inv_dict = loaded_tuple[5]
-        q_inv_cr_dict = loaded_tuple[6]
-        prime_values_dict = loaded_tuple[7]
-        unique_val_dict = loaded_tuple[8]
+        d_in_values, no_val_dict = loaded_tuple[3], loaded_tuple[4]
+        q_inv_dict, q_inv_cr_dict = loaded_tuple[5], loaded_tuple[6]
+        prime_values_dict, unique_val_dict = loaded_tuple[7], loaded_tuple[8]
         common_support_list = loaded_tuple[9]
-        z_new_name_dict = loaded_tuple[10]
-        z_new_dic_dict = loaded_tuple[11]
+        z_new_name_dict, z_new_dic_dict = loaded_tuple[10], loaded_tuple[11]
         c_dict['max_cats_cont_vars'] = loaded_tuple[12]
         lc_forest = loaded_tuple[13]
-        old_y_name = loaded_tuple[14]
-        new_y_name = loaded_tuple[15]
+        old_y_name, new_y_name = loaded_tuple[14], loaded_tuple[15]
     else:
         d_in_values = no_val_dict = q_inv_dict = q_inv_cr_dict = None
         prime_values_dict = unique_val_dict = common_support_list = None
@@ -230,8 +230,7 @@ def ModifiedCausalForest(
          z_new_name_dict, z_new_dic_dict)
 
     if c_dict['with_output'] and c_dict['verbose']:
-        print()
-        print('Dictionary for recoding of categorical variables into primes')
+        print('\nDictionary for recoding of categorical variables into primes')
         key_list_unique_val_dict = list(unique_val_dict)
         key_list_prime_values_dict = list(prime_values_dict)
         for key_nr, key in enumerate(key_list_unique_val_dict):
@@ -246,6 +245,8 @@ def ModifiedCausalForest(
                 v_dict['id_name'], v_dict['y_name'], v_dict['cluster_name'],
                 v_dict['w_name'], v_dict['d_name'], v_dict['y_tree_name'],
                 v_dict['x_balance_name'], v_dict['x_name'])
+            if c_dict['d_type'] == 'continuous':
+                namen1_to_inc.append(*v_dict['d_grid_nn_name'])
             indata2 = gp.clean_reduce_data(
                 indata_with_z, c_dict['indata2_temp'],
                 namen1_to_inc, c_dict['with_output'],
@@ -263,8 +264,7 @@ def ModifiedCausalForest(
         else:
             preddata2 = predata_with_z
     else:
-        indata2 = indata_with_z
-        preddata2 = predata_with_z
+        indata2, preddata2 = indata_with_z, predata_with_z
 # get rid of variables that do not have enough independent variation
     if c_dict['train_mcf']:
         if c_dict['screen_covariates']:
@@ -321,21 +321,26 @@ def ModifiedCausalForest(
 # Descriptive statistics by treatment for outcomes and balancing variables
         if c_dict['with_output'] and c_dict['desc_stat']:
             variables_to_desc = [*v_dict['y_name'], *v_dict['x_balance_name']]
+            d_name = (v_dict['d_grid_nn_name']
+                      if c_dict['d_type'] == 'continuous'
+                      else v_dict['d_name'])
             if c_dict['l_centering'] and not c_dict['l_centering_new_sample']:
-                gp_mcf.statistics_by_treatment(tree_sample, v_dict['d_name'],
-                                               variables_to_desc)
+                mcf_gp.statistics_by_treatment(
+                    tree_sample, d_name, variables_to_desc,
+                    c_dict['d_type'] == 'continuous')
             else:
-                gp_mcf.statistics_by_treatment(indata2, v_dict['d_name'],
-                                               variables_to_desc)
+                mcf_gp.statistics_by_treatment(
+                    indata2, d_name, variables_to_desc,
+                    c_dict['d_type'] == 'continuous')
             mcf_data.variable_features(var_x_type, var_x_values)
 # Common support
     if c_dict['common_support'] > 0:
         if not c_dict['train_mcf']:
-            tree_sample, fill_y_sample, fs_sample = None, None, None
+            tree_sample = fill_y_sample = fs_sample = None
             prob_score = np.load(c_dict['save_forest_file_ps'])
             d_train_tree = np.load(c_dict['save_forest_file_d_train_tree'])
         else:
-            prob_score, d_train_tree = None, None
+            prob_score = d_train_tree = None
         (preddata3, common_support_list, prob_score, d_train_tree
          ) = mcf_cs.common_support(
             preddata2, tree_sample, fill_y_sample, fs_sample, var_x_type,
@@ -345,33 +350,41 @@ def ModifiedCausalForest(
         preddata3 = preddata2
         prob_score, d_train_tree = None, None
     if c_dict['reduce_training'] or c_dict['reduce_largest_group_train']:
-        if c_dict['fs_yes']:
-            infiles = (tree_sample, fill_y_sample, fs_sample)
-        else:
-            infiles = (tree_sample, fill_y_sample)
+        err_txt = 'No d-specific sample reduction with continuous treatment.'
+        assert ((c_dict['d_type'] == 'discrete') and
+                c_dict['reduce_largest_group_train']), err_txt
+        infiles = ((tree_sample, fill_y_sample, fs_sample)
+                   if c_dict['fs_yes'] else (tree_sample, fill_y_sample))
         if c_dict['with_output']:
             print('=' * 80)
             for file in infiles:
                 print(file)
-                gp_mcf.statistics_by_treatment(file, v_dict['d_name'],
-                                               v_dict['y_name'])
+                d_name = (v_dict['d_grid_nn_name']
+                          if c_dict['d_type'] == 'continuous'
+                          else v_dict['d_name'])
+                mcf_gp.statistics_by_treatment(
+                    file, d_name, v_dict['y_name'],
+                    c_dict['d_type'] == 'continuous')
         if c_dict['reduce_training']:
             if c_dict['with_output']:
                 print('Randomly deleting training data.')
             mcf_data.random_obs_reductions(
-                infiles, fraction=c_dict['reduce_training_share'])
+                infiles, fraction=c_dict['reduce_training_share'],
+                seed=_seed_sample_split)
         if c_dict['reduce_largest_group_train']:
+            assert c_dict['d_type'] == 'discrete', 'N/A for cont. treatment'
             if c_dict['with_output']:
                 print('Randomly deleting training data of largest treatment.')
             mcf_data.random_obs_reductions_treatment(
                 infiles, fraction=c_dict['reduce_largest_group_train_share'],
-                d_name=v_dict['d_name'])
+                d_name=v_dict['d_name'], seed=_seed_sample_split)
         if c_dict['with_output']:
             print('=' * 80)
             for file in infiles:
                 print(file)
-                gp_mcf.statistics_by_treatment(file, v_dict['d_name'],
-                                               v_dict['y_name'])
+                mcf_gp.statistics_by_treatment(
+                    file, d_name, v_dict['y_name'],
+                    c_dict['d_type'] == 'continuous')
     if c_dict['reduce_prediction']:
         if c_dict['with_output']:
             print('=' * 80)
@@ -380,7 +393,8 @@ def ModifiedCausalForest(
         outfile = (preddata3[:-4] + 'red.csv',)
         mcf_data.random_obs_reductions(
             infiles, outfiles=outfile,
-            fraction=c_dict['reduce_prediction_share'])
+            fraction=c_dict['reduce_prediction_share'],
+            seed=_seed_sample_split)
         preddata3 = outfile[0]
         if c_dict['with_output']:
             print('-' * 80)
@@ -399,7 +413,6 @@ def ModifiedCausalForest(
             if isinstance(cfs_dict['grid_n_min'], (list, tuple)):
                 cfs_dict['grid_n_min'] = cfs_dict['grid_n_min'][0]
             cfs_dict['m_grid'] = 1
-            # cfs_dict['alpha_reg_grid'] = 1
             if isinstance(cfs_dict['grid_alpha_reg'], (list, tuple)):
                 cfs_dict['grid_alpha_reg'] = cfs_dict['grid_alpha_reg'][0]
             fs_f, x_name_mcf = mcf_forest.build_forest(
@@ -407,7 +420,7 @@ def ModifiedCausalForest(
             vi_i, vi_g, vi_ag, name = mcf_vi.variable_importance(
                 fs_in, fs_f, var_fs, var_x_type, var_x_values, cfs_dict,
                 x_name_mcf)
-            v_dict, var_x_type, var_x_values = mcf_forest.fs_adjust_vars(
+            v_dict, var_x_type, var_x_values = mcf_forest_add.fs_adjust_vars(
                 vi_i, vi_g, vi_ag, v_dict, var_x_type, var_x_values, name,
                 cfs_dict)
             del fs_f, fs_in, cfs_dict, vi_i, vi_g, vi_ag, name, var_fs
@@ -423,10 +436,14 @@ def ModifiedCausalForest(
             if c_dict['with_output'] and c_dict['desc_stat']:
                 print('\nStatistics on matched neighbours of variable used',
                       '  for tree building')
-                gp_mcf.statistics_by_treatment(indatei_tree, v_dict['d_name'],
-                                               v_dict['y_match_name'])
-            if c_dict['with_output'] and c_dict['desc_stat']:
-                mcf_forest.structure_of_node_tabl()
+                d_name = (v_dict['d_grid_nn_name']
+                          if c_dict['d_type'] == 'continuous'
+                          else v_dict['d_name'])
+                mcf_gp.statistics_by_treatment(
+                    indatei_tree, d_name, v_dict['y_match_name'],
+                    c_dict['d_type'] == 'continuous')
+            # if c_dict['with_output'] and c_dict['desc_stat']:
+            #     mcf_forest_add.structure_of_node_tabl()
     # Estimate forest structure
             forest, x_name_mcf = mcf_forest.build_forest(
                 indatei_tree, v_dict, var_x_type, var_x_values, c_dict)
@@ -438,11 +455,10 @@ def ModifiedCausalForest(
                 mcf_vi.variable_importance(
                     indatei_tree, forest, v_dict, var_x_type, var_x_values,
                     c_dict, x_name_mcf)
-            forest = mcf_forest.remove_oob_from_leaf0(forest)  # Forest is list
+            forest = mcf_forest_add.remove_oob_from_leaf0(forest)
             time5 = time.time()
-
     # Filling of trees with indices of outcomes:
-            forest, _, _ = mcf_forest.fill_trees_with_y_indices_mp(
+            forest, _, _ = mcf_forest_add.fill_trees_with_y_indices_mp(
                 forest, fill_y_sample, v_dict, var_x_type, var_x_values,
                 c_dict, x_name_mcf)
         else:
@@ -486,8 +502,11 @@ def ModifiedCausalForest(
         if c_dict['with_output'] and c_dict['verbose']:
             print()
             print('-' * 80)
-            gp_mcf.print_size_weight_matrix(
-                weights, c_dict['weight_as_sparse'], c_dict['no_of_treat'])
+            no_of_treat = (len(c_dict['ct_grid_w_val'])
+                           if c_dict['d_type'] == 'continuous'
+                           else c_dict['no_of_treat'])
+            mcf_gp.print_size_weight_matrix(
+                weights, c_dict['weight_as_sparse'], no_of_treat)
             print('-' * 80)
         if not (c_dict['marg_plots'] and c_dict['with_output']):
             del forest
@@ -497,13 +516,14 @@ def ModifiedCausalForest(
         w_ate, _, _, ate, ate_se, effect_list = mcf_ate.ate_est(
             weights, preddata3, y_train, cl_train, w_train, v_dict, c_dict)
         time9_ate = time.time()
+
+        cont = c_dict['d_type'] == 'continuous'
         if c_dict['marg_plots'] and c_dict['with_output']:
             mcf_gate.marg_gates_est(
                 forest, fill_y_sample, preddata3, v_dict, c_dict, x_name_mcf,
                 var_x_type, var_x_values, w_ate)
             del forest
         time9_marg = time.time()
-        # if c_dict['with_output']:
         if c_dict['gate_yes']:
             gate, gate_se = mcf_gate.gate_est(
                 weights, preddata3, y_train, cl_train, w_train, v_dict, c_dict,
@@ -515,21 +535,21 @@ def ModifiedCausalForest(
             (pred_outfile, pot_y, pot_y_var, iate, iate_se, names_pot_iate
              ) = mcf_iate.iate_est_mp(
                 weights, preddata3, y_train, cl_train, w_train, v_dict, c_dict,
-                w_ate, lc_forest=None)
+                w_ate)
         else:
             pot_y = pot_y_var = iate = iate_se = None
             pred_outfile = names_pot_iate = None
         del _, w_ate
         time9_iate = time.time()
 
-        if c_dict['with_output'] and c_dict['balancing_test_w']:
+        if c_dict['with_output'] and c_dict['balancing_test_w'] and not cont:
             mcf_ate.ate_est(weights, preddata3, x_bala_train, cl_train,
                             w_train, v_dict, c_dict, True, None)
         del weights, y_train, x_bala_train, cl_train, w_train
         time9_bal = time.time()
 
         if c_dict['with_output'] and c_dict['post_est_stats']:
-            mcf_iate.post_estimation_iate(
+            mcf_iate_add.post_estimation_iate(
                 pred_outfile, names_pot_iate, ate, ate_se, effect_list, v_dict,
                 c_dict, var_x_type)
         time10 = time.time()
@@ -599,7 +619,9 @@ def ModifiedCausalForest(
                 else:
                     print('MP for weights was based on bootstrap for each',
                           'observation')
+    if c_dict['with_output']:
         gp.print_timing(time_string, time_difference)  # print to file
+        print(' ', flush=True)   # clear print buffer
     if c_dict['print_to_file']:
         if c_dict['print_to_terminal']:
             sys.stdout.output.close()

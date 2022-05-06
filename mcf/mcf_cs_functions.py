@@ -10,6 +10,8 @@ Created on Thu Dec  8 15:48:57 2020.
 import copy
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+
 from mcf import mcf_data_functions as mcf_data
 from mcf import general_purpose as gp
 from mcf import general_purpose_estimation as gp_est
@@ -48,11 +50,14 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
 
     """
     def r2_obb(c_dict, idx, oob_best):
+        d_values = (c_dict['ct_grid_nn_val']
+                    if c_dict['d_type'] == 'continuous'
+                    else c_dict['d_values'])
         if c_dict['with_output']:
             print('\n')
             print('-' * 80)
-            print('Treatment: {:2}'.format(c_dict['d_values'][idx]),
-                  'OOB Score (R2 in %): {:6.3f}'.format(oob_best * 100))
+            print(f'Treatment: {d_values[idx]:2}',
+                  f'OOB Score (R2 in %): {oob_best * 100:6.3f}')
             print('-' * 80)
 
     def get_data(file_name, x_name):
@@ -92,25 +97,22 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
         gp.delete_file_if_exists(out_file)
         data_keep.to_csv(out_file, index=False)
         if c_dict['with_output']:
-            x_keep = x_data_pd[obs_to_keep]
-            x_delete = x_data_pd[obs_to_del_np]
+            x_keep, x_delete = x_data_pd[obs_to_keep], x_data_pd[obs_to_del_np]
             if header:
                 print('\n')
                 print('=' * 80)
                 print('Common support check')
                 print('-' * 80)
-                print('Upper limits on treatment probabilities: ', upper_l)
-                print('Lower limits on treatment probabilities: ', lower_l)
+                print(f'Upper limits on treatment probabilities: {*upper_l,}')
+                print(f'Lower limits on treatment probabilities: {*lower_l,}')
             print('-' * 80)
             print('Data investigated and saved:', out_file)
             print('-' * 80)
-            print('Observations deleted: {:4}'.format(np.sum(obs_to_del_np)),
-                  ' ({:6.3f}%)'.format(np.mean(obs_to_del_np)*100))
+            print(f'Observations deleted: {np.sum(obs_to_del_np):4}',
+                  f' ({np.mean(obs_to_del_np)*100:6.3f}%)')
             with pd.option_context(
-                    'display.max_rows', 500,
-                    'display.max_columns', 500,
-                    'display.expand_frame_repr', True,
-                    'display.width', 150,
+                    'display.max_rows', 500, 'display.max_columns', 500,
+                    'display.expand_frame_repr', True, 'display.width', 150,
                     'chop_threshold', 1e-13):
                 all_var_names = [name.upper() for name in data_pd.columns]
                 if d_name[0].upper() in all_var_names:
@@ -148,8 +150,7 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
                               len(cluster_delete.unique()),
                               'panel units are OFF support')
                 if d_name[0].upper() in all_var_names:
-                    print()
-                    print('Full sample (ON and OFF support observations)')
+                    print('\nFull sample (ON and OFF support observations)')
                     mean_by_treatment(data_pd[d_name], x_data_pd)
                 print('-' * 80)
                 print('Data ON support')
@@ -168,26 +169,26 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
                         mean_by_treatment(d_delete, x_delete)
                     else:
                         print('Only single observation deleted.')
-            if np.mean(obs_to_del_np) > c_dict['support_max_del_train']:
-                raise Exception(
-                    'Less than {:3}%'.format(
-                        100-c_dict['support_max_del_train']*100)
-                    + ' observations left after common support check of'
-                    + ' training data. Programme terminated. Improve'
-                    + ' balance of input data for forest building.')
-
+            assert np.mean(obs_to_del_np) <= c_dict['support_max_del_train'], (
+                'Less than {100-c_dict["support_max_del_train"]*100):3}% obs.'
+                + ' left after common support check of training data.'
+                + ' Programme terminated. Improve balance of input data before'
+                + ' forest building.')
+    if c_dict['d_type'] == 'continuous':
+        d_name = v_dict['d_grid_nn_name']
+        no_of_treat = len(c_dict['ct_grid_nn_val'])
+    else:
+        d_name, no_of_treat = v_dict['d_name'], c_dict['no_of_treat']
     x_name, x_type = gp.get_key_values_in_list(var_x_type)
     names_unordered = []  # Split ordered variables into dummies
     for j, val in enumerate(x_type):
         if val > 0:
             names_unordered.append(x_name[j])
-    fs_adjust = False
-    obs_fs = 0
+    fs_adjust, obs_fs = False, 0
     if c_dict['train_mcf']:
         data_tr, x_tr, obs_tr = get_data(tree_file, x_name)  # train,adj.
         data_fy, x_fy, obs_fy = get_data(fill_y_file, x_name)  # adj.
         if c_dict['fs_yes']:
-            # if not ((fs_file == tree_file) or (fs_file == fill_y_file)):
             if fs_file not in (tree_file, fill_y_file):
                 data_fs, x_fs, obs_fs = get_data(fs_file, x_name)  # adj.
                 fs_adjust = True
@@ -203,8 +204,7 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
             x_dummies = pd.get_dummies(x_total[names_unordered],
                                        columns=names_unordered)
             x_total = pd.concat([x_total, x_dummies], axis=1)
-            x_tr = x_total[:obs_tr]
-            x_fy = x_total[obs_tr:obs_tr+obs_fy]
+            x_tr, x_fy = x_total[:obs_tr], x_total[obs_tr:obs_tr+obs_fy]
             x_pr = x_total[obs_tr+obs_fy:obs_tr+obs_fy+obs_pr]
             if fs_adjust:
                 x_fs = x_total[obs_tr+obs_fy+obs_pr:]
@@ -215,32 +215,26 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
             x_dummies = pd.get_dummies(x_total[names_unordered],
                                        columns=names_unordered)
             x_total = pd.concat([x_total, x_dummies], axis=1)
-            x_tr = x_total[:obs_tr]
-            x_fy = x_total[obs_tr:obs_tr+obs_fy]
+            x_tr, x_fy = x_total[:obs_tr], x_total[obs_tr:obs_tr+obs_fy]
             if fs_adjust:
                 x_fs = x_total[obs_tr+obs_fy:]
         else:
             x_add_tmp = check_if_obs_needed(names_unordered, x_pr,
                                             prime_values_dict)
-            if x_add_tmp is not None:
-                x_total = pd.concat([x_pr, x_add_tmp], axis=0)
-            else:
-                x_total = x_pr
+            x_total = (pd.concat([x_pr, x_add_tmp], axis=0)
+                       if x_add_tmp is not None else x_pr)
             x_dummies = pd.get_dummies(x_total[names_unordered],
                                        columns=names_unordered)
             x_pr = pd.concat([x_total, x_dummies], axis=1)
             if x_add_tmp is not None:  # remove add_temp
                 x_pr = x_pr[:obs_pr]
-    if c_dict['train_mcf']:
-        x_name_all = x_tr.columns.values.tolist()
-    else:
-        x_name_all = x_pr.columns.values.tolist()
+    x_name_all = (x_tr.columns.values.tolist()
+                  if c_dict['train_mcf'] else x_pr.columns.values.tolist())
     if c_dict['train_mcf']:
         x_tr_np = x_tr.to_numpy(copy=True)
-        d_all_in = pd.get_dummies(data_tr[v_dict['d_name']],
-                                  columns=v_dict['d_name'])
+        d_all_in = pd.get_dummies(data_tr[d_name], columns=d_name)
         d_tr_np = d_all_in.to_numpy(copy=True)
-        pred_tr_np = np.empty((np.shape(x_tr_np)[0], c_dict['no_of_treat']))
+        pred_tr_np = np.empty((np.shape(x_tr_np)[0], no_of_treat))
     if c_dict['train_mcf']:
         x_pred_all = x_fy.copy()
         if c_dict['pred_mcf']:
@@ -251,11 +245,9 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
         obs_fy = 0
         x_pred_all = x_pr.copy()
     x_pred_all_np = x_pred_all.to_numpy(copy=True)
-    pred_all_np = np.empty((obs_fy+obs_fs+obs_pr, c_dict['no_of_treat']))
-    if c_dict['no_parallel'] > 1:
-        workers_mp = copy.copy(c_dict['no_parallel'])
-    else:
-        workers_mp = None
+    pred_all_np = np.empty((obs_fy+obs_fs+obs_pr, no_of_treat))
+    workers_mp = (copy.copy(c_dict['no_parallel'])
+                  if c_dict['no_parallel'] > 1 else None)
     if c_dict['train_mcf']:
         check_cols(x_tr, x_fy, 'Tree', 'Fill_y')
         if fs_adjust:
@@ -271,15 +263,15 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
         cs_list = []
         c_dict_new = mcf_data.m_n_grid(copy.deepcopy(c_dict),    # dict only
                                        len(x_pred_all.columns))  # used here
-        for idx in range(c_dict['no_of_treat']):
+        for idx in range(no_of_treat):
             return_forest = bool(c_dict['save_forest'])
-            ret_rf = gp_est.RandomForest_scikit(
+            ret_rf = gp_est.random_forest_scikit(
                 x_tr_np, d_tr_np[:, idx], x_pred_all_np, boot=c_dict['boot'],
                 n_min=c_dict_new['grid_n_min'],
                 no_features=c_dict_new['grid_m'], workers=workers_mp,
                 pred_p_flag=True, pred_t_flag=True, pred_oob_flag=True,
-                with_output=False, variable_importance=True, x_name=x_name_all,
-                var_im_with_output=c_dict['with_output'],
+                with_output=False, variable_importance=c_dict['verbose'],
+                x_name=x_name_all, var_im_with_output=c_dict['with_output'],
                 return_forest_object=return_forest)
             pred_all_np[:, idx] = np.copy(ret_rf[0])
             pred_tr_np[:, idx] = np.copy(ret_rf[1])
@@ -287,17 +279,17 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
             if c_dict['save_forest']:
                 cs_list.append(ret_rf[6])
             r2_obb(c_dict, idx, oob_best)
-            if c_dict['no_of_treat'] == 2:
+            if no_of_treat == 2:
                 pred_all_np[:, idx+1] = 1 - pred_all_np[:, idx]
                 pred_tr_np[:, idx+1] = 1 - pred_tr_np[:, idx]
                 break
     else:
-        for idx in range(c_dict['no_of_treat']):
+        for idx in range(no_of_treat):
             pred_all_np[:, idx] = cs_list[idx].predict(x_pred_all_np)
-            if c_dict['no_of_treat'] == 2:
+            if no_of_treat == 2:
                 pred_all_np[:, idx+1] = 1 - pred_all_np[:, idx]
                 break
-    obs_to_del_all, obs_to_del_tr, upper_l, lower_l = indicate_off_support(
+    obs_to_del_all, obs_to_del_tr, upper_l, lower_l = off_support_and_plot(
         pred_tr_np, pred_all_np, d_tr_np, c_dict)
     # split obs_to_del_all into its parts
     obs_to_del_fs, obs_to_del_fy, obs_to_del_pr = False, False, False
@@ -314,20 +306,19 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
         if np.any(obs_to_del_tr):
             on_support_data_and_stats(obs_to_del_tr, data_tr, x_tr, tree_file,
                                       upper_l, lower_l, c_dict, header=True,
-                                      d_name=v_dict['d_name'])
+                                      d_name=d_name)
         if np.any(obs_to_del_fs):
             on_support_data_and_stats(obs_to_del_fs, data_fs, x_fs, fs_file,
-                                      upper_l, lower_l, c_dict,
-                                      d_name=v_dict['d_name'])
+                                      upper_l, lower_l, c_dict, d_name=d_name)
         if np.any(obs_to_del_fy):
             on_support_data_and_stats(obs_to_del_fy, data_fy, x_fy,
                                       fill_y_file, upper_l, lower_l, c_dict,
-                                      d_name=v_dict['d_name'])
+                                      d_name=d_name)
     if c_dict['pred_mcf']:
         if np.any(obs_to_del_pr):
             on_support_data_and_stats(
                 obs_to_del_pr, data_pr, x_pr, c_dict['preddata3_temp'],
-                upper_l, lower_l, c_dict, d_name=v_dict['d_name'])
+                upper_l, lower_l, c_dict, d_name=d_name)
             predict_file_new = c_dict['preddata3_temp']
         else:
             predict_file_new = predict_file
@@ -338,8 +329,7 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
 
 def check_if_obs_needed(names_unordered, x_all_p, prime_values_dict):
     """Generate new rows -> all values of unordered variables are in data."""
-    no_change = True
-    max_length = 1
+    no_change, max_length = True, 1
     for name in names_unordered:
         length = len(prime_values_dict[name])
         if length > max_length:
@@ -364,9 +354,9 @@ def check_if_obs_needed(names_unordered, x_all_p, prime_values_dict):
     return x_add_tmp
 
 
-def indicate_off_support(pred_t, pred_p, d_t, c_dict):
+def off_support_and_plot(pred_t, pred_p, d_t, c_dict):
     """
-    Indicate which observations are off support.
+    Plot histogrammes and indicate which observations are off support.
 
     Parameters
     ----------
@@ -384,15 +374,19 @@ def indicate_off_support(pred_t, pred_p, d_t, c_dict):
 
     """
     # Normalize such that probabilities add up to 1
+    if c_dict['d_type'] == 'continuous':
+        d_values = c_dict['ct_grid_nn_val']
+        no_of_treat = len(d_values)
+    else:
+        d_values, no_of_treat = c_dict['d_values'], c_dict['no_of_treat']
     pred_t = pred_t / pred_t.sum(axis=1, keepdims=True)
     pred_p = pred_p / pred_p.sum(axis=1, keepdims=True)
-    n_p = np.shape(pred_p)[0]
-    n_t = np.shape(pred_t)[0]
+    n_p, n_t = np.shape(pred_p)[0], np.shape(pred_t)[0]
     q_s = c_dict['support_quantil']
     if c_dict['common_support'] == 1:
-        upper_limit = np.empty((c_dict['no_of_treat'], c_dict['no_of_treat']))
+        upper_limit = np.empty((no_of_treat, no_of_treat))
         lower_limit = np.empty_like(upper_limit)
-        for idx in range(c_dict['no_of_treat']):
+        for idx in range(no_of_treat):
             if q_s == 1:
                 upper_limit[idx, :] = np.max(pred_t[d_t[:, idx] == 1], axis=0)
                 lower_limit[idx, :] = np.min(pred_t[d_t[:, idx] == 1], axis=0)
@@ -401,30 +395,36 @@ def indicate_off_support(pred_t, pred_p, d_t, c_dict):
                                                   q_s, axis=0)
                 lower_limit[idx, :] = np.quantile(pred_t[d_t[:, idx] == 1],
                                                   1-q_s, axis=0)
+        if c_dict['support_adjust_limits'] != 0:
+            upper_limit *= 1 + c_dict['support_adjust_limits']
+            lower_limit *= 1 - c_dict['support_adjust_limits']
+            if c_dict['with_output']:
+                print('-' * 80)
+                print('Common support bounds adjusted by',
+                      f'{c_dict["support_adjust_limits"]*100} % ')
+                print('-' * 80)
         if c_dict['with_output']:
             print('Treatment sample     Treatment probabilities in %')
             print('--------------------- Upper limits ----------------')
-            for idx, ival in enumerate(c_dict['d_values']):
-                print('D = {:2}'.format(ival), end='              ')
-                for jdx in range(c_dict['no_of_treat']):
-                    print('{:7.4f} '.format(upper_limit[idx, jdx]), end=' ')
+            for idx, ival in enumerate(d_values):
+                print(f'D = {ival:9}', end='              ')
+                for jdx in range(no_of_treat):
+                    print(f'{upper_limit[idx, jdx]:7.4f} ', end=' ')
                 print(' ')
             print('--------------------- Lower limits ----------------')
-            for idx, ival in enumerate(c_dict['d_values']):
-                print('D = {:2}'.format(ival), end='              ')
-                for jdx in range(c_dict['no_of_treat']):
-                    print('{:7.4f} '.format(lower_limit[idx, jdx]), end=' ')
+            for idx, ival in enumerate(d_values):
+                print(f'D = {ival:9}', end='              ')
+                for jdx in range(no_of_treat):
+                    print(f'{lower_limit[idx, jdx]:7.4f} ', end=' ')
                 print(' ')
-        upper = np.min(upper_limit, axis=0)
-        lower = np.max(lower_limit, axis=0)
+        upper, lower = np.min(upper_limit, axis=0), np.max(lower_limit, axis=0)
     else:
         # Normalize such that probabilities add up to 1
-        upper = np.ones(
-            c_dict['no_of_treat']) * (1 - c_dict['support_min_p'])
-        lower = np.ones(c_dict['no_of_treat']) * c_dict['support_min_p']
+        upper = np.ones(no_of_treat) * (1 - c_dict['support_min_p'])
+        lower = np.ones(no_of_treat) * c_dict['support_min_p']
     off_support_p = np.empty(n_p, dtype=bool)
     off_support_t = np.empty(n_t, dtype=bool)
-    off_upper = np.empty(c_dict['no_of_treat'], dtype=bool)
+    off_upper = np.empty(no_of_treat, dtype=bool)
     off_lower = np.empty_like(off_upper)
     for i in range(n_p):
         off_upper = np.any(pred_p[i, :] > upper)
@@ -434,4 +434,70 @@ def indicate_off_support(pred_t, pred_p, d_t, c_dict):
         off_upper = np.any(pred_t[i, :] > upper)
         off_lower = np.any(pred_t[i, :] < lower)
         off_support_t[i] = off_upper or off_lower
+    if c_dict['with_output']:
+        color_list = ['red', 'blue', 'green', 'violet', 'magenta', 'crimson',
+                      'yellow', 'darkorange', 'khaki', 'skyblue', 'darkgreen',
+                      'olive', 'greenyellow',  'aguamarine', 'deeppink',
+                      'royalblue', 'navy', 'blueviolet', 'purple']
+        if len(color_list) < len(d_values):
+            color_list = color_list * len(d_values)
+        color_list = color_list[:len(d_values)]
+        for idx_p, ival_p in enumerate(d_values):  # iterate treatment probs
+            treat_prob = pred_t[:, idx_p]
+            titel = f'Treatment probabilities {ival_p} in subsamples'
+            f_titel = f'common_support_pr_treat{ival_p}'
+            file_name_jpeg = c_dict['fig_pfad_jpeg'] + '/' + f_titel + '.jpeg'
+            file_name_pdf = c_dict['fig_pfad_pdf'] + '/' + f_titel + '.pdf'
+            file_name_jpeg_d = (c_dict['fig_pfad_jpeg'] + '/' + f_titel
+                                + '_d.jpeg')
+            file_name_pdf_d = c_dict['fig_pfad_pdf'] + '/' + f_titel + '_d.pdf'
+            data_hist = []
+            for idx_sa, _ in enumerate(d_values):  # iterate treat.sample
+                data_hist.append(treat_prob[d_t[:, idx_sa] == 1])
+            fig, axs = plt.subplots()
+            fig_d, axs_d = plt.subplots()
+            labels = ['Treat ' + str(d) for d in d_values]
+            for idx, data in enumerate(data_hist):
+                axs.hist(data, bins='auto', histtype='bar',
+                         label=labels[idx], color=color_list[idx],
+                         alpha=0.5, density=False)
+                _, bins, _ = axs_d.hist(data, bins='auto', histtype='bar',
+                                        label=labels[idx],
+                                        color=color_list[idx],
+                                        alpha=0.5, density=True)
+                sigma = np.std(data)
+                fit_line = ((1 / (np.sqrt(2 * np.pi) * sigma)) * np.exp(
+                    -0.5 * (1 / sigma * (bins - np.mean(data)))**2))
+                axs_d.plot(bins, fit_line, '--', color=color_list[idx],
+                           label='Smoothed ' + labels[idx])
+            axs.set_title(titel)
+            axs.set_xlabel('Treatment probabilities')
+            axs.set_ylabel('Observations')
+            axs.axvline(lower[idx_p], color='blue', linewidth=0.7,
+                        linestyle="--", label='min')
+            axs.axvline(upper[idx_p], color='black', linewidth=0.7,
+                        linestyle="--", label='max')
+            axs.legend(loc=c_dict['fig_legend_loc'], shadow=True,
+                       fontsize=c_dict['fig_fontsize'])
+            gp.delete_file_if_exists(file_name_jpeg)
+            gp.delete_file_if_exists(file_name_pdf)
+            fig.savefig(file_name_jpeg, dpi=c_dict['fig_dpi'])
+            fig.savefig(file_name_pdf, dpi=c_dict['fig_dpi'])
+            axs_d.set_title(titel)
+            axs_d.set_xlabel('Treatment probabilities')
+            axs_d.set_ylabel('Density')
+            axs_d.axvline(lower[idx_p], color='blue', linewidth=0.7,
+                          linestyle="--", label='min')
+            axs_d.axvline(upper[idx_p], color='black', linewidth=0.7,
+                          linestyle="--", label='max')
+            axs_d.legend(loc=c_dict['fig_legend_loc'], shadow=True,
+                         fontsize=c_dict['fig_fontsize'])
+            gp.delete_file_if_exists(file_name_jpeg_d)
+            gp.delete_file_if_exists(file_name_pdf_d)
+            fig_d.savefig(file_name_jpeg_d, dpi=c_dict['fig_dpi'])
+            fig_d.savefig(file_name_pdf_d, dpi=c_dict['fig_dpi'])
+            if c_dict['show_plots']:
+                plt.show()
+            else:
+                plt.close()
     return off_support_p, off_support_t, upper, lower

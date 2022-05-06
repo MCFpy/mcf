@@ -9,13 +9,16 @@ Created on Thu Dec 8 09:11:57 2020.
 """
 from concurrent import futures
 import math
+
 import numpy as np
 import ray
-from mcf import mcf_forest_functions as mcf_forest
-from mcf import mcf_data_functions as mcf_data
+
 from mcf import general_purpose as gp
 from mcf import general_purpose_system_files as gp_sys
-from mcf import general_purpose_mcf as gp_mcf
+from mcf import mcf_forest_functions as mcf_forest
+from mcf import mcf_forest_add_functions as mcf_forest_add
+from mcf import mcf_data_functions as mcf_data
+from mcf import mcf_general_purpose as mcf_gp
 
 
 def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
@@ -55,9 +58,9 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
     if c_dictin['with_output'] and c_dictin['verbose']:
         print('\nVariable importance measures (OOB data)')
         print('\nSingle variables')
-    (x_name, _, _, c_dict, _, data_np, y_i, y_nn_i, x_i, _, _, d_i, w_i, _
-     ) = mcf_data.prepare_data_for_forest(indatei, v_dict, v_x_type,
-                                          v_x_values, c_dictin, regrf=regrf)
+    (x_name, _, _, c_dict, _, data_np, y_i, y_nn_i, x_i, _, _, d_i, w_i, _,
+     d_grid_i) = mcf_data.prepare_data_for_forest(
+         indatei, v_dict, v_x_type, v_x_values, c_dictin, regrf=regrf)
     no_of_vars = len(x_name)
     partner_k = determine_partner_k(x_name)
     # Loop over all variables to get respective OOB values of MSE
@@ -69,7 +72,7 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
         maxworkers = 1
     else:
         if c_dict['mp_automatic']:
-            maxworkers = gp_mcf.find_no_of_workers(c_dict['no_parallel'],
+            maxworkers = mcf_gp.find_no_of_workers(c_dict['no_parallel'],
                                                    c_dict['sys_share'])
         else:
             maxworkers = c_dict['no_parallel']
@@ -249,20 +252,15 @@ def number_of_groups_vi(no_x_names):
 
     """
     if no_x_names >= 100:
-        groups = 20
-        merged_groups = 19
+        groups, merged_groups = 20, 19
     elif 20 <= no_x_names < 100:
-        groups = 10
-        merged_groups = 9
+        groups, merged_groups = 10, 9
     elif 10 <= no_x_names < 20:
-        groups = 5
-        merged_groups = 4
+        groups, merged_groups = 5, 4
     elif 4 <= no_x_names < 10:
-        groups = 2
-        merged_groups = 0
+        groups, merged_groups = 2, 0
     else:
-        groups = 0
-        merged_groups = 0
+        groups = merged_groups = 0
     return groups, merged_groups
 
 
@@ -285,9 +283,7 @@ def vim_grouping(vim, no_groups, accu=False):
     if not accu:
         group_size = no_ind / no_groups
         group_size_int = math.floor(group_size)
-        one_more = 0
-        start_i = 0
-        ind_groups = []
+        one_more, start_i, ind_groups = 0, 0, []
     for idx in range(no_groups):
         if accu:
             if idx < 2:
@@ -349,23 +345,23 @@ def vim_print(mse_ref, mse_values, x_name, ind_list=0, with_output=True,
         for i in var_indices:
             ind_i = ind_list[i]
             ind_sorted.append(ind_i)
-            x_name_i = []
-            for j in ind_i:
-                x_name_i.append(x_name[j])
+            x_name_i = [x_name[j] for j in ind_i]
+            # x_name_i = []
+            # for j in ind_i:
+            #     x_name_i.append(x_name[j])
             x_names_sorted.append(x_name_i)
     if with_output:
         print('\n')
         print('-' * 80)
-        print('Out of bag value of MSE: {:8.3f}'.format(mse_ref))
+        print(f'Out of bag value of MSE: {mse_ref:8.3f}')
         print('- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -')
         print('Variable importance statistics in %-lost of base value')
         for idx, vim in enumerate(vim_sorted):
             if single:
-                print('{:<50}: {:>7.2f}'.format(x_names_sorted[idx],
-                                                vim-100), '%')
+                print(f'{x_names_sorted[idx]:<50}: {vim-100:>7.2f}%')
             else:
                 print(x_names_sorted[idx])
-                print('{:<50}: {:>7.2f}'.format(' ', vim-100), '%')
+                print(f' {" ":<50}: {vim-100:>7.2f} %')
         print('-' * 80)
         print('Computed as share of OOB MSE of estimated forest relative to',
               'OOB MSE of variable (or group of variables) with randomized',
@@ -432,7 +428,7 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, c_dict, k, single,
         maxworkers = 1
     else:
         if c_dict['mp_automatic']:
-            maxworkers = gp_mcf.find_no_of_workers(c_dict['no_parallel'],
+            maxworkers = mcf_gp.find_no_of_workers(c_dict['no_parallel'],
                                                    c_dict['sys_share'])
         else:
             maxworkers = c_dict['no_parallel']
@@ -451,13 +447,13 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, c_dict, k, single,
             split_forest = True
         elif c_dict['mp_weights_tree_batch'] == 0:  # Automatic # of batches
             size_of_forest_mb = gp_sys.total_size(forest) / (1024 * 1024)
-            no_of_boot_splits = gp_mcf.no_of_boot_splits_fct(
+            no_of_boot_splits = mcf_gp.no_of_boot_splits_fct(
                 size_of_forest_mb, maxworkers, False)
             split_forest = bool(no_of_boot_splits < c_dict['boot'])
         else:
             split_forest = False
         if split_forest and c_dict['with_output'] and c_dict['verbose']:
-            print('Number of tree chuncks: {:5d}'.format(no_of_boot_splits))
+            print(f'Number of tree chuncks: {no_of_boot_splits:5d}')
         if split_forest:
             b_ind_list = np.array_split(range(c_dict['boot']),
                                         no_of_boot_splits)
@@ -504,15 +500,11 @@ def get_oob_mcf_chuncks(data, y_i, y_nn_i, x_i, d_i, w_i, c_dict, k, single,
 def get_oob_mcf_b(data, y_i, y_nn_i, x_i, d_i, w_i, c_dict, k, single,
                   group_ind_list, node_table, regrf=False, partner_k=None):
     """Generate OOB contribution for single bootstrap."""
-    x_dat = data[:, x_i]
-    y_dat = data[:, y_i]
+    x_dat, y_dat = data[:, x_i], data[:, y_i]
     if not regrf:
         y_nn = data[:, y_nn_i]
         d_dat = np.int16(np.round(data[:, d_i]))
-    if c_dict['w_yes']:
-        w_dat = data[:, [w_i]]
-    else:
-        w_dat = None
+    w_dat = data[:, [w_i]] if c_dict['w_yes'] else None
     obs = len(y_dat)
     rng = np.random.default_rng(55436356)
     if not (single and (k == 0)):
@@ -527,18 +519,18 @@ def get_oob_mcf_b(data, y_i, y_nn_i, x_i, d_i, w_i, c_dict, k, single,
                 x_dat[:, i] = x_dat[rand_ind, i]
     obs_in_leaf = np.empty((obs, 2), dtype=np.uint32)
     for idx in range(obs):
-        leaf_no = mcf_forest.get_terminal_leaf_no(node_table, x_dat[idx, :])
-        obs_in_leaf[idx, 0] = idx
-        obs_in_leaf[idx, 1] = leaf_no
+        leaf_no = mcf_forest_add.get_terminal_leaf_no(
+            node_table, x_dat[idx, :])
+        obs_in_leaf[idx, 0], obs_in_leaf[idx, 1] = idx, leaf_no
     if regrf:
         oob_tree = mcf_forest.oob_in_tree(
             obs_in_leaf, y_dat, None, None, w_dat, None, None, None,
-            c_dict['w_yes'], regrf=True)
+            c_dict['w_yes'], regrf=True, cont=c_dict['d_type'] == 'continuous')
     else:
         oob_tree = mcf_forest.oob_in_tree(
             obs_in_leaf, y_dat, y_nn, d_dat, w_dat, c_dict['mtot'],
             c_dict['no_of_treat'], c_dict['d_values'], c_dict['w_yes'],
-            regrf=False)
+            regrf=False, cont=c_dict['d_type'] == 'continuous')
     return oob_tree
 
 
@@ -559,7 +551,7 @@ def determine_partner_k(x_name):
     x_partner_name = [None] * (no_of_vars + 1)
     for idx, val in enumerate(x_name):  # check if it ends with CATV & remove
         if len(val) > 4:
-            if val[-4:] == 'CATV':
+            if val.endswith('CATV'):
                 x_partner_name[idx+1] = val[:-4]
     for idx, val in enumerate(x_name):
         for jdx, jval in enumerate(x_partner_name):

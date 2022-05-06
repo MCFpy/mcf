@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from mcf import general_purpose as gp
 from mcf import general_purpose_estimation as gp_est
-from mcf import general_purpose_mcf as gp_mcf
+from mcf import mcf_general_purpose as mcf_gp
 
 
 def predict_hf(weights, data_file, y_data, cl_data, w_data, v_dict, c_dict,
@@ -63,7 +63,7 @@ def predict_hf(weights, data_file, y_data, cl_data, w_data, v_dict, c_dict,
         maxworkers = 1
     else:
         if c_dict['mp_automatic']:
-            maxworkers = gp_mcf.find_no_of_workers(c_dict['no_parallel'],
+            maxworkers = mcf_gp.find_no_of_workers(c_dict['no_parallel'],
                                                    c_dict['sys_share'])
         else:
             maxworkers = c_dict['no_parallel']
@@ -177,7 +177,7 @@ def pred_func1_for_mp(idx, weights_idx, cl_data, no_of_cluster, w_data, y_data,
         w_t = None
     w_i = w_i / np.sum(w_i)
     if c_dict['max_weight_share'] < 1:
-        w_i, _, share_i = gp_mcf.bound_norm_weights(
+        w_i, _, share_i = mcf_gp.bound_norm_weights(
             w_i, c_dict['max_weight_share'])
     if c_dict['cluster_std']:
         cl_i = np.copy(cl_data[w_index])

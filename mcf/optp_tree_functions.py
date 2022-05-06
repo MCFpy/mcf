@@ -11,70 +11,15 @@ Michael Lechner, SEW, University of St. Gallen, Switzerland
 import random
 import math
 from concurrent import futures
+
 import pandas as pd
 import numpy as np
 import ray
 import scipy.stats as sct
 from numba import njit
+
 from mcf import general_purpose as gp
-
-
-def combinations_categorical(single_x_np, ps_np_diff, c_dict, ft_yes=True):
-    """
-    Create all possible combinations of list elements, removing complements.
-
-    Parameters
-    ----------
-    single_x_np : 1D Numpy array. Features.
-    ps_np_diff : 2D Numpy array. Policy scores as difference.
-    c_dict : Dict. Controls.
-
-    Returns
-    -------
-    combinations : List of tuples with values for each split.
-
-    """
-    values = np.unique(single_x_np)
-    no_of_values = len(values)
-    no_of_combinations = gp.total_sample_splits_categorical(no_of_values)
-    if no_of_combinations < c_dict['ft_no_of_evalupoints']:
-        combinations = gp.all_combinations_no_complements(list(values))
-    else:
-        values_sorted, no_of_ps = get_values_ordered(
-            single_x_np, ps_np_diff, values, no_of_values,
-            with_numba=c_dict['with_numba'])
-        combinations_t = sorted_values_into_combinations(
-            values_sorted, no_of_ps, no_of_values)
-        if (len(combinations_t) > c_dict['ft_no_of_evalupoints']) and ft_yes:
-            combinations_t = random.sample(
-                combinations_t, c_dict['ft_no_of_evalupoints'])
-        combinations, _ = gp.drop_complements(combinations_t, list(values))
-    return combinations
-
-
-def sorted_values_into_combinations(values_sorted, no_of_ps, no_of_values):
-    """
-    Transfrom sorted values into unique combinations of values.
-
-    Parameters
-    ----------
-    values_sorted : 2D numpy array. Sorted values for each policy score
-    no_of_ps : Int. Number of policy scores.
-    no_of_values : Int. Number of values.
-
-    Returns
-    -------
-    unique_combinations : Unique Tuples to be used for sample splitting.
-
-    """
-    unique_combinations = []
-    value_idx = np.arange(no_of_values-1)
-    for j in range(no_of_ps):
-        for i in value_idx:
-            next_combi = tuple(values_sorted[value_idx[:i+1], j])
-            if next_combi not in unique_combinations:
-                unique_combinations.append(next_combi)
-    return unique_combinations
+from mcf import optp_tree_add_functions as optp_ta
 
 
 def get_values_ordered(single_x_np, ps_np_diff, values, no_of_values,
@@ -234,9 +179,8 @@ def get_values_cont_x_no_numba(data_vector, no_of_evalupoints):
     obs = len(data_vector)
     if no_of_evalupoints > (obs - 10):
         return data_vector
-    indices = np.linspace(obs / no_of_evalupoints, obs,
-                          no_of_evalupoints, endpoint=False)
-    indices = np.uint32(indices)
+    indices = np.uint32(np.linspace(obs / no_of_evalupoints, obs,
+                                    no_of_evalupoints, endpoint=False))
     return data_vector[indices]
 
 
@@ -270,22 +214,15 @@ def merge_trees(tree_l, tree_r, name_x_m, type_x_m, val_x, treedepth):
 
     """
     leaf = [None] * 9
-    leaf[0] = random.randrange(100000)
-    leaf[1] = None
-    leaf[5] = name_x_m
-    leaf[6] = type_x_m
-    leaf[7] = val_x
+    leaf[0], leaf[1] = random.randrange(100000), None
+    leaf[5], leaf[6], leaf[7] = name_x_m, type_x_m, val_x
     if treedepth == 2:  # Final split (defines 2 final leaves)
-        leaf[4] = 1
-        leaf[2] = leaf[3] = None
+        leaf[2], leaf[3], leaf[4] = None, None, 1
         leaf[8] = [tree_l, tree_r]  # For 1st tree --> treatment states
         new_tree = [leaf]
     else:
-        leaf[4] = 0
-        leaf[2] = tree_l[0][0]
-        leaf[3] = tree_r[0][0]
-        tree_l[0][1] = leaf[0]
-        tree_r[0][1] = leaf[0]
+        leaf[2], leaf[3], leaf[4] = tree_l[0][0], tree_r[0][0], 0
+        tree_l[0][1], tree_r[0][1] = leaf[0], leaf[0]
         new_tree = [None] * (1 + 2 * len(tree_l))
         new_tree[0] = leaf
         i = 1
@@ -340,8 +277,7 @@ def evaluate_leaf_numba(data_ps, no_of_treatments, max_by_treat, restricted,
     no_per_treat: Numpy 1D-array of int.
 
     """
-    obs_all = np.zeros(no_of_treatments)
-    obs = len(data_ps)
+    obs_all, obs = np.zeros(no_of_treatments), len(data_ps)
     indi = np.arange(no_of_treatments)
     if restricted:
         diff_obs = obs - max_by_treat
@@ -378,8 +314,7 @@ def evaluate_leaf_no_numba(data_ps, c_dict):
     no_per_treat: Numpy 1D-array of int.
 
     """
-    obs_all = np.zeros(c_dict['no_of_treatments'])
-    obs = len(data_ps)
+    obs_all, obs = np.zeros(c_dict['no_of_treatments']), len(data_ps)
     indi = np.arange(c_dict['no_of_treatments'])
     if c_dict['restricted']:
         diff_obs = obs - c_dict['max_by_treat']
@@ -451,7 +386,7 @@ def seq_tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
     """
     def add_leaves_to_tree(tree, best_treat_l, best_treat_r, best_name_x,
                            best_type_x, best_val_x, best_left, best_right,
-                           indices, level, final, min_leaf_size, parent_leaf):
+                           indices, level, final, parent_leaf):
         # Check if any split, if not remove last leaf
         if best_treat_l is None or best_treat_r is None:   # status --> final
             index_of_grandparent = index_from_leaf_id(tree, parent_leaf[1])
@@ -463,31 +398,20 @@ def seq_tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
             del tree[index_of_parent_l]
             del tree[index_of_parent_r]
             return tree
-        # Create and assign to left daughter
-        daughter_left = [None] * 12
+        # Create and assign to left & right daughter
+        daughter_left, daughter_right = [None] * 12, [None] * 12
         daughter_left[0] = random.randrange(100000)
-        daughter_left[1] = parent_leaf[0]
-        daughter_left[4] = 2
-        daughter_left[9] = level + 1
-        daughter_left[10] = indices[best_left]
-        daughter_left[11] = best_treat_l
-        # Create and assign to right daughter
-        daughter_right = [None] * 12
         daughter_right[0] = random.randrange(100000)
-        daughter_right[1] = parent_leaf[0]
-        daughter_right[4] = 2
-        daughter_right[9] = level + 1
+        daughter_left[1], daughter_right[1] = parent_leaf[0], parent_leaf[0]
+        daughter_left[4], daughter_right[4] = 2, 2
+        daughter_left[9], daughter_right[9] = level + 1, level + 1
+        daughter_left[10] = indices[best_left]
         daughter_right[10] = indices[best_right]
-        daughter_right[11] = best_treat_r
+        daughter_left[11],  daughter_right[11] = best_treat_l, best_treat_r
         # Change values in parent leaf
-        parent_leaf[2] = daughter_left[0]
-        parent_leaf[3] = daughter_right[0]
-        if final:
-            parent_leaf[4] = 1
-        else:
-            parent_leaf[4] = 0
-        parent_leaf[5] = best_name_x
-        parent_leaf[6] = best_type_x
+        parent_leaf[2], parent_leaf[3] = daughter_left[0], daughter_right[0]
+        parent_leaf[4] = 1 if final else 0
+        parent_leaf[5], parent_leaf[6] = best_name_x, best_type_x
         parent_leaf[7] = best_val_x
         parent_leaf[8] = [best_treat_l, best_treat_r]
         # Exchange the parent leaf in the tree
@@ -505,22 +429,15 @@ def seq_tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
         raise Exception('Leaf_id not found in tree.')
 
     def list_of_leaves_f(level, tree):
-        list_of_leaves = []
-        for leaf in tree:
-            if leaf[9] == level and leaf[4] == 2:  # active leaves
-                list_of_leaves.append(leaf)
-        if not list_of_leaves:
-            print('Level: ', level)
-            raise Exception('No leaves to investigate')
+        list_of_leaves = [leaf for leaf in tree if (leaf[9] == level
+                                                    and leaf[4] == 2)]
+        assert list_of_leaves, f'Level: {level}. No leaves to investigate.'
         return list_of_leaves
 
     def initiale_node_table(obs):
         leaf = [None] * 12
         leaf[0] = random.randrange(100000)
-        leaf[1] = None
-        leaf[4] = 2
-        leaf[9] = 0
-        leaf[10] = np.arange(obs)
+        leaf[1], leaf[4], leaf[9], leaf[10] = None, 2, 0, np.arange(obs)
         return [leaf]
 
     def get_leaf_data(data_x, data_ps_diff, data_ps, current_leaf):
@@ -528,8 +445,7 @@ def seq_tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
         return (data_x[indices_l], data_ps_diff[indices_l], data_ps[indices_l],
                 current_leaf[10])
 
-    tree = initiale_node_table(len(data_ps))
-    no_of_x = len(type_x)
+    tree, no_of_x = initiale_node_table(len(data_ps)), len(type_x)
     for level in range(c_dict['st_depth']):
         min_leaf_size = c_dict['st_min_leaf_size'] * 2**(
             c_dict['st_depth'] - level)
@@ -550,7 +466,7 @@ def seq_tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
                 elif type_x[m_i] == 'disc':
                     values_x_to_check = values_x[m_i][:]
                 else:
-                    values_x_to_check = combinations_categorical(
+                    values_x_to_check = optp_ta.combinations_categorical(
                             data_x_leaf[:, m_i], data_ps_diff_leaf, c_dict)
                 for val_x in values_x_to_check:
                     if type_x[m_i] == 'unord':
@@ -569,17 +485,14 @@ def seq_tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
                     if reward_r + reward_l > reward:
                         reward = reward_l + reward_r
                         no_by_treat = no_by_treat_l + no_by_treat_r
-                        best_treat_l = treat_l
-                        best_treat_r = treat_r
-                        best_left = left.copy()
-                        best_right = right.copy()
-                        best_name_x = name_x[m_i]
-                        best_type_x = type_x[m_i]
+                        best_treat_l, best_treat_r = treat_l, treat_r
+                        best_left,  best_right = left.copy(), right.copy()
+                        best_name_x, best_type_x = name_x[m_i], type_x[m_i]
                         best_val_x = val_x
             tree = add_leaves_to_tree(
                 tree, best_treat_l, best_treat_r, best_name_x, best_type_x,
                 best_val_x, best_left, best_right, indices_leaf, level, final,
-                min_leaf_size, parent_leaf)
+                parent_leaf)
     return tree, reward, no_by_treat
 
 
@@ -616,15 +529,13 @@ def tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
         if not no_further_splits and (treedepth < c_dict['ft_depth']):
             no_further_splits = only_1st_tree_fct3(data_ps, c_dict)
         min_leaf_size = c_dict['ft_min_leaf_size'] * 2**(treedepth - 2)
-        no_of_x = len(type_x)
-        reward = -math.inf  # minus infinity
+        no_of_x, reward = len(type_x), -math.inf
         tree = no_by_treat = None
         for m_i in range(no_of_x):
             if c_dict['with_output']:
                 if treedepth == c_dict['ft_depth']:
-                    print('{:20s} '.format(name_x[m_i]),
-                          '{:4.1f}%'.format(m_i / no_of_x * 100),
-                          'of variables completed')
+                    print(f'{name_x[m_i]:20s}  {m_i / no_of_x * 100:4.1f}%',
+                          ' of variables completed')
             if type_x[m_i] == 'cont':
                 values_x_to_check = get_values_cont_x(
                     data_x[:, m_i], c_dict['ft_no_of_evalupoints'],
@@ -633,7 +544,7 @@ def tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
                 values_x_to_check = values_x[m_i][:]
             else:
                 if treedepth < c_dict['ft_depth']:
-                    values_x_to_check = combinations_categorical(
+                    values_x_to_check = optp_ta.combinations_categorical(
                         data_x[:, m_i], data_ps_diff, c_dict)
                 else:
                     values_x_to_check = values_x[m_i][:]
@@ -737,11 +648,8 @@ def tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x, type_x,
     no_by_treat : List of int. Number of treated by treatment state (0-...)
 
     """
-    if treedepth == 1:  # Evaluate tree
-        raise Exception('This should not happen in Multiprocessing.')
-    reward = -math.inf  # minus infinity
-    tree = None
-    no_by_treat = None
+    assert treedepth != 1, 'This should not happen in Multiprocessing.'
+    reward, tree, no_by_treat = -math.inf, None, None
     if type_x[m_i] == 'cont':
         values_x_to_check = get_values_cont_x(
             data_x[:, m_i], c_dict['ft_no_of_evalupoints'],
@@ -750,7 +658,7 @@ def tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x, type_x,
         values_x_to_check = values_x[m_i][:]
     else:
         if treedepth < c_dict['ft_depth']:
-            values_x_to_check = combinations_categorical(
+            values_x_to_check = optp_ta.combinations_categorical(
                 data_x[:, m_i], data_ps_diff, c_dict)
         else:
             values_x_to_check = values_x[m_i][:]
@@ -829,12 +737,11 @@ def adjust_reward_numba(no_by_treat_l, no_by_treat_r, reward_l, reward_r,
 
     """
     if not ((no_by_treat_l is None) or (no_by_treat_r is None)):
-        violations = (no_by_treat_l + no_by_treat_r) > max_by_treat
+        no_by_treat = no_by_treat_l + no_by_treat_r
+        violations = no_by_treat > max_by_treat
         if np.any(violations):
-            diff = (no_by_treat_l + no_by_treat_r - max_by_treat)
-            diff = diff / max_by_treat
-            diff = diff.max()
-            diff = min(diff, 1)
+            diff_max = ((no_by_treat - max_by_treat) / max_by_treat).max()
+            diff = min(diff_max, 1)
             reward_l = reward_l - diff * np.abs(reward_l)
             reward_r = reward_r - diff * np.abs(reward_r)
     return reward_l, reward_r
@@ -860,11 +767,10 @@ def adjust_reward_no_numba(no_by_treat_l, no_by_treat_r, reward_l, reward_r,
     """
     if (no_by_treat_l is None) or (no_by_treat_r is None):
         return reward_l, reward_r
-    if np.any(no_by_treat_l + no_by_treat_r > max_by_treat):
-        diff = (no_by_treat_l + no_by_treat_r - max_by_treat)
-        diff = diff / max_by_treat
-        diff = diff.max()
-        diff = min(diff, 1)
+    no_by_treat = no_by_treat_l + no_by_treat_r
+    if np.any(no_by_treat > max_by_treat):
+        diff_max = ((no_by_treat - max_by_treat) / max_by_treat).max()
+        diff = min(diff_max, 1)
         reward_l = reward_l - diff * np.abs(reward_l)
         reward_r = reward_r - diff * np.abs(reward_r)
     return reward_l, reward_r
@@ -899,39 +805,8 @@ def adjust_policy_score(datafile_name, c_dict, v_dict):
                 no_of_recoded += 1
     if c_dict['with_output']:
         print()
-        print('{:5d} policy scores recoded'.format(no_of_recoded))
+        print(f'{no_of_recoded:5d} policy scores recoded')
     return data_ps, data_df
-
-
-def prepare_data_for_tree_builddata(datafile_name, c_dict, v_dict, x_type,
-                                    x_value):
-    """Prepare data for tree building."""
-    if c_dict['only_if_sig_better_vs_0']:
-        data_ps, data_df = adjust_policy_score(datafile_name, c_dict, v_dict)
-    else:
-        data_df = pd.read_csv(datafile_name)
-        data_ps = data_df[v_dict['polscore_name']].to_numpy()
-    data_ps_diff = data_ps[:, 1:] - data_ps[:, 0, np.newaxis]
-    no_of_x = len(x_type)
-    name_x = [None] * no_of_x
-    type_x = [None] * no_of_x
-    values_x = [None] * no_of_x
-    for j, key in enumerate(x_type.keys()):
-        name_x[j] = key
-        type_x[j] = x_type[key]
-        if x_value[key] is not None:
-            values_x[j] = sorted(x_value[key])
-        else:
-            values_x[j] = None
-    data_x = data_df[name_x].to_numpy()
-    del data_df
-    if c_dict['x_unord_flag']:
-        for m_i in range(no_of_x):
-            if type_x[m_i] == 'unord':
-                data_x[:, m_i] = np.round(data_x[:, m_i])
-                values_x[m_i] = combinations_categorical(
-                    data_x[:, m_i], data_ps_diff, c_dict)
-    return data_x, data_ps, data_ps_diff, name_x, type_x, values_x
 
 
 def sequential_tree_proc(datafile_name, x_type, x_value, v_dict, c_dict):
@@ -958,8 +833,8 @@ def sequential_tree_proc(datafile_name, x_type, x_value, v_dict, c_dict):
         print('Building sequential policy / decision tree')
         print('No multiprocessing for sequential tree building (not yet).')
     (data_x, data_ps, data_ps_diff, name_x, type_x, values_x
-     ) = prepare_data_for_tree_builddata(datafile_name, c_dict, v_dict, x_type,
-                                         x_value)
+     ) = optp_ta.prepare_data_for_tree_builddata(datafile_name, c_dict, v_dict,
+                                                 x_type, x_value)
     seq_tree, seq_reward, obs_total = seq_tree_search(
         data_ps, data_ps_diff, data_x, name_x, type_x, values_x, c_dict)
     return seq_tree, seq_reward, obs_total
@@ -986,12 +861,11 @@ def optimal_tree_proc(datafile_name, x_type, x_value, v_dict, c_dict):
 
     """
     if c_dict['with_output']:
-        print('Building optimal policy / decision tree')
+        print('\nBuilding optimal policy / decision tree')
     (data_x, data_ps, data_ps_diff, name_x, type_x, values_x
-     ) = prepare_data_for_tree_builddata(datafile_name, c_dict, v_dict, x_type,
-                                         x_value)
-    optimal_tree = None
-    x_trees = []
+     ) = optp_ta. prepare_data_for_tree_builddata(datafile_name, c_dict,
+                                                  v_dict, x_type, x_value)
+    optimal_tree, x_trees = None, []
     if c_dict['parallel']:
         maxworkers = c_dict['no_parallel']
         if c_dict['mp_with_ray']:
@@ -1004,8 +878,7 @@ def optimal_tree_proc(datafile_name, x_type, x_value, v_dict, c_dict):
                 data_ps_ref, data_ps_diff_ref, data_x_ref, name_x, type_x,
                 values_x, c_dict, c_dict['ft_depth'], m_i)
                 for m_i in range(len(type_x))]
-            idx = 0
-            x_trees = [None] * len(type_x)
+            idx, x_trees = 0, [None] * len(type_x)
             while len(still_running) > 0:
                 finished, still_running = ray.wait(still_running)
                 finished_res = ray.get(finished)
@@ -1030,8 +903,7 @@ def optimal_tree_proc(datafile_name, x_type, x_value, v_dict, c_dict):
             optimal_reward[idx] = tree[1]
         max_i = np.argmax(optimal_reward)
         optimal_reward = optimal_reward[max_i]
-        optimal_tree = x_trees[max_i][0]
-        obs_total = x_trees[max_i][2]
+        optimal_tree, obs_total = x_trees[max_i][0], x_trees[max_i][2]
     else:
         optimal_tree, optimal_reward, obs_total = tree_search(
             data_ps, data_ps_diff, data_x, name_x, type_x, values_x, c_dict,
@@ -1047,31 +919,23 @@ def ray_tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x,
                                      type_x, values_x, c_dict, treedepth, m_i)
 
 
-def structure_of_node_tabl_poltree():
-    """Info about content of NODE_TABLE.
+def final_leaf_dict(leaf, left_right):
+    """Generate a dictionary used in evaluating the policy tree.
+
+    Parameters
+    ----------
+    leaf : List.
+    left_right : string.
 
     Returns
     -------
-    decription : STR. Information on node table with inital node.
+    return_dic :dict.
 
     """
-    description = """Trees are fully saved in Node_Table (list of lists)
-    Structure des Node_table
-      - Each knot is one list that contains further lists
-    This is the position and information for a given node
-    The following items will be filled in the first sample
-    0: Node identifier (INT: 0-...)
-    1: Parent knot
-    2: Child node left
-    3: Child node right
-    4: Type of node (2: Active -> will be further splitted or made terminal
-                    1: Terminal node, no further splits
-                    0: previous node that lead already to further splits)
-    5: String: Name of variable used for decision of next split
-    6: x_type of variable (policy categorisation, maybe different from MCF)
-    7: If x_type = 'unordered': Set of values that goes to left daughter
-    8: If x_type = 0: Cut-off value (larger goes to right daughter,
-                                    equal and smaller to left daughter)
-
-    """
-    print("\n", description)
+    if leaf[5] is None or leaf[6] is None or leaf[7] is None or (
+            left_right is None):
+        print(leaf)
+        raise Exception('No valid entries in final leaf.')
+    return_dic = {'x_name': leaf[5], 'x_type': leaf[6],
+                  'cut-off or set': leaf[7], 'left or right': left_right}
+    return return_dic

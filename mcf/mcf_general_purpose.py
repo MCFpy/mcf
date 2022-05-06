@@ -8,11 +8,38 @@ Created on Thu Apr  2 17:55:24 2020
 @author: MLechner
 """
 import math
+
 import scipy.stats as sct
 import pandas as pd
 import numpy as np
 import psutil
+
 from mcf import general_purpose_system_files as mcf_sys
+
+
+def stars(pval):
+    """Create string with stars for p-values."""
+    if pval < 0.001:
+        return '****'
+    if pval < 0.01:
+        return ' ***'
+    if pval < 0.05:
+        return '  **'
+    if pval < 0.1:
+        return '   *'
+    return '    '
+
+
+def find_precision(values):
+    """Find precision so that all values can be differentiated in printing."""
+    len_v = len(values)
+    precision = 10
+    for prec in range(10):
+        rounded = np.around(values, decimals=prec)
+        if len(set(rounded)) == len_v:  # all unique
+            precision = prec + 2
+            break
+    return precision
 
 
 def print_effect_z(g_r, gm_r, z_values, gate_str):
@@ -37,42 +64,21 @@ def print_effect_z(g_r, gm_r, z_values, gate_str):
     print('- ' * 40)
     print('                   ', gate_str,
           '                                ', gate_str, '- ATE')
-    print('Comparison   Z       Est        SE    t-val   p-val        Est',
-          '       SE    t-val  p-val')
+    print('Comparison       Z      Est         SE    t-val   p-val          ',
+          'Est        SE    t-val  p-val')
     print('- ' * 40)
+    prec = find_precision(z_values)
     for j in range(no_of_effect_per_z):
         for zind, z_val in enumerate(z_values):
-            print('{:<3} vs {:>3}'.format(g_r[zind][4][j][0],
-                                          g_r[zind][4][j][1]), end=' ')
-            print('{:>5.1f}'.format(z_val), end=' ')
-            print('{:>8.5f}  {:>8.5f}'.format(g_r[zind][0][j],
-                                              g_r[zind][1][j]), end=' ')
-            print('{:>5.2f}  {:>5.2f}%'.format(g_r[zind][2][j],
-                                               g_r[zind][3][j]*100), end=' ')
-            if g_r[zind][3][j] < 0.001:
-                print('****', end=' ')
-            elif g_r[zind][3][j] < 0.01:
-                print(' ***', end=' ')
-            elif g_r[zind][3][j] < 0.05:
-                print('  **', end=' ')
-            elif g_r[zind][3][j] < 0.1:
-                print('   *', end=' ')
-            else:
-                print('    ', end=' ')
-            print('{:>8.5f}  {:>8.5f}'.format(gm_r[zind][0][j],
-                                              gm_r[zind][1][j]), end=' ')
-            print('{:>5.2f}  {:>5.2f}%'.format(gm_r[zind][2][j],
-                                               gm_r[zind][3][j]*100), end=' ')
-            if gm_r[zind][3][j] < 0.001:
-                print('****')
-            elif gm_r[zind][3][j] < 0.01:
-                print(' ***')
-            elif gm_r[zind][3][j] < 0.05:
-                print('  **')
-            elif gm_r[zind][3][j] < 0.1:
-                print('   *')
-            else:
-                print(' ')
+            treat_s = f'{g_r[zind][4][j][0]:<3} vs {g_r[zind][4][j][1]:>3}'
+            val_s = f'{z_val:>7.{prec}f}'
+            estse_s = f'{g_r[zind][0][j]:>9.5f}  {g_r[zind][1][j]:>9.5f}'
+            t_p_s = f'{g_r[zind][2][j]:>5.2f}  {g_r[zind][3][j]:>5.2%}'
+            s_s = stars(g_r[zind][3][j])
+            estsem_s = f'{gm_r[zind][0][j]:>9.5f}  {gm_r[zind][1][j]:>9.5f}'
+            tm_p_s = f'{gm_r[zind][2][j]:>5.2f}  {gm_r[zind][3][j]:>5.2%}'
+            sm_s = stars(gm_r[zind][3][j])
+            print(treat_s, val_s, estse_s, t_p_s, s_s, estsem_s, tm_p_s, sm_s)
         if j < no_of_effect_per_z-1:
             print('- ' * 40)
     print('-' * 80)
@@ -80,13 +86,17 @@ def print_effect_z(g_r, gm_r, z_values, gate_str):
     print('-' * 80)
 
 
-def effect_from_potential(pot_y, pot_y_var, d_values, se_yes=True):
+def effect_from_potential(pot_y, pot_y_var, d_values,
+                          se_yes=True, continuous=False):
     """Compute effects and stats from potential outcomes.
 
     Parameters
     ----------
     pot_y_ao : Numpy array. Potential outcomes.
     pot_y_var_ao : Numpy array. Variance of potential outcomes.
+    d_values : List. Treatment values.
+    se_yes : Bool. Compuite standard errors. Default is True.
+    continuous: Bool. Continuous treatment. Default is False.
 
     Returns
     -------
@@ -96,10 +106,11 @@ def effect_from_potential(pot_y, pot_y_var, d_values, se_yes=True):
     p_val : Numpy array.
 
     """
-    no_of_comparisons = round(len(d_values) * (len(d_values) - 1) / 2)
+    no_of_comparisons = (len(d_values) - 1 if continuous
+                         else round(len(d_values) * (len(d_values) - 1) / 2))
     est = np.empty(no_of_comparisons)
     if se_yes:
-        stderr = np.empty(no_of_comparisons)
+        stderr = np.empty_like(est)
     comparison = [None] * no_of_comparisons
     j = 0
     for idx, treat1 in enumerate(d_values):
@@ -110,7 +121,9 @@ def effect_from_potential(pot_y, pot_y_var, d_values, se_yes=True):
             if se_yes:
                 stderr[j] = np.sqrt(pot_y_var[jnd] + pot_y_var[idx])
             comparison[j] = [treat2, treat1]
-            j = j + 1
+            j += 1
+        if continuous:
+            break
     if se_yes:
         t_val = np.abs(est / stderr)
         p_val = sct.t.sf(t_val, 1000000) * 2
@@ -119,7 +132,7 @@ def effect_from_potential(pot_y, pot_y_var, d_values, se_yes=True):
     return est, stderr, t_val, p_val, comparison
 
 
-def statistics_by_treatment(indatei, treat_name, var_name):
+def statistics_by_treatment(indatei, treat_name, var_name, only_next=False):
     """Descriptive statistics by treatment status.
 
     Parameters
@@ -127,6 +140,7 @@ def statistics_by_treatment(indatei, treat_name, var_name):
     indatei : String. Input data
     treat_name : String. Name of treatment
     var_name : List of strings. Name of variables to describe
+    only_next: Bool. Compare only subsequent treatment pairs
 
     No Returns
     """
@@ -139,8 +153,7 @@ def statistics_by_treatment(indatei, treat_name, var_name):
     count2 = data[treat_name+[var_name[0]]].groupby(treat_name).count()
     pd.set_option('display.max_rows', len(data.columns),
                   'display.max_columns', 10)
-    print()
-    print('Number of observations:')
+    print('\nNumber of observations:')
     print(count2.transpose())
     print('\nMean')
     print(mean.transpose())
@@ -148,22 +161,23 @@ def statistics_by_treatment(indatei, treat_name, var_name):
     print(data.groupby(treat_name).median().transpose())
     print('\nStandard deviation')
     print(std.transpose())
-    balancing_tests(mean, std, count)
+    balancing_tests(mean, std, count, only_next)
 
 
-def balancing_tests(mean, std, count):
+def balancing_tests(mean, std, count, only_next=False):
     """Compute balancing tests.
 
     Parameters
     ----------
     mean : Dataframe: Means by treatment groups.
     std : Dataframe: Standard deviation by treatment groups.
+    count: Dataframe: obs in treatment
+    only_next: Bool. Compare only subsequent treatment pairs
 
     No Returns.
 
     """
     std = std.replace(to_replace=0, value=-1)
-    # no_of_treat = mean.shape[0]
     value_of_treat = list(reversed(mean.index))
     value_of_treat2 = value_of_treat[:]
     for i in value_of_treat:
@@ -175,21 +189,18 @@ def balancing_tests(mean, std, count):
                                    + (std.loc[j, :]**2) / count.loc[j])
                 t_diff = mean_diff.div(std_diff).abs()
                 p_diff = 2 * sct.norm.sf(t_diff) * 100
-                stand_diff = (mean_diff / np.sqrt((std.loc[i, :]**2 +
-                                                   std.loc[j, :]**2) / 2) *
-                              100)
+                stand_diff = (mean_diff / np.sqrt(
+                    (std.loc[i, :]**2 + std.loc[j, :]**2) / 2) * 100)
                 stand_diff.abs()
-                print('\nComparing treatments {0:>2}'.format(i),
-                      'and {0:>2}'.format(j))
+                print(f'\nComparing treatments {i:>2} and {j:>2}')
                 print('Variable                          Mean       Std',
                       '        t-val   p-val (%) Stand.Difference (%)')
                 for jdx, _ in enumerate(mean_diff):
-                    print('{:30}'.format(mean_diff.index[jdx]),
-                          '{:10.5f}'.format(mean_diff[jdx]),
-                          '{:10.5f}'.format(std_diff[jdx]),
-                          '{:9.2f}'.format(t_diff[jdx]),
-                          '{:9.2f}'.format(p_diff[jdx]),
-                          '{:9.2f}'.format(stand_diff[jdx]))
+                    print(f'{mean_diff.index[jdx]:30} {mean_diff[jdx]:10.5f}',
+                          f'{std_diff[jdx]:10.5f} {t_diff[jdx]:9.2f}',
+                          f'{p_diff[jdx]:9.2f} {stand_diff[jdx]:9.2f}')
+                if only_next:
+                    break
 
 
 def print_size_weight_matrix(weights, weight_as_sparse, no_of_treat):
@@ -247,11 +258,10 @@ def no_of_boot_splits_fct(size_of_object_mb, workers, with_output=True):
     if with_output:
         print()
         print('Automatic determination of tree batches')
-        print('Size of object:   {:6} MB '.format(round(size_of_object_mb, 2)),
-              'Available RAM: {:6} MB '.format(available),
-              'Number of workers {:2} '.format(workers),
-              'No of splits: {:2} '.format(no_of_splits),
-              'Size of chunk:  {:6} MB '.format(round(chunck_size_mb, 2)))
+        print(f'Size of object:   {round(size_of_object_mb, 2):6} MB ',
+              f'Available RAM: {available:6} MB ',
+              f'Number of workers {workers:2} No of splits: {no_of_splits:2} ',
+              f'Size of chunk:  {round(chunck_size_mb, 2):6} MB ')
         mcf_sys.memory_statistics()
     return no_of_splits
 

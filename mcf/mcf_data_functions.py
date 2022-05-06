@@ -12,7 +12,7 @@ import pandas as pd
 import ray
 from mcf import general_purpose as gp
 from mcf import general_purpose_estimation as gp_est
-from mcf import general_purpose_mcf as gp_mcf
+from mcf import mcf_general_purpose as mcf_gp
 
 
 def variable_features(var_x_type, var_x_values):
@@ -34,13 +34,13 @@ def variable_features(var_x_type, var_x_values):
     print('Features used to build causal forests')
     print(80 * '-')
     for name in var_x_type.keys():
-        print('{:20} '.format(name), end=' ')
+        print(f'{name:20} ', end=' ')
         if var_x_type[name] == 0:
             print('Ordered   ', end='')
             if var_x_values[name]:
                 if isinstance(var_x_values[name][0], float):
                     for val in var_x_values[name]:
-                        print('{:>6.2f}'.format(val), end=' ')
+                        print(f'{val:>6.2f}', end=' ')
                     print(' ')
                 else:
                     print(var_x_values[name])
@@ -62,6 +62,8 @@ def prepare_data_for_forest(indatei, v_dict, v_x_type, v_x_values, c_dict,
     v_x_type : List. Type of variables.
     v_x_values : List. Values of variables (if not continuous).
     c_dict : DICT. Parameters.
+    no_y_nn : Bool.
+    regrf : Bool.
 
     Returns
     -------
@@ -90,64 +92,67 @@ def prepare_data_for_forest(indatei, v_dict, v_x_type, v_x_values, c_dict,
     p_x = len(x_name)     # Number of variables
     c_dict = m_n_grid(c_dict, p_x)  # Grid for # of var's used for split
     x_ind = np.array(range(p_x))    # Indices instead of names of variable
-    x_ai_ind = []                 # Indices of variables used for all splits
+    # x_ai_ind = []                 # Indices of variables used for all splits
     if not v_dict['x_name_always_in'] == []:
-        always_in_set = set(v_dict['x_name_always_in'])
-        x_ai_ind = np.empty(len(always_in_set), dtype=np.uint32)
-        j = 0
-        for i in range(p_x):
-            if x_name[i] in always_in_set:
-                x_ai_ind[j] = i
-                j = j + 1
+        # always_in_set = set(v_dict['x_name_always_in'])
+        # x_ai_ind = np.empty(len(always_in_set), dtype=np.uint32)
+        # j = 0
+        # for i in range(p_x):
+        #     if x_name[i] in always_in_set:
+        #         x_ai_ind[j] = i
+        #         j += 1
+        x_ai_ind = np.array(
+            [i for i in range(p_x) if x_name[i] in v_dict['x_name_always_in']])
+    else:
+        x_ai_ind = []              # Indices of variables used for all splits
     data = pd.read_csv(indatei)
     y_dat = data[v_dict['y_tree_name']].to_numpy()
     if not regrf:
-        if (c_dict['mtot'] == 1) or (c_dict['mtot'] == 4):
+        if c_dict['mtot'] in (1, 4):
             pen_mult = c_dict['mtot_p_diff_penalty'] * np.var(y_dat)
     y_i = [0]
     if regrf:
-        d_dat = None
-        d_i = None
+        d_dat = d_i = None
     else:
-        d_dat = data[v_dict['d_name']].to_numpy()
-        d_i = [1]
+        d_dat, d_i = data[v_dict['d_name']].to_numpy(), [1]
     if regrf:
-        y_nn = None
-        y_nn_i = None
+        y_nn = y_nn_i = None
     else:
-        if no_y_nn:
-            # y_nn = np.zeros((np.size(d), len(v['y_match_name'])))
-            y_nn = np.zeros((len(d_dat), len(v_dict['y_match_name'])))
-        else:
-            y_nn = data[v_dict['y_match_name']].to_numpy()
-        y_nn_i = range(2, 2 + len(v_dict['y_match_name']))
-        y_nn_i = np.array(y_nn_i)
+        y_nn = (np.zeros((len(d_dat), len(v_dict['y_match_name'])))
+                if no_y_nn else data[v_dict['y_match_name']].to_numpy())
+        y_nn_i = np.arange(2, 2 + len(v_dict['y_match_name']))
     x_dat = data[x_name].to_numpy()
     for col_indx in range(np.shape(x_dat)[1]):
         if x_type[col_indx] > 0:
             x_dat[:, col_indx] = np.around(x_dat[:, col_indx])
     if regrf:
-        x_i = np.array(range(1, 1+len(v_dict['x_name'])))
+        x_i = np.arange(1, 1+len(v_dict['x_name']))
         data_np = np.concatenate((y_dat, x_dat), axis=1)  # easier handling
     else:
-        x_i = np.array(
-            range(2 + len(v_dict['y_match_name']),
-                  2 + len(v_dict['y_match_name']) + len(v_dict['x_name'])))
+        x_i = np.arange(
+            2 + len(v_dict['y_match_name']),
+            2 + len(v_dict['y_match_name']) + len(v_dict['x_name']))
         data_np = np.concatenate((y_dat, d_dat, y_nn, x_dat), axis=1)
     if c_dict['w_yes']:
         w_dat = data[v_dict['w_name']].to_numpy()
         data_np = np.concatenate((data_np, w_dat), axis=1)
-        w_i = data_np.shape[1]-1
+        w_i = data_np.shape[1] - 1
     else:
-        w_i = 0
+        w_i = None
     if c_dict['panel_in_rf']:
         cl_dat = data[v_dict['cluster_name']].to_numpy()
         data_np = np.concatenate((data_np, cl_dat), axis=1)
-        cl_i = data_np.shape[1]-1
+        cl_i = data_np.shape[1] - 1
     else:
-        cl_i = 0
+        cl_i = None
+    if c_dict['d_type'] == 'continuous':
+        d_grid_dat = data[v_dict['d_grid_nn_name']].to_numpy()
+        data_np = np.concatenate((data_np, d_grid_dat), axis=1)
+        d_grid_i = data_np.shape[1] - 1
+    else:
+        d_grid_i = None
     return (x_name, x_type, x_values, c_dict, pen_mult, data_np,
-            y_i, y_nn_i, x_i, x_ind, x_ai_ind, d_i, w_i, cl_i)
+            y_i, y_nn_i, x_i, x_ind, x_ai_ind, d_i, w_i, cl_i, d_grid_i)
 
 
 def m_n_grid(c_dict, no_vars):
@@ -296,21 +301,28 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
         x_df = x_dummies
     x_dat = x_df.to_numpy()
     y_dat = data[v_dict['y_tree_name']].to_numpy()
-    d_dat = data[v_dict['d_name']].to_numpy()
+    if c_dict['d_type'] == 'continuous':
+        d_name = v_dict['d_grid_nn_name']
+        d_values = c_dict['ct_grid_nn_val']
+    else:
+        d_name = v_dict['d_name']
+        d_values = c_dict['d_values']
+    no_of_treat = len(d_values)
+    d_dat = data[d_name].to_numpy()
     obs = len(x_dat)                        # Reduce x_dat to prognostic scores
     if (c_dict['match_nn_prog_score']
         and ((c_dict['mtot'] == 1) or (c_dict['mtot'] == 4))
-            and (len(x_df.columns) >= 2 * c_dict['no_of_treat'])):
+            and (len(x_df.columns) >= 2 * no_of_treat)):
         if c_dict['with_output'] and c_dict['verbose']:
             print('Computing prognostic score for matching')
         c_dict['nn_main_diag_only'] = False   # Use full Mahalanobis matrix
-        x_dat_neu = np.empty((obs, c_dict['no_of_treat']))
-        for midx, d_val in enumerate(c_dict['d_values']):
+        x_dat_neu = np.empty((obs, no_of_treat))
+        for midx, d_val in enumerate(d_values):
             d_m = d_dat == d_val
             d_m = d_m.reshape(len(d_m))
             x_dat_m = x_dat[d_m, :].copy()
             y_dat_m = y_dat[d_m].copy()
-            ret_rf = gp_est.RandomForest_scikit(
+            ret_rf = gp_est.random_forest_scikit(
                 x_dat_m, y_dat_m, x_dat, boot=c_dict['boot'],
                 n_min=c_dict['grid_n_min'],
                 pred_p_flag=True, pred_t_flag=False,
@@ -321,12 +333,12 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
         x_dat = x_dat_neu
     if (c_dict['match_nn_prog_score']
         and ((c_dict['mtot'] == 1) or (c_dict['mtot'] == 4))
-            and (len(x_df.columns) < 2 * c_dict['no_of_treat'])):
+            and (len(x_df.columns) < 2 * no_of_treat)):
         if c_dict['with_output'] and c_dict['verbose']:
             print('Prognostic scores not used for matching',
                   ' (too few covariates')
     if (c_dict['mtot'] == 1) or (c_dict['mtot'] == 4):
-        y_match = np.empty((obs, c_dict['no_of_treat']))
+        y_match = np.empty((obs, no_of_treat))
         # determine distance metric of Mahalanobis matching
         k = np.shape(x_dat)
         if k[1] > 1:
@@ -353,28 +365,27 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
             maxworkers = 1
         else:
             if c_dict['mp_automatic']:
-                maxworkers = gp_mcf.find_no_of_workers(c_dict['no_parallel'],
+                maxworkers = mcf_gp.find_no_of_workers(c_dict['no_parallel'],
                                                        c_dict['sys_share'])
             else:
                 maxworkers = c_dict['no_parallel']
         if c_dict['with_output'] and c_dict['verbose']:
             print('Number of parallel processes: ', maxworkers)
         if maxworkers == 1:
-            for i_treat, i_value in enumerate(c_dict['d_values']):
+            for i_treat, i_value in enumerate(d_values):
                 y_match[:, i_treat] = nn_neighbour_mcf2(
                     y_dat, x_dat, d_dat, obs, cov_x_inv, i_value)
         else:
             if c_dict['_mp_ray_shutdown']:  # Later on more workers needed
-                if maxworkers > math.ceil(c_dict['no_of_treat']/2):
-                    maxworkers = math.ceil(c_dict['no_of_treat']/2)
+                if maxworkers > math.ceil(no_of_treat/2):
+                    maxworkers = math.ceil(no_of_treat/2)
             if c_dict['mp_with_ray']:
                 if not ray.is_initialized():
                     ray.init(num_cpus=maxworkers, include_dashboard=False)
                 x_dat_ref = ray.put(x_dat)
                 still_running = [ray_nn_neighbour_mcf2.remote(
-                    y_dat, x_dat_ref, d_dat, obs, cov_x_inv,
-                    c_dict['d_values'][idx], idx)
-                    for idx in range(c_dict['no_of_treat'])]
+                    y_dat, x_dat_ref, d_dat, obs, cov_x_inv, d_values[idx],
+                    idx) for idx in range(no_of_treat)]
                 while len(still_running) > 0:
                     finished, still_running = ray.wait(still_running)
                     finished_res = ray.get(finished)
@@ -382,8 +393,6 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
                         y_match[:, res[1]] = res[0]
                 if 'refs' in c_dict['_mp_ray_del']:
                     del x_dat_ref
-                # if 'remote' in c_dict['_mp_ray_del']:
-                #     del tasks
                 if 'rest' in c_dict['_mp_ray_del']:
                     del finished_res, finished
                 if c_dict['_mp_ray_shutdown']:
@@ -393,16 +402,16 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
                                                  ) as fpp:
                     ret_fut = {fpp.submit(
                         nn_neighbour_mcf2, y_dat, x_dat, d_dat, obs, cov_x_inv,
-                        c_dict['d_values'][idx], idx):
-                        idx for idx in range(c_dict['no_of_treat'])}
+                        d_values[idx], idx):
+                        idx for idx in range(no_of_treat)}
                     for fut in futures.as_completed(ret_fut):
                         results_fut = fut.result()
                         y_match[:, results_fut[1]] = results_fut[0]
     else:
-        y_match = np.zeros((obs, c_dict['no_of_treat']))
-    treat_val_str = [str(i) for i in c_dict['d_values']]
+        y_match = np.zeros((obs, no_of_treat))
+    treat_val_str = [str(i) for i in d_values]
     y_match_name = []
-    for i in range(c_dict['no_of_treat']):
+    for i in range(no_of_treat):
         y_match_name.append(v_dict['y_tree_name'][0] + "_NN"
                             + treat_val_str[i])
     v_dict.update({'y_match_name': y_match_name})
@@ -506,14 +515,24 @@ def create_xz_variables(
                   'estimation.')
             print('-' * 80)
 
-    vn_dict = copy.deepcopy(v_dict)
-    cn_dict = copy.deepcopy(c_dict)
+    def get_d_discr(data, d_dat_np, grid_val, d_grid_name):
+        d_discr = np.zeros_like(d_dat_np)
+        for idx, val in enumerate(d_dat_np):
+            jdx = (np.abs(val - grid_val)).argmin()
+            d_discr[idx] = grid_val[jdx]
+        d_discr = np.where((d_dat_np > 1e-15) & (d_discr == 0), grid_val[1],
+                           d_discr)
+        d_discr_pd = pd.DataFrame(data=d_discr, columns=d_grid_name,
+                                  index=data.index)
+        return d_discr_pd
+
+    vn_dict, cn_dict = copy.deepcopy(v_dict), copy.deepcopy(c_dict)
     if c_dict['train_mcf']:
         indata_with_z = c_dict['indat_temp']
         not_same = c_dict['indata'] != c_dict['preddata']
         data1 = pd.read_csv(filepath_or_buffer=c_dict['indata'])
         data1.columns = data1.columns.str.upper()
-        data1new = data1.copy()
+        data1new = data1.copy()   # pylint: disable=E1101
         data1new.replace({False: 0, True: 1}, inplace=True)
         if c_dict['with_output']:
             check_for_nan(data1new)
@@ -528,22 +547,37 @@ def create_xz_variables(
                     print(numerical_codes)
                 d_dat_new_pd = d_dat_pd.cat.codes
                 data1new[v_dict['d_name']] = d_dat_new_pd.to_frame()
-            d1_np = data1new[v_dict['d_name']].to_numpy()
-            d1_unique = np.round(np.unique(d1_np))
+            if c_dict['d_type'] == 'continuous':
+                d1_unique = c_dict['ct_grid_nn_val']
+                d_dat_np = data1new[v_dict['d_name']].to_numpy()
+                data1new[v_dict['d_name']] = (data1new[v_dict['d_name']] -
+                                              data1new[v_dict['d_name']].min())
+                d_dat_np = np.where(d_dat_np < 1e-15, 0, d_dat_np)
+                d_discr_nn_pd = get_d_discr(data1new, d_dat_np,
+                                            c_dict['ct_grid_nn_val'],
+                                            v_dict['d_grid_nn_name'])
+                d_discr_w_pd = get_d_discr(data1new, d_dat_np,
+                                           c_dict['ct_grid_w_val'],
+                                           v_dict['d_grid_w_name'])
+                d_discr_dr_pd = get_d_discr(data1new, d_dat_np,
+                                            c_dict['ct_grid_dr_val'],
+                                            v_dict['d_grid_dr_name'])
+                data1new = pd.concat([data1new, d_discr_nn_pd, d_discr_w_pd,
+                                      d_discr_dr_pd], axis=1)
+            else:
+                d1_np = data1new[v_dict['d_name']].to_numpy()
+                d1_unique = np.round(np.unique(d1_np))
         else:
             d1_unique = None
     else:
         not_same = True
-        if not regrf:
-            d1_unique = d_indat_values
-        else:
-            d1_unique = None
+        d1_unique = d_indat_values if not regrf else None
         indata_with_z = None
     if not_same and c_dict['pred_mcf']:
         predata_with_z = c_dict['pred_eff_temp']
         data2 = pd.read_csv(filepath_or_buffer=c_dict['preddata'])
         data2.columns = data2.columns.str.upper()
-        data2new = data2.copy()
+        data2new = data2.copy()      # pylint: disable=E1101
         data2new.replace({False: 0, True: 1}, inplace=True)
         if c_dict['with_output'] and c_dict['train_mcf']:
             check_for_nan(data1new)
@@ -559,8 +593,7 @@ def create_xz_variables(
                 d2_np = data2new[v_dict['d_name']].to_numpy()
                 d2_unique = np.round(np.unique(d2_np))
                 if len(d1_unique) == len(d2_unique):
-                    if not np.all(d1_unique == d2_unique):
-                        raise Exception(text)
+                    assert np.all(d1_unique == d2_unique), text
                 else:
                     raise Exception(text)
     else:
@@ -571,9 +604,7 @@ def create_xz_variables(
             if not v_dict['z_name_list'] == []:
                 z_name_ord_new = []
                 if c_dict['train_mcf']:
-                    no_val_dict = {}
-                    q_inv_dict = {}
-                    z_new_name_dict = {}
+                    no_val_dict, q_inv_dict, z_new_name_dict = {}, {}, {}
                     z_new_dic_dict = {}
                 for z_name in v_dict['z_name_list']:
                     if c_dict['train_mcf']:
@@ -651,9 +682,7 @@ def create_xz_variables(
     x_name_type_unord = []  # Contains INT
     x_name_values = []      # Contains Lists which may be empty
     if c_dict['train_mcf']:
-        q_inv_cr_dict = {}
-        prime_values_dict = {}
-        unique_val_dict = {}
+        q_inv_cr_dict, prime_values_dict, unique_val_dict = {}, {}, {}
     for variable in vn_dict['x_name']:
         if variable in vn_dict['name_ordered']:  # Ordered variable
             if c_dict['train_mcf']:
@@ -761,8 +790,7 @@ def create_xz_variables(
     type_0, type_1, type_2 = unordered_types_overall(x_name_type_unord)
     vn_x_type = dict(zip(vn_dict['x_name'], x_name_type_unord))
     vn_x_values = dict(zip(vn_dict['x_name'], x_name_values))
-    cn_add = {'x_type_0': type_0,
-              'x_type_1': type_1,
+    cn_add = {'x_type_0': type_0, 'x_type_1': type_1,
               'x_type_2': type_2}  # Not needed for prediction
     cn_dict.update(cn_add)
     if c_dict['with_output'] and c_dict['verbose']:
@@ -787,15 +815,13 @@ def create_xz_variables(
                 print('Training data')
                 print('Name                             # of cat ')
                 for i in vn_dict['z_name']:
-                    print('{0:<32}'.format(i),
-                          '{0:>6}'.format(len(data1new[i].unique())))
+                    print(f'{i:<32} {len(data1new[i].unique()):>6}')
                 print('-' * 80, '\n')
             if c_dict['pred_mcf'] and not_same:
                 print('Prediction data')
                 print('Name                             # of cat ')
                 for i in vn_dict['z_name']:
-                    print('{0:<32}'.format(i),
-                          '{0:>6}'.format(len(data2new[i].unique())))
+                    print(f' {i:<32}', f' {len(data2new[i].unique()):>6}')
                 print('-' * 80, '\n')
     if c_dict['with_output'] and c_dict['desc_stat'] and c_dict['train_mcf']:
         print("\nAugmented training data set: ", indata_with_z)
@@ -858,7 +884,7 @@ def adjust_y_names(var_dict, y_name_old, y_name_new, with_output):
 
 
 def random_obs_reductions(infiles, outfiles=None, fraction=0.5,
-                          replacement=False):
+                          replacement=False, seed=123445):
     """
     Write random subsamples on file.
 
@@ -878,13 +904,13 @@ def random_obs_reductions(infiles, outfiles=None, fraction=0.5,
     for file_idx, file in enumerate(infiles):
         data = pd.read_csv(filepath_or_buffer=file, header=0)
         data = data.sample(frac=fraction, replace=replacement,
-                           random_state=12345)
+                           random_state=seed)
         gp.delete_file_if_exists(outfiles[file_idx])
         data.to_csv(outfiles[file_idx], index=False)
 
 
 def random_obs_reductions_treatment(infiles, outfiles=None, fraction=0.5,
-                                    d_name=None):
+                                    d_name=None, seed=123344):
     """
     Write random subsamples on file - treatment specific.
 
@@ -910,10 +936,10 @@ def random_obs_reductions_treatment(infiles, outfiles=None, fraction=0.5,
         no_of_obs_to_drop = largest_count.iloc[0] - no_of_obs_to_keep
         return group, no_of_obs_to_drop
 
-    def reduce_group(data, d_name, group, no_of_obs_to_drop):
+    def reduce_group(data, d_name, group, no_of_obs_to_drop, seed):
         treatment_group = data.loc[data[d_name].eq(group).squeeze()]
         drop_index = treatment_group.sample(
-            no_of_obs_to_drop, random_state=12345).index
+            no_of_obs_to_drop, random_state=seed).index
         data = data.drop(drop_index)
         print()
         return data
@@ -927,5 +953,5 @@ def random_obs_reductions_treatment(infiles, outfiles=None, fraction=0.5,
     for file_idx, file in enumerate(infiles):
         data = pd.read_csv(filepath_or_buffer=file, header=0)
         group, no_of_obs_to_drop = find_reduction(data[d_name], fraction)
-        data = reduce_group(data, d_name, group, no_of_obs_to_drop)
+        data = reduce_group(data, d_name, group, no_of_obs_to_drop, seed)
         write_to_file(data, outfiles[file_idx])

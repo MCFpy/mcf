@@ -11,6 +11,7 @@ import itertools
 from datetime import datetime, timedelta
 import sys
 import os.path
+
 import scipy.stats as sct
 from sympy.ntheory import primefactors
 import pandas as pd
@@ -97,8 +98,8 @@ def adjust_var_name(var_to_check, var_names):
     """
     if var_to_check not in var_names:
         for name in var_names:
-            if (var_to_check.upper() == name) or (
-                    var_to_check.lower() == name):
+            if (var_to_check.upper() == name.upper()) or (
+                    var_to_check.lower() == name.lower()):
                 var_to_check = name
                 break
     return var_to_check
@@ -136,9 +137,8 @@ def waldtest(diff, variance):
     p : Numpy float. p-value.
 
     """
-    degfr = int(round(np.linalg.matrix_rank(variance)))
-    stat = -1
-    pval = -1
+    degfr = np.linalg.matrix_rank(variance)
+    stat = pval = -1
     if degfr == len(variance):
         if np.all(np.linalg.eigvals(variance) > 1e-15):
             weight = np.linalg.inv(variance)
@@ -160,7 +160,7 @@ def add_dummies(cat_vars, indatafile):
 
 
 def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
-                 add_info=None):
+                 continuous=False):
     """Print treatment effects.
 
     Parameters
@@ -178,18 +178,22 @@ def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
     None.
     """
     if add_title is None:
-        print('Comparison    Estimate   Standard error t-value   p-value')
+        print('Comparison                Estimate   Standard error t-value',
+              '   p-value')
     else:
         print('Comparison ', add_title,
-              '   Estimate   Standard error t-value   p-value')
+              '              Estimate   Standard error t-value   p-value')
     print('- ' * 40)
     for j in range(np.size(est)):
-        print('{:<3} vs {:>3}'.format(effect_list[j][0], effect_list[j][1]),
-              end=' ')
+        if continuous:
+            compf = f'{effect_list[j][0]:<9.5f} vs {effect_list[j][1]:>9.5f}'
+        else:
+            compf = f'{effect_list[j][0]:<9} vs {effect_list[j][1]:>9}'
+        print(compf, end=' ')
         if add_title is not None:
-            print('{:6.2f}'.format(add_info), end=' ')
-        print('{:12.6f}  {:12.6f}'.format(est[j], stderr[j]), end=' ')
-        print('{:8.2f}  {:8.3f}%'.format(t_val[j], p_val[j]*100), end=' ')
+            print('f{add_info:6.2f}', end=' ')
+        print(f'{est[j]:12.6f}  {stderr[j]:12.6f}', end=' ')
+        print(f'{t_val[j]:8.2f}  {p_val[j]*100:8.3f}%', end=' ')
         if p_val[j] < 0.001:
             print('****')
         elif p_val[j] < 0.01:
@@ -219,8 +223,7 @@ def grid_log_scale(large, small, number):
     """
     if small <= 0.0000001:
         small = 0.00000001
-    small = math.log(small)
-    large = math.log(large)
+    small, large = math.log(small), math.log(large)
     sequence = np.unique(np.round(np.exp(np.linspace(small, large, number))))
     sequence_p = sequence.tolist()
     return sequence_p
@@ -242,13 +245,12 @@ def share_completed(current, total):
     if current == 1:
         print("\nShare completed (%):", end=" ")
     share = current / total * 100
-
     if total < 20:
-        print('{:4.0f}'.format(share), end=" ", flush=True)
+        print(f'{share:4.0f}', end=" ", flush=True)
     else:
         points_to_print = range(1, total, round(total/20))
         if current in points_to_print:
-            print('{:4.0f}'.format(share), end=" ", flush=True)
+            print(f'{share:4.0f}', end=" ", flush=True)
     if current == total:
         print('Task completed')
 
@@ -274,17 +276,17 @@ def statistics_covariates(indatei, dict_var_type):
           '# unique values', '  Min     ', 'Mean      ', 'Max       ')
     for keys in dict_var_type.keys():
         x_name = keys
-        print('{:30}'.format(keys), end='')
+        print(f'{keys:30}', end='')
         if dict_var_type[keys] == 0:
             print('ordered                     ', end='')
         elif dict_var_type[keys] == 1:
             print('unordered categorical short ', end='')
         elif dict_var_type[keys] == 2:
             print('unordered categorical long  ', end='')
-        print('{:<12}'.format(len(data[x_name].unique())), end='')
-        print('{:10.5f}'.format(data[x_name].min()), end='')
-        print('{:10.5f}'.format(data[x_name].mean()), end='')
-        print('{:10.5f}'.format(data[x_name].max()))
+        print(f'{len(data[x_name].unique()):<12}', end='')
+        print(f'{data[x_name].min():10.5f}', end='')
+        print(f'{data[x_name].mean():10.5f}', end='')
+        print(f'{data[x_name].max():10.5f}')
 
 
 def substitute_variable_name(v_dict, old_name, new_name):
@@ -330,8 +332,7 @@ def sample_split_2_3(indatei, outdatei1, share1, outdatei2, share2,
 
     """
     if ((share1+share2+share3) > 1.01) or ((share1 + share2 + share3) < 0.99):
-        print('Sample splitting: Shares do not add up to 1')
-        sys.exit()
+        raise Exception('Sample splitting: Shares do not add up to 1')
     data = pd.read_csv(filepath_or_buffer=indatei, header=0)
     # split into 2 or 3 dataframes
     data1 = data.sample(frac=share1, random_state=random_seed)
@@ -350,15 +351,12 @@ def sample_split_2_3(indatei, outdatei1, share1, outdatei2, share2,
         data3.to_csv(outdatei3, index=False)
     if with_output:
         print('\nRandom sample splitting')
-        print('Number of obs. in org. data', indatei,
-              '{0:>5}'.format(data.shape[0]))
-        print('Number of obs. in', outdatei1,
-              '{0:>5}'.format(data1.shape[0]))
-        print('Number of obs. in', outdatei2,
-              '{0:>5}'.format(data2.shape[0]))
+        print('Number of obs. in org. data', indatei, f'{data.shape[0]:>5}')
+        print('Number of obs. in', outdatei1, f'{data1.shape[0]:>5}')
+        print('Number of obs. in', outdatei2, f'{data2.shape[0]:>5}')
         if share3 != 0:
             print('Number of observations in', outdatei3,
-                  '{0:>5}'.format(data3.shape[0]))
+                  f'{data3.shape[0]:>5}')
     return outdatei1, outdatei2, outdatei3
 
 
@@ -376,10 +374,8 @@ def adjust_vars_vars(var_in, var_weg):
 
     """
     v_inter = set(var_in).intersection(set(var_weg))
-    if not v_inter == set():
-        ohne_var_weg = list(set(var_in)-v_inter)
-    else:
-        ohne_var_weg = copy.deepcopy(var_in)
+    ohne_var_weg = (list(set(var_in)-v_inter) if not v_inter == set()
+                    else copy.deepcopy(var_in))
     return ohne_var_weg
 
 
@@ -512,13 +508,11 @@ def clean_reduce_data(infile, outfile, names_to_inc, with_output, desc_stat,
             if shapenew[0] == shape[0]:
                 print('  No observations deleted')
             else:
-                print('  {0:<5}'.format(shape[0]-shapenew[0]),
-                      'observations deleted')
+                print(f'  {shape[0]-shapenew[0]:<5}', 'observations deleted')
             if shapenew[1] == shape[1]:
                 print('No variables deleted')
             else:
-                print('  {0:<4}'.format(shape[1]-shapenew[1]),
-                      'variables deleted:')
+                print(f'  {shape[1]-shapenew[1]:<4}', 'variables deleted:')
                 liste = list(data.columns.difference(datanew.columns))
                 print(*liste)
         if desc_stat:
@@ -579,24 +573,20 @@ def add_var_names(names1, names2=None, names3=None, names4=None, names5=None,
         All unique names in one list.
 
     """
-    if names2 is None:
-        names2 = []
-    if names3 is None:
-        names3 = []
-    if names4 is None:
-        names4 = []
-    if names5 is None:
-        names5 = []
-    if names6 is None:
-        names6 = []
-    if names7 is None:
-        names7 = []
-    if names8 is None:
-        names8 = []
-    if names9 is None:
-        names9 = []
-    if names10 is None:
-        names10 = []
+    def none_to_empty_list(name):
+        if name is None:
+            name = []
+        return name
+
+    names2 = none_to_empty_list(names2)
+    names3 = none_to_empty_list(names3)
+    names4 = none_to_empty_list(names4)
+    names5 = none_to_empty_list(names5)
+    names6 = none_to_empty_list(names6)
+    names7 = none_to_empty_list(names7)
+    names8 = none_to_empty_list(names8)
+    names9 = none_to_empty_list(names9)
+    names10 = none_to_empty_list(names10)
     new_names = copy.deepcopy(names1)
     new_names.extend(names2)
     new_names.extend(names3)
@@ -629,28 +619,19 @@ def print_descriptive_stats_file(indata, varnames='all', to_file=False,
         data = indata.copy()
     else:
         data = pd.read_csv(filepath_or_buffer=indata, header=0)
-    if varnames != 'all':
-        data_sel = data[varnames]
-    else:
-        data_sel = data
+    data_sel = data[varnames] if varnames != 'all' else data
     desc_stat = data_sel.describe()
     if (varnames == 'all') or len(varnames) > 10:
         to_print = desc_stat.transpose()
-        rows = len(desc_stat.columns)
-        cols = len(desc_stat.index)
+        rows, cols = len(desc_stat.columns), len(desc_stat.index)
     else:
         to_print = desc_stat
         rows = len(desc_stat.index)
-        if isinstance(desc_stat, pd.DataFrame):
-            cols = len(desc_stat.columns)
-        else:
-            cols = 1
+        cols = (len(desc_stat.columns) if isinstance(desc_stat, pd.DataFrame)
+                else 1)
     if not df_instead_of_file:
         print('\nData set:', indata)
-    if to_file:
-        expand = False
-    else:
-        expand = True
+    expand = not to_file
     with pd.option_context('display.max_rows', rows,
                            'display.max_columns', cols+1,
                            'display.expand_frame_repr', expand,
@@ -677,9 +658,8 @@ def check_all_vars_in_data(indata, variables):
     if not all_available:
         missing_variables = [i for i in variables if i not in header_list]
         print('\nVariables not in ', indata, ':', missing_variables)
-        sys.exit()
-    else:
-        print("\nAll variables found in ", indata)
+        raise Exception()
+    print("\nAll variables found in ", indata)
 
 
 def print_timing(text, time_diff):
@@ -703,7 +683,7 @@ def print_timing(text, time_diff):
 
 
 def randomsample(datapath, indatafile, outdatafile, fraction,
-                 replacement=False):
+                 replacement=False, seed=None):
     """Generate a random sample of the data in a file.
 
     Parameters
@@ -719,7 +699,11 @@ def randomsample(datapath, indatafile, outdatafile, fraction,
     indatafile = datapath + '/' + indatafile
     outdatafile = datapath + '/' + outdatafile
     data = pd.read_csv(filepath_or_buffer=indatafile, header=0)
-    data = data.sample(frac=fraction, replace=replacement)
+    if seed is None:
+        data = data.sample(frac=fraction, replace=replacement)
+    else:
+        data = data.sample(frac=fraction, replace=replacement,
+                           random_state=seed)
     delete_file_if_exists(outdatafile)
     data.to_csv(outdatafile, index=False)
 
@@ -759,14 +743,12 @@ def primeposition(x_values, start_with_1=False):
     position : List of int.
 
     """
-    if start_with_1:
-        add = 1
-    else:
-        add = 0
+    add = 1 if start_with_1 else 0
     primes = primes_list(1000)
-    position = []
-    for val in x_values:
-        position.append(primes.index(val)+add)
+    # position = []
+    # for val in x_values:
+    #     position.append(primes.index(val)+add)
+    position = [primes.index(val)+add for val in x_values]
     return position
 
 
@@ -939,8 +921,7 @@ def dic_get_list_of_key_by_item(dic, value):
         if dic[keys] in value:
             key_list += [keys]
     if key_list == []:
-        print('Retrieving items from list was not succesful')
-        sys.exit()
+        raise Exception('Retrieving items from list was not succesful')
     return key_list
 
 

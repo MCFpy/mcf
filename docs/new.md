@@ -20,12 +20,12 @@
     becomes [_mp_vim_type](./core_6.md#_mp_vim_type), 
     * [mp_weights_tree_batch](./core_6.md#_mp_weights_tree_batch)  becomes [_mp_weights_tree_batch](./core_6.md#_mp_weights_tree_batch),
     * [mp_weights_type](./core_6.md#_mp_weights_type)  becomes[_mp_weights_type](./core_6.md#_mp_weights_type),  
-	  * [mp_with_ray](./core_6.md#_mp_with_ray) becomes [_mp_with_ray](./core_6.md#_mp_with_ray), 
+	* [mp_with_ray](./core_6.md#_mp_with_ray) becomes [_mp_with_ray](./core_6.md#_mp_with_ray), 
 	*  [no_filled_plot](./core_6.md#_no_filled_plot) 
     becomes [_no_filled_plot](./core_6.md#_no_filled_plot), 
 	* [show_plots](./core_6.md#_show_plots) becomes [_show_plots](./core_6.md#_show_plots),  
 	* [verbose](./core_6.md#_verbose) becomes [_verbose](./core_6.md#_verbose), 
-	  * [weight_as_sparse](./core_6.md#_weight_as_sparse) becomes [_weight_as_sparse](./core_6.md#_weight_as_sparse),
+	* [weight_as_sparse](./core_6.md#_weight_as_sparse) becomes [_weight_as_sparse](./core_6.md#_weight_as_sparse),
 	* [support_adjust_limits](./core_6.md#support_adjust_limits) new keyword for common support.
 * Experimental version of continuous treatment. Newly introduced keywords here 
 	* [d_type](./core_6.md#d_type), 

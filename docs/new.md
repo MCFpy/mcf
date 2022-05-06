@@ -14,7 +14,7 @@
 * Keyword modifications: 
 	* [stop_empty](./core_6.md#stop_empty) removed as parameter,
 	* [descriptive_stats](./core_6.md#_descriptive_stats) becomes [_descriptive_stats](./core_6.md#_descriptive_stats),
-	* [dpi](./core_6.md#_dpi) becomes[_dpi](./core_6.md#_dpi),
+	* [dpi](./core_6.md#_dpi) becomes [_dpi](./core_6.md#_dpi),
 	* [fontsize](./core_6.md#_fontsize) becomes [_fontsize](./core_6.md#_fontsize),   
 	* [mp_vim_type](./core_6.md#_mp_vim_type) 
     becomes [_mp_vim_type](./core_6.md#_mp_vim_type), 

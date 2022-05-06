@@ -2,7 +2,7 @@
 
 
 ```python
-mcf.ModifiedCausalForest(cluster_name=cluster_name, d_name=d_name, id_name=id_name,
+modified_causal_forest(cluster_name=cluster_name, d_name=d_name, id_name=id_name,
 w_name=w_name, x_balance_name_ord=x_balance_name_ord,
 x_balance_name_unord=x_balance_name_unord,
 x_name_always_in_ord=x_name_always_in_ord,
@@ -19,8 +19,7 @@ boot=boot, check_perfectcorr=check_perfectcorr,
 choice_based_sampling=choice_based_sampling,
 choice_based_weights=choice_based_weights, ci_level=ci_level,
 clean_data_flag=clean_data_flag,
-cluster_std=cluster_std, datpfad=datpfad, descriptive_stats=descriptive_stats,
-dpi=dpi,  fontsize=fontsize, forest_files=forest_files, fs_other_sample=fs_other_sample,
+cluster_std=cluster_std, datpfad=datpfad, ct_grid_nn=ct_grid_nn, ct_grid_w=ct_grid_w, ct_grid_dr=ct_grid_dr, d_type=d_type, forest_files=forest_files, fs_other_sample=fs_other_sample,
 fs_other_sample_share=fs_other_sample_share, fs_rf_threshold=fs_rf_threshold,
 fs_yes=fs_yes, gatet_flag=gatet_flag,
 gmate_no_evaluation_points=gmate_no_evaluation_points,
@@ -32,11 +31,9 @@ l_centering_share=l_centering_share,
 match_nn_prog_score=match_nn_prog_score, max_cats_z_vars=max_cats_z_vars,
 max_weight_share=max_weight_share, mce_vart=mce_vart,
 min_dummy_obs=min_dummy_obs, mp_parallel=mp_parallel,
-mp_vim_type=mp_vim_type, mp_weights_tree_batch=mp_weights_tree_batch,
-mp_weights_type=mp_weights_type, mp_with_ray=mp_with_ray,
 m_grid=m_grid, m_max_share=m_max_share, m_min_share=m_min_share,
 m_random_poisson=m_random_poisson, nn_main_diag_only=nn_main_diag_only,
-no_filled_plot=no_filled_plot, nw_bandw=nw_bandw, nw_kern_flag=nw_kern_flag,
+nw_bandw=nw_bandw, nw_kern_flag=nw_kern_flag,
 n_min_grid=n_min_grid, n_min_max=n_min_max, n_min_min=n_min_min,
 outfiletext=outfiletext, outpfad=outpfad, output_type=output_type,
 panel_data=panel_data, panel_in_rf=panel_in_rf, post_est_stats=post_est_stats,
@@ -48,16 +45,16 @@ post_random_forest_vi=post_random_forest_vi, preddata=preddata, predict_mcf=pred
 relative_to_first_group_only=relative_to_first_group_only, reduce_split_sample=reduce_split_sample, reduce_split_sample_pred_share=reduce_split_sample_pred_share, reduce_training=reduce_training, reduce_training_share=reduce_training_share, reduce_prediction=reduce_prediction, reduce_prediction_share=reduce_prediction_share, reduce_largest_group_train=reduce_largest_group_train, reduce_largest_group_train_share=reduce_largest_group_train_share,
 save_forest=save_forest, screen_covariates=screen_covariates,
 se_boot_ate=se_boot_ate, se_boot_gate=se_boot_gate, se_boot_iate=se_boot_iate,
-share_forest_sample=share_forest_sample, show_plots=show_plots,
+share_forest_sample=share_forest_sample, 
 smooth_gates=smooth_gates, smooth_gates_bandwidth=smooth_gates_bandwidth,
 smooth_gates_no_evaluation_points=smooth_gates_no_evaluation_points,
-stop_empty=stop_empty, subsample_factor_eval=subsample_factor_eval,
-subsample_factor_forest=subsample_factor_forest, support_check=support_check, support_max_del_train=support_max_del_train, support_min_p=support_min_p,support_quantil=support_quantil, weighted=weighted,
-weight_as_sparse=weight_as_sparse, train_mcf=train_mcf,  
-variable_importance_oob=variable_importance_oob, verbose=verbose,
-_max_cats_cont_vars=_max_cats_cont_vars, _max_save_values=_max_save_values, _mp_ray_del=_mp_ray_del, _mp_ray_shutdown=_mp_ray_shutdown,
-_mp_ray_objstore_multiplier=mp_ray_objstore_multiplier,
-_seed_sample_split=_seed_sample_split, _smaller_sample=_smaller_sample,
+subsample_factor_eval=subsample_factor_eval,
+subsample_factor_forest=subsample_factor_forest, support_adjust_limits=support_adjust_limits, support_check=support_check, support_max_del_train=support_max_del_train, support_min_p=support_min_p,support_quantil=support_quantil, weighted=weighted,
+train_mcf=train_mcf,  
+variable_importance_oob=variable_importance_oob, _descriptive_stats=_descriptive_stats, _dpi=_dpi, _fontsize=_fontsize, _max_cats_cont_vars=_max_cats_cont_vars, _max_save_values=_max_save_values, _mp_ray_del=_mp_ray_del, _mp_ray_shutdown=_mp_ray_shutdown,
+_mp_ray_objstore_multiplier=mp_ray_objstore_multiplier, _mp_vim_type=_mp_vim_type, _mp_weights_tree_batch=_mp_weights_tree_batch,
+_mp_weights_type=_mp_weights_type, _mp_with_ray=_mp_with_ray, _no_filled_plot=_no_filled_plot, _show_plots=_show_plots,
+_seed_sample_split=_seed_sample_split, _smaller_sample=_smaller_sample, _verbose=_verbose, _weight_as_sparse=_weight_as_sparse,
 _with_output=_with_output)
 ```
 
@@ -73,6 +70,8 @@ _with_output=_with_output)
 
 * <a id="d_name">**d_name**</a> - list with **String**
 	* Specifies name of treatment, which must be discrete.
+* <a id="d_type">**d_type**</a> - **String** either *'discrete'* or *'continuous'*
+	* Specifies if treatment is discrete or continuous; the default is discrete. 
 
 **i**
 
@@ -162,19 +161,19 @@ _with_output=_with_output)
 	* If True, program computes clustered standard errors; the value  will be automatically set to 1 if panel data option is activated.
 * <a id="cond_var_flag">**cond_var_flag**</a> - **Boolean**
 	* If True, variance estimation is based on a variance decomposition of weighted conditional means $\hat{\mathrm{w}}_{\mathrm{i}} \mu_{\mathrm{Y} \mid \hat{\mathrm{W}}}\left(\hat{\mathrm{w}}_{\mathrm{i}}\right)$ and variances $\hat{\mathrm{w}}_{\mathrm{i}} \sigma_{\mathrm{Y} \mid \hat{\mathrm{W}}}^{2}\left(\hat{\mathrm{w}}_{\mathrm{i}}\right)$. If False, variance estimation builds on the sum of variances of weighted outcomes; the default is True.
+* <a id="ct_grid_nn">**ct_grid_nn**</a> - positive **Integer**
+	* Number used to approximate the neighbourhood matching; default is 10.
+* <a id="ct_grid_w">**ct_grid_w**</a> - positive **Integer**
+	* Number used to approximate the weights; default is 10.
+* <a id="ct_grid_dr">**ct_grid_dr**</a> - positive **Integer**
+	* Number used to approximate the dose response; default is 100.
 
 
 **d**
 * <a id="datpfad">**datpfad**</a>  - **String**
 	* Specifies the directory, in which the data is saved for estimation and/or prediction.
-* <a id="descriptive_stats">**descriptive_stats**</a> - **Boolean**
-	* If True, the descriptive statistics are printed to the input and output files; the default is True.
-* <a id="dpi">**dpi**</a> - **Integer** larger than **0**
-	* Sets the resolution, i.e. dots per inch (dpi); a value larger than 0 must be specified; the default is 500.
 
 **f**
-* <a id="fontsize">**fontsize**</a> - **Integer** from **0-7**
-	* Sets the font size for the legend; ranges from 1 (very small) to 7 (very large); the default is 2.
 * <a id="forest_files">**forest_files**</a> - **Integer** from **0-7**
 	* Specifies name of the forest files; if None, file names are governed by *indat* + extensions (_savepred.pickle, _savepred.csv, _savepredps.npy, _savepredd.npy); else file names are *name* + extensions.
 * <a id="fs_other_sample">**fs_other_sample**</a> - **Boolean**
@@ -238,14 +237,6 @@ _with_output=_with_output)
 	* If the program also screens covariates, i.e. when **screen_covariates** is True, the **min_dummy_obs** regulates the minimal number of observations in one category of a dummy variable for the dummy variable not to be removed from the data set; the default is set to 10.   
 * <a id="mp_parallel">**mp_parallel**</a> - **None** or **Float** larger **0**
 	* Specifies the number of parallel processes; the default value is None; for a value of None the number of parallel processes is set to two less than the number of logical cores; for values between -0.5 and 1.5, the value is set to 1; for number greater than 1.5, the value is set to the integer part of the specified processes.
-* <a id="mp_vim_type">**mp_vim_type**</a> - **Integer** taking values **1, 2**
-	* Decides how multiprocessing is implemented in the computation of feature importance; 1: multiprocessing over variables (fast but demanding in terms of memory), 2: multiprocessing over the  trees (slower but less demanding in terms of memory); the default is an automated rule; if the number of observations is less than 20,000 multiprocessing is done over variables else over trees.
-* <a id="mp_weights_tree_batch">**mp_weights_tree_batch**</a> - **None** or **Integer**
-	* Determines how the forest is split into batches to compute the weights; in general, fewer batches demand more memory but less computing time; the number of batches is set by the program by default.
-* <a id="mp_weights_type">**mp_weights_type**</a>  - **Integer** taking values **1, 2**
-	* Determines how multiprocessing is done in the computation of weights; if set to 1, the program parallelizes over groups of observations, which is more demanding in terms of memory; if set to 2, the program parallelizes over trees; latter option is less memory intensive but slower.
-* <a id="mp_with_ray">**mp_with_ray**</a> - **Boolean**
-	* If True, parallel processing is implemented via Ray; else the concurrent futures module is deployed; the concurrent futures module may be faster for small samples; Ray tends to more performant for larger samples the default is True.
 * <a id="m_grid">**m_grid**</a> - positive **Integer**
 	* Sets the number of grid values which are logarithmically spaced between **m_min** and **m_max**; the default is 2.
 * <a id="m_max_share">**m_max_share**</a> - **Float** between **0, 1** or **Integer** taking values **-1, -2**
@@ -260,8 +251,6 @@ _with_output=_with_output)
 
 * <a id="nn_main_diag_only">**nn_main_diag_only**</a> - **Boolean**
 	* If True, the program uses only main diagonal; if False, the program uses the inverse of the covariance matrix; the default is False.
-* <a id="no_filled_plot">**no_filled_plot**</a> - **None** or **Integer number** larger **0**
-	* Determines that the plot is filled if there are more than a minimal number of specified points; the default is None; in this case  the plot is filled when there are more than 20 points.
 * <a id="nw_bandw">**nw_bandw**</a> - positive **Float** greater equal **1**
 	* Sets the bandwidth for Nadaraya-Watson  estimation in form of the multiplier  of Silverman's optimal bandwidth; the default is None associated with a multiplier of 1.
 * <a id="nw_kern_flag">**nw_kern_flag**</a> - **Integer** taking values **1, 2**
@@ -346,21 +335,19 @@ _with_output=_with_output)
 * <a id="se_boot_iate">**se_boot_iate**</a> - **Integer** larger than **49**
 	 * Number of replications to estimate the bootstrap standard error of IATEs; bootstrapping is only activated for more than 99 replications; for all values smaller 49 and the default *False*, the number of bootstraps is set to 199; else number is set equal to the specified number.
 * <a id="share_forest_sample">**share_forest_sample**</a> - **Float** between **0, 1**
-	* Determines the share used for predicting the outcome of interest, $y$; admissible values range from 0 to 1; the default is  0.5; the other share of the sample is used for building the forest.
-* <a id="show_plots">**show_plots**</a> - **Boolean**
-	* If True, the plots are shown, i.e. `plt.show()` is executed, else not; the default is True.  
+	* Determines the share used for predicting the outcome of interest, $y$; admissible values range from 0 to 1; the default is  0.5; the other share of the sample is used for building the forest.  
 * <a id="smooth_gates">**smooth_gates**</a> - **Boolean**
 	* Specifies an alternative way to estimate GATEs for continuous variables; instead of discretizing variable, the GATE is evaluated at **smooth_gates_no_evaluation_points**. Since there are likely to be no  observations, a local neighbourhood around the evaluation points is considered; the default is True.
 * <a id="smooth_gates_bandwidth">**smooth_gates_bandwidth**</a> - **Float**
 	* Defines the multiplier for SGATE aggregation; the default is 1.
 * <a id="smooth_gates_no_evaluation_points">**smooth_gates_no_evaluation_points**</a> - positive **Integer**
 	* Sets the number of evaluation points for the GATE; the default is 50.
-* <a id="stop_empty">**stop_empty**</a> - **Integer** taking value **0** or **Integer** larger **0**
-	* Determines a stopping rule for splitting; the default is None. The program stops splitting the tree if the next  [stop_empty](./core_6.md#stop_empty) randomly chosen variable did not lead to a new leaf; the default is 1.
 *  <a id="subsample_factor_eval">**subsample_factor_eval**</a> - **Boolean** or **Float** larger **0**
 			* Sets the size of the subsampling sample in the evaluation sample; if False, there is no subsampling. If True, the value is set to [subsample_factor_forest](./core_6.md#subsample_factor_forest). If a strict positive **Float** is given, the multiplier of the subsample size is deployed.
 *  <a id="subsample_factor_forest">**subsample_factor_forest**</a> - **Float** between **0, 1**
 	* Sets the size of the subsampling sample; reduces the default subsample size by 1-subsample_factor; the default share is $\min(0.67,(2*(n^{0.8})/n))$ ; $n$ is computed as twice the sample size in the smallest treatment group; the actual share of the subsample obtains as the product of the default share and the [subsample_factor_forest](./core_6.md#subsample_factor_forest); the default for latter is 1.
+* <a id="support_adjust_limits">**support_adjust_limits**</a> - **Integer** taking values **0, 1, 2** 
+	* halal
 * <a id="support_check">**support_check**</a> - **Integer** taking values **0, 1, 2**
 	* Determines whether program checks for common support and sets rule how common support is enforced; for a value of 0 no common support is checked and enforced; for values of 1 and 2 common support is checked and enforced; for values 1 and 2, the support check is based on the estimated predictive random forests for each treatment probability but one; if the value is set to 1, the program uses min and max rules to enforce common support; for a value of 2, the program enforces minimum and maximum probabilities for all observations and all observations off support are removed. Out-of-bag predictions are used to avoid overfitting.
 * <a id="support_max_del_train">**support_max_del_train**</a> - **Float** between **0, 1**
@@ -381,18 +368,20 @@ _with_output=_with_output)
 
 * <a id="weighted">**weighted**</a> - **Boolean**
 	* If  True, the program uses sampling weights; if False no sampling weights are used. If  1, sampling weights specified in **w_name** will be used; the default is False.
-* <a id="weight_as_sparse">**weight_as_sparse**</a> - **Boolean**
-	* Determines whether the weight matrix is a sparse matrix; the default is True.
 
 **v**
 
 * <a id="variable_importance_oob">**variable_importance_oob**</a> - **Boolean**
 	* If True, the program  computes the variable importance based on permuting every single characteristic, $x$, in the out-of-bag prediction; this  exercise is time consuming; the default is False.
-*  <a id="verbose">**verbose**</a> - **Boolean**
-	*  If True,  the output of the program is printed whilst running; if False the output is suppressed. The default is True.
 
 **_**
 
+* <a id="_descriptive_stats">**_descriptive_stats**</a> - **Boolean**
+	* If True, the descriptive statistics are printed to the input and output files; the default is True.
+* <a id="_dpi">**_dpi**</a> - **Integer** larger than **0**
+	* Sets the resolution, i.e. dots per inch (dpi); a value larger than 0 must be specified; the default is 500.
+* <a id="_fontsize">**_fontsize**</a> - **Integer** from **0-7**
+	* Sets the font size for the legend; ranges from 1 (very small) to 7 (very large); the default is 2.
 * <a id="_max_cats_cont_vars">**_max_cats_cont_vars**</a> - positive **Integer**
 	* Determines how to discretise continuous variables, i.e. regulates the maximum number of categories for continuous variables.
 * <a id="_max_save_values">**_max_save_values**</a> - positive **Integer**
@@ -405,9 +394,25 @@ _with_output=_with_output)
 	* Increases internal default values for Ray object store to avoid crashes induced by full object stores; the default value is 1.
 * <a id="_mp_ray_shutdown">**_mp_ray_shutdown**</a>  - **Boolean**
 	* If True, shut Ray down task by task; default is False if N < 20,000; in Monte Carlo studies we recommend to specify True.
-* <a id="_seed_sample_split">**_seed_sample_split**</a> - positive **integer**
+* <a id="_mp_vim_type">**_mp_vim_type**</a> - **Integer** taking values **1, 2**
+	* Decides how multiprocessing is implemented in the computation of feature importance; 1: multiprocessing over variables (fast but demanding in terms of memory), 2: multiprocessing over the  trees (slower but less demanding in terms of memory); the default is an automated rule; if the number of observations is less than 20,000 multiprocessing is done over variables else over trees.
+* <a id="_mp_weights_tree_batch">**_mp_weights_tree_batch**</a> - **None** or **Integer**
+	* Determines how the forest is split into batches to compute the weights; in general, fewer batches demand more memory but less computing time; the number of batches is set by the program by default.
+* <a id="_mp_weights_type">**_mp_weights_type**</a>  - **Integer** taking values **1, 2**
+	* Determines how multiprocessing is done in the computation of weights; if set to 1, the program parallelizes over groups of observations, which is more demanding in terms of memory; if set to 2, the program parallelizes over trees; latter option is less memory intensive but slower.
+* <a id="_mp_with_ray">**_mp_with_ray**</a> - **Boolean**
+	* If True, parallel processing is implemented via Ray; else the concurrent futures module is deployed; the concurrent futures module may be faster for small samples; Ray tends to more performant for larger samples the default is True. 
+* <a id="_no_filled_plot">**_no_filled_plot**</a> - **None** or **Integer number** larger **0**
+	* Determines that the plot is filled if there are more than a minimal number of specified points; the default is None; in this case  the plot is filled when there are more than 20 points.
+* <a id="_seed_sample_split">**_seed_sample_split**</a> - positive **integer** 
+* <a id="_show_plots">**_show_plots**</a> - **Boolean**
+	* If True, the plots are shown, i.e. `plt.show()` is executed, else not; the default is True.
 	* Sets seed for building forest; the default is 67567885.
 * <a id="_smaller_sample">**_smaller_sample**</a> - **Float** between **0,1**
 	*  Determines whether program shall be tested with smaller sample.
+*  <a id="_verbose">**_verbose**</a> - **Boolean**
+	*  If True,  the output of the program is printed whilst running; if False the output is suppressed. The default is True. 
+* <a id="_weight_as_sparse">**_weight_as_sparse**</a> - **Boolean**
+	* Determines whether the weight matrix is a sparse matrix; the default is True.
 * <a id="_with_output">**_with_output**</a> - **Boolean**
 	* If True, print statements are executed; the default is True.

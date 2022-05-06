@@ -1,5 +1,44 @@
 # Release Updates
 
+## Version 0.2.0 
+
+## Bug fixes 
+
+* Bug fix for policy trees under restrictions.
+* Bug fix for GATE estimation (when weighting was used).
+
+## What's New 
+
+* Main function changed from ``ModifiedCausalForest()``  to ``modified_causal_forest()``.
+* Complete seeding of random number generator. 
+* Keyword modifications: 
+	* [stop_empty](./core_6.md#stop_empty) removed as parameter,
+	* [descriptive_stats](./core_6.md#_descriptive_stats) becomes [_descriptive_stats](./core_6.md#_descriptive_stats),
+	* [dpi](./core_6.md#_dpi) becomes[_dpi](./core_6.md#_dpi),
+	* [fontsize](./core_6.md#_fontsize) becomes [_fontsize](./core_6.md#_fontsize),   
+	* [mp_vim_type](./core_6.md#_mp_vim_type) 
+    becomes [_mp_vim_type](./core_6.md#_mp_vim_type), 
+    * [mp_weights_tree_batch](./core_6.md#_mp_weights_tree_batch)  becomes [_mp_weights_tree_batch](./core_6.md#_mp_weights_tree_batch),
+    * [mp_weights_type](./core_6.md#_mp_weights_type)  becomes[_mp_weights_type](./core_6.md#_mp_weights_type),  
+	  * [mp_with_ray](./core_6.md#_mp_with_ray) becomes [_mp_with_ray](./core_6.md#_mp_with_ray), 
+	*  [no_filled_plot](./core_6.md#_no_filled_plot) 
+    becomes [_no_filled_plot](./core_6.md#_no_filled_plot), 
+	* [show_plots](./core_6.md#_show_plots) becomes [_show_plots](./core_6.md#_show_plots),  
+	* [verbose](./core_6.md#_verbose) becomes [_verbose](./core_6.md#_verbose), 
+	  * [weight_as_sparse](./core_6.md#_weight_as_sparse) becomes [_weight_as_sparse](./core_6.md#_weight_as_sparse),
+	* [support_adjust_limits](./core_6.md#support_adjust_limits) new keyword for common support.
+* Experimental version of continuous treatment. Newly introduced keywords here 
+	* [d_type](./core_6.md#d_type), 
+	* [ct_grid_nn](./core_6.md#ct_grid_nn), 
+	* [ct_grid_w](./core_6.md#ct_grid_w), 
+	* [ct_grid_dr](./core_6.md#ct_grid_dr).  
+* The optimal policy function contains new rules based on 'black box' approaches, i.e., using the potential outcomes directly to obtain optimal allocations.
+* The optimal policy function allows to describe allocations with respect to other policy variables than the ones used for determining the allocation.
+* Plots
+	* improved plots,
+	* new overlapping plots for common support analysis.
+
+
 ## Version 0.1.4 
 
 ## Bug fixes

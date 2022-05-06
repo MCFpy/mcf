@@ -182,12 +182,7 @@ The program allows for a grid search over tree tuning parameters: (i) the number
 
 ### Remarks on computational speed
 
-The smaller the minimum leaf size, the longer is the computation time, as the tree is grown deeper. This increase in computation time can be substantial for large data.  If given a set of randomly selected variables, it is not possible to split the tree further, the program redraws variables to find further splits. The number of retrials is governed by the parameter [stop_empty](./core_6.md#stop_empty). Smaller values of [stop_empty](./core_6.md#stop_empty) also reduce computation time. Finally, reducing the number of variables for splitting, $m$, speeds up computation time.
-
-|Argument | Description |
-|---------|-------------|
-|[stop_empty](./core_6.md#stop_empty)|Stops splitting the tree if the next [stop_empty](./core_6.md#stop_empty) randomly chosen variables did not led to a new split (default is 5). |
-
+The smaller the minimum leaf size, the longer is the computation time, as the tree is grown deeper. This increase in computation time can be substantial for large data. 
 
 
 ## Local Centering
@@ -304,16 +299,16 @@ To see if the estimated treatment effects are heterogeneous in their features, t
 ### Plotting the treatment effects
 
 
-The program generates graphical representations of the treatment effects. You can customize the font size of the legends, the number of pixels of the figures, and the level of the confidence bounds. The corresponding input arguments are [fontsize](./core_6.md#fontsize), [dpi](./core_6.md#dpi), and [ci_level](./core_6.md#ci_level), respectively. For line plots of GATEs, MTEs, and AMTEs, you can fill the area between lines if the number of evaluation points exceeds a threshold specified in [no_filled_plot](./core_6.md#no_filled_plot).
+The program generates graphical representations of the treatment effects. You can customize the font size of the legends, the number of pixels of the figures, and the level of the confidence bounds. The corresponding input arguments are [_fontsize](./core_6.md#_fontsize), [_dpi](./core_6.md#_dpi), and [ci_level](./core_6.md#ci_level), respectively. For line plots of GATEs, MTEs, and AMTEs, you can fill the area between lines if the number of evaluation points exceeds a threshold specified in [_no_filled_plot](./core_6.md#_no_filled_plot).
 
 ### Input arguments for graphical representations of treatment effects
 
 | Arguments                                    | Descriptions                                                 |
 | -------------------------------------------- | ------------------------------------------------------------ |
-| [fontsize](./core_6.md#fontsize)             | Font size for legends in plots, ranging from 1 (very small) to 7 (very large). The default is 2. |
-| [dpi](./core_6.md#dpi)                       | Number of pixels for plots. The default is 500.              |
+| [_fontsize](./core_6.md#_fontsize)             | Font size for legends in plots, ranging from 1 (very small) to 7 (very large). The default is 2. |
+| [_dpi](./core_6.md#_dpi)                       | Number of pixels for plots. The default is 500.              |
 | [ci_level](./core_6.md#ci_level)             | Number in the $ (0,1)$ interval determining the confidence level shown. The default is 0.9. |
-| [no_filled_plot](./core_6.md#no_filled_plot) | Number of evaluation points to fill the area between lines. The default is 20. This works for line plots for GATEs, MTEs, and AMTEs. |
+| [_no_filled_plot](./core_6.md#_no_filled_plot) | Number of evaluation points to fill the area between lines. The default is 20. This works for line plots for GATEs, MTEs, and AMTEs. |
 
 ## Inference
 

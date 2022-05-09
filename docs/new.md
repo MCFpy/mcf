@@ -1,13 +1,19 @@
 # Release Updates
 
+## Version 0.2.1 
+
+### Bug fixes 
+
+* Bug fix in MGATE estimation, which led to program aborting.  
+
 ## Version 0.2.0 
 
-## Bug fixes 
+### Bug fixes 
 
 * Bug fix for policy trees under restrictions.
 * Bug fix for GATE estimation (when weighting was used).
 
-## What's New 
+### What's New 
 
 * Main function changed from ``ModifiedCausalForest()``  to ``modified_causal_forest()``.
 * Complete seeding of random number generator. 
@@ -41,12 +47,12 @@
 
 ## Version 0.1.4 
 
-## Bug fixes
+### Bug fixes
 
 - Bug fix for predicting from previously trained and saved forests.
 - Bug fix in [mcf_init_function](./core_6.md#mcf_init_function) when there are missing values. 
 
-## What's New 
+### What's New 
 
 - [_mp_ray_shutdown](./core_6.md#_mp_ray_shutdown) new defaults. If object size is smaller 100,000, the default is False and else True.
 

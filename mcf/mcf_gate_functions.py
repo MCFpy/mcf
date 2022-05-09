@@ -43,6 +43,7 @@ def marg_gates_est(forest, fill_y_sample, pred_sample, v_dict, c_dict,
     x_name_mcf : Names from MCF procedure.
     var_x_type : List of int. Type of feature.
     var_x_values : List of List of float or int. Values of features.
+    w_ate : Numpy array. Weights for ATE computation. Default is None.
     regrf: Boolean. False if MCF (default).
 
     Returns
@@ -90,6 +91,7 @@ def amgate_function(forest, fill_y_sample, pred_sample, v_dict, c_dict,
     ----------
     forest : List of list.
     fill_y_sample : String. Name of sample used to fill tree.
+    pred_sample: String. Name of sample to predict effects for.
     v_dict : Dict.
     c_dict : Dict.
     x_name_mcf : Names from MCF procedure.
@@ -225,9 +227,10 @@ def mgate_function(
                         shape[0], shape[1]*shape[2])
                     y_pred_mate_se = iate_se[:, :, :, 1].reshape(
                         shape[0], shape[1]*shape[2])
-                    (y_pred_mate, y_pred_mate_se, correct_m_gate_cont
-                     ) = mgate_corections(y_pred_mate, y_pred_mate_se,
-                                          correct_m_gate_cont)
+                    if y_pred_mate.shape[1] > 1:
+                        (y_pred_mate, y_pred_mate_se, correct_m_gate_cont
+                         ) = mgate_corections(y_pred_mate, y_pred_mate_se,
+                                              correct_m_gate_cont)
             if c_dict['with_output']:
                 if c_dict['d_type'] == 'continuous':
                     mcf_gateout.plot_marginal_cont(

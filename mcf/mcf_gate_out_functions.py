@@ -15,6 +15,7 @@ import scipy.stats as sct
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
+from mcf import mcf_general_purpose as mcf_gp
 from mcf import general_purpose as gp
 from mcf import general_purpose_estimation as gp_est
 
@@ -220,7 +221,7 @@ def print_mgate_cont(est, stderr, titel, z_values, d_values):
 
 
 def make_gate_figures_discr(
-        titel, z_name, z_values, z_type, effects, stderr, c_dict, ate=0,
+        titel, z_name, z_vals, z_type, effects, stderr, c_dict, ate=0,
         ate_se=None, am_gate=False, z_smooth=False, gatet_yes=False):
     """Generate the figures for GATE results (discrete outcomes).
 
@@ -238,6 +239,9 @@ def make_gate_figures_discr(
     None.
 
     """
+    z_values = z_vals.copy()
+    if mcf_gp.find_precision(z_values) == 0:
+        z_values = gp.recode_if_all_prime(z_values)
     titel_f = titel.replace(' ', '')
     file_name_jpeg = c_dict['fig_pfad_jpeg'] + '/' + titel_f + '.jpeg'
     file_name_pdf = c_dict['fig_pfad_pdf'] + '/' + titel_f + '.pdf'   # pic pdf

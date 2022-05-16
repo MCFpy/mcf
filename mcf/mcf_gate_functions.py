@@ -983,7 +983,7 @@ def smooth_gate_eva_values(z_dat, no_eva_values):
         eva_values = unique_vals
     else:
         quas = np.linspace(0.01, 0.99, no_eva_values)
-        eva_values = np.quantile(z_dat, quas)
+        eva_values = np.unique(np.quantile(z_dat, quas))
     return eva_values.tolist()
 
 

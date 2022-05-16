@@ -752,6 +752,28 @@ def primeposition(x_values, start_with_1=False):
     return position
 
 
+def recode_if_all_prime(values):
+    """
+    Recode array-like to of prime to list of integers.
+
+    Parameters
+    ----------
+    values : array like.
+        Input with numbers.
+
+    Returns
+    -------
+    new_values : List of INT.
+        List of positions of prime in list of consequative primes.
+
+    """
+    values_l = [int(val) for val in values]   # list of integers
+    is_prime = set(values_l).issubset(primes_list())
+    if is_prime:
+        values_l = primeposition(values_l, start_with_1=False)
+    return values_l
+
+
 def primes_list(number=1000):
     """List the first 1000 prime numbers.
 

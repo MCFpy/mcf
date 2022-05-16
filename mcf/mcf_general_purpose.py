@@ -14,6 +14,7 @@ import pandas as pd
 import numpy as np
 import psutil
 
+from mcf import general_purpose as gp
 from mcf import general_purpose_system_files as mcf_sys
 
 
@@ -32,12 +33,12 @@ def stars(pval):
 
 def find_precision(values):
     """Find precision so that all values can be differentiated in printing."""
-    len_v = len(values)
+    len_v = len(np.unique(values))
     precision = 10
     for prec in range(10):
         rounded = np.around(values, decimals=prec)
         if len(set(rounded)) == len_v:  # all unique
-            precision = prec + 2
+            precision = prec            # + 2
             break
     return precision
 
@@ -68,6 +69,8 @@ def print_effect_z(g_r, gm_r, z_values, gate_str):
           'Est        SE    t-val  p-val')
     print('- ' * 40)
     prec = find_precision(z_values)
+    if prec == 0:
+        z_values = gp.recode_if_all_prime(z_values.copy())
     for j in range(no_of_effect_per_z):
         for zind, z_val in enumerate(z_values):
             treat_s = f'{g_r[zind][4][j][0]:<3} vs {g_r[zind][4][j][1]:>3}'
@@ -82,7 +85,7 @@ def print_effect_z(g_r, gm_r, z_values, gate_str):
         if j < no_of_effect_per_z-1:
             print('- ' * 40)
     print('-' * 80)
-    print('Values of Z may have been recoded into primes.')
+    print('Values of Z may give the order of values (starting with 0.')
     print('-' * 80)
 
 

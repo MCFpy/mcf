@@ -172,6 +172,7 @@ def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
     effect_list : List of Int. Treatment values involved in comparison.
     add_title: None or string. Additional title.
     add_info: None or Int. Additional information about parameter.
+    continuous: Bool. True if treatment is continuous.
 
     Returns
     -------
@@ -205,6 +206,51 @@ def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
         else:
             print()
     print('- ' * 40)
+
+
+def effect_to_csv(est, stderr, t_val, p_val, effect_list, path=None,
+                  label=None):
+    """Save effects to csv files.
+
+    Parameters
+    ----------
+    est : Numpy array. Point estimate.
+    stderr : Numpy array. Standard error.
+    t_val : Numpy array. t/z-value.
+    p_val : Numpy array. p-value.
+    effect_list : List of Int. Treatment values involved in comparison.
+    pfad: String. Path to which the save csv-File is saved to. Default is None.
+    label: String. Label for filename. Default is None.
+
+    Returns
+    -------
+    None.
+    """
+    file_tmp = label + '.csv' if isinstance(label, str) else 'effect.csv'
+    file = path + '/' + file_tmp if isinstance(path, str) else file_tmp
+    delete_file_if_exists(file)
+    names_est, names_se, names_tval, names_pval = [], [], [], []
+    for j in range(np.size(est)):
+        if isinstance(effect_list[j][0], str):
+            effect_name = effect_list[j][0].join(effect_list[j][1])
+        else:
+            effect_name = str(effect_list[j][0]) + str(effect_list[j][1])
+        names_est.append('ATE_' + effect_name)
+        names_se.append('ATE_SE_' + effect_name)
+        names_tval.append('ATE_t_' + effect_name)
+        names_pval.append('ATE_p_' + effect_name)
+    names = names_est + names_se + names_tval + names_pval
+    if isinstance(est, (list, tuple)):
+        data = est + stderr + t_val + p_val
+    elif isinstance(est, (float, int)):
+        data = [est, stderr, t_val, p_val]
+    elif isinstance(est, np.ndarray):
+        data = np.concatenate((est, stderr, t_val, p_val))
+        data = np.reshape(data, (1, -1))
+    else:
+        raise Exception('Unknown data type for saving effects to file.')
+    data_df = pd.DataFrame(data, columns=names)
+    data_df.to_csv(file, index=False)
 
 
 def grid_log_scale(large, small, number):

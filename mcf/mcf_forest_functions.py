@@ -791,6 +791,7 @@ def next_split(current_node, data_tr, data_oob, y_i, y_nn_i, d_i, d_grid_i,
                  no_of_treat, regrf=False, with_d_oob=with_d_oob)
         if terminal_x:
             terminal = True  # No variation in drawn X. Splitting stops.
+    if not terminal:         # ML 25.5.2022
         if not regrf:
             if mtot in (1, 4):
                 y_nn = data_tr_ns[:, y_nn_i]

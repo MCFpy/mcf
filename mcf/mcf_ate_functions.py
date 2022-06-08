@@ -260,16 +260,18 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
         ate = np.empty((no_of_out, no_of_ates,
                         round(no_of_treat * (no_of_treat - 1) / 2)))
     ate_se = np.empty_like(ate)
-    for o_idx in range(no_of_out):
+    for o_idx, out_name in enumerate(v_dict['y_name']):
         if c_dict['with_output']:
-            print('\nOutcome variable: ', v_dict['y_name'][o_idx])
+            print('\nOutcome variable: ', out_name)
         for a_idx in range(no_of_ates):
             if c_dict['with_output']:
                 if a_idx == 0:
                     print('Reference population: All')
+                    label_ate = 'ATE'
                 else:
                     print('Reference population: Treatment group:',
                           d_values[a_idx-1])
+                    label_ate = 'ATET' + str(d_values[a_idx-1])
                 print('- ' * 40)
             pot_y_ao = pot_y[a_idx, :, o_idx]
             pot_y_var_ao = pot_y_var[a_idx, :, o_idx]
@@ -280,12 +282,14 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
             if c_dict['with_output']:
                 gp.print_effect(est, stderr, t_val, p_val, effect_list,
                                 continuous=continuous)
+                gp.effect_to_csv(est, stderr, t_val, p_val, effect_list,
+                                 path=c_dict['fig_pfad_csv'],
+                                 label=label_ate+out_name)
                 gp_est.print_se_info(c_dict['cluster_std'],
                                      c_dict['se_boot_ate'])
                 if continuous and not balancing_test and a_idx == 0:
-                    dose_response_figure(v_dict['y_name'][o_idx],
-                                         v_dict['d_name'][0], est, stderr,
-                                         d_values[1:], c_dict)
+                    dose_response_figure(out_name, v_dict['d_name'][0], est,
+                                         stderr, d_values[1:], c_dict)
     return w_ate_export, pot_y, pot_y_var, ate, ate_se, effect_list
 
 

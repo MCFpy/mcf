@@ -114,7 +114,7 @@ def controls_into_dic(
         reduce_training_share, reduce_prediction, reduce_prediction_share,
         reduce_largest_group_train, reduce_largest_group_train_share,
         iate_flag, iate_se_flag, l_centering_uncenter, d_type, ct_grid_nn,
-        ct_grid_w, ct_grid_dr, support_adjust_limits):
+        ct_grid_w, ct_grid_dr, support_adjust_limits, l_centering_replication):
     """Build dictionary with parameters.
 
     Parameters
@@ -170,10 +170,11 @@ def controls_into_dic(
         'l_centering_new_sample': l_centering_new_sample,
         'l_centering_cv_k': l_centering_cv_k,
         'l_centering_uncenter': l_centering_uncenter,
+        'l_centering_replication': l_centering_replication,
         'post_random_forest_vi': post_random_forest_vi,
         'gmate_no_evaluation_points': gmate_no_evaluation_points,
-        'gmate_sample_share': gmate_sample_share, 'no_filled_plot':
-        no_filled_plot, 'smooth_gates': smooth_gates,
+        'gmate_sample_share': gmate_sample_share,
+        'no_filled_plot': no_filled_plot, 'smooth_gates': smooth_gates,
         'sgates_bandwidth': smooth_gates_bandwidth,
         'sgates_no_evaluation_points': smooth_gates_no_evaluation_points,
         'show_plots': show_plots, 'weight_as_sparse': weight_as_sparse,

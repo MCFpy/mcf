@@ -370,7 +370,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
         cl_group = cluster_lab_np.copy()
         for cl_j, cl_old in enumerate(sort_ind):
             cl_group[cluster_lab_np == cl_old] = cl_j
-        print('Effects are ordered w.r.t. to size of the effects for the',
+        print('Effects are ordered w.r.t. to the size of the effects for the',
               ' first outcome.')
         cl_values, cl_obs = np.unique(cl_group, return_counts=True)
         print('-' * 80, '\nNumber of observations   ', '\n' + ('-' * 80))
@@ -380,6 +380,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
         daten_neu = data.copy()
         daten_neu['IATE_Cluster'] = cl_group
         gp.delete_file_if_exists(file_name)
+        print('\nSaving cluster indicator from k-means clustering.')
         daten_neu.to_csv(file_name)
         del daten_neu
         cl_means = iate.groupby(by=cl_group).mean()

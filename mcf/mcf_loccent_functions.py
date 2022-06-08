@@ -15,7 +15,7 @@ from mcf import general_purpose_estimation as gp_est
 
 
 def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
-                               var_x_type_dict, c_dict):
+                               var_x_type_dict, c_dict, seed=42):
     """
     Generate centered variables and add to file.
 
@@ -44,7 +44,10 @@ def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
     #    4) subtract predicted from observed for nonlc_sample
     #    5) Create new variable, update centered_y_name
     # 6) add new data to nonlc_sample and write to file under same name
-    max_workers = copy.copy(c_dict['no_parallel'])
+    if c_dict['l_centering_replication']:
+        max_workers = 1
+    else:
+        max_workers = copy.copy(c_dict['no_parallel'])
     lc_data_df = pd.read_csv(lc_csvfile)
     nonlc_data_df = pd.read_csv(nonlc_csvfile)
     x_names = var_x_type_dict.keys()
@@ -83,7 +86,7 @@ def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
             workers=max_workers, pred_p_flag=True,
             pred_t_flag=False, pred_oob_flag=False,
             with_output=c_dict['with_output'],
-            return_forest_object=save_forest)
+            return_forest_object=save_forest, seed=seed)
         if indx == 0:
             lc_forest = lc_forest_temp
         y_m_yx[:, indx] = y_nonlc - y_pred  # centered outcomes
@@ -101,7 +104,7 @@ def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
     return nonlc_csvfile, v_dict['y_name'], centered_y_name, lc_forest
 
 
-def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict):
+def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict, seed=42):
     """
     Compute local centering for cross-validation.
 
@@ -111,6 +114,7 @@ def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict):
     v_dict : Dict. Variable names.
     var_x_type_dict : Dictionary with variables and type.
     c_dict : Dict. Controls.
+    seed : Int. Seed for random forest.
 
     Returns
     -------
@@ -118,7 +122,10 @@ def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict):
     new_y_name : List of strings. Names of centered variables.
 
     """
-    max_workers = copy.copy(c_dict['no_parallel'])
+    if c_dict['l_centering_replication']:
+        max_workers = 1
+    else:
+        max_workers = copy.copy(c_dict['no_parallel'])
     if c_dict['with_output']:
         print('\nCross-validation used for local centering.',
               f' {c_dict["l_centering_cv_k"]:2} folds used.')
@@ -163,7 +170,7 @@ def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict):
                     no_features=c_dict['m_grid'], workers=max_workers,
                     pred_p_flag=True, pred_t_flag=False, pred_oob_flag=False,
                     with_output=c_dict['with_output'],
-                    return_forest_object=save_forest)
+                    return_forest_object=save_forest, seed=seed)
                 if indx == 0:
                     lc_forest = lc_forest_temp
                 y_m_yx[index_pred, indx] = y_np[index_pred, indx] - y_pred_rf

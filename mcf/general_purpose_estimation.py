@@ -21,7 +21,8 @@ def random_forest_scikit(
         pred_oob_flag=False, with_output=True, variable_importance=False,
         var_im_groups=None, pred_uncertainty=False, pu_ci_level=0.9,
         pu_skew_sym=0.5, var_im_with_output=True,
-        variable_importance_oob_flag=False, return_forest_object=False):
+        variable_importance_oob_flag=False, return_forest_object=False,
+        seed=42):
     """
     Compute Random Forest predictions with OOB-optimal parameters & var import.
 
@@ -47,7 +48,7 @@ def random_forest_scikit(
     boot : Int, optional. No of trees. The default is 1000.
     n_min : List of Int, optional. Minimum leaf size. The default is [2].
     no_features : List of Int, optional. M_try. The default is ['sqrt'].
-    workers : No of parallel processes, optional. The default is -1.
+    workers : No of parallel processes, optional. The default is None.
     pred_p_flag : Boolean. Predit with x_pred. Default is True.
     pred_t_flag : Boolean. Predit with x_train. Default is False.
     pred_oob_flag : Boolean. Use OOB for training prediction. Default is False.
@@ -65,7 +66,8 @@ def random_forest_scikit(
     pu_skew_sym : Float. Cut-off of skewness for symetric CIs. Default is 0.5.
     variable_importance_oobx : Bool. Use OOB obs for VI (computational costly).
                                     Default is False.
-    return_forest_object: Boolean. Forest object.
+    return_forest_object : Boolean. Forest object.
+    seed : Int. Seed for random forest.
 
     Returns
     -------
@@ -111,7 +113,7 @@ def random_forest_scikit(
                 regr = RandomForestRegressor(
                     n_estimators=boot, min_samples_leaf=nval,
                     max_features=mval, bootstrap=True, oob_score=True,
-                    random_state=42, n_jobs=workers, max_depth=max_depth,
+                    random_state=seed, n_jobs=workers, max_depth=max_depth,
                     min_weight_fraction_leaf=aval,
                     max_leaf_nodes=max_leaf_nodes)
                 regr.fit(x_train, y_1d)
@@ -379,7 +381,7 @@ def get_r2_for_vi_oob(indices_of_x, x_name, name_to_delete, x_train,  y_1d,
     boot : Int, optional. No of trees. The default is 1000.
     n_opt : List of Int, optional. Minimum leaf size. The default is 2.
     m_opt : List of Int, optional. M_try. The default is 'sqrt'.
-    workers : No of parallel process, optional. The default is -1.
+    workers : No of parallel process, optional. The default is None.
     max_depth : Int. Depth of tree. Default is None.
     a_opt : Float. Minimum share on each side of split. Default is 0..
     max_leaf_nodes : Int. Maximimum number of leafs. Default is None.

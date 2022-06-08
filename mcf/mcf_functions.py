@@ -50,7 +50,8 @@ def modified_causal_forest(
         gmate_no_evaluation_points=50, gmate_sample_share=None, iate_flag=True,
         iate_se_flag=True, indata=None, knn_flag=True, knn_min_k=10,
         knn_const=1, l_centering=True, l_centering_share=0.25,
-        l_centering_cv_k=5, l_centering_new_sample=False, m_min_share=-1,
+        l_centering_cv_k=5, l_centering_new_sample=False,
+        l_centering_replication=False, m_min_share=-1,
         m_max_share=-1, m_grid=2, m_random_poisson=True,
         match_nn_prog_score=True, max_cats_z_vars=None, max_weight_share=0.05,
         mce_vart=1, min_dummy_obs=10,  mp_parallel=None,
@@ -149,7 +150,7 @@ def modified_causal_forest(
         reduce_training_share, reduce_prediction, reduce_prediction_share,
         reduce_largest_group_train, reduce_largest_group_train_share,
         iate_flag, iate_se_flag, _l_centering_uncenter, d_type, ct_grid_nn,
-        ct_grid_w, ct_grid_dr, support_adjust_limits)
+        ct_grid_w, ct_grid_dr, support_adjust_limits, l_centering_replication)
 # Set defaults for many control variables of the MCF & define variables
 
     c_dict, v_dict, text_to_print = mcf_init.get_controls(controls_dict,
@@ -287,7 +288,8 @@ def modified_causal_forest(
              ) = mcf_lc.local_centering_new_sample(
                 l_cent_sample, nonlc_sample, v_dict, var_x_type, c_dict)
             v_dict = mcf_data.adjust_y_names(v_dict, old_y_name, new_y_name,
-                                             c_dict['with_output'])
+                                             c_dict['with_output'],
+                                             seed=_seed_sample_split)
         time12 = time.time()
         # Sample splitting
         share1 = (1 - c_dict['fs_other_sample_share']
@@ -305,7 +307,8 @@ def modified_causal_forest(
             else:
                 files_to_center = (tree_sample, fill_y_sample)
             old_y_name, new_y_name, lc_forest = mcf_lc.local_centering_cv(
-                files_to_center, v_dict, var_x_type, c_dict)
+                files_to_center, v_dict, var_x_type, c_dict,
+                seed=_seed_sample_split)
             time12 = time.time()
             v_dict = mcf_data.adjust_y_names(v_dict, old_y_name, new_y_name,
                                              c_dict['with_output'])
@@ -442,8 +445,6 @@ def modified_causal_forest(
                 mcf_gp.statistics_by_treatment(
                     indatei_tree, d_name, v_dict['y_match_name'],
                     c_dict['d_type'] == 'continuous')
-            # if c_dict['with_output'] and c_dict['desc_stat']:
-            #     mcf_forest_add.structure_of_node_tabl()
     # Estimate forest structure
             forest, x_name_mcf = mcf_forest.build_forest(
                 indatei_tree, v_dict, var_x_type, var_x_values, c_dict)

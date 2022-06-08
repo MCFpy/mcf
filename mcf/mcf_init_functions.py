@@ -449,6 +449,8 @@ def get_controls(c_dict, v_dict):
                         round(c_dict['l_centering_cv_k']))
             if c_dict['l_centering_uncenter'] is not True:
                 cnew_dict['l_centering_uncenter'] = False
+            if c_dict['l_centering_replication'] is not False:
+                cnew_dict['l_centering_replication'] = True
         else:
             cnew_dict['l_centering'] = False
             cnew_dict['l_centering_new_sample'] = None

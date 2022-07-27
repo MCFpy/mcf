@@ -43,31 +43,14 @@ def find_precision(values):
     return precision
 
 
-def print_effect_z(g_r, gm_r, z_values, gate_str):
-    """Print treatment effects.
-
-    Parameters
-    ----------
-    est : Numpy array. Point estimate.
-    se : Numpy array. Standard error.
-    t_val : Numpy array. t/z-value.
-    p_val : Numpy array. p-value.
-    effect_list : List of Int. Treatment values involved in comparison.
-    add_title: None or string. Additional title.
-    add_info: None or Int. Additional information about parameter.
-
-    Returns
-    -------
-    None.
-
-    """
+def print_effect_z(g_r, gm_r, z_values, gate_str, print_output=True):
+    """Print treatment effects."""
     no_of_effect_per_z = np.size(g_r[0][0])
-    print('- ' * 40)
-    print('                   ', gate_str,
-          '                                ', gate_str, '- ATE')
-    print('Comparison       Z      Est         SE    t-val   p-val          ',
-          'Est        SE    t-val  p-val')
-    print('- ' * 40)
+    print_str = ('- ' * 40 + f'\n                   {gate_str}'
+                 + f'                                {gate_str} - ATE')
+    print_str += ('\nComparison      Z      Est         SE  t-val   p-val'
+                  + '         Est        SE  t-val  p-val\n' + '- ' * 40
+                  + '\n')
     prec = find_precision(z_values)
     if prec == 0:
         z_values = gp.recode_if_all_prime(z_values.copy())
@@ -76,17 +59,21 @@ def print_effect_z(g_r, gm_r, z_values, gate_str):
             treat_s = f'{g_r[zind][4][j][0]:<3} vs {g_r[zind][4][j][1]:>3}'
             val_s = f'{z_val:>7.{prec}f}'
             estse_s = f'{g_r[zind][0][j]:>9.5f}  {g_r[zind][1][j]:>9.5f}'
-            t_p_s = f'{g_r[zind][2][j]:>5.2f}  {g_r[zind][3][j]:>5.2%}'
+            t_p_s = f'{g_r[zind][2][j]:>6.2f}  {g_r[zind][3][j]:>6.2%}'
             s_s = stars(g_r[zind][3][j])
             estsem_s = f'{gm_r[zind][0][j]:>9.5f}  {gm_r[zind][1][j]:>9.5f}'
-            tm_p_s = f'{gm_r[zind][2][j]:>5.2f}  {gm_r[zind][3][j]:>5.2%}'
+            tm_p_s = f'{gm_r[zind][2][j]:>6.2f}  {gm_r[zind][3][j]:>6.2%}'
             sm_s = stars(gm_r[zind][3][j])
-            print(treat_s, val_s, estse_s, t_p_s, s_s, estsem_s, tm_p_s, sm_s)
+            print_str += (treat_s + val_s + estse_s + t_p_s + s_s + estsem_s
+                          + tm_p_s + sm_s + '\n')
         if j < no_of_effect_per_z-1:
-            print('- ' * 40)
-    print('-' * 80)
-    print('Values of Z may give the order of values (starting with 0.')
-    print('-' * 80)
+            print_str += '- ' * 40 + '\n'
+    print_str += '-' * 80
+    print_str += '\nValues of Z may give the order of values (starting with 0.'
+    print_str += '\n' + '-' * 80
+    if print_output:
+        print(print_str)
+    return print_str
 
 
 def effect_from_potential(pot_y, pot_y_var, d_values,

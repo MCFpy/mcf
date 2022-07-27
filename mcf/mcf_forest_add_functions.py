@@ -443,9 +443,14 @@ def fs_adjust_vars(vi_i, vi_g, vi_ag, v_dict, v_x_type, v_x_values, x_name,
                 if c_dict['with_output']:
                     print('\nVariables deleted: ', names_to_remove2)
                     print('\nVariables kept: ', v_dict['x_name'])
+                    gp.print_f(c_dict['outfilesummary'],
+                               'Variables deleted: ', names_to_remove2,
+                               '\nVariables kept: ', v_dict['x_name'])
     if nothing_removed:
         if c_dict['with_output']:
             print('\n', 'No variables removed in feature selection')
+            gp.print_f(c_dict['outfilesummary'],
+                       'No variables removed in feature selection')
     return v_dict, v_x_type, v_x_values
 
 

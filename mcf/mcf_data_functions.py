@@ -289,7 +289,7 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
     if c_dict['x_type_1'] or c_dict['x_type_2']:  # Expand cat var's to dummies
         var_names_unordered = gp.dic_get_list_of_key_by_item(v_type, [1, 2])
         x_dummies = data[var_names_unordered].astype('category')
-        x_dummies = pd.get_dummies(x_dummies, drop_first=True)
+        x_dummies = pd.get_dummies(x_dummies)
     if c_dict['x_type_0']:
         var_names_ordered = gp.dic_get_list_of_key_by_item(v_type, [0])
         x_ord = data[var_names_ordered]

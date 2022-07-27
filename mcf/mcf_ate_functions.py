@@ -20,7 +20,7 @@ from mcf import mcf_general_purpose as mcf_gp
 
 
 def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
-            balancing_test=False, w_ate_only=False):
+            balancing_test=False, w_ate_only=False, print_output=True):
     """Estimate ATE and their standard errors.
 
     Parameters
@@ -39,6 +39,8 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
               Default is False.
     w_ate_only : Boolean.
               Only weights are needede as output. Default is False.
+    print_output : Boolean.
+              Prints output. Default is True.
 
     Returns
     -------
@@ -75,7 +77,7 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
         c_dict['atet_flag'], no_of_ates = False, 1
     t_probs = c_dict['choice_based_probs']
     # Step 1: Aggregate weights
-    if c_dict['with_output'] and c_dict['verbose']:
+    if c_dict['with_output'] and c_dict['verbose'] and print_output:
         if balancing_test:
             print('\nComputing balancing tests (in ATE-like fashion)')
         else:
@@ -135,7 +137,7 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
     for a_idx in range(no_of_ates):
         for ta_idx in range(no_of_treat):
             if -1e-15 < sumw[a_idx, ta_idx] < 1e-15:
-                if c_dict['with_output']:
+                if c_dict['with_output'] and print_output:
                     print('Treatment:', ta_idx, 'ATE number: ', a_idx)
                     print('ATE weights:', w_ate[a_idx, ta_idx, :], flush=True)
                 if w_ate_only:
@@ -219,7 +221,7 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
                             else w_ate[a_idx, t_idx, :])
     if continuous:
         no_of_treat, d_values = no_of_treat_dr, d_values_dr
-    if c_dict['with_output']:
+    if c_dict['with_output'] and print_output:
         if not balancing_test:
             analyse_weights_ate(
                 w_ate_1dim[0, :, :], 'Weights to compute ATE', c_dict,
@@ -230,7 +232,11 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
         if balancing_test:
             print('Balancing Tests')
         else:
-            print('Average Treatment Effects Estimation')
+            print_str = ('\n' + '=' * 80
+                         + '\nAverage Treatment Effects Estimation' + '\n'
+                         + '-' * 80)
+            print(print_str)
+            gp.print_f(c_dict['outfilesummary'], print_str)
         print('-' * 80)
         print('Potential outcomes')
         print('-' * 80)
@@ -261,16 +267,25 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
                         round(no_of_treat * (no_of_treat - 1) / 2)))
     ate_se = np.empty_like(ate)
     for o_idx, out_name in enumerate(v_dict['y_name']):
-        if c_dict['with_output']:
-            print('\nOutcome variable: ', out_name)
+        if c_dict['with_output'] and print_output:
+            print_str = f'Outcome variable: {out_name}'
+            print('\n' + print_str)
+            if not balancing_test:
+                gp.print_f(c_dict['outfilesummary'], print_str)
         for a_idx in range(no_of_ates):
-            if c_dict['with_output']:
+            if c_dict['with_output'] and print_output:
                 if a_idx == 0:
-                    print('Reference population: All')
+                    print_str = 'Reference population: All'
+                    print(print_str)
+                    if not balancing_test:
+                        gp.print_f(c_dict['outfilesummary'], print_str)
                     label_ate = 'ATE'
                 else:
-                    print('Reference population: Treatment group:',
-                          d_values[a_idx-1])
+                    print_str = ('Reference population: Treatment group '
+                                 + f'{d_values[a_idx-1]}')
+                    print(print_str)
+                    if not balancing_test:
+                        gp.print_f(c_dict['outfilesummary'], print_str)
                     label_ate = 'ATET' + str(d_values[a_idx-1])
                 print('- ' * 40)
             pot_y_ao = pot_y[a_idx, :, o_idx]
@@ -279,14 +294,17 @@ def ate_est(weights, pred_data, y_dat, cl_dat, w_dat, var, con,
              ) = mcf_gp.effect_from_potential(
                 pot_y_ao, pot_y_var_ao, d_values, continuous=continuous)
             ate[o_idx, a_idx], ate_se[o_idx, a_idx] = est, stderr
-            if c_dict['with_output']:
-                gp.print_effect(est, stderr, t_val, p_val, effect_list,
-                                continuous=continuous)
+            if c_dict['with_output'] and print_output:
+                print_str = gp.print_effect(est, stderr, t_val, p_val,
+                                            effect_list, continuous=continuous)
                 gp.effect_to_csv(est, stderr, t_val, p_val, effect_list,
-                                 path=c_dict['fig_pfad_csv'],
+                                 path=c_dict['cs_ate_iate_fig_pfad_csv'],
                                  label=label_ate+out_name)
-                gp_est.print_se_info(c_dict['cluster_std'],
-                                     c_dict['se_boot_ate'])
+                print_str2 = gp_est.print_se_info(
+                    c_dict['cluster_std'], c_dict['se_boot_ate'])
+                if not balancing_test:
+                    gp.print_f(c_dict['outfilesummary'],
+                               print_str + '\n' + print_str2)
                 if continuous and not balancing_test and a_idx == 0:
                     dose_response_figure(out_name, v_dict['d_name'][0], est,
                                          stderr, d_values[1:], c_dict)
@@ -304,9 +322,12 @@ def dose_response_figure(y_name, d_name, effects, stderr, d_values, c_dict):
     label_ci = str(c_dict['fig_ci_level'] * 100) + '%-CI'
     label_m, label_0, line_0 = 'ADR', '_nolegend_', '_-k'
     zeros = np.zeros_like(effects)
-    file_name_jpeg = c_dict['fig_pfad_jpeg'] + '/' + file_title + '.jpeg'
-    file_name_pdf = c_dict['fig_pfad_pdf'] + '/' + file_title + '.pdf'
-    file_name_csv = c_dict['fig_pfad_csv'] + '/' + file_title + '.csv'
+    file_name_jpeg = (c_dict['cs_ate_iate_fig_pfad_jpeg'] + '/' + file_title
+                      + '.jpeg')
+    file_name_pdf = (c_dict['cs_ate_iate_fig_pfad_pdf'] + '/' + file_title
+                     + '.pdf')
+    file_name_csv = (c_dict['cs_ate_iate_fig_pfad_csv'] + '/' + file_title
+                     + 'plotdat.csv')
     fig, axs = plt.subplots()
     axs.set_title(titel)
     axs.set_ylabel("Average dose response (relative to 0)")

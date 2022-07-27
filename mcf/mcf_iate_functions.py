@@ -8,6 +8,7 @@ Created on Thu Dec 8 15:48:57 2020.
 # -*- coding: utf-8 -*-
 """
 from concurrent import futures
+from copy import deepcopy
 
 import numpy as np
 import pandas as pd
@@ -21,8 +22,9 @@ from mcf import mcf_general_purpose as mcf_gp
 from mcf import mcf_iate_add_functions as mcf_iate_add
 
 
-def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
-                w_ate=None, balancing_test=False, save_predictions=True):
+def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
+                w_ate=None, balancing_test=False, save_predictions=True,
+                pot_y_prev=None):
     """
     Estimate IATE and their standard errors, plot & save them, MP version.
 
@@ -36,9 +38,11 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
     w : Numpy array. Sampling weights.
     v : Dict. Variables.
     c : Dict. Parameters.
-    w_ate: Numpy array. Weights of ATE estimation. Default = None.
-    balancing_test : Bool. Balancing test. Default = False.
-    save_predictions : Bool. save_predictions = True.
+    w_ate: Numpy array. Weights of ATE estimation. Default is None.
+    balancing_test : Bool. Balancing test. Default is False.
+    save_predictions : Bool. Default is True.
+    pot_y_prev : Numpy array or None. Potential outcomes from previous
+          estimations. Default is None.
 
     Returns
     -------
@@ -58,9 +62,17 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                   'estimation without sparse weight matrix. This needs more '
                   'memory, but could be substantially faster ',
                   '(weight_as_sparse = False).')
-
+    if pot_y_prev is None:  # 2nd round of estimations
+        c_dict = c_in_dict
+        reg_round = True
+    else:
+        c_dict = deepcopy(c_in_dict)
+        c_dict['iate_se_flag'] = False
+        c_dict['se_boot_iate'] = False
+        reg_round = False
     if c_dict['with_output'] and c_dict['verbose'] and save_predictions:
         print('\nComputing IATEs 1/2 (potential outcomes)')
+
     n_x = weights[0].shape[0] if c_dict['weight_as_sparse'] else len(weights)
     n_y, no_of_out = len(y_dat), len(v_dict['y_name'])
     if c_dict['d_type'] == 'continuous':
@@ -266,27 +278,30 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                              l1_to_9, share_censored, ret_all_i, n_x)
                         if c_dict['with_output'] and c_dict['verbose']:
                             gp.share_completed(jdx+1, no_of_splits)
-    for idx in range(n_x):
-        larger_0 += l1_to_9[idx][0]
-        equal_0 += l1_to_9[idx][1]
-        mean_pos += l1_to_9[idx][2]
-        std_pos += l1_to_9[idx][3]
-        gini_all += l1_to_9[idx][4]
-        gini_pos += l1_to_9[idx][5]
-        share_largest_q += l1_to_9[idx][6]
-        sum_larger += l1_to_9[idx][7]
-        obs_larger += l1_to_9[idx][8]
-    if c_dict['with_output'] and (not balancing_test) and save_predictions:
-        print('\n')
-        print('=' * 80)
-        print('Analysis of weights (normalised to add to 1): ', 'IATE',
-              '(stats are averaged over all effects)')
-        mcf_ate.print_weight_stat(
-            larger_0 / n_x, equal_0 / n_x, mean_pos / n_x, std_pos / n_x,
-            gini_all / n_x, gini_pos / n_x, share_largest_q / n_x,
-            sum_larger / n_x, obs_larger / n_x, c_dict, share_censored,
-            continuous=c_dict['d_type'] == 'continuous',
-            d_values_cont=d_values_dr)
+    if reg_round:
+        for idx in range(n_x):
+            larger_0 += l1_to_9[idx][0]
+            equal_0 += l1_to_9[idx][1]
+            mean_pos += l1_to_9[idx][2]
+            std_pos += l1_to_9[idx][3]
+            gini_all += l1_to_9[idx][4]
+            gini_pos += l1_to_9[idx][5]
+            share_largest_q += l1_to_9[idx][6]
+            sum_larger += l1_to_9[idx][7]
+            obs_larger += l1_to_9[idx][8]
+        if c_dict['with_output'] and (not balancing_test) and save_predictions:
+            print('\n')
+            print('=' * 80)
+            print('Analysis of weights (normalised to add to 1): ', 'IATE',
+                  '(stats are averaged over all effects)')
+            mcf_ate.print_weight_stat(
+                larger_0 / n_x, equal_0 / n_x, mean_pos / n_x, std_pos / n_x,
+                gini_all / n_x, gini_pos / n_x, share_largest_q / n_x,
+                sum_larger / n_x, obs_larger / n_x, c_dict, share_censored,
+                continuous=c_dict['d_type'] == 'continuous',
+                d_values_cont=d_values_dr)
+    else:
+        pot_y = 0.5 * pot_y_prev + 0.5 * pot_y
     if c_dict['with_output'] and c_dict['verbose'] and save_predictions:
         print('\nComputing IATEs 2/2 (effects)')
     if c_dict['d_type'] == 'continuous':
@@ -425,9 +440,14 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                 iate_mate_np[:, j2dx] = iate[:, o_idx, t2_idx, 1]
                 iate_mate_se_np[:, j2dx] = iate_se[:, o_idx, t2_idx, 1]
             j2dx += 1
-    name_pot_y = [s + '_pot' for s in name_pot]
-    name_iate = [s + '_iate' for s in name_eff]
-    name_iate0 = [s + '_iate' for s in name_eff0]
+    if reg_round:
+        name_pot_y = [s + '_pot' for s in name_pot]
+        name_iate = [s + '_iate' for s in name_eff]
+        name_iate0 = [s + '_iate' for s in name_eff0]
+    else:
+        name_pot_y = [s + '_pot_eff' for s in name_pot]
+        name_iate = [s + '_iate_eff' for s in name_eff]
+        name_iate0 = [s + '_iate_eff' for s in name_eff0]
     if c_dict['iate_se_flag']:
         name_pot_y_se = [s + '_pot_se' for s in name_pot]
         name_iate_se = [s + '_iate_se' for s in name_eff]
@@ -450,7 +470,10 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                                         columns=name_iate_mate)
             iate_mate_se_df = pd.DataFrame(data=iate_mate_se_np,
                                            columns=name_iate_mate_se)
-        data_df = pd.read_csv(data_file)
+        if reg_round:
+            data_df = pd.read_csv(data_file)
+        else:
+            data_df = pd.read_csv(c_dict['pred_sample_with_pred'])
         if c_dict['iate_se_flag']:
             df_list = [data_df, pot_y_df, pot_y_se_df, iate_df, iate_se_df,
                        iate_mate_df, iate_mate_se_df]

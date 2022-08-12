@@ -1101,6 +1101,7 @@ def print_f(file_to_print_to, *strings):
     with open(file_to_print_to, "a") as file:
         file.write('\n')
         for text in strings:
-            file.write(text)
-
-    
+            if not isinstance(text, str):
+                file.write(str(text))
+            else:
+                file.write(text)

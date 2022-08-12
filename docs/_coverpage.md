@@ -1,7 +1,7 @@
 <!-- _coverpage.md -->
 
 
-# **M**odified **C**ausal **F**orest  <small>0.2.5</small>
+# **M**odified **C**ausal **F**orest  <small>0.2.6</small>
 
 
 

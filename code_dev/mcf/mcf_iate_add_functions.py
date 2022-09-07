@@ -152,7 +152,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
     if c_dict['bin_corr_yes']:
         print('\n' + ('=' * 80), '\nCorrelations of effects with ... in %')
         print('-' * 80)
-    label_ci = f'{c_dict["fig_ci_level"]:2.0%}-CI'
+    label_ci = str(c_dict['fig_ci_level'] * 100) + '%-CI'
     iterator = range(2) if c_dict['iate_se_flag'] else range(1)
     no_of_names = len(iate_pot_name['names_iate'])
     eva_points = eva_points_fct(no_of_names, len(v_dict['y_name']))
@@ -170,7 +170,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                 name_iate_se_t = iate_pot_name[name_se][idx]
             else:
                 name_se = name_iate_se_t = None
-            titel = 'Sorted ' + name_iate_t
+            titel = 'Sorted' + name_iate_t
             # Add correlation analyis of IATEs
             if c_dict['d_type'] == 'discrete' or idx in eva_points:
                 if c_dict['bin_corr_yes'] and imate == 0:
@@ -204,13 +204,12 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                 if c_dict['iate_se_flag']:
                     iate_se_temp = gp_est.moving_avg_mean_var(
                         iate_se_temp, k, False)[0]
-                titel_f = titel.replace(' ', '')
                 file_name_jpeg = (c_dict['cs_ate_iate_fig_pfad_jpeg']
-                                  + '/' + titel_f + '.jpeg')
+                                  + '/' + titel + '.jpeg')
                 file_name_pdf = (c_dict['cs_ate_iate_fig_pfad_pdf']
-                                 + '/' + titel_f + '.pdf')
+                                 + '/' + titel + '.pdf')
                 file_name_csv = (c_dict['cs_ate_iate_fig_pfad_csv']
-                                 + '/' + titel_f + 'plotdat.csv')
+                                 + '/' + titel + 'plotdat.csv')
                 if c_dict['iate_se_flag']:
                     upper = iate_temp + iate_se_temp * cint
                     lower = iate_temp - iate_se_temp * cint
@@ -223,24 +222,16 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                 line_ate, line_iate = '_-r', '-b'
                 fig, axe = plt.subplots()
                 if imate == 0:
-                    label_t, label_r, label_y = 'IATE', 'ATE', 'Effect'
+                    label_t, label_r = 'IATE', 'ATE'
                 else:
                     label_t, label_r = 'IATE-ATE', '_nolegend_'
-                    label_y = 'Effect - average'
                 axe.plot(x_values, iate_temp, line_iate, label=label_t)
-                axe.set_ylabel(label_y)
+                axe.set_ylabel(label_t)
                 axe.plot(x_values, ate_t, line_ate, label=label_r)
                 if imate == 0:
                     axe.fill_between(x_values, ate_upper, ate_lower,
                                      alpha=0.3, color='r', label=label_ci)
-                titel_tmp = titel.replace('_iate','')
-                if 'mate' in titel:
-                   titel_tmp = titel_tmp.replace('mate','')
-                titel_tmp = titel_tmp[:-4] + ' ' + titel_tmp[-4:]
-                titel_tmp = titel_tmp.replace('vs', ' vs ')
-                if 'mate' in titel:
-                    titel_tmp += ' (- ATE)'
-                axe.set_title(titel_tmp)
+                axe.set_title(titel)
                 axe.set_xlabel('Index of sorted IATEs')
                 if c_dict['iate_se_flag']:
                     axe.fill_between(x_values, upper, lower, alpha=0.3,
@@ -283,14 +274,13 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                 datasave.to_csv(file_name_csv, index=False)
                 # density plots
                 if imate == 0:
-                    titel = 'Density ' + iate_pot_name['names_iate'][idx]
-                    titel_f = titel.replace(' ','')
+                    titel = 'Density' + iate_pot_name['names_iate'][idx]
                     file_name_jpeg = (c_dict['cs_ate_iate_fig_pfad_jpeg']
-                                      + '/' + titel_f + '.jpeg')
+                                      + '/' + titel + '.jpeg')
                     file_name_pdf = (c_dict['cs_ate_iate_fig_pfad_pdf']
-                                     + '/' + titel_f + '.pdf')
+                                     + '/' + titel + '.pdf')
                     file_name_csv = (c_dict['cs_ate_iate_fig_pfad_csv']
-                                     + '/' + titel_f + 'plotdat.csv')
+                                     + '/' + titel + 'plotdat.csv')
                     iate_temp = data[name_iate_t].to_numpy()
                     bandwidth = gp_est.bandwidth_silverman(iate_temp, 1)
                     dist = np.abs(iate_temp.max() - iate_temp.min())
@@ -300,12 +290,8 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                     density = gp_est.kernel_density(iate_temp, grid, 1,
                                                     bandwidth)
                     fig, axe = plt.subplots()
-                    titel_tmp = titel.replace('_iate','')
-                    titel_tmp = titel_tmp[:-4] + ' ' + titel_tmp[-4:]
-                    titel_tmp = titel_tmp.replace('vs', ' vs ')
-                    axe.set_title(titel_tmp)
+                    axe.set_title(titel)
                     axe.set_ylabel('Estimated density')
-                    axe.set_xlabel('IATE')
                     axe.plot(grid, density, '-b')
                     axe.fill_between(grid, density, alpha=0.3, color='b')
                     if c_dict['post_plots']:

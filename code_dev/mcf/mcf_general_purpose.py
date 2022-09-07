@@ -69,8 +69,7 @@ def print_effect_z(g_r, gm_r, z_values, gate_str, print_output=True):
         if j < no_of_effect_per_z-1:
             print_str += '- ' * 40 + '\n'
     print_str += '-' * 80
-    print_str += ('\nValues of Z may give the order of values'
-                  + ' (starting with 0).')
+    print_str += '\nValues of Z may give the order of values (starting with 0.'
     print_str += '\n' + '-' * 80
     if print_output:
         print(print_str)

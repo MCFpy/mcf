@@ -48,22 +48,16 @@ def plot_marginal(pred, pred_se, names_pred, x_name, x_values_in, x_type,
         x_values = x_values_in
     for idx, _ in enumerate(names_pred):
         if regrf:
-            titel = ('Marginal predictive plot ' + x_name + ' '
-                     + names_pred[idx])
+            titel = 'Marginal predictive plot ' + x_name + names_pred[idx]
         else:
-            if minus_ate:
-                titel = ('MGATE - avg.(MGATE) ' + x_name + ' '
-                         + names_pred[idx][:-9])
-            else:
-                titel = 'MGATE ' + x_name + ' ' + names_pred[idx][:-5]
+            titel = ('MGATE-A(MGATE) ' + x_name + names_pred[idx][:-9] if
+                     minus_ate else 'MGATE ' + x_name + names_pred[idx][:-5])
         pred_temp, pred_se_temp = pred[:, idx], pred_se[:, idx]
         if x_type == 0 and len(x_values) > c_dict['no_filled_plot']:
             pred_temp = gp_est.moving_avg_mean_var(pred_temp, 3, False)[0]
             pred_se_temp = gp_est.moving_avg_mean_var(
                 pred_se_temp, 3, False)[0]
         file_titel = titel.replace(" ", "")
-        file_titel = file_titel.replace("-", "M")
-        file_titel = file_titel.replace(".", "")
         file_name_jpeg = (c_dict['mgate_fig_pfad_jpeg'] + '/' + file_titel
                           + '.jpeg')
         file_name_pdf = (c_dict['mgate_fig_pfad_pdf'] + '/' + file_titel
@@ -73,19 +67,17 @@ def plot_marginal(pred, pred_se, names_pred, x_name, x_values_in, x_type,
         upper = pred_temp + pred_se_temp * conf_int
         lower = pred_temp - pred_se_temp * conf_int
         fig, axs = plt.subplots()
-        label_u = f'Upper {c_dict["fig_ci_level"]:2.0%} %-CI'
-        label_l = f'Lower {c_dict["fig_ci_level"]:2.0%} %-CI'
+        label_u = 'Upper ' + str(round(c_dict['fig_ci_level'] * 100)) + '%-CI'
+        label_l = 'Lower ' + str(round(c_dict['fig_ci_level'] * 100)) + '%-CI'
         label_ci = str(c_dict['fig_ci_level'] * 100) + '%-CI'
         if regrf:
             label_m = 'Conditional prediction'
         else:
             if minus_ate:
-                label_m = 'MGATE - avg.(MGATE)'
-                label_y = 'Effect - average'
-                label_0, line_0 = '_nolegend_', '_-r'
+                label_m, label_0, line_0 = 'MGATE-A(MATE)', '_nolegend_', '_-k'
                 zeros = np.zeros_like(pred_temp)
             else:
-                label_m, label_y = 'MGATE', 'Effect'
+                label_m = 'MGATE'
         if x_type == 0 and len(x_values) > c_dict['no_filled_plot']:
             axs.plot(x_values, pred_temp, label=label_m, color='b')
             axs.fill_between(x_values, upper, lower, alpha=0.3, color='b',
@@ -112,13 +104,11 @@ def plot_marginal(pred, pred_se, names_pred, x_name, x_values_in, x_type,
                                                          print_it=False)
             print(print_str)
             gp.print_f(c_dict['outfilesummary'], print_str)
-        axs.set_ylabel(label_y)
+        axs.set_ylabel(label_m)
         axs.legend(loc=c_dict['fig_legend_loc'], shadow=True,
                    fontsize=c_dict['fig_fontsize'])
-        titel_tmp = titel[:-4] + ' ' + titel[-4:]
-        titel_tmp = titel_tmp.replace('vs', ' vs ')
-        axs.set_title(titel_tmp)
-        axs.set_xlabel(x_name)
+        axs.set_title(titel)
+        axs.set_xlabel('Values of ' + x_name)
         gp.delete_file_if_exists(file_name_jpeg)
         gp.delete_file_if_exists(file_name_pdf)
         fig.savefig(file_name_jpeg, dpi=c_dict['fig_dpi'])
@@ -180,13 +170,14 @@ def print_stars(p_val):
     """Print stars."""
     if p_val < 0.001:
         return '****'
-    if p_val < 0.01:
+    elif p_val < 0.01:
         return ' ***'
-    if p_val < 0.05:
+    elif p_val < 0.05:
         return '  **'
-    if p_val < 0.1:
+    elif p_val < 0.1:
         return '   *'
-    return '    '
+    else:
+        return '    '
 
 
 def print_mgate_cont(est, stderr, titel, z_values, d_values):
@@ -258,8 +249,6 @@ def make_gate_figures_discr(
     if mcf_gp.find_precision(z_values) == 0:
         z_values = gp.recode_if_all_prime(z_values)
     titel_f = titel.replace(' ', '')
-    titel_f = titel_f.replace('-', 'M')
-    titel_f = titel_f.replace('.', '')
     if am_gate:
         file_name_jpeg = (c_dict['amgate_fig_pfad_jpeg'] + '/' + titel_f
                           + '.jpeg')
@@ -272,24 +261,19 @@ def make_gate_figures_discr(
         file_name_csv = (c_dict['gate_fig_pfad_csv'] + '/' + titel_f
                          + 'plotdat.csv')
     if ate_se is None:
-        gate_str = 'AMGATE-avg.(AMGATE)' if am_gate else 'GATE-ATE'
-        gate_str_y = 'Effect - average'
+        gate_str = 'AMGATE-A(AMGATE)' if am_gate else 'GATE-ATE'
         ate_label = '_nolegend_'
         if am_gate:
-            label_m = 'AMGATE-avg.(AMATE)'
+            label_m = 'AMGATE-A(AMATE)'
         else:
             label_m = 'GATET-ATET' if gatet_yes else 'GATE-ATE'
-        label_y = 'Effect - average'
     else:
         if am_gate:
             label_m = 'AMGATE'
-            ate_label = 'avg.(AMGATE)'
         else:
             label_m = 'GATET' if gatet_yes else 'GATE'
-            ate_label = 'ATE'
-        label_y = 'Effect'
         gate_str = 'AMGATE' if am_gate else 'GATE'
-        gate_str_y = 'Effect'
+        ate_label = 'ATE'
     ate = ate * np.ones((len(z_values), 1))
     if isinstance(z_type, (list, tuple, np.ndarray)):
         z_type = z_type[0]
@@ -298,7 +282,7 @@ def make_gate_figures_discr(
     upper, lower = effects + stderr * cint, effects - stderr * cint
     if ate_se is not None:
         ate_upper, ate_lower = ate + ate_se * cint, ate - ate_se * cint
-    label_ci = f'{c_dict["fig_ci_level"]:2.0%}-CI'
+    label_ci = str(c_dict['fig_ci_level'] * 100) + '%-CI'
     if (z_type == 0) and (len(z_values) > c_dict['no_filled_plot']):
         if am_gate or z_smooth:
             if am_gate:
@@ -315,7 +299,7 @@ def make_gate_figures_discr(
             axs.plot(z_values, effects, label=label_m, color='b')
             axs.fill_between(z_values, upper, lower, alpha=0.3, color='b',
                              label=label_ci)
-            line_ate = '-r'
+            line_ate = '_-r'
             if ate_se is not None:
                 axs.fill_between(
                     z_values, ate_upper.reshape(-1), ate_lower.reshape(-1),
@@ -324,13 +308,11 @@ def make_gate_figures_discr(
             else:
                 label_ate = '_nolegend_'
             axs.plot(z_values, ate, line_ate, label=label_ate)
-            axs.set_ylabel(label_y)
+            axs.set_ylabel(label_m)
             axs.legend(loc=c_dict['fig_legend_loc'], shadow=True,
                        fontsize=c_dict['fig_fontsize'])
-            titel_tmp = titel[:-4] + ' ' + titel[-4:]
-            titel_tmp = titel_tmp.replace('vs', ' vs ')
-            axs.set_title(titel_tmp)
-            axs.set_xlabel(z_name)
+            axs.set_title(titel)
+            axs.set_xlabel('Values of ' + z_name)
             gp.delete_file_if_exists(file_name_f_jpeg)
             gp.delete_file_if_exists(file_name_f_pdf)
             figs.savefig(file_name_f_jpeg, dpi=c_dict['fig_dpi'])
@@ -349,21 +331,19 @@ def make_gate_figures_discr(
         connect_x[0], connect_x[1] = i_lab, i_lab
         axe.plot(connect_x, connect_y, 'b-', linewidth=0.7)
     axe.plot(z_values, effects, e_line + 'b', label=gate_str)
-    axe.set_ylabel(gate_str_y)
-    label_u = f'Upper {c_dict["fig_ci_level"]:2.0%}-CI'
-    label_l = f'Lower {c_dict["fig_ci_level"]:2.0%}-CI'
+    axe.set_ylabel(gate_str)
+    label_u = 'Upper ' + str(round(c_dict['fig_ci_level'] * 100)) + '%-CI'
+    label_l = 'Lower ' + str(round(c_dict['fig_ci_level'] * 100)) + '%-CI'
     axe.plot(z_values, upper, u_line + 'b', label=label_u)
     axe.plot(z_values, lower, l_line + 'b', label=label_l)
-    axe.plot(z_values, ate, '-' + 'r', label=ate_label)
+    axe.plot(z_values, ate, '-' + 'k', label=ate_label)
     if ate_se is not None:
-        axe.plot(z_values, ate_upper, '--' + 'r', label=label_u)
-        axe.plot(z_values, ate_lower, '--' + 'r', label=label_l)
+        axe.plot(z_values, ate_upper, '--' + 'k', label=label_u)
+        axe.plot(z_values, ate_lower, '--' + 'k', label=label_l)
     axe.legend(loc=c_dict['fig_legend_loc'], shadow=True,
                fontsize=c_dict['fig_fontsize'])
-    titel_tmp = titel[:-4] + ' ' + titel[-4:]
-    titel_tmp = titel_tmp.replace('vs', ' vs ')
-    axe.set_title(titel_tmp)
-    axe.set_xlabel(z_name)
+    axe.set_title(titel)
+    axe.set_xlabel('Values of ' + z_name)
     gp.delete_file_if_exists(file_name_jpeg)
     gp.delete_file_if_exists(file_name_pdf)
     fig.savefig(file_name_jpeg, dpi=c_dict['fig_dpi'])
@@ -410,8 +390,6 @@ def make_gate_figures_cont(titel, z_name, z_values, effects, c_dict,
     """
     titel = 'Dose response ' + titel
     titel_f = titel.replace(' ', '')
-    titel_f = titel_f.replace('-', 'M')
-    titel_f = titel_f.replace('.', '')
     if am_gate:
         file_name_jpeg = (c_dict['amgate_fig_pfad_jpeg'] + '/' + titel_f
                           + '.jpeg')
@@ -431,7 +409,7 @@ def make_gate_figures_cont(titel, z_name, z_values, effects, c_dict,
     plt.title(titel)
     axe.set_ylabel('Treatment levels')
     axe.set_zlabel(gate_str)
-    axe.set_xlabel(z_name)
+    axe.set_xlabel(f'Values of {z_name}')
     fig.colorbar(surf, shrink=0.5, aspect=5)
     gp.delete_file_if_exists(file_name_jpeg)
     gp.delete_file_if_exists(file_name_pdf)
@@ -466,10 +444,9 @@ def plot_marginal_cont(pred, pred_se, x_name, x_values_in, x_type,
     else:
         x_values = x_values_in
     d_values = c_dict['ct_d_values_dr_np'][1:]
-    titel = 'MGATE - MATE ' + x_name if minus_ate else 'MGATE ' + x_name
+    titel = 'MGATEMATE ' + x_name if minus_ate else 'MGATE ' + x_name
     titel = 'Dose response ' + titel
     file_titel = titel.replace(" ", "")
-    file_titel = titel.replace("-", "M")
     file_name_jpeg = c_dict['mgate_fig_pfad_jpeg'] + '/' + file_titel + '.jpeg'
     file_name_pdf = c_dict['mgate_fig_pfad_pdf'] + '/' + file_titel + '.pdf'
     fig, axe = plt.subplots(subplot_kw={"projection": "3d"})
@@ -481,7 +458,7 @@ def plot_marginal_cont(pred, pred_se, x_name, x_values_in, x_type,
     plt.title(titel)
     axe.set_ylabel('Treatment levels')
     axe.set_zlabel(mgate_str)
-    axe.set_xlabel(x_name)
+    axe.set_xlabel(f'Values of {x_name}')
     fig.colorbar(surf, shrink=0.5, aspect=5)
     gp.delete_file_if_exists(file_name_jpeg)
     gp.delete_file_if_exists(file_name_pdf)

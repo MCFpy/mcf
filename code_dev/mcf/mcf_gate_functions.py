@@ -345,12 +345,11 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
         c_dict['gatet_flag'], no_of_tgates = 0, 1
         ref_pop_lab = [ref_pop_lab[0]]
     t_probs = c_dict['choice_based_probs']
-    effect_type_label = (gate_str, gate_str + ' - ATE')
+    effect_type_label = (gate_str, gate_str + 'MATE')
     jdx = 0
     for t1_idx, t1_lab in enumerate(d_values):
         for t2_idx in range(t1_idx+1, no_of_treat):
-            treat_comp_label[jdx] = str(d_values[t2_idx]) + 'vs' + str(t1_lab
-                                                                         )
+            treat_comp_label[jdx] = str(d_values[t2_idx]) + 'vs' + str(t1_lab)
             jdx += 1
         if continuous:
             break
@@ -599,11 +598,10 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                                             z_values_f[zjj] = jdx
                             if not continuous:
                                 mcf_gateout.make_gate_figures_discr(
-                                    e_lab + ' ' + z_name + ' ' + a_lab + ' ' +
-                                    o_lab + ' ' + t_lab, z_name, z_values_f,
-                                    z_type_l, effects, ste, c_dict, ate_f,
-                                    ate_f_se, amgate_flag, z_smooth,
-                                    gatet_yes=gatet_yes)
+                                    e_lab + z_name + a_lab + o_lab + t_lab,
+                                    z_name, z_values_f, z_type_l, effects, ste,
+                                    c_dict, ate_f, ate_f_se, amgate_flag,
+                                    z_smooth, gatet_yes=gatet_yes)
                             if continuous and t_idx == len(treat_comp_label)-1:
                                 if e_idx == 0:
                                     ate_f = ate[o_idx, a_idx, :]
@@ -612,9 +610,9 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                                     ate_f = None
                                     effects = gate_z_mate[:, o_idx, a_idx, :]
                                 mcf_gateout.make_gate_figures_cont(
-                                    e_lab + ' ' + z_name + ' ' + a_lab + ' ' +
-                                    o_lab, z_name, z_values_f, effects, c_dict,
-                                    ate_f, amgate_flag, d_values=d_values_dr)
+                                    e_lab + z_name + a_lab + o_lab,
+                                    z_name, z_values_f, effects, c_dict, ate_f,
+                                    amgate_flag, d_values=d_values_dr)
         if c_dict['with_output']:
             print('-' * 80)
             gate[z_name_j] = gate_z

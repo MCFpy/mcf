@@ -7,7 +7,7 @@ def read(fname):
 setup(
   name = 'mcf',
   packages = ['mcf'],
-  version = '0.2.4',
+  version = '0.2.6',
   license='MIT',
   description = 'mcf is a powerful package to estimate heterogeneous treatment effects for multiple treatment models in a selection-on-observables setting and learn optimal policy rules',
   author = 'mlechner',
@@ -19,7 +19,7 @@ setup(
     'Development Status :: 5 - Production/Stable',
     'Topic :: Software Development :: Build Tools',
     'License :: OSI Approved :: MIT License',
-    'Programming Language :: Python :: 3.8'
+    'Programming Language :: Python :: 3.9'
   ],
   install_requires=[
    'numpy>=1.20.0',

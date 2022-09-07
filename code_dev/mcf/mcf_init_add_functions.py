@@ -241,7 +241,7 @@ def make_user_variable(
     return variable_dict
 
 
-def get_fig_path(c_dict, add_name, create_dir, no_csv=False):
+def get_fig_path(c_dict, add_name, create_dir):
     """Define and create directories to store figures."""
     fig_pfad = c_dict['outpfad'] + '/' + add_name
     fig_pfad_jpeg = fig_pfad + '/jpeg'
@@ -252,7 +252,7 @@ def get_fig_path(c_dict, add_name, create_dir, no_csv=False):
             os.mkdir(fig_pfad)
         if not os.path.isdir(fig_pfad_jpeg):
             os.mkdir(fig_pfad_jpeg)
-        if not os.path.isdir(fig_pfad_csv) and not no_csv:
+        if not os.path.isdir(fig_pfad_csv):
             os.mkdir(fig_pfad_csv)
         if not os.path.isdir(fig_pfad_pdf):
             os.mkdir(fig_pfad_pdf)

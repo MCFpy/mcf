@@ -1,5 +1,52 @@
 # Release Updates
 
+## Version 0.2.6
+
+### Bug fixes
+
+* Bug fix in general_purpose.py
+
+## Version 0.2.5 (yanked)
+
+### Bug fixes 
+
+* Bug fix in bootstrap of optimal policy module.
+
+### What's New
+
+* Change in output directory structure. 
+* Name change of file with predicted IATE (ends <foo>_IATE.csv)
+* default value of l_centering_replication changed from False to True.
+* More efficient estimation of IATE, referred to as EffIATE
+
+## Version 0.2.4
+
+### Bug fixes 
+
+* Bug fix for cases when outcome had no variation when splitting.
+
+### What's New
+
+* File with IATEs also contains indicator of specific cluster in k-means
+  clustering.
+* Option for guaranteed replicability of results. sklearn.ensemble.RandomForestRegressor does not necessarily replicable results (due to threading). A new keyword argument (l_centering_replication, default is False) is added. Setting this argument to True slows down local centering a but but removes that problem 
+  
+## Version 0.2.3
+
+### Bug fixes
+
+* Missing information in init.py.
+
+## Version 0.2.2
+
+### Bug fixes 
+
+* Bug fix in plotting GATEs.
+
+### What's New
+
+* ATEs are  saved in csv file (same as data for figures and other effects).
+
 ## Version 0.2.1 
 
 ### Bug fixes 

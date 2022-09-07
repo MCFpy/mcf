@@ -93,8 +93,6 @@ def get_controls(c_dict, v_dict):
     cnew_dict = mcf_ia.get_fig_path(cnew_dict, 'gate', make_dir)
     cnew_dict = mcf_ia.get_fig_path(cnew_dict, 'mgate', make_dir)
     cnew_dict = mcf_ia.get_fig_path(cnew_dict, 'amgate', make_dir)
-    cnew_dict = mcf_ia.get_fig_path(cnew_dict, 'common_support',
-                                    c_dict['with_output'], no_csv=True)
     print(cnew_dict)
     if c_dict['train_mcf']:
         pred_sample_with_pred = (cnew_dict['cs_ate_iate_fig_pfad_csv']
@@ -253,8 +251,6 @@ def get_controls(c_dict, v_dict):
     cnew_dict['boot'] = round(c_dict['boot']) if c_dict['boot'] > 0 else 1000
     if c_dict['train_mcf']:
         cnew_dict['save_forest'] = c_dict['save_forest'] is True
-        if not c_dict['pred_mcf']:
-            cnew_dict['save_forest'] = True
         n_train = len(data_train.index)
         if c_dict['mp_type_vim'] != 1 and c_dict['mp_type_vim'] != 2:
             if n_train < 20000:
@@ -452,8 +448,8 @@ def get_controls(c_dict, v_dict):
                 else:
                     cnew_dict['l_centering_cv_k'] = int(
                         round(c_dict['l_centering_cv_k']))
-            if c_dict['l_centering_uncenter'] is not False:
-                cnew_dict['l_centering_uncenter'] = True
+            if c_dict['l_centering_uncenter'] is not True:
+                cnew_dict['l_centering_uncenter'] = False
             if c_dict['l_centering_replication'] is not False:
                 cnew_dict['l_centering_replication'] = True
         else:
@@ -648,6 +644,31 @@ def get_controls(c_dict, v_dict):
         cnew_dict['post_random_forest_vi'] = (
             not c_dict['post_random_forest_vi'] is False)
         q_w = [0.5, 0.25, 0.1, 0.05, 0.04, 0.03, 0.02, 0.01]  # Weight analysis
+        if cnew_dict['fig_fontsize'] is None:
+            cnew_dict['fig_fontsize'] = -1
+        if cnew_dict['fig_fontsize'] > 0.5 and cnew_dict['fig_fontsize'] < 7.5:
+            cnew_dict['fig_fontsize'] = round(cnew_dict['fig_fontsize'])
+        else:
+            cnew_dict['fig_fontsize'] = 2
+        all_fonts = ('xx-small', 'x-small', 'small', 'medium', 'large',
+                     'x-large', 'xx-large')
+        for i, i_lab in enumerate(all_fonts):
+            if cnew_dict['fig_fontsize'] == i + 1:
+                cnew_dict['fig_fontsize'] = i_lab
+        if c_dict['fig_dpi'] is None:
+            c_dict['fig_dpi'] = -1
+        cnew_dict['fig_dpi'] = (
+            500 if c_dict['fig_dpi'] < 10 else round(cnew_dict['fig_dpi']))
+        cnew_dict['fig_legend_loc'] = 'best'
+        if c_dict['fig_ci_level'] is None:
+            c_dict['fig_ci_level'] = -1
+        if c_dict['fig_ci_level'] < 0.5 or c_dict['fig_ci_level'] > 0.999999:
+            cnew_dict['fig_ci_level'] = 0.90
+        if c_dict['no_filled_plot'] is None:
+            c_dict['no_filled_plot'] = -1
+        cnew_dict['no_filled_plot'] = (20 if c_dict['no_filled_plot'] < 5
+                                       else round(c_dict['no_filled_plot']))
+        cnew_dict['show_plots'] = not c_dict['show_plots'] is False
         if c_dict['mp_type_weights'] != 2:
             cnew_dict['mp_type_weights'] = 1  # MP over obs, fast, lots of mem
         else:
@@ -660,33 +681,7 @@ def get_controls(c_dict, v_dict):
             0 if c_dict['mp_weights_tree_batch'] < 1
             else round(c_dict['mp_weights_tree_batch']))
     else:
-        add_pred_to_data_file = q_w = None
-    if cnew_dict['fig_fontsize'] is None:
-        cnew_dict['fig_fontsize'] = -1
-    if cnew_dict['fig_fontsize'] > 0.5 and cnew_dict['fig_fontsize'] < 7.5:
-        cnew_dict['fig_fontsize'] = round(cnew_dict['fig_fontsize'])
-    else:
-        cnew_dict['fig_fontsize'] = 2
-    all_fonts = ('xx-small', 'x-small', 'small', 'medium', 'large',
-                 'x-large', 'xx-large')
-    for i, i_lab in enumerate(all_fonts):
-        if cnew_dict['fig_fontsize'] == i + 1:
-            cnew_dict['fig_fontsize'] = i_lab
-    if c_dict['fig_dpi'] is None:
-        c_dict['fig_dpi'] = -1
-    cnew_dict['fig_dpi'] = (
-        500 if c_dict['fig_dpi'] < 10 else round(cnew_dict['fig_dpi']))
-    cnew_dict['fig_legend_loc'] = 'best'
-    if c_dict['fig_ci_level'] is None:
-        c_dict['fig_ci_level'] = -1
-    if c_dict['fig_ci_level'] < 0.5 or c_dict['fig_ci_level'] > 0.999999:
-        cnew_dict['fig_ci_level'] = 0.90
-    if c_dict['no_filled_plot'] is None:
-        c_dict['no_filled_plot'] = -1
-    cnew_dict['no_filled_plot'] = (20 if c_dict['no_filled_plot'] < 5
-                                   else round(c_dict['no_filled_plot']))
-    cnew_dict['show_plots'] = not c_dict['show_plots'] is False
-
+        all_fonts = add_pred_to_data_file = q_w = None
     if c_dict['common_support'] is None:
         c_dict['common_support'] = -1
     if c_dict['common_support'] != 0 and c_dict['common_support'] != 2:
@@ -876,10 +871,9 @@ def get_controls(c_dict, v_dict):
     # Check for inconsistencies
     if cnew_dict['iate_flag'] is False or cnew_dict['pred_mcf'] is False:
         cnew_dict['effiate_flag'] = False
-    if cnew_dict['effiate_flag'] and not cnew_dict['train_mcf']:
-        print('2nd round efficient IATEs are only computed if training is ',
-              'activated. They will be disabled.')
-        cnew_dict['effiate_flag'] = False
+    if cnew_dict['effiate_flag']:
+        assert cnew_dict['train_mcf'], ('Training must be activated for' +
+                                        '2nd round efficient IATEs')
     if c_dict['train_mcf']:
         if v_dict['y_name'] is None or v_dict['y_name'] == []:
             raise Exception('y_name must be specified.')
@@ -1001,7 +995,6 @@ def get_controls(c_dict, v_dict):
             names_to_check_train.extend(vnew_dict['z_name_unord'])
             names_to_check_pred.extend(vnew_dict['z_name_unord'])
         z_name = vnew_dict['z_name_ord'] + vnew_dict['z_name_unord']
-    text_to_print = None
     if (cnew_dict['atet_flag'] or cnew_dict['gatet_flag'] or
             cnew_dict['choice_based_yes']) and c_dict['pred_mcf']:
         data2 = pd.read_csv(cnew_dict['preddata'], nrows=2)
@@ -1026,8 +1019,10 @@ def get_controls(c_dict, v_dict):
                        + ' file. It requires treatment information in'
                        + ' prediction file, WHICH IS MISSING!')
             assert not cnew_dict['choice_based_yes'], err_txt
-
-    if  cnew_dict['fs_yes']:
+    else:
+        text_to_print = None
+    if (name_unordered != []) or (len(vnew_dict['y_name']) > 1) or cnew_dict[
+            'fs_yes']:
         cnew_dict['l_centering_uncenter'] = False
     vn_add = {
         'x_name_remain': x_name_remain, 'x_name': x_name, 'z_name': z_name,

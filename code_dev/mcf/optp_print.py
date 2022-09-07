@@ -136,8 +136,6 @@ def bb_allocation_stats(allocation, c_dict, v_dict, data_file):
               f' {c_dict["sig_level_vs_0"] * 100:6.4f} %', '\n' + '- ' * 40)
     print(data_file)
     print('- ' * 40)
-    if c_dict['bb_stochastic']:
-        print('Stochastic simulations used for allocation.', '\n' + '- ' * 40)
     if c_dict['bb_bootstraps'] > 0:
         print('Number of bootstrap replications:',
               f' {c_dict["bb_bootstraps"]: 5d}', '\n' + '- ' * 40)

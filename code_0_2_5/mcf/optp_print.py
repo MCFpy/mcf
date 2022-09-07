@@ -65,9 +65,10 @@ def print_alloc_other_outcomes(results, with_boot=False):
             print('Relative to observed allocation', '\n' + '-   ' * 20)
             print(f'Total score - observed alloc: {score_add_m_obs:.4f} ',
                   f'     Average score:        {score_add_m_obs / obs:.4f}')
-            print('-   ' * 20)
-            print_boot_info(score_add_m_obs_std, score_add_m_obs_q,
-                            results['quants'], obs)
+            if with_boot:
+                print('-   ' * 20)
+                print_boot_info(score_add_m_obs_std, score_add_m_obs_q,
+                                results['quants'], obs)
             print('-   ' * 20)
             print_changers_info(
                 results['obs_change'], score_change_add_m_obs,
@@ -159,7 +160,7 @@ def bb_allocation_stats(allocation, c_dict, v_dict, data_file):
             if with_boot:
                 print_boot_info(results['score_change_std'],
                                 results['score_change_q'], results['quants'],
-                                results['obs'])
+                                results['obs_change'])
             print('\n' + '- ' * 40 + '\nRelative to observed alloction:',
                   '\n' + '-   ' * 20)
             print('Total score - observed alloc:   ',
@@ -175,7 +176,7 @@ def bb_allocation_stats(allocation, c_dict, v_dict, data_file):
             if with_boot:
                 print_boot_info(results['score_change_m_obs_std'],
                                 results['score_change_m_obs_q'],
-                                results['quants'], results['obs'])
+                                results['quants'], results['obs_change'])
         else:
             print('-   ' * 20, '\nEither there are no changers or ',
                   'treatment variable is not available.')

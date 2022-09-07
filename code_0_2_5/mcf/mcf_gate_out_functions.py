@@ -50,17 +50,20 @@ def plot_marginal(pred, pred_se, names_pred, x_name, x_values_in, x_type,
         if regrf:
             titel = 'Marginal predictive plot ' + x_name + names_pred[idx]
         else:
-            titel = ('MGATEMATE ' + x_name + names_pred[idx][:-9] if minus_ate
-                     else 'MGATE ' + x_name + names_pred[idx][:-5])
+            titel = ('MGATE-A(MGATE) ' + x_name + names_pred[idx][:-9] if
+                     minus_ate else 'MGATE ' + x_name + names_pred[idx][:-5])
         pred_temp, pred_se_temp = pred[:, idx], pred_se[:, idx]
         if x_type == 0 and len(x_values) > c_dict['no_filled_plot']:
             pred_temp = gp_est.moving_avg_mean_var(pred_temp, 3, False)[0]
             pred_se_temp = gp_est.moving_avg_mean_var(
                 pred_se_temp, 3, False)[0]
         file_titel = titel.replace(" ", "")
-        file_name_jpeg = c_dict['fig_pfad_jpeg'] + '/' + file_titel + '.jpeg'
-        file_name_pdf = c_dict['fig_pfad_pdf'] + '/' + file_titel + '.pdf'
-        file_name_csv = c_dict['fig_pfad_csv'] + '/' + file_titel + '.csv'
+        file_name_jpeg = (c_dict['mgate_fig_pfad_jpeg'] + '/' + file_titel
+                          + '.jpeg')
+        file_name_pdf = (c_dict['mgate_fig_pfad_pdf'] + '/' + file_titel
+                         + '.pdf')
+        file_name_csv = (c_dict['mgate_fig_pfad_csv'] + '/' + file_titel
+                         + 'plotdat.csv')
         upper = pred_temp + pred_se_temp * conf_int
         lower = pred_temp - pred_se_temp * conf_int
         fig, axs = plt.subplots()
@@ -71,7 +74,7 @@ def plot_marginal(pred, pred_se, names_pred, x_name, x_values_in, x_type,
             label_m = 'Conditional prediction'
         else:
             if minus_ate:
-                label_m, label_0, line_0 = 'MGATE-ATE', '_nolegend_', '_-k'
+                label_m, label_0, line_0 = 'MGATE-A(MATE)', '_nolegend_', '_-k'
                 zeros = np.zeros_like(pred_temp)
             else:
                 label_m = 'MGATE'
@@ -93,9 +96,14 @@ def plot_marginal(pred, pred_se, names_pred, x_name, x_values_in, x_type,
             if minus_ate:
                 axs.plot(x_values, zeros, line_0, label=label_0)
         if c_dict['with_output']:
-            print_mgate(pred_temp, pred_se_temp, titel, x_values)
-            gp_est.print_se_info(c_dict['cluster_std'], c_dict['se_boot_gate'])
-            gp_est.print_minus_ate_info(c_dict['w_yes'])
+            print_str = print_mgate(pred_temp, pred_se_temp, titel, x_values)
+            print_str += '\n' + gp_est.print_se_info(c_dict['cluster_std'],
+                                                     c_dict['se_boot_gate'])
+            if minus_ate:
+                print_str += gp_est.print_minus_ate_info(c_dict['w_yes'],
+                                                         print_it=False)
+            print(print_str)
+            gp.print_f(c_dict['outfilesummary'], print_str)
         axs.set_ylabel(label_m)
         axs.legend(loc=c_dict['fig_legend_loc'], shadow=True,
                    fontsize=c_dict['fig_fontsize'])
@@ -133,7 +141,7 @@ def print_mgate(est, stderr, titel, z_values):
 
     Returns
     -------
-    None.
+    print_str : String. Printable output.
 
     """
     t_val = np.abs(est / stderr)
@@ -142,36 +150,34 @@ def print_mgate(est, stderr, titel, z_values):
         z_values_p, z_is_float = np.around(z_values, 2), True
     else:
         z_values_p, z_is_float = z_values, False
-    print()
-    print('- ' * 40)
-    print(titel)
-    print('Value of Z       Est        SE    t-val   p-val')
-    print('- ' * 40)
+    print_str = '- ' * 40 + f'\n{titel}'
+    print_str += '\nValue of Z       Est        SE    t-val   p-val'
+    print_str += '\n' + '- ' * 40 + '\n'
     for z_ind, z_val in enumerate(z_values_p):
         if z_is_float:
-            print(f'{z_val:>6.2f}        ', end=' ')
+            print_str += f'{z_val:>6.2f}         '
         else:
-            print(f'{z_val:>6.0f}        ', end=' ')
-        print(f'{est[z_ind]:>8.5f}  {stderr[z_ind]:>8.5f}', end=' ')
-        print(f'{t_val[z_ind]:>5.2f}  {p_val[z_ind]*100:>5.2f}%', end=' ')
-        print_stars(p_val[z_ind])
-    print('-' * 80)
-    print('Values of Z may have been recoded into primes.')
-    print('-' * 80)
+            print_str += f'{z_val:>6.0f}         '
+        print_str += f'{est[z_ind]:>8.5f}  {stderr[z_ind]:>8.5f} '
+        print_str += f'{t_val[z_ind]:>5.2f}  {p_val[z_ind]*100:>5.2f}% '
+        print_str += print_stars(p_val[z_ind]) + '\n'
+    print_str += '-' * 80 + '\n'
+    print_str += 'Values of Z may have been recoded into primes.\n' + '-' * 80
+    return print_str
 
 
 def print_stars(p_val):
     """Print stars."""
     if p_val < 0.001:
-        print('****')
+        return '****'
     elif p_val < 0.01:
-        print(' ***')
+        return ' ***'
     elif p_val < 0.05:
-        print('  **')
+        return '  **'
     elif p_val < 0.1:
-        print('   *')
+        return '   *'
     else:
-        print('    ')
+        return '    '
 
 
 def print_mgate_cont(est, stderr, titel, z_values, d_values):
@@ -243,16 +249,24 @@ def make_gate_figures_discr(
     if mcf_gp.find_precision(z_values) == 0:
         z_values = gp.recode_if_all_prime(z_values)
     titel_f = titel.replace(' ', '')
-    file_name_jpeg = c_dict['fig_pfad_jpeg'] + '/' + titel_f + '.jpeg'
-    file_name_pdf = c_dict['fig_pfad_pdf'] + '/' + titel_f + '.pdf'   # pic pdf
-    file_name_csv = c_dict['fig_pfad_csv'] + '/' + titel_f + '.csv'   # Data
+    if am_gate:
+        file_name_jpeg = (c_dict['amgate_fig_pfad_jpeg'] + '/' + titel_f
+                          + '.jpeg')
+        file_name_pdf = c_dict['amgate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
+        file_name_csv = (c_dict['amgate_fig_pfad_csv'] + '/' + titel_f
+                         + 'plotdat.csv')
+    else:
+        file_name_jpeg = c_dict['gate_fig_pfad_jpeg'] + '/' + titel_f + '.jpeg'
+        file_name_pdf = c_dict['gate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
+        file_name_csv = (c_dict['gate_fig_pfad_csv'] + '/' + titel_f
+                         + 'plotdat.csv')
     if ate_se is None:
-        gate_str = 'AMGATE-ATE' if am_gate else 'GATE-ATE'
+        gate_str = 'AMGATE-A(AMGATE)' if am_gate else 'GATE-ATE'
         ate_label = '_nolegend_'
         if am_gate:
-            label_m = 'AMGATE-ATE'
+            label_m = 'AMGATE-A(AMATE)'
         else:
-            label_m = 'GATET-ATE' if gatet_yes else 'GATE-ATE'
+            label_m = 'GATET-ATET' if gatet_yes else 'GATE-ATE'
     else:
         if am_gate:
             label_m = 'AMGATE'
@@ -271,10 +285,16 @@ def make_gate_figures_discr(
     label_ci = str(c_dict['fig_ci_level'] * 100) + '%-CI'
     if (z_type == 0) and (len(z_values) > c_dict['no_filled_plot']):
         if am_gate or z_smooth:
-            file_name_f_jpeg = (c_dict['fig_pfad_jpeg'] + '/' + titel_f
-                                + 'fill.jpeg')
-            file_name_f_pdf = (c_dict['fig_pfad_pdf'] + '/' + titel_f
-                               + 'fill.pdf')
+            if am_gate:
+                file_name_f_jpeg = (c_dict['amgate_fig_pfad_jpeg']
+                                    + '/' + titel_f + 'fill.jpeg')
+                file_name_f_pdf = (c_dict['amgate_fig_pfad_pdf']
+                                   + '/' + titel_f + 'fill.pdf')
+            else:
+                file_name_f_jpeg = (c_dict['gate_fig_pfad_jpeg']
+                                    + '/' + titel_f + 'fill.jpeg')
+                file_name_f_pdf = (c_dict['gate_fig_pfad_pdf']
+                                   + '/' + titel_f + 'fill.pdf')
             figs, axs = plt.subplots()
             axs.plot(z_values, effects, label=label_m, color='b')
             axs.fill_between(z_values, upper, lower, alpha=0.3, color='b',
@@ -370,10 +390,15 @@ def make_gate_figures_cont(titel, z_name, z_values, effects, c_dict,
     """
     titel = 'Dose response ' + titel
     titel_f = titel.replace(' ', '')
-    file_name_jpeg = c_dict['fig_pfad_jpeg'] + '/' + titel_f + '.jpeg'
-    file_name_pdf = c_dict['fig_pfad_pdf'] + '/' + titel_f + '.pdf'   # pic pdf
+    if am_gate:
+        file_name_jpeg = (c_dict['amgate_fig_pfad_jpeg'] + '/' + titel_f
+                          + '.jpeg')
+        file_name_pdf = c_dict['amgate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
+    else:
+        file_name_jpeg = c_dict['gate_fig_pfad_jpeg'] + '/' + titel_f + '.jpeg'
+        file_name_pdf = c_dict['gate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
     if ate is not None:
-        gate_str = 'AMGATE-ATE' if am_gate else 'GATE-ATE'
+        gate_str = 'AMGATE-A(AMATE)' if am_gate else 'GATE-ATE'
     else:
         gate_str = 'AMGATE' if am_gate else 'GATE'
     fig, axe = plt.subplots(subplot_kw={"projection": "3d"})
@@ -422,10 +447,10 @@ def plot_marginal_cont(pred, pred_se, x_name, x_values_in, x_type,
     titel = 'MGATEMATE ' + x_name if minus_ate else 'MGATE ' + x_name
     titel = 'Dose response ' + titel
     file_titel = titel.replace(" ", "")
-    file_name_jpeg = c_dict['fig_pfad_jpeg'] + '/' + file_titel + '.jpeg'
-    file_name_pdf = c_dict['fig_pfad_pdf'] + '/' + file_titel + '.pdf'
+    file_name_jpeg = c_dict['mgate_fig_pfad_jpeg'] + '/' + file_titel + '.jpeg'
+    file_name_pdf = c_dict['mgate_fig_pfad_pdf'] + '/' + file_titel + '.pdf'
     fig, axe = plt.subplots(subplot_kw={"projection": "3d"})
-    mgate_str = 'MGATE-ATE' if minus_ate else 'MGATE'
+    mgate_str = 'MGATE-A(AMATE)' if minus_ate else 'MGATE'
     z_plt = np.transpose(pred)
     x_plt, y_plt = np.meshgrid(x_values, d_values)
     surf = axe.plot_surface(x_plt, y_plt, z_plt, cmap=cm.coolwarm,
@@ -449,7 +474,8 @@ def plot_marginal_cont(pred, pred_se, x_name, x_values_in, x_type,
 
 
 def wald_test(z_name, no_of_zval, w_gate, y_dat, w_dat, cl_dat, a_idx, o_idx,
-              w_ate, c_dict, gate_str='GATE', no_of_treat=None, d_values=None):
+              w_ate, c_dict, gate_str='GATE', no_of_treat=None, d_values=None,
+              print_output=True):
     """Compute Wald tests for GATE(T).
 
     Parameters
@@ -465,14 +491,15 @@ def wald_test(z_name, no_of_zval, w_gate, y_dat, w_dat, cl_dat, a_idx, o_idx,
     w_ate : Numpy array. Weights.
     c : Dict. Parameters.
     gate_str : Str. Str for label of test. Default is 'GATE'.
+    print_output : Bool. Print output in this function. Default is True.
 
     Returns
     -------
-    None.
+    print_str : String. String with printable output.
 
     """
-    print('Wald tests: ', gate_str, 'for ', z_name)
-    print('Comparison     Chi2 stat   df   p-value (%)')
+    print_str = f'\nWald tests:  {gate_str} for {z_name}'
+    print_str += '\nComparison     Chi2 stat   df   p-value (%)'
     w_gate_sum, w_ate_sum = np.sum(w_gate, axis=3), np.sum(w_ate, axis=2)
     for t1_idx in range(no_of_treat):
         if not (1-1e-10 < w_ate_sum[a_idx, t1_idx] < 1+1e-10):
@@ -537,15 +564,20 @@ def wald_test(z_name, no_of_zval, w_gate, y_dat, w_dat, cl_dat, a_idx, o_idx,
                         var_w[zj1, zj2] = cv12
                         var_w[zj2, zj1] = var_w[zj1, zj2]
             stat, dfr, pval = gp.waldtest(diff_w, var_w)
-            print(f'{d_values[t2_idx]:<3} vs. ',
-                  f' {d_values[t1_idx]:<3}:',
-                  f' {stat:>8.3f}  {dfr:>4}   {pval*100:>7.3f}%')
+            print_str += (f'\n{d_values[t2_idx]:<3} vs. '
+                          + f' {d_values[t1_idx]:<3}:'
+                          + f' {stat:>8.3f}  {dfr:>4}   {pval*100:>7.3f}%')
             if stat < 0:
                 not_computed = True
     if not_computed:
-        print('- ' * 40)
-        print('Negative values imply that statistic has not been computed',
-              'because covariance matrix of test is not of full rank.')
+        print_str += '\n' + '- ' * 40 + '\n'
+        print_str += ('Negative values imply that statistic has not been'
+                      + ' computed because covariance matrix of test is not'
+                      + ' of full rank.')
+        print_str += '\n' + '- ' * 40
+    if print_output:
+        print(print_str)
+    return print_str
 
 
 def ref_file_marg_plot_amgate(in_csv_file, z_name, c_dict, eva_values):

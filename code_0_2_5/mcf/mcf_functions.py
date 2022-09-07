@@ -45,13 +45,14 @@ def modified_causal_forest(
         choice_based_sampling=False, choice_based_weights=None,
         clean_data_flag=True, cluster_std=False, cond_var_flag=True,
         ct_grid_nn=10, ct_grid_w=10, ct_grid_dr=100,
-        datpfad=None, fs_other_sample_share=0.2, fs_other_sample=True,
-        fs_rf_threshold=0, fs_yes=None, forest_files=None, gatet_flag=False,
+        datpfad=None, effiate_flag=True, fs_other_sample_share=0.2,
+        fs_other_sample=True, fs_rf_threshold=0, fs_yes=None,
+        forest_files=None, gatet_flag=False,
         gmate_no_evaluation_points=50, gmate_sample_share=None, iate_flag=True,
         iate_se_flag=True, indata=None, knn_flag=True, knn_min_k=10,
         knn_const=1, l_centering=True, l_centering_share=0.25,
         l_centering_cv_k=5, l_centering_new_sample=False,
-        l_centering_replication=False, m_min_share=-1,
+        l_centering_replication=True, m_min_share=-1,
         m_max_share=-1, m_grid=2, m_random_poisson=True,
         match_nn_prog_score=True, max_cats_z_vars=None, max_weight_share=0.05,
         mce_vart=1, min_dummy_obs=10,  mp_parallel=None,
@@ -150,16 +151,17 @@ def modified_causal_forest(
         reduce_training_share, reduce_prediction, reduce_prediction_share,
         reduce_largest_group_train, reduce_largest_group_train_share,
         iate_flag, iate_se_flag, _l_centering_uncenter, d_type, ct_grid_nn,
-        ct_grid_w, ct_grid_dr, support_adjust_limits, l_centering_replication)
+        ct_grid_w, ct_grid_dr, support_adjust_limits, l_centering_replication,
+        effiate_flag)
 # Set defaults for many control variables of the MCF & define variables
 
     c_dict, v_dict, text_to_print = mcf_init.get_controls(controls_dict,
                                                           variable_dict)
+    ofs = c_dict['outfilesummary']
 # Some descriptive stats of input and direction of output file
     if c_dict['with_output']:
         if c_dict['print_to_file']:
             orig_stdout = sys.stdout
-            gp.delete_file_if_exists(c_dict['outfiletext'])
             if c_dict['print_to_terminal']:
                 sys.stdout = gp.OutputTerminalFile(c_dict['outfiletext'])
             else:
@@ -186,6 +188,13 @@ def modified_causal_forest(
             print('\nValue of penalty multiplier:',
                   f'{c_dict["mtot_p_diff_penalty"]:8.3f}')
             print('-' * 80)
+            gp.print_f(ofs,
+                       '=' * 80, '\nEstimation of the Modified Causal Forest',
+                       '\n' + '-' * 80, f'\nIndata: {c_dict["indata"]}',
+                       f'\nPrediction Data: {c_dict["indata"]}',
+                       '\n' + '-' * 80, '\nThis is only the summary file. ',
+                       'For the complete results check',
+                       ' c_dict["outfiletext"]', '\n' + '-' * 80)
             if c_dict['desc_stat']:
                 gp.print_descriptive_stats_file(c_dict['indata'], 'all',
                                                 c_dict['print_to_file'])
@@ -279,6 +288,8 @@ def modified_causal_forest(
         time11 = time.time()
         lc_forest = None
         if c_dict['l_centering'] and c_dict['l_centering_new_sample']:
+            if c_dict['with_output'] and c_dict['verbose']:
+                gp.print_f(ofs, 'Local centering with differnt sample')
             l_cent_sample, nonlc_sample, _ = gp.sample_split_2_3(
                 indata2, c_dict['lc_sample'], c_dict['l_centering_share'],
                 c_dict['nonlc_sample'], 1-c_dict['l_centering_share'],
@@ -286,10 +297,10 @@ def modified_causal_forest(
                 with_output=c_dict['with_output'])
             (indata2, old_y_name, new_y_name, lc_forest
              ) = mcf_lc.local_centering_new_sample(
-                l_cent_sample, nonlc_sample, v_dict, var_x_type, c_dict)
+                l_cent_sample, nonlc_sample, v_dict, var_x_type, c_dict,
+                seed=_seed_sample_split)
             v_dict = mcf_data.adjust_y_names(v_dict, old_y_name, new_y_name,
-                                             c_dict['with_output'],
-                                             seed=_seed_sample_split)
+                                             c_dict['with_output'])
         time12 = time.time()
         # Sample splitting
         share1 = (1 - c_dict['fs_other_sample_share']
@@ -301,6 +312,8 @@ def modified_causal_forest(
             c_dict['fs_other_sample_share'],
             _seed_sample_split, c_dict['with_output'])
         if c_dict['l_centering'] and not c_dict['l_centering_new_sample']:
+            if c_dict['with_output'] and c_dict['verbose']:
+                gp.print_f(ofs, 'Local centering with cross-fitting')
             time11 = time.time()
             if c_dict['fs_yes'] and c_dict['fs_other_sample']:
                 files_to_center = (tree_sample, fill_y_sample, fs_sample)
@@ -401,166 +414,216 @@ def modified_causal_forest(
         preddata3 = outfile[0]
         if c_dict['with_output']:
             print('-' * 80)
-
-# Pre-analysis feature selection
-    if c_dict['train_mcf']:
-        time2 = time.time()
-        if c_dict['fs_yes']:
-            fs_in, var_fs = mcf_data.nn_matched_outcomes(fs_sample, v_dict,
-                                                         var_x_type, c_dict)
-            # Analyse features
+    if c_dict['effiate_flag']:
+        est_rounds = ('regular', 'additional')
+    else:
+        est_rounds = ('regular', )
+        eff_pot_y = eff_iate = None
+    for round_ in est_rounds:
+        if round_ == 'regular':
+            reg_round, pot_y = True, None
+            c_dict_prev = copy.deepcopy(c_dict)
+            time3_2 = time.time()   # Initialisation, will be overwritten
+        else:
+            reg_round, c_dict = False, c_dict_prev
+            # Swap samples for training and estimation
+            tree_sample, fill_y_sample = fill_y_sample, tree_sample
             if c_dict['with_output'] and c_dict['verbose']:
-                gp.statistics_covariates(fs_in, var_x_type)
-                print('\n\nFeature selection')
-            cfs_dict = copy.deepcopy(c_dict)
-            if isinstance(cfs_dict['grid_n_min'], (list, tuple)):
-                cfs_dict['grid_n_min'] = cfs_dict['grid_n_min'][0]
-            cfs_dict['m_grid'] = 1
-            if isinstance(cfs_dict['grid_alpha_reg'], (list, tuple)):
-                cfs_dict['grid_alpha_reg'] = cfs_dict['grid_alpha_reg'][0]
-            fs_f, x_name_mcf = mcf_forest.build_forest(
-                fs_in, var_fs, var_x_type, var_x_values, cfs_dict)
-            vi_i, vi_g, vi_ag, name = mcf_vi.variable_importance(
-                fs_in, fs_f, var_fs, var_x_type, var_x_values, cfs_dict,
-                x_name_mcf)
-            v_dict, var_x_type, var_x_values = mcf_forest_add.fs_adjust_vars(
-                vi_i, vi_g, vi_ag, v_dict, var_x_type, var_x_values, name,
-                cfs_dict)
-            del fs_f, fs_in, cfs_dict, vi_i, vi_g, vi_ag, name, var_fs
-
-    # Estimate forests
-        time3 = time.time()
-        if not _load_old_forest:
+                print('Second round of estimation to get better IATEs')
+        if c_dict['train_mcf']:
+            if reg_round:
+                time2 = time.time()
+            if c_dict['fs_yes'] and reg_round:
+                # Pre-analysis feature selection
+                fs_in, var_fs = mcf_data.nn_matched_outcomes(
+                    fs_sample, v_dict, var_x_type, c_dict)
+                # Analyse features
+                if c_dict['with_output'] and c_dict['verbose']:
+                    gp.statistics_covariates(fs_in, var_x_type)
+                    print('\n\nFeature selection')
+                    gp.print_f(ofs, 'Feature selection active.')
+                cfs_dict = copy.deepcopy(c_dict)
+                if isinstance(cfs_dict['grid_n_min'], (list, tuple)):
+                    cfs_dict['grid_n_min'] = cfs_dict['grid_n_min'][0]
+                cfs_dict['m_grid'] = 1
+                if isinstance(cfs_dict['grid_alpha_reg'], (list, tuple)):
+                    cfs_dict['grid_alpha_reg'] = cfs_dict['grid_alpha_reg'][0]
+                fs_f, x_name_mcf = mcf_forest.build_forest(
+                    fs_in, var_fs, var_x_type, var_x_values, cfs_dict)
+                vi_i, vi_g, vi_ag, name = mcf_vi.variable_importance(
+                    fs_in, fs_f, var_fs, var_x_type, var_x_values, cfs_dict,
+                    x_name_mcf)
+                (v_dict, var_x_type, var_x_values
+                 ) = mcf_forest_add.fs_adjust_vars(
+                    vi_i, vi_g, vi_ag, v_dict, var_x_type, var_x_values, name,
+                    cfs_dict)
+                del fs_f, fs_in, cfs_dict, vi_i, vi_g, vi_ag, name, var_fs
+            if reg_round:
+                v_dict_prev = copy.deepcopy(v_dict)
+                var_x_type_prev = copy.deepcopy(var_x_type)
+                var_x_values_prev = copy.deepcopy(var_x_values)
+            else:
+                v_dict = v_dict_prev
+                var_x_type = var_x_type_prev
+                var_x_values = var_x_values_prev
+            # Estimate forests
+            if reg_round:
+                time3 = time.time()
+            else:
+                time3_2 = time.time()
+            assert not _load_old_forest, 'Currently not active.Dics not saved.'
             if c_dict['with_output'] and c_dict['verbose']:
                 print('\nMatching outcomes')
             # Match neighbours from other treatments
             indatei_tree, v_dict = mcf_data.nn_matched_outcomes(
                 tree_sample, v_dict, var_x_type, c_dict)
-            if c_dict['with_output'] and c_dict['desc_stat']:
-                print('\nStatistics on matched neighbours of variable used',
-                      '  for tree building')
+            if c_dict['with_output'] and c_dict['desc_stat'] and reg_round:
+                print('\nStatistics on matched neighbours of variable ',
+                      ' used for tree building')
                 d_name = (v_dict['d_grid_nn_name']
                           if c_dict['d_type'] == 'continuous'
                           else v_dict['d_name'])
                 mcf_gp.statistics_by_treatment(
                     indatei_tree, d_name, v_dict['y_match_name'],
                     c_dict['d_type'] == 'continuous')
-    # Estimate forest structure
+            # Estimate forest structure
             forest, x_name_mcf = mcf_forest.build_forest(
                 indatei_tree, v_dict, var_x_type, var_x_values, c_dict)
-            time4 = time.time()
-            if c_dict['with_output'] and c_dict['verbose']:
+            if reg_round:
+                time4 = time.time()
+            if c_dict['with_output'] and c_dict['verbose'] and reg_round:
                 gp.print_timing(['Forst Building: '], [time4 - time3])
-    # Variable importance
-            if c_dict['var_import_oob'] and c_dict['with_output']:
+            # Variable importance
+            if (c_dict['var_import_oob'] and c_dict['with_output']
+                    and reg_round):
                 mcf_vi.variable_importance(
                     indatei_tree, forest, v_dict, var_x_type, var_x_values,
                     c_dict, x_name_mcf)
             forest = mcf_forest_add.remove_oob_from_leaf0(forest)
-            time5 = time.time()
-    # Filling of trees with indices of outcomes:
+            if reg_round:
+                time5 = time.time()
+            # Filling of trees with indices of outcomes:
             forest, _, _ = mcf_forest_add.fill_trees_with_y_indices_mp(
                 forest, fill_y_sample, v_dict, var_x_type, var_x_values,
                 c_dict, x_name_mcf)
+            if reg_round:
+                time6 = time.time()
+            if c_dict['with_output'] and c_dict['verbose'] and reg_round:
+                print()
+                print('-' * 80)
+                print('Size of forest: ', round(
+                    gp_sys.total_size(forest) / (1024 * 1024), 2), ' MB',
+                    flush=True)
+                print('-' * 80)
         else:
-            raise Exception('Currently deactivated. Dics not saved.')
+            time11 = time12 = time2 = time3 = time4 = time5 = time.time()
+            time6 = time.time()
+        if c_dict['save_forest'] and c_dict['train_mcf'] and reg_round:
+            save_train_data_for_pred(fill_y_sample, v_dict, c_dict, prob_score,
+                                     d_train_tree)
+            gp_sys.save_load(
+                c_dict['save_forest_file_pickle'],
+                (forest, x_name_mcf, c_dict['max_cats_z_vars'], d_in_values,
+                 no_val_dict, q_inv_dict, q_inv_cr_dict, prime_values_dict,
+                 unique_val_dict, common_support_list, z_new_name_dict,
+                 z_new_dic_dict, c_dict['max_cats_cont_vars'], lc_forest,
+                 old_y_name, new_y_name), save=True,
+                output=c_dict['with_output'])
+        if reg_round:
+            del prob_score, d_train_tree, common_support_list, unique_val_dict
+            del z_new_name_dict, d_in_values, no_val_dict, q_inv_dict
+            del q_inv_cr_dict, prime_values_dict, z_new_dic_dict
+        if c_dict['pred_mcf']:
+            if not c_dict['train_mcf'] and reg_round:
+                fill_y_sample = c_dict['save_forest_file_csv']
+                if c_dict['l_centering']:
+                    v_dict = mcf_data.adjust_y_names(
+                        v_dict, old_y_name, new_y_name, c_dict['with_output'])
+            # compute weights
+            if reg_round:
+                time7 = time.time()
+            (weights, y_train, x_bala_train, cl_train, w_train
+             ) = mcf_w.get_weights_mp(
+                forest, preddata3, fill_y_sample, v_dict, c_dict, x_name_mcf)
+            if c_dict['with_output'] and c_dict['verbose'] and reg_round:
+                print()
+                print('-' * 80)
+                no_of_treat = (len(c_dict['ct_grid_w_val'])
+                               if c_dict['d_type'] == 'continuous'
+                               else c_dict['no_of_treat'])
+                mcf_gp.print_size_weight_matrix(
+                    weights, c_dict['weight_as_sparse'], no_of_treat)
+                print('-' * 80)
+            if not (c_dict['marg_plots'] and c_dict['with_output']
+                    ) or not reg_round:
+                del forest
 
-        time6 = time.time()    # Forest is tuple
-        if c_dict['with_output'] and c_dict['verbose']:
-            print()
-            print('-' * 80)
-            print('Size of forest: ', round(
-                gp_sys.total_size(forest) / (1024 * 1024), 2), ' MB',
-                flush=True)
-            print('-' * 80)
-    else:
-        time11 = time12 = time2 = time3 = time4 = time5 = time6 = time.time()
+            # Estimation and inference given weights
+            if reg_round:
+                time8 = time.time()
+            if reg_round:
+                w_ate, _, _, ate, ate_se, effect_list = mcf_ate.ate_est(
+                    weights, preddata3, y_train, cl_train, w_train, v_dict,
+                    c_dict)
+                time9_ate = time.time()
+                cont = c_dict['d_type'] == 'continuous'
+                if c_dict['marg_plots'] and c_dict['with_output']:
+                    mcf_gate.marg_gates_est(
+                        forest, fill_y_sample, preddata3, v_dict, c_dict,
+                        x_name_mcf, var_x_type, var_x_values, w_ate)
+                    del forest
+                time9_marg = time.time()
+                if c_dict['gate_yes']:
+                    gate, gate_se = mcf_gate.gate_est(
+                        weights, preddata3, y_train, cl_train, w_train, v_dict,
+                        c_dict, var_x_type, var_x_values, w_ate, ate, ate_se)
+                else:
+                    gate = gate_se = None
+                time9_gate = time.time()
+            if c_dict['iate_flag']:
+                if not reg_round:
+                    w_ate = None
+                (pred_outfile, pot_y_, pot_y_var_, iate_, iate_se_,
+                 names_pot_iate_) = mcf_iate.iate_est_mp(
+                    weights, preddata3, y_train, cl_train, w_train, v_dict,
+                    c_dict, w_ate, pot_y_prev=pot_y)
+                if reg_round:
+                    pot_y, pot_y_var = pot_y_, pot_y_var_
+                    iate, iate_se = iate_, iate_se_
+                    names_pot_iate = names_pot_iate_
+                else:
+                    eff_pot_y, eff_iate = pot_y_, iate_
+            else:
+                pot_y = pot_y_var = iate = iate_se = None
+                eff_iate = eff_pot_y = None
+                pred_outfile = names_pot_iate = None
+            del _, w_ate
+            if reg_round:
+                time9_iate = time.time()
+            else:
+                time9_iate_2 = time.time()
+            if (c_dict['with_output'] and c_dict['balancing_test_w']
+                    and not cont and reg_round):
+                mcf_ate.ate_est(weights, preddata3, x_bala_train, cl_train,
+                                w_train, v_dict, c_dict, True, None)
+            if reg_round:
+                del weights, y_train, x_bala_train, cl_train, w_train
+                time9_bal = time.time()
 
-    if c_dict['save_forest'] and c_dict['train_mcf']:
-        save_train_data_for_pred(fill_y_sample, v_dict, c_dict, prob_score,
-                                 d_train_tree)
-        gp_sys.save_load(
-            c_dict['save_forest_file_pickle'],
-            (forest, x_name_mcf, c_dict['max_cats_z_vars'], d_in_values,
-             no_val_dict, q_inv_dict, q_inv_cr_dict, prime_values_dict,
-             unique_val_dict, common_support_list, z_new_name_dict,
-             z_new_dic_dict, c_dict['max_cats_cont_vars'], lc_forest,
-             old_y_name, new_y_name), save=True, output=c_dict['with_output'])
-    del prob_score, d_train_tree, common_support_list, unique_val_dict
-    del z_new_name_dict, d_in_values, no_val_dict, q_inv_dict, q_inv_cr_dict
-    del prime_values_dict, z_new_dic_dict
-    if c_dict['pred_mcf']:
-        if not c_dict['train_mcf']:
-            fill_y_sample = c_dict['save_forest_file_csv']
-            if c_dict['l_centering']:
-                v_dict = mcf_data.adjust_y_names(
-                    v_dict, old_y_name, new_y_name, c_dict['with_output'])
-        # compute weights
-        time7 = time.time()
-        (weights, y_train, x_bala_train, cl_train, w_train
-         ) = mcf_w.get_weights_mp(
-            forest, preddata3, fill_y_sample, v_dict, c_dict, x_name_mcf)
-        if c_dict['with_output'] and c_dict['verbose']:
-            print()
-            print('-' * 80)
-            no_of_treat = (len(c_dict['ct_grid_w_val'])
-                           if c_dict['d_type'] == 'continuous'
-                           else c_dict['no_of_treat'])
-            mcf_gp.print_size_weight_matrix(
-                weights, c_dict['weight_as_sparse'], no_of_treat)
-            print('-' * 80)
-        if not (c_dict['marg_plots'] and c_dict['with_output']):
-            del forest
-
-        # Estimation and inference given weights
-        time8 = time.time()
-        w_ate, _, _, ate, ate_se, effect_list = mcf_ate.ate_est(
-            weights, preddata3, y_train, cl_train, w_train, v_dict, c_dict)
-        time9_ate = time.time()
-
-        cont = c_dict['d_type'] == 'continuous'
-        if c_dict['marg_plots'] and c_dict['with_output']:
-            mcf_gate.marg_gates_est(
-                forest, fill_y_sample, preddata3, v_dict, c_dict, x_name_mcf,
-                var_x_type, var_x_values, w_ate)
-            del forest
-        time9_marg = time.time()
-        if c_dict['gate_yes']:
-            gate, gate_se = mcf_gate.gate_est(
-                weights, preddata3, y_train, cl_train, w_train, v_dict, c_dict,
-                var_x_type, var_x_values, w_ate, ate, ate_se)
+            if (c_dict['with_output'] and c_dict['post_est_stats']
+                    and reg_round):
+                mcf_iate_add.post_estimation_iate(
+                    pred_outfile, names_pot_iate, ate, ate_se, effect_list,
+                    v_dict, c_dict, var_x_type)
+            if reg_round:
+                time10 = time.time()
         else:
-            gate = gate_se = None
-        time9_gate = time.time()
-        if c_dict['iate_flag']:
-            (pred_outfile, pot_y, pot_y_var, iate, iate_se, names_pot_iate
-             ) = mcf_iate.iate_est_mp(
-                weights, preddata3, y_train, cl_train, w_train, v_dict, c_dict,
-                w_ate)
-        else:
-            pot_y = pot_y_var = iate = iate_se = None
-            pred_outfile = names_pot_iate = None
-        del _, w_ate
-        time9_iate = time.time()
-
-        if c_dict['with_output'] and c_dict['balancing_test_w'] and not cont:
-            mcf_ate.ate_est(weights, preddata3, x_bala_train, cl_train,
-                            w_train, v_dict, c_dict, True, None)
-        del weights, y_train, x_bala_train, cl_train, w_train
-        time9_bal = time.time()
-
-        if c_dict['with_output'] and c_dict['post_est_stats']:
-            mcf_iate_add.post_estimation_iate(
-                pred_outfile, names_pot_iate, ate, ate_se, effect_list, v_dict,
-                c_dict, var_x_type)
-        time10 = time.time()
-    else:
-        time7 = time8 = time9_ate = time9_marg = time9_gate = time.time()
-        time9_iate = time9_bal = time10 = time.time()
-        ate = ate_se = gate = gate_se = iate = iate_se = pot_y = None
-        pot_y_var = pred_outfile = None
-# Finally, save everything: Con, Var (auch wegen recoding), forests etc.
-
+            time7 = time8 = time9_ate = time9_marg = time9_gate = time.time()
+            time9_iate = time9_bal = time10 = time.time()
+            time3_2 = time9_iate_2 = time.time()
+            ate = ate_se = gate = gate_se = iate = iate_se = pot_y = None
+            pot_y_var = pred_outfile = eff_iate = eff_pot_y = None
+    timetot = time9_iate_2 if c_dict['effiate_flag'] else time10
     # Print timing information
     time_string = ['Data preparation and stats I:    ',
                    'Local centering (recoding of Y): ',
@@ -577,6 +640,7 @@ def modified_causal_forest(
                    'Inference for IATEs:             ',
                    'Balancing test:                  ',
                    'Post estimation analysis:        ',
+                   'Second round IATE predictions:   ',
                    'Total time:                      ']
     time_difference = [time11 - time1, time12 - time11, time2 - time12,
                        time3 - time2, time4 - time3,
@@ -584,7 +648,8 @@ def modified_causal_forest(
                        time8 - time7, time9_ate - time8,
                        time9_marg - time9_ate, time9_gate - time9_marg,
                        time9_iate - time9_gate, time9_bal - time9_iate,
-                       time10 - time9_bal, time10 - time1]
+                       time10 - time9_bal, time9_iate_2 - time3_2,
+                       timetot - time1]
     temppfad = c_dict['outpfad'] + '/_tempmcf_'
     if os.path.isdir(temppfad):
         for temp_file in os.listdir(temppfad):
@@ -621,8 +686,9 @@ def modified_causal_forest(
                     print('MP for weights was based on bootstrap for each',
                           'observation')
     if c_dict['with_output']:
-        gp.print_timing(time_string, time_difference)  # print to file
+        print_str = gp.print_timing(time_string, time_difference)
         print(' ', flush=True)   # clear print buffer
+        gp.print_f(ofs, print_str)
     if c_dict['print_to_file']:
         if c_dict['print_to_terminal']:
             sys.stdout.output.close()
@@ -630,7 +696,7 @@ def modified_causal_forest(
             outfiletext.close()
         sys.stdout = orig_stdout
     return (ate, ate_se, gate, gate_se, iate, iate_se, pot_y, pot_y_var,
-            pred_outfile)
+            pred_outfile, eff_pot_y, eff_iate)
 
 
 def save_train_data_for_pred(data_file, v_dict, c_dict, prob_score,

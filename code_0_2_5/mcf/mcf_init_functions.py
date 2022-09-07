@@ -66,6 +66,7 @@ def get_controls(c_dict, v_dict):
         c_dict['outfiletext'] = (c_dict['indata'] if c_dict['train_mcf'] else
                                  c_dict['preddata'])
     cnew_dict = copy.deepcopy(c_dict)
+
     temppfad = c_dict['outpfad'] + '/_tempmcf_'
     if os.path.isdir(temppfad):
         file_list = os.listdir(temppfad)
@@ -87,24 +88,24 @@ def get_controls(c_dict, v_dict):
             if not ((c_dict['with_output'] is False)
                     or (c_dict['verbose'] is False)):
                 print(f'Successfully created the directory {temppfad}')
-    fig_pfad_jpeg = c_dict['outpfad'] + '/' + 'fig_jpeg'
-    fig_pfad_csv = c_dict['outpfad'] + '/' + 'fig_csv'
-    fig_pfad_pdf = c_dict['outpfad'] + '/' + 'fig_pdf'
-    if c_dict['pred_mcf'] and c_dict['with_output']:
-        if not os.path.isdir(fig_pfad_jpeg):
-            os.mkdir(fig_pfad_jpeg)
-        if not os.path.isdir(fig_pfad_csv):
-            os.mkdir(fig_pfad_csv)
-        if not os.path.isdir(fig_pfad_pdf):
-            os.mkdir(fig_pfad_pdf)
+    make_dir = c_dict['pred_mcf'] and c_dict['with_output']
+    cnew_dict = mcf_ia.get_fig_path(cnew_dict, 'cs_ate_iate', make_dir)
+    cnew_dict = mcf_ia.get_fig_path(cnew_dict, 'gate', make_dir)
+    cnew_dict = mcf_ia.get_fig_path(cnew_dict, 'mgate', make_dir)
+    cnew_dict = mcf_ia.get_fig_path(cnew_dict, 'amgate', make_dir)
+    print(cnew_dict)
     if c_dict['train_mcf']:
-        pred_sample_with_pred = (c_dict['outpfad'] + '/' + c_dict['indata']
-                                 + 'Predpred.csv')
+        pred_sample_with_pred = (cnew_dict['cs_ate_iate_fig_pfad_csv']
+                                 + '/' + c_dict['indata'] + 'X_IATE.csv')
     else:
-        pred_sample_with_pred = (c_dict['outpfad'] + '/' + c_dict['preddata']
-                                 + 'Predpred.csv')
+        pred_sample_with_pred = (cnew_dict['cs_ate_iate_fig_pfad_csv']
+                                 + '/' + c_dict['preddata'] + 'X_IATE.csv')
     cnew_dict['outfiletext'] = (c_dict['outpfad'] + '/' + c_dict['outfiletext']
                                 + '.txt')
+    cnew_dict['outfilesummary'] = (c_dict['outpfad'] + '/'
+                                   + c_dict['outfiletext'] + '_Summary.txt')
+    gp.delete_file_if_exists(c_dict['outfiletext'])
+    gp.delete_file_if_exists(cnew_dict['outfilesummary'])
     if c_dict['save_forest_files'] is None:
         save_forest_file_pickle = (
             c_dict['outpfad'] + '/' + c_dict['indata'] + '_save_pred.pickle')
@@ -589,6 +590,7 @@ def get_controls(c_dict, v_dict):
         else:
             cnew_dict['iate_flag'] = True
             cnew_dict['iate_se_flag'] = not c_dict['iate_se_flag'] is False
+        cnew_dict['effiate_flag'] = not c_dict['effiate_flag'] is False
         # Post estimation parameters
         cnew_dict['post_est_stats'] = not c_dict['post_est_stats'] is False
         cnew_dict['bin_corr_yes'] = not c_dict['bin_corr_yes'] is False
@@ -841,9 +843,7 @@ def get_controls(c_dict, v_dict):
         err_txt = 'Negative common support adjustment factor not possible.'
     assert cnew_dict['support_adjust_limits'] >= 0, err_txt
     cn_add = {
-        'temppfad': temppfad, 'fig_pfad_jpeg': fig_pfad_jpeg,
-        'fig_pfad_csv': fig_pfad_csv, 'fig_pfad_pdf': fig_pfad_pdf,
-        'pred_sample_with_pred': pred_sample_with_pred,
+        'temppfad': temppfad, 'pred_sample_with_pred': pred_sample_with_pred,
         'indat_temp': indat_temp, 'indata2_temp': indata2_temp,
         'preddata2_temp': preddata2_temp, 'preddata3_temp': preddata3_temp,
         'off_support_temp': off_support_temp, 'pred_eff_temp': pred_eff_temp,
@@ -868,6 +868,12 @@ def get_controls(c_dict, v_dict):
         'save_forest_file_d_train_tree': save_forest_file_d_train_tree,
         'estimator_str': estimator_str}
     cnew_dict.update(cn_add)
+    # Check for inconsistencies
+    if cnew_dict['iate_flag'] is False or cnew_dict['pred_mcf'] is False:
+        cnew_dict['effiate_flag'] = False
+    if cnew_dict['effiate_flag']:
+        assert cnew_dict['train_mcf'], ('Training must be activated for' +
+                                        '2nd round efficient IATEs')
     if c_dict['train_mcf']:
         if v_dict['y_name'] is None or v_dict['y_name'] == []:
             raise Exception('y_name must be specified.')

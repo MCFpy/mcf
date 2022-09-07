@@ -4,6 +4,8 @@ Contains the functions needed for the running all parts of the programme part 2
 @author: MLechner
 -*- coding: utf-8 -*-
 """
+import os
+
 import numpy as np
 
 
@@ -114,7 +116,8 @@ def controls_into_dic(
         reduce_training_share, reduce_prediction, reduce_prediction_share,
         reduce_largest_group_train, reduce_largest_group_train_share,
         iate_flag, iate_se_flag, l_centering_uncenter, d_type, ct_grid_nn,
-        ct_grid_w, ct_grid_dr, support_adjust_limits, l_centering_replication):
+        ct_grid_w, ct_grid_dr, support_adjust_limits, l_centering_replication,
+        effiate_flag):
     """Build dictionary with parameters.
 
     Parameters
@@ -198,6 +201,7 @@ def controls_into_dic(
         'reduce_largest_group_train': reduce_largest_group_train,
         'reduce_largest_group_train_share': reduce_largest_group_train_share,
         'iate_flag': iate_flag, 'iate_se_flag': iate_se_flag,
+        'effiate_flag': effiate_flag,
         'd_type': d_type, 'ct_grid_nn': ct_grid_nn, 'ct_grid_w': ct_grid_w,
         'ct_grid_dr': ct_grid_dr
             }
@@ -235,3 +239,24 @@ def make_user_variable(
         'x_balance_name_unord': check_none(x_balance_name_unord),
                      }
     return variable_dict
+
+
+def get_fig_path(c_dict, add_name, create_dir):
+    """Define and create directories to store figures."""
+    fig_pfad = c_dict['outpfad'] + '/' + add_name
+    fig_pfad_jpeg = fig_pfad + '/jpeg'
+    fig_pfad_csv = fig_pfad + '/csv'
+    fig_pfad_pdf = fig_pfad + '/pdf'
+    if create_dir:
+        if not os.path.isdir(fig_pfad):
+            os.mkdir(fig_pfad)
+        if not os.path.isdir(fig_pfad_jpeg):
+            os.mkdir(fig_pfad_jpeg)
+        if not os.path.isdir(fig_pfad_csv):
+            os.mkdir(fig_pfad_csv)
+        if not os.path.isdir(fig_pfad_pdf):
+            os.mkdir(fig_pfad_pdf)
+    c_dict[add_name + '_fig_pfad_jpeg'] = fig_pfad_jpeg
+    c_dict[add_name + '_fig_pfad_csv'] = fig_pfad_csv
+    c_dict[add_name + '_fig_pfad_pdf'] = fig_pfad_pdf
+    return c_dict

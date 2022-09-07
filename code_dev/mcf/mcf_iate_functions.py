@@ -8,6 +8,7 @@ Created on Thu Dec 8 15:48:57 2020.
 # -*- coding: utf-8 -*-
 """
 from concurrent import futures
+from copy import deepcopy
 
 import numpy as np
 import pandas as pd
@@ -21,8 +22,9 @@ from mcf import mcf_general_purpose as mcf_gp
 from mcf import mcf_iate_add_functions as mcf_iate_add
 
 
-def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
-                w_ate=None, balancing_test=False, save_predictions=True):
+def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
+                w_ate=None, balancing_test=False, save_predictions=True,
+                pot_y_prev=None, lc_forest=None, var_x_type=None):
     """
     Estimate IATE and their standard errors, plot & save them, MP version.
 
@@ -34,11 +36,17 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
     y : Numpy array. All outcome variables.
     cl : Numpy array. Cluster variable.
     w : Numpy array. Sampling weights.
-    v : Dict. Variables.
-    c : Dict. Parameters.
-    w_ate: Numpy array. Weights of ATE estimation. Default = None.
-    balancing_test : Bool. Balancing test. Default = False.
-    save_predictions : Bool. save_predictions = True.
+    v_dict : Dict. Variables.
+    c_dict : Dict. Parameters.
+    w_ate: Numpy array. Weights of ATE estimation. Default is None.
+    balancing_test : Bool. Balancing test. Default is False.
+    save_predictions : Bool. Default is True.
+    pot_y_prev : Numpy array or None. Potential outcomes from previous
+          estimations. Default is None.
+    lc_forest : RandomForestRegressor (sklearn.ensemble). Default is None.
+          Contains estimated RF used for centering outcomes
+    var_x_type : Dict. Names and type of features as used for centering.
+          Default is None.
 
     Returns
     -------
@@ -58,9 +66,17 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                   'estimation without sparse weight matrix. This needs more '
                   'memory, but could be substantially faster ',
                   '(weight_as_sparse = False).')
-
+    if pot_y_prev is None:  # 2nd round of estimations
+        c_dict = c_in_dict
+        reg_round = True
+    else:
+        c_dict = deepcopy(c_in_dict)
+        c_dict['iate_se_flag'] = False
+        c_dict['se_boot_iate'] = False
+        reg_round = False
     if c_dict['with_output'] and c_dict['verbose'] and save_predictions:
         print('\nComputing IATEs 1/2 (potential outcomes)')
+
     n_x = weights[0].shape[0] if c_dict['weight_as_sparse'] else len(weights)
     n_y, no_of_out = len(y_dat), len(v_dict['y_name'])
     if c_dict['d_type'] == 'continuous':
@@ -87,11 +103,9 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
         w_ate = w_ate[0, :, :]
     if not c_dict['w_yes']:
         w_dat = None
-    if c_dict['iate_se_flag']:
-        no_of_cluster = len(np.unique(cl_dat)) if c_dict['cluster_std'
-                                                         ] else None
-    else:
-        no_of_cluster = None
+    no_of_cluster = None
+    if c_dict['iate_se_flag'] and c_dict['cluster_std']:
+        no_of_cluster = len(np.unique(cl_dat))
     l1_to_9 = [None] * n_x
     if c_dict['no_parallel'] < 1.5:
         maxworkers = 1
@@ -266,27 +280,30 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                              l1_to_9, share_censored, ret_all_i, n_x)
                         if c_dict['with_output'] and c_dict['verbose']:
                             gp.share_completed(jdx+1, no_of_splits)
-    for idx in range(n_x):
-        larger_0 += l1_to_9[idx][0]
-        equal_0 += l1_to_9[idx][1]
-        mean_pos += l1_to_9[idx][2]
-        std_pos += l1_to_9[idx][3]
-        gini_all += l1_to_9[idx][4]
-        gini_pos += l1_to_9[idx][5]
-        share_largest_q += l1_to_9[idx][6]
-        sum_larger += l1_to_9[idx][7]
-        obs_larger += l1_to_9[idx][8]
-    if c_dict['with_output'] and (not balancing_test) and save_predictions:
-        print('\n')
-        print('=' * 80)
-        print('Analysis of weights (normalised to add to 1): ', 'IATE',
-              '(stats are averaged over all effects)')
-        mcf_ate.print_weight_stat(
-            larger_0 / n_x, equal_0 / n_x, mean_pos / n_x, std_pos / n_x,
-            gini_all / n_x, gini_pos / n_x, share_largest_q / n_x,
-            sum_larger / n_x, obs_larger / n_x, c_dict, share_censored,
-            continuous=c_dict['d_type'] == 'continuous',
-            d_values_cont=d_values_dr)
+    if reg_round:
+        for idx in range(n_x):
+            larger_0 += l1_to_9[idx][0]
+            equal_0 += l1_to_9[idx][1]
+            mean_pos += l1_to_9[idx][2]
+            std_pos += l1_to_9[idx][3]
+            gini_all += l1_to_9[idx][4]
+            gini_pos += l1_to_9[idx][5]
+            share_largest_q += l1_to_9[idx][6]
+            sum_larger += l1_to_9[idx][7]
+            obs_larger += l1_to_9[idx][8]
+        if c_dict['with_output'] and (not balancing_test) and save_predictions:
+            print('\n')
+            print('=' * 80)
+            print('Analysis of weights (normalised to add to 1): ', 'IATE',
+                  '(stats are averaged over all effects)')
+            mcf_ate.print_weight_stat(
+                larger_0 / n_x, equal_0 / n_x, mean_pos / n_x, std_pos / n_x,
+                gini_all / n_x, gini_pos / n_x, share_largest_q / n_x,
+                sum_larger / n_x, obs_larger / n_x, c_dict, share_censored,
+                continuous=c_dict['d_type'] == 'continuous',
+                d_values_cont=d_values_dr)
+    else:
+        pot_y = 0.5 * pot_y_prev + 0.5 * pot_y
     if c_dict['with_output'] and c_dict['verbose'] and save_predictions:
         print('\nComputing IATEs 2/2 (effects)')
     if c_dict['d_type'] == 'continuous':
@@ -405,12 +422,25 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
         iate_se_np = np.empty_like(iate_np)
         iate_mate_np = np.empty_like(iate_np)
         iate_mate_se_np = np.empty_like(iate_np)
-    jdx = j2dx = 0
+    jdx = j2dx = jdx_unlc = 0
     name_pot, name_eff, name_eff0 = [], [], []
+    if c_dict['l_centering_uncenter']:
+        name_pot_unlc = []
+        pot_y_unlc_np = np.empty((n_x, no_of_treat_dr))
+        if isinstance(v_dict['y_tree_name'], list):
+            y_tree_name = v_dict['y_tree_name'][0]
+        else:
+            y_tree_name = v_dict['y_tree_name']
+    else:
+        name_pot_unlc = y_tree_name = name_pot_y_unlc = None
     for o_idx, o_name in enumerate(v_dict['y_name']):
         for t_idx, t_name in enumerate(d_values_dr):
             name_pot += [o_name + str(t_name)]
             pot_y_np[:, jdx] = pot_y[:, t_idx, o_idx]
+            if o_name == y_tree_name and c_dict['l_centering_uncenter']:
+                name_pot_unlc += [o_name + str(t_name) + '_un_lc']
+                pot_y_unlc_np[:, jdx_unlc] = pot_y_np[:, jdx].copy()
+                jdx_unlc += 1
             if c_dict['iate_se_flag']:
                 pot_y_se_np[:, jdx] = np.sqrt(pot_y_var[:, t_idx, o_idx])
             jdx += 1
@@ -425,9 +455,18 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                 iate_mate_np[:, j2dx] = iate[:, o_idx, t2_idx, 1]
                 iate_mate_se_np[:, j2dx] = iate_se[:, o_idx, t2_idx, 1]
             j2dx += 1
-    name_pot_y = [s + '_pot' for s in name_pot]
-    name_iate = [s + '_iate' for s in name_eff]
-    name_iate0 = [s + '_iate' for s in name_eff0]
+    if reg_round:
+        name_pot_y = [s + '_pot' for s in name_pot]
+        if c_dict['l_centering_uncenter']:
+            name_pot_y_unlc = [s + '_pot' for s in name_pot_unlc]
+        name_iate = [s + '_iate' for s in name_eff]
+        name_iate0 = [s + '_iate' for s in name_eff0]
+    else:
+        name_pot_y = [s + '_pot_eff' for s in name_pot]
+        if c_dict['l_centering_uncenter']:
+            name_pot_y_unlc = [s + '_pot_eff' for s in name_pot_unlc]
+        name_iate = [s + '_iate_eff' for s in name_eff]
+        name_iate0 = [s + '_iate_eff' for s in name_eff0]
     if c_dict['iate_se_flag']:
         name_pot_y_se = [s + '_pot_se' for s in name_pot]
         name_iate_se = [s + '_iate_se' for s in name_eff]
@@ -450,12 +489,22 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
                                         columns=name_iate_mate)
             iate_mate_se_df = pd.DataFrame(data=iate_mate_se_np,
                                            columns=name_iate_mate_se)
-        data_df = pd.read_csv(data_file)
+        if reg_round:
+            data_df = pd.read_csv(data_file)
+        else:
+            data_df = pd.read_csv(c_dict['pred_sample_with_pred'])
         if c_dict['iate_se_flag']:
             df_list = [data_df, pot_y_df, pot_y_se_df, iate_df, iate_se_df,
                        iate_mate_df, iate_mate_se_df]
         else:
             df_list = [data_df, pot_y_df, iate_df]
+        if c_dict['l_centering_uncenter']:
+            x_pred_np = find_x_to_uncenter(data_df, var_x_type)
+            y_x_lc = lc_forest.predict(x_pred_np)
+            pot_y_unlc_np += np.reshape(y_x_lc, (-1, 1))
+            pot_y_unlc_df = pd.DataFrame(data=pot_y_unlc_np,
+                                         columns=name_pot_y_unlc)
+            df_list.append(pot_y_unlc_df)
         data_file_new = pd.concat(df_list, axis=1)
         gp.delete_file_if_exists(c_dict['pred_sample_with_pred'])
         data_file_new.to_csv(c_dict['pred_sample_with_pred'], index=False)
@@ -467,14 +516,32 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_dict,
         'names_pot_y': name_pot_y, 'names_pot_y_se': name_pot_y_se,
         'names_iate': name_iate, 'names_iate_se': name_iate_se,
         'names_iate_mate': name_iate_mate,
-        'names_iate_mate_se': name_iate_mate_se}
+        'names_iate_mate_se': name_iate_mate_se,
+        'names_pot_y_uncenter': name_pot_y_unlc}
     names_pot_iate0 = {
         'names_pot_y': name_pot_y, 'names_pot_y_se': name_pot_y_se,
         'names_iate': name_iate0, 'names_iate_se': name_iate_se0,
         'names_iate_mate': name_iate_mate0,
-        'names_iate_mate_se': name_iate_mate_se0}
+        'names_iate_mate_se': name_iate_mate_se0,
+        'names_pot_y_uncenter': name_pot_y_unlc}
     return (c_dict['pred_sample_with_pred'], pot_y, pot_y_var, iate, iate_se,
             (names_pot_iate, names_pot_iate0))
+
+
+def find_x_to_uncenter(data_df, var_x_type):
+    "Find correct x to uncenter potential outcomes."
+    x_names = var_x_type.keys()
+    x_df = data_df[x_names]
+    # This part must be identical to the same part in local centering!
+    # To Do: Use same function in both.
+    names_unordered = []
+    for x_name in x_names:
+        if var_x_type[x_name] > 0:
+            names_unordered.append(x_name)
+    if names_unordered:  # List is not empty
+        x_dummies = pd.get_dummies(x_df, columns=names_unordered)
+        x_df = pd.concat([x_df[names_unordered], x_dummies], axis=1)
+    return x_df.to_numpy()
 
 
 def assign_ret_all_i(pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var, l1_to_9,

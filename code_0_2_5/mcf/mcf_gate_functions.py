@@ -56,6 +56,17 @@ def marg_gates_est(forest, fill_y_sample, pred_sample, v_dict, c_dict,
     c_dict_mgate['with_output'] = False       # reduce unnecessary infos
     c_dict_mgate['iate_se_flag'] = True
     if v_dict['z_name_mgate'] and c_dict['with_output']:
+        if c_dict['with_output']:
+            print_str = '=' * 80
+            if regrf:
+                print_str += '\nMarginal variable predictive plots'
+            else:
+                print_str += '\nMarginale GATEs evaluated at median (MGATES)'
+            if c_dict_mgate['choice_based_yes']:
+                print_str += '\nChoice based sampling deactivated for MGATES.'
+            print_str += '\n' + '-' * 80
+            print(print_str)
+            gp.print_f(c_dict['outfilesummary'], print_str)
         any_plots_mgate = mgate_function(
             forest, fill_y_sample, pred_sample, v_dict, c_dict, x_name_mcf,
             var_x_type, var_x_values, regrf, c_dict_mgate, w_ate)
@@ -67,6 +78,11 @@ def marg_gates_est(forest, fill_y_sample, pred_sample, v_dict, c_dict,
         else:
             print('\n')
     if v_dict['z_name_amgate'] and c_dict['with_output']:
+        if c_dict['with_output']:
+            print_str = ('\n' + '=' * 80 + '\nOther-X-fixed-GATEs averaged'
+                         + ' over sample (AMGATEs)')
+            print(print_str)
+            gp.print_f(c_dict['outfilesummary'], print_str)
         any_plots_amgate = amgate_function(
             forest, fill_y_sample, pred_sample, v_dict, c_dict, x_name_mcf,
             var_x_type, var_x_values, c_dict_mgate)
@@ -109,8 +125,6 @@ def amgate_function(forest, fill_y_sample, pred_sample, v_dict, c_dict,
         if c_dict['with_output']:
             print('No treatment specific effects for MGATE and AMGATE.')
     any_plots_done = False
-    if c_dict['with_output']:
-        print('\nMarginale GATEs averaged over sample (AMGATEs)', '\n')
     _, eva_values = mcf_gateout.ref_vals_margplot(
         pred_sample, var_x_type, var_x_values,
         with_output=c_dict['with_output'], ref_values_needed=False,
@@ -132,7 +146,7 @@ def amgate_function(forest, fill_y_sample, pred_sample, v_dict, c_dict,
                 c_dict_mgate, x_name_mcf, regrf=False)
             w_ate_iate, _, _, ate_z, ate_se_z, _ = mcf_ate.ate_est(
                     weights, new_predict_file, y_f, cl_f, w_f, v_dict,
-                    c_dict_mgate)
+                    c_dict_mgate, print_output=False)
             c_dict_mgate['with_output'] = c_dict['with_output']
             gate_est(weights, new_predict_file, y_f, cl_f, w_f, v_dict,
                      c_dict_mgate, var_x_type, var_x_values, w_ate_iate, ate_z,
@@ -172,13 +186,7 @@ def mgate_function(
         return eff, eff_se, counter
 
     any_plots_done = False
-    if c_dict['with_output'] and c_dict['verbose']:
-        if regrf:
-            print('\nMarginal variable predictive plots')
-        else:
-            print('\nMarginale GATEs evaluated at median (MGATES)', '\n')
-        if c_dict_mgate['choice_based_yes']:
-            print('Choice based sampling deactivated for MGATES.')
+    print_str = ''
     ref_values, eva_values = mcf_gateout.ref_vals_margplot(
         pred_sample, var_x_type, var_x_values,
         with_output=c_dict['with_output'], ref_values_needed=True,
@@ -209,7 +217,7 @@ def mgate_function(
             else:
                 w_ate_iate, _, _, _, _, _ = mcf_ate.ate_est(
                     weights, new_predict_file, y_f, cl_f, w_f, v_dict,
-                    c_dict_mgate, w_ate_only=True)
+                    c_dict_mgate, w_ate_only=True, print_output=False)
                 _, _, _, iate, iate_se, namesiate = mcf_iate.iate_est_mp(
                     weights, new_predict_file, y_f, cl_f, w_f, v_dict,
                     c_dict_mgate, save_predictions=False, w_ate=w_ate_iate)
@@ -253,13 +261,15 @@ def mgate_function(
                             regrf, minus_ate=True)
     if not regrf and (w_ate is not None):
         if c_dict['with_output'] and c_dict['verbose']:
-            print()
-            print('MGATEs minus ATE are evaluated at fixed feature values',
-                  '(equally weighted).')
+            print_str += ('\nMGATEs minus ATE are evaluated at fixed feature'
+                          + ' values equally weighted).')
             if correct_m_gate_cont > 0:
-                print(f'MGATE-ATE {correct_m_gate_cont} times corrected for ',
-                      'excessive last value. This is not good. Probably, some',
-                      ' bug when computing difference of MATE with ate.')
+                print_str += (
+                    f'MGATE-ATE {correct_m_gate_cont} times corrected for '
+                    + 'excessive last value. This is not good. Probably,'
+                    + ' some bug when computing difference of MATE with ate.')
+            print(print_str)
+            gp.print_f(c_dict['outfilesummary'], print_str)
     c_dict_mgate['w_yes'] = w_yes_old
     c_dict_mgate['with_output'] = with_output_old
     c_dict_mgate['choice_based_yes'] = choice_based_yes_old
@@ -517,18 +527,19 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
             print('\n')
         for o_idx in range(no_of_out):
             if c_dict['with_output']:
-                print('-' * 80)
-                print('Outcome variable: ', v_dict['y_name'][o_idx])
-                print('-' * 80)
+                print_str = ('-' * 80 + '\nOutcome variable: '
+                             + f'{v_dict["y_name"][o_idx]} \n' + '- ' * 40)
+                print(print_str)
+                gp.print_f(c_dict['outfilesummary'], print_str)
             for a_idx in range(no_of_tgates):
                 if c_dict['with_output']:
-                    print('Reference population:', ref_pop_lab[a_idx])
-                    print('- ' * 40)
+                    print_str = f'Reference population: {ref_pop_lab[a_idx]}'
+                    print_str += '\n' + '- ' * 40
                     if not continuous:
-                        mcf_gateout.wald_test(
+                        print_str += mcf_gateout.wald_test(
                             z_name, no_of_zval, w_gate, y_dat, w_dat, cl_dat,
                             a_idx, o_idx, w_ate, c_dict, gate_str, no_of_treat,
-                            d_values)
+                            d_values, print_output=False)
                 ret_gate = [None] * no_of_zval
                 ret_gate_mate = [None] * no_of_zval
                 for zj_idx, _ in enumerate(z_values):
@@ -549,17 +560,19 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                         ret_gate_mate[zj_idx] = np.array(ret, dtype=object,
                                                          copy=True)
                 if c_dict['with_output']:
-                    print('- ' * 40)
-                    print('Group Average Treatment effects (', gate_str, ')')
-                    print('- ' * 40)
-                    print('Heterogeneity: ', z_name, 'Outcome: ',
-                          v_dict['y_name'][o_idx], 'Ref. pop.: ',
-                          ref_pop_lab[a_idx])
-                    mcf_gp.print_effect_z(ret_gate, ret_gate_mate, z_values,
-                                          gate_str)
-                    gp_est.print_se_info(c_dict['cluster_std'],
-                                         c_dict['se_boot_gate'])
-                    gp_est.print_minus_ate_info(c_dict['w_yes'])
+                    print_str += ('\nGroup Average Treatment effects '
+                                  + f'({gate_str})' + '\n' + '- ' * 40)
+                    print_str += (f'\nHeterogeneity: {z_name} Outcome: '
+                                  + f'{v_dict["y_name"][o_idx]} Ref. pop.: '
+                                  + f'{ref_pop_lab[a_idx]}' + '\n')
+                    print_str += mcf_gp.print_effect_z(
+                        ret_gate, ret_gate_mate, z_values, gate_str,
+                        print_output=False)
+                    print_str += '\n' + gp_est.print_se_info(
+                        c_dict['cluster_std'], c_dict['se_boot_gate'])
+                    print_str += gp_est.print_minus_ate_info(c_dict['w_yes'])
+                    print(print_str)
+                    gp.print_f(c_dict['outfilesummary'], print_str)
         if c_dict['with_output']:   # figures
             primes = gp.primes_list()
             for a_idx, a_lab in enumerate(ref_pop_lab):

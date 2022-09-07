@@ -19,7 +19,8 @@ from mcf import general_purpose as gp
 from mcf import general_purpose_estimation as gp_est
 
 
-def print_iate(iate, iate_se, iate_p, effect_list, v_dict, c_dict):
+def print_iate(iate, iate_se, iate_p, effect_list, v_dict, c_dict,
+               reg_round=True):
     """Print statistics for the two types of IATEs.
 
     Parameters
@@ -29,7 +30,9 @@ def print_iate(iate, iate_se, iate_p, effect_list, v_dict, c_dict):
     iate_t : 4D Numpy array.
     iate_p : 4D Numpy array.
     effect_list : List. Names of effects.
-    v : Dict. Variables.
+    v_dict : Dict. Variables.
+    c_dict : Dict. Control paramaters.
+    reg_round : Boolean. True if regular estimation round. Default is True.
 
     Returns
     -------
@@ -39,46 +42,53 @@ def print_iate(iate, iate_se, iate_p, effect_list, v_dict, c_dict):
     no_outcomes = np.size(iate, axis=1)
     n_obs = len(iate)
     str_f, str_m, str_l = '=' * 80, '-' * 80, '- ' * 40
-    print('\n')
-    print(str_f, '\nDescriptives for IATE estimation', '\n' + str_m)
+    print_str = '\n' + str_f + '\nDescriptives for IATE estimation\n' + str_m
+    if not reg_round:
+        print_str += ('\n' + str_m
+                      + '\nSecond round of estimation of Eff. IATE\n' + str_l)
     for types in range(2):
         if types == 0:
-            print('IATE with corresponding statistics', '\n' + str_l)
+            print_str += 'IATE with corresponding statistics\n' + str_l
         else:
-            print('IATE minus ATE with corresponding statistics ',
-                  '(weights not censored)', '\n' + str_l)
+            print_str += ('IATE minus ATE with corresponding statistics '
+                          + '(weights not censored)\n' + str_l)
         for o_idx in range(no_outcomes):
-            print('\nOutcome variable: ', v_dict['y_name'][o_idx])
-            print(str_l)
+            print_str += (f'\nOutcome variable: {v_dict["y_name"][o_idx]}\n'
+                          + str_l)
             str1 = '        Comparison          Mean       Median      Std'
             if c_dict['iate_se_flag']:
-                print(str1, '  Effect > 0 mean(SE)  sig 10%  sig 5%   sig 1%')
+                print_str += ('\n' + str1 + '  Effect > 0 mean(SE)  sig 10%'
+                              + '  sig 5%   sig 1%')
             else:
-                print(str1, '  Effect > 0')
+                print_str += '\n' + str1 + '  Effect > 0'
             for jdx, effects in enumerate(effect_list):
                 fdstring = (f'{effects[0]:>9.5f} vs {effects[1]:>9.5f}'
                             if c_dict['d_type'] == 'continuous' else
-                            f'{effects[0]:<9} vs {effects[1]:<9}')
-                print(fdstring, end=' ')
+                            f'{effects[0]:<9} vs {effects[1]:<9} ')
+                print_str += '\n' + fdstring
                 est = iate[:, o_idx, jdx, types].reshape(-1)
                 if c_dict['iate_se_flag']:
                     stderr = iate_se[:, o_idx, jdx, types].reshape(-1)
                     p_val = iate_p[:, o_idx, jdx, types].reshape(-1)
-                print(f'{np.mean(est):10.5f} {np.median(est):10.5f}',
-                      f' {np.std(est):10.5f}', end=' ')
+                print_str += (f'{np.mean(est):10.5f} {np.median(est):10.5f}'
+                              + f' {np.std(est):10.5f} ')
                 if c_dict['iate_se_flag']:
-                    print(f'{np.count_nonzero(est > 1e-15) / n_obs*100:6.2f}%',
-                          f' {np.mean(stderr):10.5f}'
-                          f' {np.count_nonzero(p_val < 0.1)/n_obs*100:6.2f}%',
-                          f' {np.count_nonzero(p_val < 0.05)/n_obs*100:6.2f}%',
-                          f' {np.count_nonzero(p_val < 0.01)/n_obs*100:6.2f}%')
+                    print_str += (
+                        '\n' + f'{np.count_nonzero(est > 1e-15) / n_obs:6.2%}'
+                        + f' {np.mean(stderr):10.5f}'
+                        + f' {np.count_nonzero(p_val < 0.1)/n_obs:6.2%}'
+                        + f' {np.count_nonzero(p_val < 0.05)/n_obs:6.2%}'
+                        + f' {np.count_nonzero(p_val < 0.01)/n_obs:6.2%}')
                 else:
-                    print()
-        print(str_m, '\n')
-    print('-' * 80)
+                    print_str += '\n'
+        print_str += '\n' + str_m + '\n'
+    print_str = '\n' + str_m
     if c_dict['iate_se_flag']:
-        gp_est.print_se_info(c_dict['cluster_std'], c_dict['se_boot_iate'])
-        gp_est.print_minus_ate_info(c_dict['w_yes'])
+        print_str += ('\n' + gp_est.print_se_info(c_dict['cluster_std'],
+                                                  c_dict['se_boot_iate']))
+        print_str += gp_est.print_minus_ate_info(c_dict['w_yes'])
+    print(print_str)
+    gp.print_f(c_dict['outfilesummary'], print_str)
 
 
 def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
@@ -108,7 +118,9 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                 if not x_name.endswith('CATV')]
 
     if c_dict['with_output'] and c_dict['verbose']:
-        print('\nPost estimation analysis', flush=True)
+        print_str = '\n' + '=' * 80 + '\nPost estimation analysis\n' + '-' * 80
+        print(print_str)
+        gp.print_f(c_dict['outfilesummary'], print_str)
     if c_dict['d_type'] == 'continuous':
         d_values = c_dict['ct_d_values_dr_np']
         no_of_treat = len(d_values)
@@ -140,7 +152,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
     if c_dict['bin_corr_yes']:
         print('\n' + ('=' * 80), '\nCorrelations of effects with ... in %')
         print('-' * 80)
-    label_ci = str(c_dict['fig_ci_level'] * 100) + '%-CI'
+    label_ci = f'{c_dict["fig_ci_level"]:2.0%}-CI'
     iterator = range(2) if c_dict['iate_se_flag'] else range(1)
     no_of_names = len(iate_pot_name['names_iate'])
     eva_points = eva_points_fct(no_of_names, len(v_dict['y_name']))
@@ -158,7 +170,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                 name_iate_se_t = iate_pot_name[name_se][idx]
             else:
                 name_se = name_iate_se_t = None
-            titel = 'Sorted' + name_iate_t
+            titel = 'Sorted ' + name_iate_t
             # Add correlation analyis of IATEs
             if c_dict['d_type'] == 'discrete' or idx in eva_points:
                 if c_dict['bin_corr_yes'] and imate == 0:
@@ -192,10 +204,13 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                 if c_dict['iate_se_flag']:
                     iate_se_temp = gp_est.moving_avg_mean_var(
                         iate_se_temp, k, False)[0]
-                file_name_jpeg = (c_dict['fig_pfad_jpeg'] + '/' + titel
-                                  + '.jpeg')
-                file_name_pdf = c_dict['fig_pfad_pdf'] + '/' + titel + '.pdf'
-                file_name_csv = c_dict['fig_pfad_csv'] + '/' + titel + '.csv'
+                titel_f = titel.replace(' ', '')
+                file_name_jpeg = (c_dict['cs_ate_iate_fig_pfad_jpeg']
+                                  + '/' + titel_f + '.jpeg')
+                file_name_pdf = (c_dict['cs_ate_iate_fig_pfad_pdf']
+                                 + '/' + titel_f + '.pdf')
+                file_name_csv = (c_dict['cs_ate_iate_fig_pfad_csv']
+                                 + '/' + titel_f + 'plotdat.csv')
                 if c_dict['iate_se_flag']:
                     upper = iate_temp + iate_se_temp * cint
                     lower = iate_temp - iate_se_temp * cint
@@ -208,17 +223,25 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                 line_ate, line_iate = '_-r', '-b'
                 fig, axe = plt.subplots()
                 if imate == 0:
-                    label_t, label_r = 'IATE', 'ATE'
+                    label_t, label_r, label_y = 'IATE', 'ATE', 'Effect'
                 else:
                     label_t, label_r = 'IATE-ATE', '_nolegend_'
+                    label_y = 'Effect - average'
                 axe.plot(x_values, iate_temp, line_iate, label=label_t)
-                axe.set_ylabel(label_t)
+                axe.set_ylabel(label_y)
                 axe.plot(x_values, ate_t, line_ate, label=label_r)
                 if imate == 0:
                     axe.fill_between(x_values, ate_upper, ate_lower,
                                      alpha=0.3, color='r', label=label_ci)
-                axe.set_title(titel)
-                axe.set_xlabel('Ordered observations')
+                titel_tmp = titel.replace('_iate','')
+                if 'mate' in titel:
+                   titel_tmp = titel_tmp.replace('mate','')
+                titel_tmp = titel_tmp[:-4] + ' ' + titel_tmp[-4:]
+                titel_tmp = titel_tmp.replace('vs', ' vs ')
+                if 'mate' in titel:
+                    titel_tmp += ' (- ATE)'
+                axe.set_title(titel_tmp)
+                axe.set_xlabel('Index of sorted IATEs')
                 if c_dict['iate_se_flag']:
                     axe.fill_between(x_values, upper, lower, alpha=0.3,
                                      color='b', label=label_ci)
@@ -260,13 +283,14 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                 datasave.to_csv(file_name_csv, index=False)
                 # density plots
                 if imate == 0:
-                    titel = 'Density' + iate_pot_name['names_iate'][idx]
-                    file_name_jpeg = (c_dict['fig_pfad_jpeg'] + '/' + titel
-                                      + '.jpeg')
-                    file_name_pdf = (c_dict['fig_pfad_pdf'] + '/' + titel
-                                     + '.pdf')
-                    file_name_csv = (c_dict['fig_pfad_csv'] + '/' + titel
-                                     + '.csv')
+                    titel = 'Density ' + iate_pot_name['names_iate'][idx]
+                    titel_f = titel.replace(' ','')
+                    file_name_jpeg = (c_dict['cs_ate_iate_fig_pfad_jpeg']
+                                      + '/' + titel_f + '.jpeg')
+                    file_name_pdf = (c_dict['cs_ate_iate_fig_pfad_pdf']
+                                     + '/' + titel_f + '.pdf')
+                    file_name_csv = (c_dict['cs_ate_iate_fig_pfad_csv']
+                                     + '/' + titel_f + 'plotdat.csv')
                     iate_temp = data[name_iate_t].to_numpy()
                     bandwidth = gp_est.bandwidth_silverman(iate_temp, 1)
                     dist = np.abs(iate_temp.max() - iate_temp.min())
@@ -276,8 +300,12 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                     density = gp_est.kernel_density(iate_temp, grid, 1,
                                                     bandwidth)
                     fig, axe = plt.subplots()
-                    axe.set_title(titel)
+                    titel_tmp = titel.replace('_iate','')
+                    titel_tmp = titel_tmp[:-4] + ' ' + titel_tmp[-4:]
+                    titel_tmp = titel_tmp.replace('vs', ' vs ')
+                    axe.set_title(titel_tmp)
                     axe.set_ylabel('Estimated density')
+                    axe.set_xlabel('IATE')
                     axe.plot(grid, density, '-b')
                     axe.fill_between(grid, density, alpha=0.3, color='b')
                     if c_dict['post_plots']:
@@ -315,19 +343,21 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                 indices_sort = np.argsort(np.mean(iate_temp, axis=1))
                 iate_temp = iate_temp[indices_sort]
                 z_plt = np.transpose(iate_temp)
-                fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+                fig, axe = plt.subplots(subplot_kw={"projection": "3d"})
                 x_plt, y_plt = np.meshgrid(np.arange(z_plt.shape[1]) + 1,
                                            d_values[1:])
-                surf = ax.plot_surface(x_plt, y_plt, z_plt, cmap=cm.coolwarm,
-                                       linewidth=0, antialiased=False)
+                surf = axe.plot_surface(x_plt, y_plt, z_plt, cmap=cm.coolwarm,
+                                        linewidth=0, antialiased=False)
                 plt.title(titel)
-                ax.set_ylabel('Treatment levels')
-                ax.set_zlabel(iate_label)
-                ax.set_xlabel('Ordered observations')
+                axe.set_ylabel('Treatment levels')
+                axe.set_zlabel(iate_label)
+                axe.set_xlabel('Index of sorted IATEs')
                 fig.colorbar(surf, shrink=0.5, aspect=5)
-                t = titel.replace(' ', '')
-                file_name_jpeg = c_dict['fig_pfad_jpeg'] + '/' + t + '.jpeg'
-                file_name_pdf = c_dict['fig_pfad_pdf'] + '/' + t + '.pdf'
+                ttt = titel.replace(' ', '')
+                file_name_jpeg = (c_dict['cs_ate_iate_fig_pfad_jpeg']
+                                  + '/' + ttt + '.jpeg')
+                file_name_pdf = (c_dict['cs_ate_iate_fig_pfad_pdf']
+                                 + '/' + ttt + '.pdf')
                 if c_dict['post_plots']:
                     gp.delete_file_if_exists(file_name_jpeg)
                     gp.delete_file_if_exists(file_name_pdf)
@@ -342,8 +372,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
         pd.set_option('display.max_rows', 1000, 'display.max_columns', 100)
         iate_np = iate.to_numpy()
         silhouette_avg_prev = -1
-        print('\n' + ('=' * 80), '\nK-Means++ clustering', '\n' + ('-' * 80))
-        print('-' * 80)
+        print_str = '\n' + '=' * 80 + '\nK-Means++ clustering\n' + '-' * 80
         for cluster_no in c_dict['post_km_no_of_groups']:
             cluster_lab_tmp = KMeans(
                 n_clusters=cluster_no,
@@ -357,8 +386,8 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
             if silhouette_avg > silhouette_avg_prev:
                 cluster_lab_np = np.copy(cluster_lab_tmp)
                 silhouette_avg_prev = np.copy(silhouette_avg)
-        print('Best value of average silhouette score:', silhouette_avg_prev)
-        print('-' * 80)
+        print_str += ('\nBest value of average silhouette score:'
+                      + f' {silhouette_avg_prev}')
         del iate_np
         # Reorder labels for better visible inspection of results
         iate_name = iate_pot_name['names_iate']
@@ -370,13 +399,13 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
         cl_group = cluster_lab_np.copy()
         for cl_j, cl_old in enumerate(sort_ind):
             cl_group[cluster_lab_np == cl_old] = cl_j
-        print('Effects are ordered w.r.t. to the size of the effects for the',
-              ' first outcome.')
+        print_str += ('\nEffects are ordered w.r.t. to the size of the effects'
+                      + ' for the first outcome.')
         cl_values, cl_obs = np.unique(cl_group, return_counts=True)
-        print('-' * 80, '\nNumber of observations   ', '\n' + ('-' * 80))
+        print_str += '\n' + '-' * 80 + '\nNumber of observations\n' + '-' * 80
         for idx, val in enumerate(cl_values):
-            print(f'group {val:3}: {cl_obs[idx]:6} ')
-        print('-' * 80, '\nEffects', '\n' + ('-' * 80))
+            print_str += f'\nGroup {val:2}: {cl_obs[idx]:6} '
+        print_str += '\n' + '-' * 80 + '\nEffects\n' + '-' * 80
         daten_neu = data.copy()
         daten_neu['IATE_Cluster'] = cl_group
         gp.delete_file_if_exists(file_name)
@@ -384,20 +413,21 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
         daten_neu.to_csv(file_name)
         del daten_neu
         cl_means = iate.groupby(by=cl_group).mean()
-        print(cl_means.transpose())
-        print('-' * 80, '\nPotential outcomes', '\n' + ('-' * 80))
+        print_str += '\n' + cl_means.transpose().to_string()
+        print_str += '\n' + '-' * 80 + '\nPotential outcomes\n' + '-' * 80
         cl_means = pot_y.groupby(by=cl_group).mean()
-        print(cl_means.transpose())
-        print('-' * 80, '\nCovariates', '\n' + ('-' * 80))
+        print_str += '\n' + cl_means.transpose().to_string()
+        print_str += '\n' + '-' * 80 + '\nCovariates\n' + '-' * 80
         names_unordered = [xn for xn in v_x_type.keys() if v_x_type[xn] > 0]
         if names_unordered:  # List is not empty
             x_dummies = pd.get_dummies(x_dat, columns=names_unordered)
-            x_km = pd.concat([x_dat, x_dummies], axis=1)
+            x_km = pd.concat([x_dat[names_unordered], x_dummies], axis=1)
         else:
             x_km = x_dat
         cl_means = x_km.groupby(by=cl_group).mean()
-        print(cl_means.transpose())
-        print('-' * 80)
+        print_str += '\n' + cl_means.transpose().to_string() + '\n' + '-' * 80
+        print(print_str)
+        gp.print_f(c_dict['outfilesummary'], print_str)
         pd.set_option('display.max_rows', None, 'display.max_columns', None)
     if c_dict['post_random_forest_vi'] and c_dict['with_output']:
         names_unordered = [xn for xn in v_x_type.keys() if v_x_type[xn] > 0]

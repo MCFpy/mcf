@@ -289,7 +289,7 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
     if c_dict['x_type_1'] or c_dict['x_type_2']:  # Expand cat var's to dummies
         var_names_unordered = gp.dic_get_list_of_key_by_item(v_type, [1, 2])
         x_dummies = data[var_names_unordered].astype('category')
-        x_dummies = pd.get_dummies(x_dummies, drop_first=True)
+        x_dummies = pd.get_dummies(x_dummies)
     if c_dict['x_type_0']:
         var_names_ordered = gp.dic_get_list_of_key_by_item(v_type, [0])
         x_ord = data[var_names_ordered]
@@ -873,7 +873,9 @@ def adjust_y_names(var_dict, y_name_old, y_name_new, with_output):
 
     """
     for indx, y_name in enumerate(y_name_old):
-        if y_name == var_dict['y_tree_name'][0]:
+        if (var_dict['y_tree_name'] is None
+            or var_dict['y_tree_name'] == []
+            or y_name == var_dict['y_tree_name'][0]):
             var_dict['y_tree_name'] = [y_name_new[indx]]
             break
     var_dict['y_name'] = y_name_new

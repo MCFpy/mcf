@@ -151,9 +151,9 @@ def add_dummies(cat_vars, indatafile):
     """Add dummy variables to csv data file."""
     dat_df = pd.read_csv(indatafile)
     dat_df.columns = [s.upper() for s in dat_df.columns]
-    x_dummies = pd.get_dummies(dat_df[cat_vars], columns=cat_vars)
+    x_dummies = pd.get_dummies(dat_df, columns=cat_vars)
     new_x_name = x_dummies.columns.tolist()
-    dat_df = pd.concat([dat_df, x_dummies], axis=1)
+    dat_df = pd.concat([dat_df[cat_vars], x_dummies], axis=1)
     delete_file_if_exists(indatafile)
     dat_df.to_csv(indatafile, index=False)
     return new_x_name
@@ -170,42 +170,44 @@ def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
     t_val : Numpy array. t/z-value.
     p_val : Numpy array. p-value.
     effect_list : List of Int. Treatment values involved in comparison.
-    add_title: None or string. Additional title.
-    add_info: None or Int. Additional information about parameter.
-    continuous: Bool. True if treatment is continuous.
+    add_title : None or string. Additional title.
+    add_info : None or Int. Additional information about parameter.
+    continuous : Boolean. True if treatment is continuous.
 
     Returns
     -------
-    None.
+    print_str : String. String version of output.
     """
+    print_str = '- ' * 40 + '\n'
     if add_title is None:
-        print('Comparison                Estimate   Standard error t-value',
-              '   p-value')
+        print_str += ('Comparison                Estimate   Standard error'
+                      + ' t-value   p-value')
     else:
-        print('Comparison ', add_title,
-              '              Estimate   Standard error t-value   p-value')
-    print('- ' * 40)
+        print_str += (f'Comparison {add_title}              Estimate',
+                      '   Standard error t-value   p-value')
+    print_str += '\n' + '- ' * 40 + '\n' + ''
     for j in range(np.size(est)):
         if continuous:
             compf = f'{effect_list[j][0]:<9.5f} vs {effect_list[j][1]:>9.5f}'
         else:
             compf = f'{effect_list[j][0]:<9} vs {effect_list[j][1]:>9}'
-        print(compf, end=' ')
+        print_str += compf + ' '
         if add_title is not None:
-            print('f{add_info:6.2f}', end=' ')
-        print(f'{est[j]:12.6f}  {stderr[j]:12.6f}', end=' ')
-        print(f'{t_val[j]:8.2f}  {p_val[j]*100:8.3f}%', end=' ')
+            print_str += 'f{add_info:6.2f} '
+        print_str += f'{est[j]:12.6f}  {stderr[j]:12.6f} '
+        print_str += f'{t_val[j]:8.2f}  {p_val[j]*100:8.3f}% '
         if p_val[j] < 0.001:
-            print('****')
+            print_str += '****'
         elif p_val[j] < 0.01:
-            print(' ***')
+            print_str += ' ***'
         elif p_val[j] < 0.05:
-            print('  **')
+            print_str += '  **'
         elif p_val[j] < 0.1:
-            print('   *')
-        else:
-            print()
-    print('- ' * 40)
+            print_str += '   *'
+        print_str += '\n'
+    print_str += '- ' * 40
+    print(print_str)
+    return print_str
 
 
 def effect_to_csv(est, stderr, t_val, p_val, effect_list, path=None,
@@ -248,7 +250,7 @@ def effect_to_csv(est, stderr, t_val, p_val, effect_list, path=None,
         data = np.concatenate((est, stderr, t_val, p_val))
         data = np.reshape(data, (1, -1))
     else:
-        raise Exception('Unknown data type for saving effects to file.')
+        raise TypeError('Unknown data type for saving effects to file.')
     data_df = pd.DataFrame(data, columns=names)
     data_df.to_csv(file, index=False)
 
@@ -718,14 +720,18 @@ def print_timing(text, time_diff):
     time_diff :time differnce in time2-time1 [time.time() format]
         Time difference
 
+    Returns
+    -------
+    print_str : String. Results for printing.
+
     """
-    print('\n\n')
-    print('-' * 80)
-    print("Programme executed at: ", datetime.now())
-    print('-' * 80)
+    print_str = '\n' * 3 + '-' * 80 + '\n'
+    print_str += f'Programme executed at: {datetime.now()}\n' + '-' * 80
     for i in range(0, len(text), 1):
-        print(text[i], timedelta(seconds=time_diff[i]))
-    print('-' * 80, '\n')
+        print_str += '\n' + f'{text[i]} {timedelta(seconds=time_diff[i])}'
+    print_str += '\n' + '-' * 80 + '\n'
+    print(print_str)
+    return print_str
 
 
 def randomsample(datapath, indatafile, outdatafile, fraction,
@@ -791,9 +797,6 @@ def primeposition(x_values, start_with_1=False):
     """
     add = 1 if start_with_1 else 0
     primes = primes_list(1000)
-    # position = []
-    # for val in x_values:
-    #     position.append(primes.index(val)+add)
     position = [primes.index(val)+add for val in x_values]
     return position
 
@@ -1074,3 +1077,30 @@ def resort_list(liste, idx_list, n_x):
     if check_idx != idx_list:
         liste = [liste[i] for i in idx_list]
     return liste
+
+
+def print_f(file_to_print_to, *strings):
+    """
+    Print strings into file (substitute print function).
+
+    Parameters
+    ----------
+    file_to_print : String.
+        Name of file to print to.
+    *strings : Non-keyword arguments.
+        .
+
+    Returns
+    -------
+    None.
+
+    """
+    with open(file_to_print_to, "a") as file:
+        file.write('\n')
+        for text in strings:
+            if not isinstance(text, str):
+                file.write(str(text))
+            else:
+                file.write(text)
+
+    

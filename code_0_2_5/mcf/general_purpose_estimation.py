@@ -854,21 +854,26 @@ def flatten_list(list_to_flatten):
 
 def print_se_info(cluster_std, se_boot):
     """Print some info on computation of standard errors."""
+    print_str = ''
     if cluster_std:
         if se_boot > 0:
-            print('Clustered standard errors by bootstrap.')
+            print_str += 'Clustered standard errors by bootstrap.'
         else:
-            print('Clustered standard errors by group aggregation.')
-        print('-' * 80)
+            print_str += 'Clustered standard errors by group aggregation.'
+        print_str += '\n' + '-' * 80
     if se_boot > 0:
-        print('Bootstrap replications: ', se_boot)
-        print('-' * 80)
+        print_str += f'Bootstrap replications: {se_boot:d}' + '\n' + '-' * 80
+    print(print_str)
+    return print_str
 
 
-def print_minus_ate_info(weighted):
+def print_minus_ate_info(weighted, print_it=True):
     """Print info about effects minus ATE."""
-    print('Weights used for comparison with ATE are not truncated.',
-          'Therefore, GATEs - ATE may not aggregate to 0.')
+    print_str = ('Weights used for comparison with ATE are not truncated. ' +
+                 'Therefore, GATEs - ATE may not aggregate to 0.')
     if weighted:
-        print('Such differences may be particulary pronounced when ',
-              'sampling weights are used.')
+        print_str += ('Such differences may be particulary pronounced when ' +
+                      'sampling weights are used.')
+    if print_it:
+        print(print_str)
+    return print_str

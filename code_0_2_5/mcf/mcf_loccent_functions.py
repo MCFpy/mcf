@@ -70,8 +70,9 @@ def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
                                          nonlc_x_dummies.columns)
         lc_x_dummies = lc_x_dummies[x_names_in_both]
         nonlc_x_dummies = nonlc_x_dummies[x_names_in_both]
-        lc_x_df = pd.concat([lc_x_df, lc_x_dummies], axis=1)
-        nonlc_x_df = pd.concat([nonlc_x_df, nonlc_x_dummies], axis=1)
+        lc_x_df = pd.concat([lc_x_df[names_unordered], lc_x_dummies], axis=1)
+        nonlc_x_df = pd.concat([nonlc_x_df[names_unordered], nonlc_x_dummies],
+                               axis=1)
     x_train = lc_x_df.to_numpy()
     x_pred = nonlc_x_df.to_numpy()
     y_m_yx = np.empty(np.shape(nonlc_y_df))
@@ -146,7 +147,7 @@ def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict, seed=42):
                     names_unordered.append(x_name)
         if names_unordered:  # List is not empty
             x_dummies = pd.get_dummies(x_df, columns=names_unordered)
-            x_df = pd.concat([x_df, x_dummies], axis=1)
+            x_df = pd.concat([x_df[names_unordered], x_dummies], axis=1)
         index = np.arange(obs)       # indices
         rng.shuffle(index)
         index_folds = np.array_split(index, c_dict['l_centering_cv_k'])

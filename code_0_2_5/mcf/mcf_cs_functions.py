@@ -99,17 +99,25 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
         if c_dict['with_output']:
             x_keep, x_delete = x_data_pd[obs_to_keep], x_data_pd[obs_to_del_np]
             if header:
-                print('\n')
-                print('=' * 80)
-                print('Common support check')
-                print('-' * 80)
-                print(f'Upper limits on treatment probabilities: {*upper_l,}')
-                print(f'Lower limits on treatment probabilities: {*lower_l,}')
-            print('-' * 80)
-            print('Data investigated and saved:', out_file)
-            print('-' * 80)
-            print(f'Observations deleted: {np.sum(obs_to_del_np):4}',
-                  f' ({np.mean(obs_to_del_np)*100:6.3f}%)')
+                u_str, l_str = '', ''
+                for upper, lower in zip(upper_l, lower_l):
+                    u_str += f'{upper:10.5%} '
+                    l_str += f'{lower:10.5%} '
+                print_str = (
+                    '\n' * 2 + '=' * 80 + '\nCommon support check' + '\n' +
+                    '-' * 80 + '\n'
+                    + f'Upper limits on treatment probabilities: {u_str}'
+                    + '\n'
+                    + f'Lower limits on treatment probabilities: {l_str}')
+                print(print_str)
+                gp.print_f(c_dict['outfilesummary'], print_str)
+            print_str = ('-' * 80 + '\nData investigated and saved:'
+                         + f'{out_file}' + '\n' + '-' * 80 + '\n'
+                         + f'Observations deleted: {np.sum(obs_to_del_np):4}'
+                         + f' ({np.mean(obs_to_del_np)*100:.3f}%)'
+                         + '\n' + '-' * 80)
+            print(print_str)
+            gp.print_f(c_dict['outfilesummary'], print_str)
             with pd.option_context(
                     'display.max_rows', 500, 'display.max_columns', 500,
                     'display.expand_frame_repr', True, 'display.width', 150,
@@ -133,12 +141,13 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
                         cluster_id = data_pd[v_dict['cluster_name']].squeeze()
                         cluster_keep = cluster_id[obs_to_keep].squeeze()
                         cluster_delete = cluster_id[obs_to_del_np].squeeze()
-                    print('-' * 80)
-                    print('Observations kept by treatment')
-                    print(d_keep_count)
-                    print('-   ' * 20)
-                    print('Observations deleted by treatment')
-                    print(d_delete_count)
+                    k_str = 'Observations kept by treatment\n    '
+                    d_str = '\nObservations deleted by treatment\n '
+                    k_str += d_keep_count.to_string()
+                    d_str += d_delete_count.to_string()
+                    print_str = k_str + '\n' + '-   ' * 20 + d_str
+                    print(print_str)
+                    gp.print_f(c_dict['outfilesummary'], print_str)
                     if c_dict['panel_data']:
                         print('-   ' * 20)
                         print('Total number of panel unit:',
@@ -149,6 +158,10 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
                         print('Observations belonging to ',
                               len(cluster_delete.unique()),
                               'panel units are OFF support')
+                else:
+                    gp.print_f(c_dict['outfilesummary'],
+                               'Treatment not in prediction file.\n'
+                               + '-' * 80)
                 if d_name[0].upper() in all_var_names:
                     print('\nFull sample (ON and OFF support observations)')
                     mean_by_treatment(data_pd[d_name], x_data_pd)
@@ -201,9 +214,9 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
             x_total = pd.concat([x_tr, x_fy, x_pr], axis=0)
             if fs_adjust:
                 x_total = pd.concat([x_total, x_fs], axis=0)
-            x_dummies = pd.get_dummies(x_total[names_unordered],
-                                       columns=names_unordered)
-            x_total = pd.concat([x_total, x_dummies], axis=1)
+            x_dummies = pd.get_dummies(x_total, columns=names_unordered)
+            x_total = pd.concat([x_total[names_unordered],
+                                 x_dummies], axis=1)
             x_tr, x_fy = x_total[:obs_tr], x_total[obs_tr:obs_tr+obs_fy]
             x_pr = x_total[obs_tr+obs_fy:obs_tr+obs_fy+obs_pr]
             if fs_adjust:
@@ -212,9 +225,9 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
             x_total = pd.concat([x_tr, x_fy], axis=0)
             if fs_adjust:
                 x_total = pd.concat([x_total, x_fs], axis=0)
-            x_dummies = pd.get_dummies(x_total[names_unordered],
-                                       columns=names_unordered)
-            x_total = pd.concat([x_total, x_dummies], axis=1)
+            x_dummies = pd.get_dummies(x_total, columns=names_unordered)
+            x_total = pd.concat([x_total[names_unordered],
+                                 x_dummies], axis=1)
             x_tr, x_fy = x_total[:obs_tr], x_total[obs_tr:obs_tr+obs_fy]
             if fs_adjust:
                 x_fs = x_total[obs_tr+obs_fy:]
@@ -223,9 +236,8 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
                                             prime_values_dict)
             x_total = (pd.concat([x_pr, x_add_tmp], axis=0)
                        if x_add_tmp is not None else x_pr)
-            x_dummies = pd.get_dummies(x_total[names_unordered],
-                                       columns=names_unordered)
-            x_pr = pd.concat([x_total, x_dummies], axis=1)
+            x_dummies = pd.get_dummies(x_total, columns=names_unordered)
+            x_pr = pd.concat([x_total[names_unordered], x_dummies], axis=1)
             if x_add_tmp is not None:  # remove add_temp
                 x_pr = x_pr[:obs_pr]
     x_name_all = (x_tr.columns.values.tolist()
@@ -444,13 +456,16 @@ def off_support_and_plot(pred_t, pred_p, d_t, c_dict):
         color_list = color_list[:len(d_values)]
         for idx_p, ival_p in enumerate(d_values):  # iterate treatment probs
             treat_prob = pred_t[:, idx_p]
-            titel = f'Treatment probabilities {ival_p} in subsamples'
+            titel = f'Probabilities of treatment {ival_p} in subsamples'
             f_titel = f'common_support_pr_treat{ival_p}'
-            file_name_jpeg = c_dict['fig_pfad_jpeg'] + '/' + f_titel + '.jpeg'
-            file_name_pdf = c_dict['fig_pfad_pdf'] + '/' + f_titel + '.pdf'
-            file_name_jpeg_d = (c_dict['fig_pfad_jpeg'] + '/' + f_titel
-                                + '_d.jpeg')
-            file_name_pdf_d = c_dict['fig_pfad_pdf'] + '/' + f_titel + '_d.pdf'
+            file_name_jpeg = (c_dict['cs_ate_iate_fig_pfad_jpeg']
+                              + '/' + f_titel + '.jpeg')
+            file_name_pdf = (c_dict['cs_ate_iate_fig_pfad_pdf']
+                             + '/' + f_titel + '.pdf')
+            file_name_jpeg_d = (c_dict['cs_ate_iate_fig_pfad_jpeg']
+                                + '/' + f_titel + '_d.jpeg')
+            file_name_pdf_d = (c_dict['cs_ate_iate_fig_pfad_pdf']
+                               + '/' + f_titel + '_d.pdf')
             data_hist = []
             for idx_sa, _ in enumerate(d_values):  # iterate treat.sample
                 data_hist.append(treat_prob[d_t[:, idx_sa] == 1])

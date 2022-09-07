@@ -361,8 +361,7 @@ def print_vi(x_to_check, var_im_groups, loss_in_r2_single, loss_in_r2_dummy,
                   '(in Table under heading of unordered variable).')
         for idx, vim in enumerate(vim_sorted):
             print(f'{x_names_sorted[idx]:<50}: {vim*100:>7.2f}', '%')
-        print('-' * 80)
-        print('-' * 80, '\n')
+        print('-' * 80, '\n' + '-' * 80, '\n')
     return x_names_sorted, vim_sorted
 
 

@@ -24,7 +24,7 @@ from mcf import mcf_iate_add_functions as mcf_iate_add
 
 def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
                 w_ate=None, balancing_test=False, save_predictions=True,
-                pot_y_prev=None):
+                pot_y_prev=None, lc_forest=None, var_x_type=None):
     """
     Estimate IATE and their standard errors, plot & save them, MP version.
 
@@ -36,13 +36,17 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
     y : Numpy array. All outcome variables.
     cl : Numpy array. Cluster variable.
     w : Numpy array. Sampling weights.
-    v : Dict. Variables.
-    c : Dict. Parameters.
+    v_dict : Dict. Variables.
+    c_dict : Dict. Parameters.
     w_ate: Numpy array. Weights of ATE estimation. Default is None.
     balancing_test : Bool. Balancing test. Default is False.
     save_predictions : Bool. Default is True.
     pot_y_prev : Numpy array or None. Potential outcomes from previous
           estimations. Default is None.
+    lc_forest : RandomForestRegressor (sklearn.ensemble). Default is None.
+          Contains estimated RF used for centering outcomes
+    var_x_type : Dict. Names and type of features as used for centering.
+          Default is None.
 
     Returns
     -------
@@ -99,11 +103,9 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
         w_ate = w_ate[0, :, :]
     if not c_dict['w_yes']:
         w_dat = None
-    if c_dict['iate_se_flag']:
-        no_of_cluster = len(np.unique(cl_dat)) if c_dict['cluster_std'
-                                                         ] else None
-    else:
-        no_of_cluster = None
+    no_of_cluster = None
+    if c_dict['iate_se_flag'] and c_dict['cluster_std']:
+        no_of_cluster = len(np.unique(cl_dat))
     l1_to_9 = [None] * n_x
     if c_dict['no_parallel'] < 1.5:
         maxworkers = 1
@@ -420,12 +422,25 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
         iate_se_np = np.empty_like(iate_np)
         iate_mate_np = np.empty_like(iate_np)
         iate_mate_se_np = np.empty_like(iate_np)
-    jdx = j2dx = 0
+    jdx = j2dx = jdx_unlc = 0
     name_pot, name_eff, name_eff0 = [], [], []
+    if c_dict['l_centering_uncenter']:
+        name_pot_unlc = []
+        pot_y_unlc_np = np.empty((n_x, no_of_treat_dr))
+        if isinstance(v_dict['y_tree_name'], list):
+            y_tree_name = v_dict['y_tree_name'][0]
+        else:
+            y_tree_name = v_dict['y_tree_name']
+    else:
+        name_pot_unlc = y_tree_name = name_pot_y_unlc = None
     for o_idx, o_name in enumerate(v_dict['y_name']):
         for t_idx, t_name in enumerate(d_values_dr):
             name_pot += [o_name + str(t_name)]
             pot_y_np[:, jdx] = pot_y[:, t_idx, o_idx]
+            if o_name == y_tree_name and c_dict['l_centering_uncenter']:
+                name_pot_unlc += [o_name + str(t_name) + '_un_lc']
+                pot_y_unlc_np[:, jdx_unlc] = pot_y_np[:, jdx].copy()
+                jdx_unlc += 1
             if c_dict['iate_se_flag']:
                 pot_y_se_np[:, jdx] = np.sqrt(pot_y_var[:, t_idx, o_idx])
             jdx += 1
@@ -442,10 +457,14 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
             j2dx += 1
     if reg_round:
         name_pot_y = [s + '_pot' for s in name_pot]
+        if c_dict['l_centering_uncenter']:
+            name_pot_y_unlc = [s + '_pot' for s in name_pot_unlc]
         name_iate = [s + '_iate' for s in name_eff]
         name_iate0 = [s + '_iate' for s in name_eff0]
     else:
         name_pot_y = [s + '_pot_eff' for s in name_pot]
+        if c_dict['l_centering_uncenter']:
+            name_pot_y_unlc = [s + '_pot_eff' for s in name_pot_unlc]
         name_iate = [s + '_iate_eff' for s in name_eff]
         name_iate0 = [s + '_iate_eff' for s in name_eff0]
     if c_dict['iate_se_flag']:
@@ -479,6 +498,13 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
                        iate_mate_df, iate_mate_se_df]
         else:
             df_list = [data_df, pot_y_df, iate_df]
+        if c_dict['l_centering_uncenter']:
+            x_pred_np = find_x_to_uncenter(data_df, var_x_type)
+            y_x_lc = lc_forest.predict(x_pred_np)
+            pot_y_unlc_np += np.reshape(y_x_lc, (-1, 1))
+            pot_y_unlc_df = pd.DataFrame(data=pot_y_unlc_np,
+                                         columns=name_pot_y_unlc)
+            df_list.append(pot_y_unlc_df)
         data_file_new = pd.concat(df_list, axis=1)
         gp.delete_file_if_exists(c_dict['pred_sample_with_pred'])
         data_file_new.to_csv(c_dict['pred_sample_with_pred'], index=False)
@@ -490,14 +516,32 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
         'names_pot_y': name_pot_y, 'names_pot_y_se': name_pot_y_se,
         'names_iate': name_iate, 'names_iate_se': name_iate_se,
         'names_iate_mate': name_iate_mate,
-        'names_iate_mate_se': name_iate_mate_se}
+        'names_iate_mate_se': name_iate_mate_se,
+        'names_pot_y_uncenter': name_pot_y_unlc}
     names_pot_iate0 = {
         'names_pot_y': name_pot_y, 'names_pot_y_se': name_pot_y_se,
         'names_iate': name_iate0, 'names_iate_se': name_iate_se0,
         'names_iate_mate': name_iate_mate0,
-        'names_iate_mate_se': name_iate_mate_se0}
+        'names_iate_mate_se': name_iate_mate_se0,
+        'names_pot_y_uncenter': name_pot_y_unlc}
     return (c_dict['pred_sample_with_pred'], pot_y, pot_y_var, iate, iate_se,
             (names_pot_iate, names_pot_iate0))
+
+
+def find_x_to_uncenter(data_df, var_x_type):
+    "Find correct x to uncenter potential outcomes."
+    x_names = var_x_type.keys()
+    x_df = data_df[x_names]
+    # This part must be identical to the same part in local centering!
+    # To Do: Use same function in both.
+    names_unordered = []
+    for x_name in x_names:
+        if var_x_type[x_name] > 0:
+            names_unordered.append(x_name)
+    if names_unordered:  # List is not empty
+        x_dummies = pd.get_dummies(x_df, columns=names_unordered)
+        x_df = pd.concat([x_df[names_unordered], x_dummies], axis=1)
+    return x_df.to_numpy()
 
 
 def assign_ret_all_i(pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var, l1_to_9,

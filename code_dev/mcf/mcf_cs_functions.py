@@ -193,10 +193,11 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
     else:
         d_name, no_of_treat = v_dict['d_name'], c_dict['no_of_treat']
     x_name, x_type = gp.get_key_values_in_list(var_x_type)
-    names_unordered = []  # Split ordered variables into dummies
-    for j, val in enumerate(x_type):
-        if val > 0:
-            names_unordered.append(x_name[j])
+    # names_unordered = []  # Split ordered variables into dummies
+    # for j, val in enumerate(x_type):
+    #     if val > 0:
+    #         names_unordered.append(x_name[j])
+    names_unordered = [x_name[j] for j, val in enumerate(x_type) if val > 0]
     fs_adjust, obs_fs = False, 0
     if c_dict['train_mcf']:
         data_tr, x_tr, obs_tr = get_data(tree_file, x_name)  # train,adj.
@@ -456,15 +457,15 @@ def off_support_and_plot(pred_t, pred_p, d_t, c_dict):
         color_list = color_list[:len(d_values)]
         for idx_p, ival_p in enumerate(d_values):  # iterate treatment probs
             treat_prob = pred_t[:, idx_p]
-            titel = f'Probabilities of treatment {ival_p} in subsamples'
+            titel = f'Probability of treatment {ival_p} in subsamples'
             f_titel = f'common_support_pr_treat{ival_p}'
-            file_name_jpeg = (c_dict['cs_ate_iate_fig_pfad_jpeg']
+            file_name_jpeg = (c_dict['common_support_fig_pfad_jpeg']
                               + '/' + f_titel + '.jpeg')
-            file_name_pdf = (c_dict['cs_ate_iate_fig_pfad_pdf']
+            file_name_pdf = (c_dict['common_support_fig_pfad_pdf']
                              + '/' + f_titel + '.pdf')
-            file_name_jpeg_d = (c_dict['cs_ate_iate_fig_pfad_jpeg']
+            file_name_jpeg_d = (c_dict['common_support_fig_pfad_jpeg']
                                 + '/' + f_titel + '_d.jpeg')
-            file_name_pdf_d = (c_dict['cs_ate_iate_fig_pfad_pdf']
+            file_name_pdf_d = (c_dict['common_support_fig_pfad_pdf']
                                + '/' + f_titel + '_d.pdf')
             data_hist = []
             for idx_sa, _ in enumerate(d_values):  # iterate treat.sample
@@ -486,8 +487,9 @@ def off_support_and_plot(pred_t, pred_p, d_t, c_dict):
                 axs_d.plot(bins, fit_line, '--', color=color_list[idx],
                            label='Smoothed ' + labels[idx])
             axs.set_title(titel)
-            axs.set_xlabel('Treatment probabilities')
+            axs.set_xlabel('Treatment probability')
             axs.set_ylabel('Observations')
+            axs.set_xlim([0, 1])
             axs.axvline(lower[idx_p], color='blue', linewidth=0.7,
                         linestyle="--", label='min')
             axs.axvline(upper[idx_p], color='black', linewidth=0.7,
@@ -499,8 +501,9 @@ def off_support_and_plot(pred_t, pred_p, d_t, c_dict):
             fig.savefig(file_name_jpeg, dpi=c_dict['fig_dpi'])
             fig.savefig(file_name_pdf, dpi=c_dict['fig_dpi'])
             axs_d.set_title(titel)
-            axs_d.set_xlabel('Treatment probabilities')
+            axs_d.set_xlabel('Treatment probability')
             axs_d.set_ylabel('Density')
+            axs_d.set_xlim([0, 1])
             axs_d.axvline(lower[idx_p], color='blue', linewidth=0.7,
                           linestyle="--", label='min')
             axs_d.axvline(upper[idx_p], color='black', linewidth=0.7,

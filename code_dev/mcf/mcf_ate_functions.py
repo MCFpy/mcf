@@ -319,7 +319,7 @@ def dose_response_figure(y_name, d_name, effects, stderr, d_values, c_dict):
                         0.5 * (1 - c_dict['fig_ci_level']))
     upper = effects + stderr * cint
     lower = effects - stderr * cint
-    label_ci = str(c_dict['fig_ci_level'] * 100) + '%-CI'
+    label_ci = f'{c_dict["fig_ci_level"]:2.0%}-CI'
     label_m, label_0, line_0 = 'ADR', '_nolegend_', '_-k'
     zeros = np.zeros_like(effects)
     file_name_jpeg = (c_dict['cs_ate_iate_fig_pfad_jpeg'] + '/' + file_title
@@ -329,7 +329,7 @@ def dose_response_figure(y_name, d_name, effects, stderr, d_values, c_dict):
     file_name_csv = (c_dict['cs_ate_iate_fig_pfad_csv'] + '/' + file_title
                      + 'plotdat.csv')
     fig, axs = plt.subplots()
-    axs.set_title(titel)
+    axs.set_title(titel.replace('vs', ' vs '))
     axs.set_ylabel("Average dose response (relative to 0)")
     axs.set_xlabel('Treatment level')
     axs.plot(d_values, effects, label=label_m, color='b')

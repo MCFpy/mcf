@@ -250,7 +250,7 @@ def effect_to_csv(est, stderr, t_val, p_val, effect_list, path=None,
         data = np.concatenate((est, stderr, t_val, p_val))
         data = np.reshape(data, (1, -1))
     else:
-        raise Exception('Unknown data type for saving effects to file.')
+        raise TypeError('Unknown data type for saving effects to file.')
     data_df = pd.DataFrame(data, columns=names)
     data_df.to_csv(file, index=False)
 
@@ -797,9 +797,6 @@ def primeposition(x_values, start_with_1=False):
     """
     add = 1 if start_with_1 else 0
     primes = primes_list(1000)
-    # position = []
-    # for val in x_values:
-    #     position.append(primes.index(val)+add)
     position = [primes.index(val)+add for val in x_values]
     return position
 
@@ -1105,3 +1102,5 @@ def print_f(file_to_print_to, *strings):
                 file.write(str(text))
             else:
                 file.write(text)
+
+    

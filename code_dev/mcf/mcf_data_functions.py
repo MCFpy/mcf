@@ -873,7 +873,9 @@ def adjust_y_names(var_dict, y_name_old, y_name_new, with_output):
 
     """
     for indx, y_name in enumerate(y_name_old):
-        if y_name == var_dict['y_tree_name'][0]:
+        if (var_dict['y_tree_name'] is None
+            or var_dict['y_tree_name'] == []
+            or y_name == var_dict['y_tree_name'][0]):
             var_dict['y_tree_name'] = [y_name_new[indx]]
             break
     var_dict['y_name'] = y_name_new

@@ -224,6 +224,7 @@ def modified_causal_forest(
         c_dict['max_cats_cont_vars'] = loaded_tuple[12]
         lc_forest = loaded_tuple[13]
         old_y_name, new_y_name = loaded_tuple[14], loaded_tuple[15]
+        v_dict['y_tree_name'] = loaded_tuple[16]
     else:
         d_in_values = no_val_dict = q_inv_dict = q_inv_cr_dict = None
         prime_values_dict = unique_val_dict = common_support_list = None
@@ -529,7 +530,7 @@ def modified_causal_forest(
                  no_val_dict, q_inv_dict, q_inv_cr_dict, prime_values_dict,
                  unique_val_dict, common_support_list, z_new_name_dict,
                  z_new_dic_dict, c_dict['max_cats_cont_vars'], lc_forest,
-                 old_y_name, new_y_name), save=True,
+                 old_y_name, new_y_name, v_dict['y_tree_name']), save=True,
                 output=c_dict['with_output'])
         if reg_round:
             del prob_score, d_train_tree, common_support_list, unique_val_dict

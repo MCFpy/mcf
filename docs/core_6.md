@@ -228,6 +228,8 @@ _with_output=_with_output)
 	* Disables threading in the estimation of the regression forests for repliable reults; default is True.
 * <a id="l_centering_share">**l_centering_share**</a> - **Float** between **0.1, 0.9**
 	* Specifies the share of data used for estimating the conditional expectation $\mathbb{E}[Y_i|X = x]$; this data is not available for other estimations; the default value is 0.25.
+* <a id="l_centering_undo">**l_centering_undo**</a> - **Boolean**
+	* Specifies if local centering is undone in the computation of potential outcomes; default is True.
 
 
 **m**

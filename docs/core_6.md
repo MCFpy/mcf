@@ -172,7 +172,11 @@ _with_output=_with_output)
 
 **d**
 * <a id="datpfad">**datpfad**</a>  - **String**
-	* Specifies the directory, in which the data is saved for estimation and/or prediction.
+	* Specifies the directory, in which the data is saved for estimation and/or prediction. 
+
+**e**
+*  <a id="effiate_flag">**effiate_flag**</a> - **Boolean**
+	* Specifies estimation of IATEs; default is True. In that case, the second round of IATEs are estimated based on switching training and estimation subsamples. If set to False, estimation is faster.
 
 **f**
 * <a id="forest_files">**forest_files**</a> - **Integer** from **0-7**

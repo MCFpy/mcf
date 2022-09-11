@@ -26,7 +26,7 @@ gmate_no_evaluation_points=gmate_no_evaluation_points,
 gmate_sample_share=gmate_sample_share, iate_flag=iate_flag, iate_se_flag = iate_se_flag, indata=indata,
 knn_const=knn_const, knn_flag=knn_flag, knn_min_k=knn_min_k,
 l_centering=l_centering, l_centering_cv_k=l_centering_cv_k,
-l_centering_new_sample=l_centering_new_sample,
+l_centering_new_sample=l_centering_new_sample, l_centering_replication=l_centering_replication,
 l_centering_share=l_centering_share,
 match_nn_prog_score=match_nn_prog_score, max_cats_z_vars=max_cats_z_vars,
 max_weight_share=max_weight_share, mce_vart=mce_vart,
@@ -219,6 +219,8 @@ _with_output=_with_output)
 	* Specifies number of folds used in cross-validation; only valid if *l_centering_new_sample* is False;  the default is 5; note that the larger the value the better estimation quality but the longer computation time.
 * <a id="l_centering_new_sample">**l_centering_new_sample**</a> - **Boolean**
 	* If True, a random sample is used for computing predictions. This prediction is subtracted from the outcome variables. The data used to compute it, is not used anywhere else and thus the sample size is reduced. If False, cross-validation is used to compute the centering within the major samples (tree buildung, filling with $y$, and feature selection).  This version is computationally more intensive but statistically more efficient.
+* <a id="l_centering_replication">**l_centering_replication**</a> - **Boolean** 
+	* Disables threading in the estimation of the regression forests for repliable reults; default is True.
 * <a id="l_centering_share">**l_centering_share**</a> - **Float** between **0.1, 0.9**
 	* Specifies the share of data used for estimating the conditional expectation $\mathbb{E}[Y_i|X = x]$; this data is not available for other estimations; the default value is 0.25.
 

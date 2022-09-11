@@ -1,5 +1,19 @@
 # Release Updates
 
+## Version 0.3.0
+
+### What's New 
+
+* The mcf supports an object-oriented interface: new class ModifiedCausalForest and methods (predict, train, and train_predict).
+* Delivery of potential outcome estimates for which local centering is reversed by setting [l_centering_undo_iate](./core_6.md#l_centering_undo_iate)  to True; default is True. 
+* Readily available tables for GATEs, AMGATEs, and MGATEs. Genrated tables summarize all estimated causal effects. Tables are stored in respective folders.
+* The optimal policy function is generalized to encompass also stochastic treatment allocations.
+
+### Bug fixes
+
+* Training and prediction are done in separate runs.
+* Issue in optimal policy learning for unobserved treatment was resolved.
+
 ## Version 0.2.6
 
 ### Bug fixes

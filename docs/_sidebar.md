@@ -4,6 +4,7 @@
 * [Modified Causal Forest](quick_start.md)
 ** [Walkthrough](part_i.md)
 ** [Python API](core_6.md)
+** [Python API - Short](short_api.md)
 ** [Practical hints](core_5.md)
 ** [Technical Appendix](techn_app.md)
 ** [Examples](tutorial_1.md)

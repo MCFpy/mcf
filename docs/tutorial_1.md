@@ -43,10 +43,9 @@ By setting `mp_parallel = 8`, we set the number of parallel processes to 8. Furt
 Finally, to execute the program, we run the following code chunk.  
 
 ```python
-if __name__ == '__main__':
-    modified_causal_forest(
-        outpfad=outpfad, datpfad=datpfad, indata=indata,
-        d_name=d_name, y_name=y_name, x_name_ord=x_name_ord, z_name_list = z_name_list,mp_parallel = mp_parallel, mp_with_ray = mp_with_ray)
+modified_causal_forest(outpfad=outpfad, datpfad=datpfad, indata=indata, d_name=d_name, y_name=y_name, 
+                       x_name_ord=x_name_ord, z_name_list = z_name_list,mp_parallel = mp_parallel,
+                       mp_with_ray = mp_with_ray)
 ```
 
 The above code gives you an easy starting point for your own application! For this purpose, adjust the provided code along the required dimensions. For example, your treatment and outcome variables may be denoted differently in your data. Probably also your data file has a different name.

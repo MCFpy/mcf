@@ -27,3 +27,22 @@ modified_causal_forest(outpfad=outpfad, datpfad=datpfad, indata=indata,
 
 ```
 Per default, the output will be printed to the console and written into the output directory. More details follow in the [walkthrough](./part_i.md) and [tutorial](./tutorial_1.md).
+
+Should you prefer an object oriented interface, you instantiate
+
+```python
+my_mcf = ModifiedCausalForest(outpfad=outpfad, datpfad=datpfad, indata=indata,
+                       d_name=d_name, y_name=y_name, x_name_ord=x_name_ord, preddata=indata)
+```
+Then you are ready to train and predict.
+
+```python
+my_mcf.train()
+my_mcf.predict()
+```
+
+Alternatively, to train and predict.
+
+```python
+my_mcf.train_predict()
+```

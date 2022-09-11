@@ -22,10 +22,8 @@ Now, to run the programme simply type:
 
 ```python
 
-if __name__ == '__main__':
-    modified_causal_forest(
-        outpfad=outpfad, datpfad=datpfad, indata=indata,
-        d_name=d_name, y_name=y_name, x_name_ord=x_name_ord)
+modified_causal_forest(outpfad=outpfad, datpfad=datpfad, indata=indata,
+                       d_name=d_name, y_name=y_name, x_name_ord=x_name_ord)
 
 ```
 Per default, the output will be printed to the console and written into the output directory. More details follow in the [walkthrough](./part_i.md) and [tutorial](./tutorial_1.md).

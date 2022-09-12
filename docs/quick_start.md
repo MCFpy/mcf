@@ -31,6 +31,8 @@ Per default, the output will be printed to the console and written into the outp
 Should you prefer an object oriented interface, you instantiate
 
 ```python
+from mcf import ModifiedCausalForest
+
 my_mcf = ModifiedCausalForest(outpfad=outpfad, datpfad=datpfad, indata=indata,
                        d_name=d_name, y_name=y_name, x_name_ord=x_name_ord, preddata=indata)
 ```

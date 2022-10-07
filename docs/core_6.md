@@ -54,7 +54,7 @@ subsample_factor_forest=subsample_factor_forest, support_adjust_limits=support_a
 train_mcf=train_mcf,  
 variable_importance_oob=variable_importance_oob, _descriptive_stats=_descriptive_stats, _dpi=_dpi, _fontsize=_fontsize, _max_cats_cont_vars=_max_cats_cont_vars, _max_save_values=_max_save_values, _mp_ray_del=_mp_ray_del, _mp_ray_shutdown=_mp_ray_shutdown,
 _mp_ray_objstore_multiplier=mp_ray_objstore_multiplier, _mp_vim_type=_mp_vim_type, _mp_weights_tree_batch=_mp_weights_tree_batch,
-_mp_weights_type=_mp_weights_type, _mp_with_ray=_mp_with_ray, _no_filled_plot=_no_filled_plot, _show_plots=_show_plots,
+_mp_weights_type=_mp_weights_type, _no_filled_plot=_no_filled_plot, _show_plots=_show_plots,
 _seed_sample_split=_seed_sample_split, _smaller_sample=_smaller_sample, _verbose=_verbose, _weight_as_sparse=_weight_as_sparse,
 _with_output=_with_output)
 ```
@@ -409,8 +409,7 @@ _with_output=_with_output)
 	* Determines how the forest is split into batches to compute the weights; in general, fewer batches demand more memory but less computing time; the number of batches is set by the program by default.
 * <a id="_mp_weights_type">**_mp_weights_type**</a>  - **Integer** taking values **1, 2**
 	* Determines how multiprocessing is done in the computation of weights; if set to 1, the program parallelizes over groups of observations, which is more demanding in terms of memory; if set to 2, the program parallelizes over trees; latter option is less memory intensive but slower.
-* <a id="_mp_with_ray">**_mp_with_ray**</a> - **Boolean**
-	* If True, parallel processing is implemented via Ray; else the concurrent futures module is deployed; the concurrent futures module may be faster for small samples; Ray tends to more performant for larger samples the default is True. 
+ faster for small samples; Ray tends to more performant for larger samples the default is True. 
 * <a id="_no_filled_plot">**_no_filled_plot**</a> - **None** or **Integer number** larger **0**
 	* Determines that the plot is filled if there are more than a minimal number of specified points; the default is None; in this case  the plot is filled when there are more than 20 points.
 * <a id="_seed_sample_split">**_seed_sample_split**</a> - positive **integer** 

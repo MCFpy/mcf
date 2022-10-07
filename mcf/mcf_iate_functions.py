@@ -66,7 +66,7 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
                   'estimation without sparse weight matrix. This needs more '
                   'memory, but could be substantially faster ',
                   '(weight_as_sparse = False).')
-    if pot_y_prev is None:  # 2nd round of estimations
+    if pot_y_prev is None:  # 1nd round of estimations
         c_dict = c_in_dict
         reg_round = True
     else:
@@ -479,7 +479,8 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
         name_pot_y_se = name_iate_se = name_iate_mate = None
         name_iate_mate_se = name_iate_se0 = name_iate_mate0 = None
         name_iate_mate_se0 = None
-    if c_dict['with_output'] and save_predictions:
+    if (c_dict['with_output'] and save_predictions
+        ) or c_dict['_return_iate_sp']:
         pot_y_df = pd.DataFrame(data=pot_y_np, columns=name_pot_y)
         iate_df = pd.DataFrame(data=iate_np, columns=name_iate)
         if c_dict['iate_se_flag']:
@@ -506,8 +507,12 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
                                          columns=name_pot_y_unlc)
             df_list.append(pot_y_unlc_df)
         data_file_new = pd.concat(df_list, axis=1)
-        gp.delete_file_if_exists(c_dict['pred_sample_with_pred'])
-        data_file_new.to_csv(c_dict['pred_sample_with_pred'], index=False)
+        if ((c_dict['with_output'] and save_predictions)
+            or (save_predictions and reg_round and c_dict['effiate_flag'])
+            or (save_predictions and c_dict['effiate_flag']
+                and c_dict['_return_iate_sp'])):
+            gp.delete_file_if_exists(c_dict['pred_sample_with_pred'])
+            data_file_new.to_csv(c_dict['pred_sample_with_pred'], index=False)
         if c_dict['with_output']:
             gp.print_descriptive_stats_file(
                 c_dict['pred_sample_with_pred'], 'all',
@@ -524,8 +529,10 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
         'names_iate_mate': name_iate_mate0,
         'names_iate_mate_se': name_iate_mate_se0,
         'names_pot_y_uncenter': name_pot_y_unlc}
+    if not c_dict['_return_iate_sp']:
+        data_file_new = None
     return (c_dict['pred_sample_with_pred'], pot_y, pot_y_var, iate, iate_se,
-            (names_pot_iate, names_pot_iate0))
+            (names_pot_iate, names_pot_iate0), data_file_new)
 
 
 def find_x_to_uncenter(data_df, var_x_type):

@@ -218,7 +218,7 @@ def mgate_function(
                 w_ate_iate, _, _, _, _, _ = mcf_ate.ate_est(
                     weights, new_predict_file, y_f, cl_f, w_f, v_dict,
                     c_dict_mgate, w_ate_only=True, print_output=False)
-                _, _, _, iate, iate_se, namesiate = mcf_iate.iate_est_mp(
+                (_, _, _, iate, iate_se, namesiate, _) = mcf_iate.iate_est_mp(
                     weights, new_predict_file, y_f, cl_f, w_f, v_dict,
                     c_dict_mgate, save_predictions=False, w_ate=w_ate_iate)
                 names_iate = namesiate[0]

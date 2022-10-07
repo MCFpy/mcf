@@ -62,7 +62,7 @@ class OutputTerminalFile():
 
     def __init__(self, file_name):
         self.terminal = sys.stdout
-        self.output = open(file_name, "w")
+        self.output = open(file_name, "a")
 
     def write(self, message):
         """Write both into terminal and file."""

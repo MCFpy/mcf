@@ -6,7 +6,8 @@ Created on Thu Sep  1 17:47:06 2022
 @author: MLechner, orginal code from hbodory
 """
 import os
-
+import itertools
+import math
 import pandas as pd
 import numpy as np
 
@@ -44,6 +45,32 @@ def gate_tables_nice(c_dict, gate=True):
     return None
 
 
+def count_digits(x_tuple):
+    """
+    Count digits of numbers in tuple including minus signs.
+
+    Parameters
+    ----------
+    x_tuple : TUPLE
+        Integers of smallest treatment comparison group.
+
+    Returns
+    -------
+    digits : Integers
+        Digits of numbers in tuple.
+
+    """
+    digits = 0
+    for i in range(2):
+        if x_tuple[i] > 0:
+            digits += int(math.log10(x_tuple[i])) + 1
+        elif x_tuple[i] == 0:
+            digits += 1
+        else:
+            digits += int(math.log10(-x_tuple[i])) + 2  # +1 without minus sign
+    return digits
+
+
 def gate_tables_nice_by_hugo_bodory(path, filenames, treatments):
     """
     Generate a wrapper for tables.py.
@@ -55,7 +82,7 @@ def gate_tables_nice_by_hugo_bodory(path, filenames, treatments):
         For example: r'D:/uni/wia0/amgate/csv
     filenames : LIST
          CSV file names including the extension '.csv'
-    treatments : Sorted list of integers
+    treatments : Sorted LIST of integers
         All possible treatment values.
 
     Returns
@@ -66,42 +93,35 @@ def gate_tables_nice_by_hugo_bodory(path, filenames, treatments):
     filenames = [f_name for f_name in filenames if f_name[0] != '_']
     filenames.sort()
     number_of_treatments = len(treatments)
-    number_of_combi = 0  # Number of possible treatment combinations.
-    for i_int in range(2, number_of_treatments + 1):
-        number_of_combi = number_of_combi + i_int - 1
-
-    idx_min = 0  # Index of filename with minimum length.
-    names_eff = filenames[:number_of_combi]  # File names of first feature.
-    len_of_names_eff = [len(i_len) for i_len in names_eff]
-    if not min(len_of_names_eff) == max(len_of_names_eff):
-        idx_min = len_of_names_eff.index(min(len_of_names_eff))
+    treatments.sort()
+    combi = list(itertools.combinations(treatments, 2))
+    number_of_combi = len(combi)
 
     params = {}  # Parameter dictionary
     params['path'] = path
-    params['low'] = treatments[0]
-    params['high'] = treatments[-1]
     params['number_of_treatments'] = number_of_treatments
     params['number_of_stats'] = 3  # Effects and lower/upper confidence bounds.
-    params['number_of_decimal_places'] = 3  # Decimals for statistics
+    params['number_of_decimal_places'] = 3  # Decimals for statistics.
     params['multiplier_rows'] = 2  # Multiplier to print confidence intervals.
+    params['combi'] = combi
     params['number_of_combi'] = number_of_combi
 
+    # Length of file ending of first treatment combination
+    len_end = 13 + count_digits(combi[0])
+
     for i_name in range(0, len(filenames), number_of_combi):
-        params['effect_name'] = filenames[i_name + idx_min][:-15]
-        # params['effect_name'] = filenames[i_name][:-15]
+        params['effect_name'] = filenames[i_name][:-len_end]
         tables(params)
 
 
-def generate_treatment_names(x_int, y_int):
+def generate_treatment_names(p_dict):
     """
     Generate names for comparisons of treatment levels.
 
     Parameters
     ----------
-    x_int : INTEGER
-        Smallest level of treatment variable.
-    y_int : INTEGER
-        Number of treatment and control levels.
+    p_dict : DICTIONARY
+        combi = LIST of tuples. Treatment combinations.
 
     Returns
     -------
@@ -110,12 +130,8 @@ def generate_treatment_names(x_int, y_int):
 
     """
     columns = []
-    for jj_int in range(x_int, y_int):
-        for ii_int in range(x_int + 1, y_int + 1):
-            if ii_int <= jj_int:
-                pass
-            else:
-                columns.append(str(ii_int) + " vs. " + str(jj_int))
+    for i_c in p_dict['combi']:
+        columns.append(str(i_c[1]) + " vs. " + str(i_c[0]))
     return columns
 
 
@@ -129,11 +145,10 @@ def generate_gate_table(p_dict, label_row=False):
     Parameters
     ----------
     p_dict : DICTIONARY
-        low : INTEGER. Lowest treatment level (>=0).
-        high : INTEGER Highest treatment level.
+        combi = LIST of tuples. Treatment combinations.
         number_of_stats = INTEGER. Number of statisticss.
         number_of_decimal_places = INTEGER. Decimal points.
-        directory_effect : STRING- Directory including CVS filename for table.
+        directory_effect : STRING. Directory including CVS filename for table.
         treatment_names : STRING. Names for comparisons of treatment groups.
     label_row : BOOLEAN, optional
         User-defined index for new dataframe. The default is False.
@@ -144,55 +159,37 @@ def generate_gate_table(p_dict, label_row=False):
         New dataframe.
 
     """
-    d_count = 1 + p_dict['high']
     name = p_dict['directory_effect']
-    d_start = p_dict['low']
 
-    for j in range(1 + d_start, d_count):
-        for i in range(j, d_count):
-            if i == j:
-                data = pd.DataFrame(pd.read_csv(name + str(i) + "vs" +
-                                    str(j-1) + "plotdat.csv"))
-                if 'x_values' in data.columns:
-                    data = data.rename(columns={'x_values': 'z_values'})
-                data['d'] = i
-            else:
-                dat = pd.DataFrame(pd.read_csv(name + str(i) + "vs" +
-                                   str(j-1) + "plotdat.csv"))
-                if 'x_values' in dat.columns:
-                    dat = dat.rename(columns={'x_values': 'z_values'})
-                dat['d'] = i
-                data = pd.concat((data, dat))
-        if j == 1 + d_start:
+    for i_co, j_co in enumerate(p_dict['combi']):
+        if i_co == 0:
+            data = pd.DataFrame(pd.read_csv(name + str(j_co[1]) + "vs" +
+                                str(j_co[0]) + "plotdat.csv"))
+            if 'x_values' in data.columns:
+                data = data.rename(columns={'x_values': 'z_values'})
+            data['d'] = i_co
+        else:
+            dat = pd.DataFrame(pd.read_csv(name + str(j_co[1]) + "vs" +
+                               str(j_co[0]) + "plotdat.csv"))
+            if 'x_values' in dat.columns:
+                dat = dat.rename(columns={'x_values': 'z_values'})
+            dat['d'] = i_co
+            data = pd.concat((data, dat))
+    for i_co, j_co in enumerate(p_dict['combi']):
+        if i_co == 0:
             data_0 = np.array(data.pivot(index='z_values', columns="d",
                                          values="effects"))
             data_lower = np.array(data.pivot(index='z_values', columns="d",
                                              values="lower"))
             data_upper = np.array(data.pivot(index='z_values', columns="d",
                                              values="upper"))
-        else:
-            data_0 = np.concatenate([data_0,
-                                     data.pivot(index='z_values',
-                                                columns="d",
-                                                values="effects")],
-                                    axis=1)
-            data_lower = np.concatenate([data_lower,
-                                         data.pivot(index='z_values',
-                                                    columns="d",
-                                                    values="lower")],
-                                        axis=1)
-            data_upper = np.concatenate([data_upper,
-                                         data.pivot(index='z_values',
-                                                    columns="d",
-                                                    values="upper")],
-                                        axis=1)
 
     results = np.concatenate((data_0, data_lower, data_upper), axis=1)
     df_new = pd.DataFrame(np.round(results,
                                    p_dict['number_of_decimal_places']))
     df_new.columns = p_dict['number_of_stats'] * p_dict['treatment_names']
     if not label_row:
-        df_new.index = data.z_values
+        df_new.index = dat.z_values
     else:
         df_new.index = label_row
     return df_new
@@ -276,9 +273,7 @@ def tables(params):
         None
 
     """
-    params['treatment_names'] = generate_treatment_names(
-        params['low'], params['number_of_treatments'] + params['low']
-        - 1)
+    params['treatment_names'] = generate_treatment_names(params)
     params['directory_effect'] = params['path'] + '/' + params['effect_name']
     stats_table = generate_gate_table(params)
     d_f = create_dataframe_for_results(stats_table,

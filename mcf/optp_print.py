@@ -189,7 +189,8 @@ def bb_allocation_stats(allocation, c_dict, v_dict, data_file):
     print('-' * 80)
 
 
-def print_allocation(score, obs, v_dict, c_dict, obs_by_treat):
+def print_allocation(score, obs, v_dict, c_dict, obs_by_treat,
+                     prediction=False):
     """Show total policy score and observations by treatment."""
     cost = np.sum(c_dict['costs_of_treat'] * obs_by_treat)
     if score is not None:
@@ -208,16 +209,18 @@ def print_allocation(score, obs, v_dict, c_dict, obs_by_treat):
     print('\nObservations allocated, by treatment: ', end=' ')
     for i in obs_by_treat:
         print(f'{int(i):6d} ', end=' ')
-    print('\nObservations allowed,   by treatment: ', end=' ')
-    for i in c_dict['max_by_treat']:
-        print(f'{int(i):6d} ', end=' ')
+    if not prediction:
+        print('\nObservations allowed,   by treatment: ', end=' ')
+        for i in c_dict['max_by_treat']:
+            print(f'{int(i):6d} ', end=' ')
     print('\n' + '- ' * 17, 'Shares in %', '- ' * 17)
     print('Observations allocated, by treatment: ', end=' ')
     for i in obs_by_treat:
         print(f'{(i/obs*100):6.2f} ', end=' ')
-    print('\nObservations allowed,   by treatment: ', end=' ')
-    for i in c_dict['max_by_treat']:
-        print(f'{(i/obs*100):6.2f} ', end=' ')
+    if not prediction:
+        print('\nObservations allowed,   by treatment: ', end=' ')
+        for i in c_dict['max_by_treat']:
+            print(f'{(i/obs*100):6.2f} ', end=' ')
     print('\nCost per treatment:                   ', end=' ')
     for i in c_dict['costs_of_treat']:
         print(f'{i:6.2f} ', end=' ')

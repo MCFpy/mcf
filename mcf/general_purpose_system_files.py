@@ -152,10 +152,10 @@ def remove_temporary_directory(pfad, verbose=True):
             os.rmdir(pfad)
         except OSError:
             if verbose:
-                print("Removal of the temorary directory %s failed" % pfad)
+                print(f'Removal of the temorary directory {pfad:s} failed')
         else:
             if verbose:
-                print("Successfully removed the directory %s" % pfad)
+                print(f'Successfully removed the directory {pfad:s}')
     else:
         if verbose:
             print('Temporary directory does not exist.')

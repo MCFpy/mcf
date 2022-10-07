@@ -63,21 +63,21 @@ def black_box_allocation(indata, preddata, c_dict, v_dict, seed):
                 maxworkers = c_dict['no_parallel']
                 if not ray.is_initialized():
                     ray.init(num_cpus=maxworkers, include_dashboard=False)
-                    obs = len(po_np)
-                    po_np_ref, data_df_ref = ray.put(po_np), ray.put(data_df)
-                    still_running = [ray_bb_allocation_boot.remote(
-                        b_idx, obs, po_np_ref, data_df_ref, c_dict, v_dict)
-                            for b_idx in range(c_dict['bb_bootstraps'])]
-                    idx, allocation_b = 0, [None] * c_dict['bb_bootstraps']
-                    while len(still_running) > 0:
-                        finished, still_running = ray.wait(still_running)
-                        finished_res = ray.get(finished)
-                        for ret_all_i in finished_res:
-                            if c_dict['with_output']:
-                                gp.share_completed(idx+1,
-                                                   c_dict['bb_bootstraps'])
-                            allocation_b[idx] = ret_all_i
-                            idx += 1
+                obs = len(po_np)
+                po_np_ref, data_df_ref = ray.put(po_np), ray.put(data_df)
+                still_running = [ray_bb_allocation_boot.remote(
+                    b_idx, obs, po_np_ref, data_df_ref, c_dict, v_dict)
+                        for b_idx in range(c_dict['bb_bootstraps'])]
+                idx, allocation_b = 0, [None] * c_dict['bb_bootstraps']
+                while len(still_running) > 0:
+                    finished, still_running = ray.wait(still_running)
+                    finished_res = ray.get(finished)
+                    for ret_all_i in finished_res:
+                        if c_dict['with_output']:
+                            gp.share_completed(idx+1,
+                                               c_dict['bb_bootstraps'])
+                        allocation_b[idx] = ret_all_i
+                        idx += 1
             else:   # no multiprocessing
                 allocation_b = []
                 for b_idx in range(c_dict['bb_bootstraps']):

@@ -117,7 +117,7 @@ def controls_into_dic(
         reduce_largest_group_train, reduce_largest_group_train_share,
         iate_flag, iate_se_flag, l_centering_uncenter, d_type, ct_grid_nn,
         ct_grid_w, ct_grid_dr, support_adjust_limits, l_centering_replication,
-        effiate_flag):
+        effiate_flag, _return_iate_sp):
     """Build dictionary with parameters.
 
     Parameters
@@ -203,7 +203,8 @@ def controls_into_dic(
         'iate_flag': iate_flag, 'iate_se_flag': iate_se_flag,
         'effiate_flag': effiate_flag,
         'd_type': d_type, 'ct_grid_nn': ct_grid_nn, 'ct_grid_w': ct_grid_w,
-        'ct_grid_dr': ct_grid_dr
+        'ct_grid_dr': ct_grid_dr,
+        '_return_iate_sp': _return_iate_sp
             }
     return controls_dict
 

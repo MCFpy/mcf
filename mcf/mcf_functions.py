@@ -53,7 +53,7 @@ def modified_causal_forest(
         iate_se_flag=True, indata=None, knn_flag=True, knn_min_k=10,
         knn_const=1, l_centering=True, l_centering_share=0.25,
         l_centering_cv_k=5, l_centering_new_sample=False,
-        l_centering_replication=True, l_centering_undo_iate=False,
+        l_centering_replication=True, l_centering_undo_iate=True,
         m_min_share=-1, m_max_share=-1, m_grid=2, m_random_poisson=True,
         match_nn_prog_score=True, max_cats_z_vars=None, max_weight_share=0.05,
         mce_vart=1, min_dummy_obs=10,  mp_parallel=None,
@@ -76,14 +76,15 @@ def modified_causal_forest(
         support_check=1, support_min_p=None, support_quantil=1,
         support_max_del_train=0.5, support_adjust_limits=None, train_mcf=True,
         variable_importance_oob=False, weighted=False,
-        _share_forest_sample=0.5, _weight_as_sparse=True, _mp_with_ray=True,
+        _share_forest_sample=0.5, _weight_as_sparse=True,
         _mp_vim_type=None, _mp_weights_type=1, _mp_weights_tree_batch=None,
         _verbose=True, _fontsize=2, _descriptive_stats=True,
         _no_filled_plot=20, _show_plots=True,
         _smaller_sample=0, _with_output=True, _dpi=500,
         _max_cats_cont_vars=None, _max_save_values=50,
         _seed_sample_split=67567885, _mp_ray_del=None,
-        _mp_ray_shutdown=None, _mp_ray_objstore_multiplier=None):
+        _mp_ray_shutdown=None, _mp_ray_objstore_multiplier=None,
+        _return_iate_sp=False):
     """Compute the honest causal/random forest (based on mcf)."""
     freeze_support()
     time1 = time.time()
@@ -93,6 +94,7 @@ def modified_causal_forest(
     _obs_by_obs = False      # Compute IATE obs by obs or in chuncks
     _max_elements_per_split = 100 * 10e5  # reduce if breakdown (weights)
     _load_old_forest = False  # Useful for testing to save time
+    _mp_with_ray = True       # Is not stable without ray
     _no_ray_in_forest_building = False
 
 # Collect vars in a dictionary
@@ -152,12 +154,13 @@ def modified_causal_forest(
         reduce_largest_group_train, reduce_largest_group_train_share,
         iate_flag, iate_se_flag, l_centering_undo_iate, d_type, ct_grid_nn,
         ct_grid_w, ct_grid_dr, support_adjust_limits, l_centering_replication,
-        effiate_flag)
+        effiate_flag, _return_iate_sp)
 # Set defaults for many control variables of the MCF & define variables
 
     c_dict, v_dict, text_to_print = mcf_init.get_controls(controls_dict,
                                                           variable_dict)
     ofs = c_dict['outfilesummary']
+
 # Some descriptive stats of input and direction of output file
     if c_dict['with_output']:
         if c_dict['print_to_file']:
@@ -165,7 +168,7 @@ def modified_causal_forest(
             if c_dict['print_to_terminal']:
                 sys.stdout = gp.OutputTerminalFile(c_dict['outfiletext'])
             else:
-                outfiletext = open(c_dict['outfiletext'], 'w',
+                outfiletext = open(c_dict['outfiletext'], 'a',
                                    encoding="utf-8")
                 sys.stdout = outfiletext
     if c_dict['reduce_split_sample']:
@@ -225,6 +228,9 @@ def modified_causal_forest(
         lc_forest = loaded_tuple[13]
         old_y_name, new_y_name = loaded_tuple[14], loaded_tuple[15]
         v_dict['y_tree_name'] = loaded_tuple[16]
+        c_dict['l_centering'] = loaded_tuple[17]
+        if c_dict['l_centering'] is False:
+            c_dict['l_centering_uncenter'] = False
     else:
         d_in_values = no_val_dict = q_inv_dict = q_inv_cr_dict = None
         prime_values_dict = unique_val_dict = common_support_list = None
@@ -530,7 +536,8 @@ def modified_causal_forest(
                  no_val_dict, q_inv_dict, q_inv_cr_dict, prime_values_dict,
                  unique_val_dict, common_support_list, z_new_name_dict,
                  z_new_dic_dict, c_dict['max_cats_cont_vars'], lc_forest,
-                 old_y_name, new_y_name, v_dict['y_tree_name']), save=True,
+                 old_y_name, new_y_name, v_dict['y_tree_name'],
+                 c_dict['l_centering']), save=True,
                 output=c_dict['with_output'])
         if reg_round:
             del prob_score, d_train_tree, common_support_list, unique_val_dict
@@ -590,7 +597,7 @@ def modified_causal_forest(
                 if not reg_round:
                     w_ate = None
                 (pred_outfile, pot_y_, pot_y_var_, iate_, iate_se_,
-                 names_pot_iate_) = mcf_iate.iate_est_mp(
+                 names_pot_iate_, preddata_all) = mcf_iate.iate_est_mp(
                     weights, preddata3, y_train, cl_train, w_train, v_dict,
                     c_dict, w_ate, pot_y_prev=pot_y, lc_forest=lc_forest,
                     var_x_type=var_x_type)
@@ -603,7 +610,7 @@ def modified_causal_forest(
             else:
                 pot_y = pot_y_var = iate = iate_se = None
                 eff_iate = eff_pot_y = None
-                pred_outfile = names_pot_iate = None
+                pred_outfile = names_pot_iate = preddata_all = None
             del _, w_ate
             if reg_round:
                 time9_iate = time.time()
@@ -629,6 +636,7 @@ def modified_causal_forest(
             time9_iate = time9_bal = time10 = time3_2 = time.time()
             ate = ate_se = gate = gate_se = iate = iate_se = pot_y = None
             pot_y_var = pred_outfile = eff_iate = eff_pot_y = None
+            preddata_all = names_pot_iate = None
     if not c_dict['effiate_flag']:
         time9_iate_2 = time.time()
     timetot = time9_iate_2 if c_dict['effiate_flag'] else time10
@@ -669,7 +677,7 @@ def modified_causal_forest(
                 print(f"Removal of the temorary directory {temppfad:s} failed")
         else:
             if c_dict['with_output'] and c_dict['verbose']:
-                print("Successfully removed the directory {temppfad:s}")
+                print(f"Successfully removed the directory {temppfad:s}")
     else:
         if c_dict['with_output'] and c_dict['verbose']:
             print('Temporary directory does not exist.')
@@ -704,7 +712,7 @@ def modified_causal_forest(
             outfiletext.close()
         sys.stdout = orig_stdout
     return (ate, ate_se, gate, gate_se, iate, iate_se, pot_y, pot_y_var,
-            pred_outfile, eff_pot_y, eff_iate)
+            pred_outfile, eff_pot_y, eff_iate, names_pot_iate, preddata_all)
 
 
 def save_train_data_for_pred(data_file, v_dict, c_dict, prob_score,
@@ -732,61 +740,60 @@ def save_train_data_for_pred(data_file, v_dict, c_dict, prob_score,
 
 class ModifiedCausalForest:
     """Estimate mcf in OOP style."""
-    def __init__(self, id_name=None, cluster_name=None, w_name=None,
-                 d_name=None, d_type='discrete', y_tree_name=None, y_name=None,
-                 x_name_ord=None, x_name_unord=None, x_name_always_in_ord=None,
-                 z_name_list=None, x_name_always_in_unord=None,
-                 z_name_split_ord=None, z_name_split_unord=None,
-                 z_name_mgate=None, z_name_amgate=None, x_name_remain_ord=None,
-                 x_name_remain_unord=None, x_balance_name_ord=None,
-                 x_balance_name_unord=None, alpha_reg_min=0.1,
-                 alpha_reg_max=0.2, alpha_reg_grid=2, atet_flag=False,
-                 balancing_test=True, bin_corr_threshold=0.1,
-                 bin_corr_yes=True, boot=1000, ci_level=0.9,
-                 check_perfectcorr=True, choice_based_sampling=False,
-                 choice_based_weights=None, clean_data_flag=True,
-                 cluster_std=False, cond_var_flag=True, ct_grid_nn=10,
-                 ct_grid_w=10, ct_grid_dr=100, datpfad=None, effiate_flag=True,
-                 fs_other_sample_share=0.2, fs_other_sample=True,
-                 fs_rf_threshold=0, fs_yes=None, forest_files=None,
-                 gatet_flag=False, gmate_no_evaluation_points=50,
-                 gmate_sample_share=None, iate_flag=True, iate_se_flag=True,
-                 indata=None, knn_flag=True, knn_min_k=10, knn_const=1,
-                 l_centering=True, l_centering_share=0.25, l_centering_cv_k=5,
-                 l_centering_new_sample=False, l_centering_replication=True,
-                 m_min_share=-1, m_max_share=-1, m_grid=2,
-                 m_random_poisson=True, match_nn_prog_score=True,
-                 max_cats_z_vars=None, max_weight_share=0.05, mce_vart=1,
-                 min_dummy_obs=10,  mp_parallel=None, n_min_grid=1,
-                 n_min_min=-1, n_min_max=-1, nn_main_diag_only=False,
-                 nw_kern_flag=1, nw_bandw=None, outfiletext=None, outpfad=None,
-                 output_type=2, panel_data=False, panel_in_rf=True,
-                 preddata=None, p_diff_penalty=None, post_est_stats=True,
-                 post_plots=True, post_kmeans_yes=True,
-                 post_kmeans_max_tries=1000, post_kmeans_no_of_groups=None,
-                 post_kmeans_replications=10, post_random_forest_vi=True,
-                 predict_mcf=True, reduce_prediction=False,
-                 reduce_prediction_share=0.5, reduce_split_sample=False,
-                 reduce_split_sample_pred_share=0.5, reduce_training=False,
-                 reduce_training_share=0.5, relative_to_first_group_only=True,
-                 reduce_largest_group_train=False,
-                 reduce_largest_group_train_share=0.5, save_forest=False,
-                 screen_covariates=True, se_boot_ate=False, se_boot_gate=False,
-                 se_boot_iate=False, smooth_gates=True,
-                 smooth_gates_bandwidth=1,
-                 smooth_gates_no_evaluation_points=50, random_thresholds=None,
-                 subsample_factor_forest=None, subsample_factor_eval=False,
-                 support_check=1, support_min_p=None, support_quantil=1,
-                 support_max_del_train=0.5, support_adjust_limits=None,
-                 train_mcf=True, variable_importance_oob=False, weighted=False,
-                 _share_forest_sample=0.5, _weight_as_sparse=True,
-                 _mp_with_ray=True, _mp_vim_type=None, _mp_weights_type=1,
-                 _mp_weights_tree_batch=None, _verbose=True, _fontsize=2,
-                 _descriptive_stats=True, _no_filled_plot=20, _show_plots=True,
-                 _smaller_sample=0, _with_output=True, _dpi=500,
-                 _max_cats_cont_vars=None, _max_save_values=50,
-                 _seed_sample_split=67567885, _mp_ray_del=None,
-                 _mp_ray_shutdown=None, _mp_ray_objstore_multiplier=None):
+    def __init__(
+            self, id_name=None, cluster_name=None, w_name=None, d_name=None,
+            d_type='discrete', y_tree_name=None, y_name=None, x_name_ord=None,
+            x_name_unord=None, x_name_always_in_ord=None, z_name_list=None,
+            x_name_always_in_unord=None, z_name_split_ord=None,
+            z_name_split_unord=None, z_name_mgate=None, z_name_amgate=None,
+            x_name_remain_ord=None, x_name_remain_unord=None,
+            x_balance_name_ord=None, x_balance_name_unord=None,
+            alpha_reg_min=0.1, alpha_reg_max=0.2, alpha_reg_grid=2,
+            atet_flag=False, balancing_test=True, bin_corr_threshold=0.1,
+            bin_corr_yes=True, boot=1000, ci_level=0.9, check_perfectcorr=True,
+            choice_based_sampling=False, choice_based_weights=None,
+            clean_data_flag=True, cluster_std=False, cond_var_flag=True,
+            ct_grid_nn=10, ct_grid_w=10, ct_grid_dr=100,
+            datpfad=None, effiate_flag=True, fs_other_sample_share=0.2,
+            fs_other_sample=True, fs_rf_threshold=0, fs_yes=None,
+            forest_files=None, gatet_flag=False,
+            gmate_no_evaluation_points=50, gmate_sample_share=None,
+            iate_flag=True, iate_se_flag=True, indata=None, knn_flag=True,
+            knn_min_k=10, knn_const=1, l_centering=True,
+            l_centering_share=0.25, l_centering_cv_k=5,
+            l_centering_new_sample=False, l_centering_replication=True,
+            l_centering_undo_iate=True, m_min_share=-1, m_max_share=-1,
+            m_grid=2, m_random_poisson=True, match_nn_prog_score=True,
+            max_cats_z_vars=None, max_weight_share=0.05,
+            mce_vart=1, min_dummy_obs=10,  mp_parallel=None,
+            n_min_grid=1, n_min_min=-1, n_min_max=-1, nn_main_diag_only=False,
+            nw_kern_flag=1, nw_bandw=None, outfiletext=None,
+            outpfad=None, output_type=2, panel_data=False, panel_in_rf=True,
+            preddata=None, p_diff_penalty=None, post_est_stats=True,
+            post_plots=True, post_kmeans_yes=True, post_kmeans_max_tries=1000,
+            post_kmeans_no_of_groups=None, post_kmeans_replications=10,
+            post_random_forest_vi=True, predict_mcf=True,
+            reduce_prediction=False, reduce_prediction_share=0.5,
+            reduce_split_sample=False, reduce_split_sample_pred_share=0.5,
+            reduce_training=False, reduce_training_share=0.5,
+            relative_to_first_group_only=True, reduce_largest_group_train=False,
+            reduce_largest_group_train_share=0.5, save_forest=False,
+            screen_covariates=True, se_boot_ate=False, se_boot_gate=False,
+            se_boot_iate=False, smooth_gates=True, smooth_gates_bandwidth=1,
+            smooth_gates_no_evaluation_points=50, random_thresholds=None,
+            subsample_factor_forest=None, subsample_factor_eval=False,
+            support_check=1, support_min_p=None, support_quantil=1,
+            support_max_del_train=0.5, support_adjust_limits=None,
+            train_mcf=True, variable_importance_oob=False, weighted=False,
+            _share_forest_sample=0.5, _weight_as_sparse=True,
+            _mp_vim_type=None, _mp_weights_type=1, _mp_weights_tree_batch=None,
+            _verbose=True, _fontsize=2, _descriptive_stats=True,
+            _no_filled_plot=20, _show_plots=True,
+            _smaller_sample=0, _with_output=True, _dpi=500,
+            _max_cats_cont_vars=None, _max_save_values=50,
+            _seed_sample_split=67567885, _mp_ray_del=None,
+            _mp_ray_shutdown=None, _mp_ray_objstore_multiplier=None,
+            _return_iate_sp=False):
         self.train_mcf = train_mcf
         self.predict_mcf = predict_mcf
         self.params = {
@@ -849,6 +856,7 @@ class ModifiedCausalForest:
             'l_centering_cv_k': l_centering_cv_k,
             'l_centering_new_sample': l_centering_new_sample,
             'l_centering_replication': l_centering_replication,
+            'l_centering_undo_iate': l_centering_undo_iate,
             'm_min_share': m_min_share,
             'm_max_share': m_max_share,
             'm_grid': m_grid,
@@ -910,7 +918,6 @@ class ModifiedCausalForest:
             'weighted': weighted,
             '_share_forest_sample': _share_forest_sample,
             '_weight_as_sparse': _weight_as_sparse,
-            '_mp_with_ray': _mp_with_ray,
             '_mp_vim_type': _mp_vim_type,
             '_mp_weights_type': _mp_weights_type,
             '_mp_weights_tree_batch': _mp_weights_tree_batch,
@@ -940,17 +947,19 @@ class ModifiedCausalForest:
         self.params['train_mcf'] = False
         self.params['predict_mcf'] = True
         (ate, ate_se, gate, gate_se, iate, iate_se, pot_y, pot_y_var,
-         pred_outfile, eff_pot_y, eff_iate
+         pred_outfile, eff_pot_y, eff_iate, names_pot_iate, preddata_all
                 ) = modified_causal_forest(**self.params)
         return (ate, ate_se, gate, gate_se, iate, iate_se, pot_y, pot_y_var,
-                pred_outfile, eff_pot_y, eff_iate)
+                pred_outfile, eff_pot_y, eff_iate, names_pot_iate,
+                preddata_all)
 
     def train_predict(self):
         """Train and predict mcf in one go (recommended)."""
         self.params['train_mcf'] = True
         self.params['predict_mcf'] = True
         (ate, ate_se, gate, gate_se, iate, iate_se, pot_y, pot_y_var,
-         pred_outfile, eff_pot_y, eff_iate
+         pred_outfile, eff_pot_y, eff_iate, names_pot_iate, preddata_all
                 ) = modified_causal_forest(**self.params)
         return (ate, ate_se, gate, gate_se, iate, iate_se, pot_y, pot_y_var,
-                pred_outfile, eff_pot_y, eff_iate)
+                pred_outfile, eff_pot_y, eff_iate, names_pot_iate,
+                preddata_all)

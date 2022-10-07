@@ -1,11 +1,29 @@
 # Release Updates
 
+## Version 0.3.1
+
+### What's New
+
+* New experimental feature: A new module is provided (optpolicy_with_mcf)
+  that combines mcf estimations of IATEs with optimal policies (black-box and
+  policy trees). It also provides out-of-sample evaluations of the
+  allocations. For more details refer to Cox, Lechner, Bollens (2022) and
+  user_evaluate_optpolicy_with_mcf.py.
+
+### Bug fixes
+
+* csv files for GATE tables can also deal with general treatment definitions
+* _mp_with_ray no longer an input argument
+* names_pot_iate is an additional return from the estimator. It is a 2-tuple with the list of potentially outcomes (all, relative_to_treat0)
+* _return_iate_sp is a new parameter to algorithm to predict and return effects despite _with_output = False
+
+
 ## Version 0.3.0
 
-### What's New 
+### What's New
 
 * The mcf supports an object-oriented interface: new class ModifiedCausalForest and methods (predict, train, and train_predict).
-* Delivery of potential outcome estimates for which local centering is reversed by setting [l_centering_undo_iate](./core_6.md#l_centering_undo_iate)  to True; default is True. 
+* Delivery of potential outcome estimates for which local centering is reversed by setting [l_centering_undo_iate](./core_6.md#l_centering_undo_iate)  to True; default is True.
 * Readily available tables for GATEs, AMGATEs, and MGATEs. Genrated tables summarize all estimated causal effects. Tables are stored in respective folders.
 * The optimal policy function is generalized to encompass also stochastic treatment allocations.
 
@@ -22,20 +40,20 @@
 
 ## Version 0.2.5 (yanked)
 
-### Bug fixes 
+### Bug fixes
 
 * Bug fix in bootstrap of optimal policy module.
 
 ### What's New
 
-* Change in output directory structure. 
+* Change in output directory structure.
 * Name change of file with predicted IATE (ends <foo>_IATE.csv)
 * default value of l_centering_replication changed from False to True.
 * More efficient estimation of IATE, referred to as EffIATE
 
 ## Version 0.2.4
 
-### Bug fixes 
+### Bug fixes
 
 * Bug fix for cases when outcome had no variation when splitting.
 
@@ -43,8 +61,8 @@
 
 * File with IATEs also contains indicator of specific cluster in k-means
   clustering.
-* Option for guaranteed replicability of results. sklearn.ensemble.RandomForestRegressor does not necessarily replicable results (due to threading). A new keyword argument (l_centering_replication, default is False) is added. Setting this argument to True slows down local centering a but but removes that problem 
-  
+* Option for guaranteed replicability of results. sklearn.ensemble.RandomForestRegressor does not necessarily replicable results (due to threading). A new keyword argument (l_centering_replication, default is False) is added. Setting this argument to True slows down local centering a but but removes that problem
+
 ## Version 0.2.3
 
 ### Bug fixes
@@ -53,7 +71,7 @@
 
 ## Version 0.2.2
 
-### Bug fixes 
+### Bug fixes
 
 * Bug fix in plotting GATEs.
 
@@ -61,43 +79,43 @@
 
 * ATEs are  saved in csv file (same as data for figures and other effects).
 
-## Version 0.2.1 
+## Version 0.2.1
 
-### Bug fixes 
+### Bug fixes
 
 * Bug fix in MGATE estimation, which led to program aborting.  
 
-## Version 0.2.0 
+## Version 0.2.0
 
-### Bug fixes 
+### Bug fixes
 
 * Bug fix for policy trees under restrictions.
 * Bug fix for GATE estimation (when weighting was used).
 
-### What's New 
+### What's New
 
 * Main function changed from ``ModifiedCausalForest()``  to ``modified_causal_forest()``.
-* Complete seeding of random number generator. 
-* Keyword modifications: 
+* Complete seeding of random number generator.
+* Keyword modifications:
 	* [stop_empty](./core_6.md#stop_empty) removed as parameter,
 	* [descriptive_stats](./core_6.md#_descriptive_stats) becomes [_descriptive_stats](./core_6.md#_descriptive_stats),
 	* [dpi](./core_6.md#_dpi) becomes [_dpi](./core_6.md#_dpi),
 	* [fontsize](./core_6.md#_fontsize) becomes [_fontsize](./core_6.md#_fontsize),   
-	* [mp_vim_type](./core_6.md#_mp_vim_type) 
-    becomes [_mp_vim_type](./core_6.md#_mp_vim_type), 
+	* [mp_vim_type](./core_6.md#_mp_vim_type)
+    becomes [_mp_vim_type](./core_6.md#_mp_vim_type),
     * [mp_weights_tree_batch](./core_6.md#_mp_weights_tree_batch)  becomes [_mp_weights_tree_batch](./core_6.md#_mp_weights_tree_batch),
     * [mp_weights_type](./core_6.md#_mp_weights_type)  becomes[_mp_weights_type](./core_6.md#_mp_weights_type),  
-	* [mp_with_ray](./core_6.md#_mp_with_ray) becomes [_mp_with_ray](./core_6.md#_mp_with_ray), 
-	*  [no_filled_plot](./core_6.md#_no_filled_plot) 
-    becomes [_no_filled_plot](./core_6.md#_no_filled_plot), 
+	* [mp_with_ray](./core_6.md#_mp_with_ray) becomes [_mp_with_ray](./core_6.md#_mp_with_ray),
+	*  [no_filled_plot](./core_6.md#_no_filled_plot)
+    becomes [_no_filled_plot](./core_6.md#_no_filled_plot),
 	* [show_plots](./core_6.md#_show_plots) becomes [_show_plots](./core_6.md#_show_plots),  
-	* [verbose](./core_6.md#_verbose) becomes [_verbose](./core_6.md#_verbose), 
+	* [verbose](./core_6.md#_verbose) becomes [_verbose](./core_6.md#_verbose),
 	* [weight_as_sparse](./core_6.md#_weight_as_sparse) becomes [_weight_as_sparse](./core_6.md#_weight_as_sparse),
 	* [support_adjust_limits](./core_6.md#support_adjust_limits) new keyword for common support.
-* Experimental version of continuous treatment. Newly introduced keywords here 
-	* [d_type](./core_6.md#d_type), 
-	* [ct_grid_nn](./core_6.md#ct_grid_nn), 
-	* [ct_grid_w](./core_6.md#ct_grid_w), 
+* Experimental version of continuous treatment. Newly introduced keywords here
+	* [d_type](./core_6.md#d_type),
+	* [ct_grid_nn](./core_6.md#ct_grid_nn),
+	* [ct_grid_w](./core_6.md#ct_grid_w),
 	* [ct_grid_dr](./core_6.md#ct_grid_dr).  
 * The optimal policy function contains new rules based on 'black box' approaches, i.e., using the potential outcomes directly to obtain optimal allocations.
 * The optimal policy function allows to describe allocations with respect to other policy variables than the ones used for determining the allocation.
@@ -106,14 +124,14 @@
 	* new overlapping plots for common support analysis.
 
 
-## Version 0.1.4 
+## Version 0.1.4
 
 ### Bug fixes
 
 - Bug fix for predicting from previously trained and saved forests.
-- Bug fix in [mcf_init_function](./core_6.md#mcf_init_function) when there are missing values. 
+- Bug fix in [mcf_init_function](./core_6.md#mcf_init_function) when there are missing values.
 
-### What's New 
+### What's New
 
 - [_mp_ray_shutdown](./core_6.md#_mp_ray_shutdown) new defaults. If object size is smaller 100,000, the default is False and else True.
 

@@ -7,7 +7,7 @@ def read(fname):
 setup(
   name = 'mcf',
   packages = ['mcf'],
-  version = '0.3.0',
+  version = '0.3.1',
   license='MIT',
   description = 'mcf is a powerful package to estimate heterogeneous treatment effects for multiple treatment models in a selection-on-observables setting and learn optimal policy rules',
   author = 'mlechner',

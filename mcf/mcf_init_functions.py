@@ -95,19 +95,22 @@ def get_controls(c_dict, v_dict):
     cnew_dict = mcf_ia.get_fig_path(cnew_dict, 'amgate', make_dir)
     cnew_dict = mcf_ia.get_fig_path(cnew_dict, 'common_support',
                                     c_dict['with_output'], no_csv=True)
-    print(cnew_dict)
-    if c_dict['train_mcf']:
-        pred_sample_with_pred = (cnew_dict['cs_ate_iate_fig_pfad_csv']
-                                 + '/' + c_dict['indata'] + 'X_IATE.csv')
+    if c_dict['with_output']:
+        dir_for_pred = cnew_dict['cs_ate_iate_fig_pfad_csv'] + '/'
     else:
-        pred_sample_with_pred = (cnew_dict['cs_ate_iate_fig_pfad_csv']
-                                 + '/' + c_dict['preddata'] + 'X_IATE.csv')
+        dir_for_pred = c_dict['outpfad'] + '/'
+    if c_dict['train_mcf']:
+        pred_sample_with_pred = dir_for_pred + c_dict['indata'] + 'X_IATE.csv'
+    else:
+        pred_sample_with_pred = (dir_for_pred + c_dict['preddata']
+                                 + 'X_IATE.csv')
     cnew_dict['outfiletext'] = (c_dict['outpfad'] + '/' + c_dict['outfiletext']
                                 + '.txt')
     cnew_dict['outfilesummary'] = (c_dict['outpfad'] + '/'
                                    + c_dict['outfiletext'] + '_Summary.txt')
-    gp.delete_file_if_exists(c_dict['outfiletext'])
-    gp.delete_file_if_exists(cnew_dict['outfilesummary'])
+    if c_dict['with_output']:
+        gp.delete_file_if_exists(c_dict['outfiletext'])
+        gp.delete_file_if_exists(cnew_dict['outfilesummary'])
     if c_dict['save_forest_files'] is None:
         save_forest_file_pickle = (
             c_dict['outpfad'] + '/' + c_dict['indata'] + '_save_pred.pickle')
@@ -889,7 +892,7 @@ def get_controls(c_dict, v_dict):
             if isinstance(v_dict['y_name'], (list, tuple)):
                 v_dict['y_tree_name'] = [v_dict['y_name'][0]]
             else:
-                v_dict['y_tree_name'] = [v_dict['y_name']]
+                v_dict['y_tree_name'] = [v_dict['y_name']]        
     if (v_dict['x_name_ord'] is None or v_dict['x_name_ord'] == []) and (
             v_dict['x_name_unord'] is None or v_dict['x_name_unord'] == []):
         raise Exception('x_name_ord or x_name_unord must be specified.')

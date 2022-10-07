@@ -268,6 +268,30 @@ def pred_policy_allocation(tree, x_name, v_dict, c_dict, no_of_treat,
     None.
 
     """
+    def print_stat(obs, score, diff, txt):
+        """Print stats."""
+        print(txt)
+        print(f'Obs: {obs:8} mean pred. outcome: {score[0]:8.4f} ',
+              f'mean obs.  outcome {score[1]:8.4f}',
+              f' difference {diff:8.4f}')
+          
+    def evaluate_score(score_all, treat_act, treat_pred):
+        """Find score that fits to treatment and compute means."""
+        obs = len(score_all)
+        score = np.empty((obs, 2))
+        for i, score_all_i in enumerate(score_all):
+            score[i, 0] = score_all_i[treat_pred[i]]
+            score[i, 1] = score_all_i[treat_act[i]]
+        score_mean = np.mean(score, axis=0)
+        switch = treat_act != treat_pred
+        obs_sw = np.sum(switch)
+        if obs_sw > 0:
+            score_sw = score[switch, :]
+            score_mean_sw = np.mean(score_sw, axis=0)
+        else:
+            score_mean_sw = 0
+        return score_mean, score_mean_sw, obs, obs_sw        
+        
     def pred_treat_fct(treat, indx_in_leaf, total_obs):
         """Collect data and bring in the same as original data."""
         pred_treat = np.zeros((total_obs, 2), dtype=np.int64)
@@ -339,8 +363,29 @@ def pred_policy_allocation(tree, x_name, v_dict, c_dict, no_of_treat,
                 total_obs_by_treat[treat[i][1]] += obs_i[1]
             check_total_obs_temp_no_match(total_obs_temp, total_obs)
             optp_p.print_allocation(None, total_obs, v_dict, c_dict,
-                                    total_obs_by_treat)
+                                    total_obs_by_treat, prediction=True)
             optp_p.print_split_info(splits_seq, treat, c_dict)
+        if v_dict['d_name'] is not None:
+            treat_in_pred = v_dict['d_name'][0] in data_df.columns
+            if v_dict['polscore_name'] is not None:
+                pols_in_pred = v_dict['polscore_name'][0] in data_df.columns
+            else:
+                pols_in_pred = False
+        else:
+            treat_in_pred = pols_in_pred = False
+        if treat_in_pred and pols_in_pred and c_dict['with_output']:
+            actual_treatment = data_df[v_dict['d_name']].to_numpy(
+                dtype=np.int64).flatten()
+            polscores = data_df[v_dict['polscore_name']].to_numpy()
+            score, score_switch, obs, obs_switch = evaluate_score(
+                polscores, actual_treatment, predicted_treatment)
+            diff = score[0] - score[1]
+            print_stat(obs, score, diff, 'All obs. in prediction sample')
+            if obs_switch > 0:
+                diff_switch = score_switch[0] - score_switch[1]
+                print_stat(obs_switch, score_switch, diff_switch,
+                           'Switchers in prediction sample')
+                print('-' * 80)
         return predicted_treatment
     actual_treatment = data_df[v_dict['d_name']].to_numpy(dtype=np.int64)
     return predicted_treatment, actual_treatment.flatten()

@@ -74,11 +74,11 @@ def optpoltree(
     if c_dict['with_output']:
         if c_dict['print_to_file']:
             orig_stdout = sys.stdout
-            gp.delete_file_if_exists(c_dict['outfiletext'])
+            # gp.delete_file_if_exists(c_dict['outfiletext'])
             if c_dict['print_to_terminal']:
                 sys.stdout = gp.OutputTerminalFile(c_dict['outfiletext'])
             else:
-                outfiletext = open(c_dict['outfiletext'], 'w')
+                outfiletext = open(c_dict['outfiletext'], 'a')
                 sys.stdout = outfiletext
     if c_dict['with_output'] and (c_dict['ft_yes'] or dict['st_yes']):
         print('\nParameter for Optimal Policy Tree:')

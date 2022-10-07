@@ -14,7 +14,7 @@
 
 * csv files for GATE tables can also deal with general treatment definitions
 * _mp_with_ray no longer an input argument
-* names_pot_iate is an additional return from the estimator. It is a 2-tuple with the list of potentially outcomes (all, relative_to_treat0)
+* names_pot_iate is an additional return from the estimator. It is a 2-tuple with the list of potentially outcomes. 
 * [_return_iate_sp](./core_6.md#_return_iate_sp) is a new parameter to algorithm to predict and return effects despite [_with_output](./core_6.md#_with_output) being set to False.
 
 

@@ -413,7 +413,7 @@ _with_output=_with_output)
 * <a id="_no_filled_plot">**_no_filled_plot**</a> - **None** or **Integer number** larger **0**
 	* Determines that the plot is filled if there are more than a minimal number of specified points; the default is None; in this case  the plot is filled when there are more than 20 points.
 * <a id="_return_iate_sp">**_return_iate_sp**</a> - positive **Boolean**
-	* Return all data with predictions despite [_with_output](./core_6.md#_with_output) 
+	* Return all data with predictions despite [_with_output](./core_6.md#_with_output) = False.
 * <a id="_seed_sample_split">**_seed_sample_split**</a> - positive **integer** 
 * <a id="_show_plots">**_show_plots**</a> - **Boolean**
 	* If True, the plots are shown, i.e. `plt.show()` is executed, else not; the default is True.

@@ -32,5 +32,7 @@ For small datasets, internally storing the forest weights in dense instead of sp
 | [weight_as_sparse](./core_6.md#weight_as_sparse) | *True* if the weights are internally stored in sparse matrices, otherwise *False*. The default is *True*. |
 
 
+### Misc 
 
+You can decrease running time by executing code directly in the terminal.
 

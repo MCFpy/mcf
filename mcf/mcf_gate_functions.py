@@ -10,6 +10,7 @@ Created on Thu Dec  8 15:48:57 2020.
 import copy
 import os
 from concurrent import futures
+from dask.distributed import Client, as_completed
 import itertools
 
 import numpy as np
@@ -48,14 +49,24 @@ def marg_gates_est(forest, fill_y_sample, pred_sample, v_dict, c_dict,
 
     Returns
     -------
-    None.
+    mgate: List of Numpy Array. Marginal Gates.
+    mgate_se: List of Numpy Array. Standard errors of marginal Gates.
+    mgate_diff: List of Numpy Array. Differnce of Marginal Gates.
+    mgate_se_diff: List of Numpy Array. Standard errors of diff. mgates
+    amgate: List of Numpy Array. Marginal Average Gates.
+    amgate_se: List of Numpy Array. Standard errors of AMGates.
+    amgate_diff: List of Numpy Array. Differnce of AMGates.
+    amgate_se_diff: List of Numpy Array. Standard errors of diff. of AMgates
 
     """
     any_plots_mgate = any_plots_amgate = False
+    mgate = mgate_se = mgate_diff = mgate_se_diff = None
+    amgate = amgate_se = amgate_diff = amgate_se_diff = None
     c_dict_mgate = copy.deepcopy(c_dict)
     c_dict_mgate['with_output'] = False       # reduce unnecessary infos
     c_dict_mgate['iate_se_flag'] = True
-    if v_dict['z_name_mgate'] and c_dict['with_output']:
+    if v_dict['z_name_mgate'] and c_dict['with_output'] and (
+            not c_dict['gates_minus_previous']):
         if c_dict['with_output']:
             print_str = '=' * 80
             if regrf:
@@ -67,9 +78,10 @@ def marg_gates_est(forest, fill_y_sample, pred_sample, v_dict, c_dict,
             print_str += '\n' + '-' * 80
             print(print_str)
             gp.print_f(c_dict['outfilesummary'], print_str)
-        any_plots_mgate = mgate_function(
-            forest, fill_y_sample, pred_sample, v_dict, c_dict, x_name_mcf,
-            var_x_type, var_x_values, regrf, c_dict_mgate, w_ate)
+        (any_plots_mgate, mgate, mgate_se, mgate_diff, mgate_se_diff
+         ) = mgate_function(forest, fill_y_sample, pred_sample, v_dict, c_dict,
+                            x_name_mcf, var_x_type, var_x_values, regrf,
+                            c_dict_mgate, w_ate)
         if not any_plots_mgate:
             if regrf:
                 print("No variables for marginal plots left.")
@@ -83,13 +95,16 @@ def marg_gates_est(forest, fill_y_sample, pred_sample, v_dict, c_dict,
                          + ' over sample (AMGATEs)')
             print(print_str)
             gp.print_f(c_dict['outfilesummary'], print_str)
-        any_plots_amgate = amgate_function(
-            forest, fill_y_sample, pred_sample, v_dict, c_dict, x_name_mcf,
-            var_x_type, var_x_values, c_dict_mgate)
+        (any_plots_amgate, amgate, amgate_se, amgate_diff, amgate_se_diff
+         ) = amgate_function(forest, fill_y_sample, pred_sample, v_dict,
+                             c_dict, x_name_mcf, var_x_type, var_x_values,
+                             c_dict_mgate)
         if not any_plots_amgate:
             print("No variables for AMGATE left.")
         else:
             print('\n')
+    return (mgate, mgate_se, mgate_diff, mgate_se_diff, amgate, amgate_se,
+            amgate_diff, amgate_se_diff)
 
 
 def amgate_function(forest, fill_y_sample, pred_sample, v_dict, c_dict,
@@ -124,6 +139,7 @@ def amgate_function(forest, fill_y_sample, pred_sample, v_dict, c_dict,
         c_dict_mgate['gatet_flag'] = c_dict_mgate['atet_flag'] = False
         if c_dict['with_output']:
             print('No treatment specific effects for MGATE and AMGATE.')
+    amgate = amgate_se = amgate_diff = amgate_se_diff = None
     any_plots_done = False
     _, eva_values = mcf_gateout.ref_vals_margplot(
         pred_sample, var_x_type, var_x_values,
@@ -148,12 +164,13 @@ def amgate_function(forest, fill_y_sample, pred_sample, v_dict, c_dict,
                     weights, new_predict_file, y_f, cl_f, w_f, v_dict,
                     c_dict_mgate, print_output=False)
             c_dict_mgate['with_output'] = c_dict['with_output']
-            gate_est(weights, new_predict_file, y_f, cl_f, w_f, v_dict,
-                     c_dict_mgate, var_x_type, var_x_values, w_ate_iate, ate_z,
-                     ate_se_z, amgate_flag=True)
+            amgate, amgate_se, amgate_diff, amgate_se_diff = gate_est(
+                weights, new_predict_file, y_f, cl_f, w_f, v_dict,
+                c_dict_mgate, var_x_type, var_x_values, w_ate_iate, ate_z,
+                ate_se_z, amgate_flag=True)
             os.remove(new_predict_file)  # Delete new file
     v_dict['z_name'] = z_name_old
-    return any_plots_done
+    return any_plots_done, amgate, amgate_se, amgate_diff, amgate_se_diff
 
 
 def mgate_function(
@@ -178,15 +195,14 @@ def mgate_function(
     any_plots_done : Bool.
 
     """
-    def mgate_corections(eff, eff_se, counter):
+    def mgate_corrections(eff, eff_se, counter):
         for i in range(eff.shape[0]):
             if np.abs(eff[i, -1]) > 10 * np.abs(eff[i, -2]):
                 eff[i, -1], eff_se[i, -1] = eff[i, -2], eff_se[i, -2]
                 counter += 1
         return eff, eff_se, counter
 
-    any_plots_done = False
-    print_str = ''
+    any_plots_done, print_str = False, ''
     ref_values, eva_values = mcf_gateout.ref_vals_margplot(
         pred_sample, var_x_type, var_x_values,
         with_output=c_dict['with_output'], ref_values_needed=True,
@@ -200,65 +216,69 @@ def mgate_function(
     choice_based_yes_old = c_dict_mgate['choice_based_yes']
     c_dict_mgate['choice_based_yes'] = False
     correct_m_gate_cont = 0
-    for vname in v_dict['z_name_mgate']:
-        if vname in x_name_mcf:
-            if c_dict['with_output'] and c_dict['verbose']:
-                print(vname, end=' ')
-            any_plots_done = True
-            new_predict_file = mcf_gateout.ref_file_marg_plot(
-                vname, c_dict_mgate, var_x_type, ref_values, eva_values)
-            weights, y_f, _, cl_f, w_f = mcf_w.get_weights_mp(
-                forest, new_predict_file, fill_y_sample, v_dict,
-                c_dict_mgate, x_name_mcf, regrf=regrf)
-            if regrf:
-                _, y_pred, y_pred_se, name_pred, _ = mcf_hf.predict_hf(
-                    weights, new_predict_file, y_f, cl_f, w_f, v_dict,
-                    c_dict_mgate)
+    z_name_mgate = [z for z in v_dict['z_name_mgate'] if z in x_name_mcf]
+    mgate = [None] * len(z_name_mgate)
+    mgate_se, mgate_diff,  mgate_se_diff = mgate[:], mgate[:], mgate[:]
+    for z_name_j, z_name in enumerate(z_name_mgate):
+        if c_dict['with_output'] and c_dict['verbose']:
+            print(z_name, end=' ')
+        any_plots_done = True
+        new_predict_file = mcf_gateout.ref_file_marg_plot(
+            z_name, c_dict_mgate, var_x_type, ref_values, eva_values)
+        weights, y_f, _, cl_f, w_f = mcf_w.get_weights_mp(
+            forest, new_predict_file, fill_y_sample, v_dict, c_dict_mgate,
+            x_name_mcf, regrf=regrf)
+        if regrf:
+            _, y_pred, y_pred_se, name_pred, _ = mcf_hf.predict_hf(
+                weights, new_predict_file, y_f, cl_f, w_f, v_dict,
+                c_dict_mgate)
+        else:
+            w_ate_iate, _, _, _, _, _ = mcf_ate.ate_est(
+                weights, new_predict_file, y_f, cl_f, w_f, v_dict,
+                c_dict_mgate, w_ate_only=True, print_output=False)
+            (_, _, _, iate, iate_se, namesiate, _) = mcf_iate.iate_est_mp(
+                weights, new_predict_file, y_f, cl_f, w_f, v_dict,
+                c_dict_mgate, save_predictions=False, w_ate=w_ate_iate)
+            names_iate = namesiate[0]
+            name_pred = names_iate['names_iate']
+            shape = np.shape(iate[:, :, :, 0])
+            y_pred = iate[:, :, :, 0].reshape(shape[0], shape[1]*shape[2])
+            y_pred_se = iate_se[:, :, :, 0].reshape(
+                shape[0], shape[1]*shape[2])
+            if w_ate is not None:
+                names_iate_mate = namesiate[0]
+                name_mate_pred = names_iate_mate['names_iate_mate']
+                y_pred_mate = iate[:, :, :, 1].reshape(
+                    shape[0], shape[1]*shape[2])
+                y_pred_mate_se = iate_se[:, :, :, 1].reshape(
+                    shape[0], shape[1]*shape[2])
+                if y_pred_mate.shape[1] > 1:
+                    (y_pred_mate, y_pred_mate_se, correct_m_gate_cont
+                     ) = mgate_corrections(y_pred_mate, y_pred_mate_se,
+                                           correct_m_gate_cont)
+        mgate[z_name_j], mgate_se[z_name_j] = y_pred, y_pred_se
+        mgate_diff[z_name_j] = y_pred_mate
+        mgate_se_diff[z_name_j] = y_pred_mate_se
+        if c_dict['with_output']:
+            if c_dict['d_type'] == 'continuous':
+                mcf_gateout.plot_marginal_cont(
+                    y_pred, y_pred_se, z_name, eva_values[z_name],
+                    var_x_type[z_name], c_dict, minus_ate=False)
             else:
-                w_ate_iate, _, _, _, _, _ = mcf_ate.ate_est(
-                    weights, new_predict_file, y_f, cl_f, w_f, v_dict,
-                    c_dict_mgate, w_ate_only=True, print_output=False)
-                (_, _, _, iate, iate_se, namesiate, _) = mcf_iate.iate_est_mp(
-                    weights, new_predict_file, y_f, cl_f, w_f, v_dict,
-                    c_dict_mgate, save_predictions=False, w_ate=w_ate_iate)
-                names_iate = namesiate[0]
-                name_pred = names_iate['names_iate']
-                shape = np.shape(iate[:, :, :, 0])
-                y_pred = iate[:, :, :, 0].reshape(
-                    shape[0], shape[1]*shape[2])
-                y_pred_se = iate_se[:, :, :, 0].reshape(
-                    shape[0], shape[1]*shape[2])
-                if w_ate is not None:
-                    names_iate_mate = namesiate[0]
-                    name_mate_pred = names_iate_mate['names_iate_mate']
-                    y_pred_mate = iate[:, :, :, 1].reshape(
-                        shape[0], shape[1]*shape[2])
-                    y_pred_mate_se = iate_se[:, :, :, 1].reshape(
-                        shape[0], shape[1]*shape[2])
-                    if y_pred_mate.shape[1] > 1:
-                        (y_pred_mate, y_pred_mate_se, correct_m_gate_cont
-                         ) = mgate_corections(y_pred_mate, y_pred_mate_se,
-                                              correct_m_gate_cont)
-            if c_dict['with_output']:
+                mcf_gateout.plot_marginal(
+                    y_pred, y_pred_se, name_pred, z_name, eva_values[z_name],
+                    var_x_type[z_name], c_dict, regrf, minus_ate=False)
+            if not regrf and (w_ate is not None):
                 if c_dict['d_type'] == 'continuous':
                     mcf_gateout.plot_marginal_cont(
-                        y_pred, y_pred_se, vname, eva_values[vname],
-                        var_x_type[vname], c_dict, minus_ate=False)
+                        y_pred_mate, y_pred_mate_se, z_name,
+                        eva_values[z_name], var_x_type[z_name], c_dict,
+                        minus_ate=True)
                 else:
                     mcf_gateout.plot_marginal(
-                        y_pred, y_pred_se, name_pred, vname, eva_values[vname],
-                        var_x_type[vname], c_dict, regrf, minus_ate=False)
-                if not regrf and (w_ate is not None):
-                    if c_dict['d_type'] == 'continuous':
-                        mcf_gateout.plot_marginal_cont(
-                            y_pred_mate, y_pred_mate_se, vname,
-                            eva_values[vname], var_x_type[vname], c_dict,
-                            minus_ate=True)
-                    else:
-                        mcf_gateout.plot_marginal(
-                            y_pred_mate, y_pred_mate_se, name_mate_pred, vname,
-                            eva_values[vname], var_x_type[vname], c_dict,
-                            regrf, minus_ate=True)
+                        y_pred_mate, y_pred_mate_se, name_mate_pred, z_name,
+                        eva_values[z_name], var_x_type[z_name], c_dict,
+                        regrf, minus_ate=True)
     if not regrf and (w_ate is not None):
         if c_dict['with_output'] and c_dict['verbose']:
             print_str += ('\nMGATEs minus ATE are evaluated at fixed feature'
@@ -273,7 +293,7 @@ def mgate_function(
     c_dict_mgate['w_yes'] = w_yes_old
     c_dict_mgate['with_output'] = with_output_old
     c_dict_mgate['choice_based_yes'] = choice_based_yes_old
-    return any_plots_done
+    return any_plots_done, mgate, mgate_se, mgate_diff, mgate_se_diff
 
 
 def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
@@ -296,7 +316,8 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
     -------
     gate: Lists of Numpy arrays.
     gate_se: Lists of Numpy arrays.
-
+    gate_diff: like gate but for the difference of gates or to ATE
+    gate_se_diff: like gate_se but for the difference of gates or to ATE
     """
     gate_str = 'AMGATE' if amgate_flag else 'GATE'
     if c_dict['with_output'] and c_dict['verbose']:
@@ -310,10 +331,10 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
     d_p, z_p, w_p, _ = mcf_ate.get_data_for_final_estimation(
         pred_data, v_dict, c_dict, ate=False, need_count=False)
     z_type_l = [None] * len(v_dict['z_name'])
-    z_values_l = [None] * len(v_dict['z_name'])
+    z_values_l = z_type_l[:]
     z_smooth_l = [False] * len(v_dict['z_name'])
     gate = [None] * len(v_dict['z_name'])
-    gate_se = [None] * len(v_dict['z_name'])
+    gate_se, gate_diff,  gate_se_diff = gate[:], gate[:], gate[:]
     if c_dict['d_type'] == 'continuous':
         continuous = True
         c_dict['atet_flag'] = c_dict['gatet_flag'] = False
@@ -345,24 +366,29 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
         c_dict['gatet_flag'], no_of_tgates = 0, 1
         ref_pop_lab = [ref_pop_lab[0]]
     t_probs = c_dict['choice_based_probs']
-    effect_type_label = (gate_str, gate_str + ' - ATE')
+    if c_dict['gates_minus_previous']:
+        effect_type_label = (gate_str, gate_str + '(change)')
+    else:
+        effect_type_label = (gate_str, gate_str + ' - ATE')
     jdx = 0
     for t1_idx, t1_lab in enumerate(d_values):
         for t2_idx in range(t1_idx+1, no_of_treat):
-            treat_comp_label[jdx] = str(d_values[t2_idx]) + 'vs' + str(t1_lab
-                                                                         )
+            treat_comp_label[jdx] = str(d_values[t2_idx]) + 'vs' + str(t1_lab)
             jdx += 1
         if continuous:
             break
-    w_ate_sum = np.sum(w_ate, axis=2)
-    for a_idx in range(no_of_tgates):  # Weights for ATE are normalized
-        for t_idx in range(no_of_treat):
-            if not ((1-1e-10) < w_ate_sum[a_idx, t_idx] < (1+1e-10)):
-                w_ate[a_idx, t_idx, :] = (w_ate[a_idx, t_idx, :]
-                                          / w_ate_sum[a_idx, t_idx])
+    if c_dict['gates_minus_previous']:
+        w_ate = None
+    else:
+        w_ate_sum = np.sum(w_ate, axis=2)
+        for a_idx in range(no_of_tgates):  # Weights for ATE are normalized
+            for t_idx in range(no_of_treat):
+                if not ((1-1e-10) < w_ate_sum[a_idx, t_idx] < (1+1e-10)):
+                    w_ate[a_idx, t_idx, :] = (w_ate[a_idx, t_idx, :]
+                                              / w_ate_sum[a_idx, t_idx])
     files_to_delete = set()
     save_w_file = None
-    if c_dict['no_parallel'] > 1 and not c_dict['mp_with_ray']:
+    if c_dict['no_parallel'] > 1 and c_dict['_ray_or_dask'] != 'ray':
         memory_weights = gp_sys.total_size(weights_all)
         if c_dict['weight_as_sparse']:
             for d_idx in range(no_of_treat):
@@ -396,7 +422,7 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
             maxworkers = 1
     if c_dict['with_output'] and c_dict['verbose']:
         print('Number of parallel processes: ', maxworkers, flush=True)
-    if c_dict['mp_with_ray']:
+    if c_dict['_ray_or_dask'] == 'ray':
         if c_dict['mem_object_store_3'] is None:
             if not ray.is_initialized():
                 ray.init(num_cpus=maxworkers, include_dashboard=False)
@@ -430,8 +456,13 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
         pot_y = np.empty((no_of_zval, no_of_tgates, no_of_treat_dr, no_of_out))
         pot_y_var = np.empty_like(pot_y)
         pot_y_mate, pot_y_mate_var = np.empty_like(pot_y), np.empty_like(pot_y)
-        if maxworkers == 1:
+        if (maxworkers == 1) or c_dict['gates_minus_previous']:
             for zj_idx in range(no_of_zval):
+                if c_dict['gates_minus_previous']:
+                    if zj_idx > 0:
+                        w_ate = w_gate_unc[zj_idx-1, :, :, :]
+                    else:
+                        w_ate = w_gate_unc[zj_idx, :, :, :]
                 results_fut_zj = gate_zj(
                     z_values[zj_idx], zj_idx, y_dat, cl_dat, w_dat, z_p, d_p,
                     w_p, z_name_j, weights_all, w_gate0_dim,
@@ -447,7 +478,7 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                 w_gate, w_gate_unc, w_censored = assign_w(
                      w_gate, w_gate_unc, w_censored, results_fut_zj, zj_idx)
         else:
-            if c_dict['mp_with_ray']:
+            if c_dict['_ray_or_dask'] == 'ray':
                 still_running = [ray_gate_zj_mp.remote(
                          z_values[zj_idx], zj_idx, y_dat, cl_dat,
                          w_dat, z_p, d_p, w_p, z_name_j, weights_all_ref,
@@ -466,6 +497,32 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                         w_gate, w_gate_unc, w_censored = assign_w(
                             w_gate, w_gate_unc, w_censored, results_fut_idx,
                             results_fut_idx[6])
+            elif c_dict['_ray_or_dask'] == 'dask':
+                with Client(n_workers=maxworkers) as clt:
+                    y_dat_ref = clt.scatter(y_dat)
+                    weights_all2_ref = clt.scatter(weights_all2)
+                    ret_fut = [clt.submit(
+                        gate_zj_mp, z_values[zj_idx], zj_idx, y_dat_ref,
+                        cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
+                        weights_all2_ref, w_gate0_dim, w_ate, i_d_val, t_probs,
+                        no_of_tgates, no_of_out, c_dict, n_y, bandw_z, kernel,
+                        save_w_file, z_smooth, continuous)
+                        for zj_idx in range(no_of_zval)]
+                    jdx = 0
+                    for _, res in as_completed(ret_fut, with_results=True):
+                        zjj = res[6]
+                        (pot_y, pot_y_var, pot_y_mate, pot_y_mate_var
+                         ) = assign_pot(pot_y, pot_y_var, pot_y_mate,
+                                        pot_y_mate_var, res, zjj)
+                        if res[8] is not None:
+                            w_gate[zjj, :, :, :] = np.load(res[8])
+                            w_gate_unc[zjj, :, :, :] = np.load(res[9])
+                            files_to_delete.add(res[8])
+                            files_to_delete.add(res[9])
+                        else:
+                            w_gate[zjj, :, :, :] = res[4]
+                            w_gate_unc[zjj, :, :, :] = res[5]
+                        w_censored[zjj, :, :] = res[7]
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
                                                  ) as fpp:
@@ -551,15 +608,14 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                     ret_gate[zj_idx] = np.array(ret, dtype=object, copy=True)
                     gate_z[zj_idx, o_idx, a_idx, :] = ret[0]
                     gate_z_se[zj_idx, o_idx, a_idx, :] = ret[1]
-                    if c_dict['with_output']:
-                        ret = mcf_gp.effect_from_potential(
-                            pot_y_mate[zj_idx, a_idx, :, o_idx].reshape(-1),
-                            pot_y_mate_var[zj_idx, a_idx, :, o_idx].reshape(
-                                -1), d_values_dr, continuous=continuous)
-                        gate_z_mate[zj_idx, o_idx, a_idx, :] = ret[0]
-                        gate_z_mate_se[zj_idx, o_idx, a_idx, :] = ret[1]
-                        ret_gate_mate[zj_idx] = np.array(ret, dtype=object,
-                                                         copy=True)
+                    ret = mcf_gp.effect_from_potential(
+                        pot_y_mate[zj_idx, a_idx, :, o_idx].reshape(-1),
+                        pot_y_mate_var[zj_idx, a_idx, :, o_idx].reshape(
+                            -1), d_values_dr, continuous=continuous)
+                    gate_z_mate[zj_idx, o_idx, a_idx, :] = ret[0]
+                    gate_z_mate_se[zj_idx, o_idx, a_idx, :] = ret[1]
+                    ret_gate_mate[zj_idx] = np.array(ret, dtype=object,
+                                                     copy=True)
                 if c_dict['with_output']:
                     print_str += ('\nGroup Average Treatment effects '
                                   + f'({gate_str})' + '\n' + '- ' * 40)
@@ -568,14 +624,17 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                                   + f'{ref_pop_lab[a_idx]}' + '\n')
                     print_str += mcf_gp.print_effect_z(
                         ret_gate, ret_gate_mate, z_values, gate_str,
-                        print_output=False)
+                        print_output=False,
+                        gates_minus_previous=c_dict['gates_minus_previous'])
                     print_str += '\n' + gp_est.print_se_info(
                         c_dict['cluster_std'], c_dict['se_boot_gate'])
-                    print_str += gp_est.print_minus_ate_info(c_dict['w_yes'])
+                    if not c_dict['gates_minus_previous']:
+                        print_str += gp_est.print_minus_ate_info(
+                            c_dict['w_yes'])
                     print(print_str)
                     gp.print_f(c_dict['outfilesummary'], print_str)
-        if c_dict['with_output']:   # figures
-            primes = gp.primes_list()
+        if c_dict['with_output'] and not c_dict['gates_minus_previous']:
+            primes = gp.primes_list()                 # figures
             for a_idx, a_lab in enumerate(ref_pop_lab):
                 gatet_yes = not a_idx == 0
                 for o_idx, o_lab in enumerate(v_dict['y_name']):
@@ -599,11 +658,11 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                                             z_values_f[zjj] = jdx
                             if not continuous:
                                 mcf_gateout.make_gate_figures_discr(
-                                    e_lab + ' ' + z_name + ' ' + a_lab + ' ' +
-                                    o_lab + ' ' + t_lab, z_name, z_values_f,
-                                    z_type_l, effects, ste, c_dict, ate_f,
-                                    ate_f_se, amgate_flag, z_smooth,
-                                    gatet_yes=gatet_yes)
+                                    e_lab + ' ' + z_name + ' ' + a_lab +
+                                    ' ' + o_lab + ' ' + t_lab, z_name,
+                                    z_values_f, z_type_l, effects, ste,
+                                    c_dict, ate_f, ate_f_se, amgate_flag,
+                                    z_smooth, gatet_yes=gatet_yes)
                             if continuous and t_idx == len(treat_comp_label)-1:
                                 if e_idx == 0:
                                     ate_f = ate[o_idx, a_idx, :]
@@ -612,14 +671,16 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
                                     ate_f = None
                                     effects = gate_z_mate[:, o_idx, a_idx, :]
                                 mcf_gateout.make_gate_figures_cont(
-                                    e_lab + ' ' + z_name + ' ' + a_lab + ' ' +
-                                    o_lab, z_name, z_values_f, effects, c_dict,
-                                    ate_f, amgate_flag, d_values=d_values_dr)
+                                    e_lab + ' ' + z_name + ' ' + a_lab +
+                                    ' ' + o_lab, z_name, z_values_f,
+                                    effects, c_dict, ate_f, amgate_flag,
+                                    d_values=d_values_dr)
         if c_dict['with_output']:
             print('-' * 80)
-            gate[z_name_j] = gate_z
-            gate_se[z_name_j] = gate_z_se
-    if c_dict['mp_with_ray']:
+        gate[z_name_j], gate_se[z_name_j] = gate_z, gate_z_se
+        gate_diff[z_name_j] = gate_z_mate
+        gate_se_diff[z_name_j] = gate_z_mate_se
+    if c_dict['_ray_or_dask'] == 'ray':
         if 'refs' in c_dict['_mp_ray_del']:
             del weights_all_ref
         if 'rest' in c_dict['_mp_ray_del']:
@@ -629,7 +690,7 @@ def gate_est(weights_all, pred_data, y_dat, cl_dat, w_dat, v_dict, c_dict,
     if files_to_delete:  # delete temporary files
         for file in files_to_delete:
             os.remove(file)
-    return gate, gate_se
+    return gate, gate_se, gate_diff, gate_se_diff
 
 
 def assign_pot(pot_y, pot_y_var, pot_y_mate, pot_y_mate_var, results_fut_zj,
@@ -924,7 +985,7 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
                             bootstrap=c_dict['se_boot_gate'])
                         pot_y_mate_zj[a_idx, t_idx, o_idx] = ret2[0]
                         pot_y_mate_var_zj[a_idx, t_idx, o_idx] = ret2[1]
-    if w_gate_zj.nbytes > 1e+9 and not c_dict['mp_with_ray']:
+    if w_gate_zj.nbytes > 1e+9 and c_dict['_ray_or_dask'] != 'ray':
         # otherwise tuple gets too large for MP
         save_name_w = 'wtemp' + str(zj_idx) + '.npy'
         save_name_wunc = 'wunctemp' + str(zj_idx) + '.npy'
@@ -932,7 +993,7 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
         np.save(save_name_wunc, w_gate_unc_zj, fix_imports=False)
         w_gate_zj = w_gate_unc_zj = None
     else:
-        save_name_w = save_name_wunc = None, None
+        save_name_w = save_name_wunc = None
     return (pot_y_zj, pot_y_var_zj, pot_y_mate_zj, pot_y_mate_var_zj,
             w_gate_zj, w_gate_unc_zj, zj_idx, w_censored_zj, save_name_w,
             save_name_wunc)
@@ -958,10 +1019,8 @@ def addsmoothvars(in_csv_file, v_dict, v_x_values, c_dict):
     """
     smooth_yes = False
     z_name = v_dict['z_name']
-    z_name_add = []
-    for name in z_name:
-        if name.endswith('CATV') and (len(name) > 4):
-            z_name_add.append(name[:-4])
+    z_name_add = [name[:-4] for name in z_name if (name.endswith('CATV')
+                                                   and (len(name) > 4))]
     if z_name_add:
         smooth_yes = True
         v_dict_new = copy.deepcopy(v_dict)

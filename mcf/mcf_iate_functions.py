@@ -9,6 +9,7 @@ Created on Thu Dec 8 15:48:57 2020.
 """
 from concurrent import futures
 from copy import deepcopy
+from dask.distributed import Client, as_completed
 
 import numpy as np
 import pandas as pd
@@ -137,7 +138,7 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
                 gp.share_completed(idx+1, n_x)
     else:
         if c_dict['obs_by_obs']:  # this is currently not used, too slow
-            if c_dict['mp_with_ray']:
+            if c_dict['_ray_or_dask'] == 'ray':
                 if c_dict['mem_object_store_3'] is None:
                     if not ray.is_initialized():
                         ray.init(num_cpus=maxworkers, include_dashboard=False)
@@ -177,6 +178,30 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
                     del finished_res, finished
                 if c_dict['_mp_ray_shutdown']:
                     ray.shutdown()
+            elif c_dict['_ray_or_dask'] == 'dask':
+                with Client(n_workers=maxworkers) as clt:
+                    if c_dict['weight_as_sparse']:
+                        ret_fut = [clt.submit(
+                            iate_func1_for_mp, idx,
+                            [weights[t_idx].getrow(idx) for t_idx in
+                             range(iterator)], cl_dat, no_of_cluster, w_dat,
+                            w_ate, y_dat, no_of_out, n_y, c_dict)
+                            for idx in range(n_x)]
+                        warn_text(c_dict)
+                    else:
+                        ret_fut = [clt.submit(
+                            iate_func1_for_mp, idx, weights[idx], cl_dat,
+                            no_of_cluster, w_dat, w_ate, y_dat, no_of_out, n_y,
+                            c_dict) for idx in range(n_x)]
+                    jdx = 0
+                    for _, res in as_completed(ret_fut, with_results=True):
+                        jdx += 1
+                        (pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var,
+                         l1_to_9, share_censored) = assign_ret_all_i(
+                             pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var,
+                             l1_to_9, share_censored, res, n_x)
+                        if c_dict['with_output'] and c_dict['verbose']:
+                            gp.share_completed(jdx+1, n_x)
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
                                                  ) as fpp:
@@ -212,7 +237,7 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
                       f'{n_x / no_of_splits:5.2f}.',
                       ' Number of splits: ', no_of_splits)
             obs_idx_list = np.array_split(np.arange(n_x), no_of_splits)
-            if c_dict['mp_with_ray']:
+            if c_dict['_ray_or_dask'] == 'ray':
                 if c_dict['mem_object_store_3'] is None:
                     if not ray.is_initialized():
                         ray.init(num_cpus=maxworkers, include_dashboard=False)
@@ -253,6 +278,31 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
                     del finished_res, finished
                 if c_dict['_mp_ray_shutdown']:
                     ray.shutdown()
+            elif c_dict['_ray_or_dask'] == 'dask':
+                with Client(n_workers=maxworkers) as clt:
+                    if c_dict['weight_as_sparse']:
+                        ret_fut = [clt.submit(
+                            iate_func1_for_mp_many_obs, idx,
+                            [weights[t_idx][idx, :] for t_idx in
+                             range(iterator)], cl_dat, no_of_cluster, w_dat,
+                            w_ate, y_dat, no_of_out, n_y, c_dict)
+                                for idx in obs_idx_list]
+                    else:
+                        ret_fut = [clt.submit(
+                            iate_func1_for_mp_many_obs, idx,
+                            [weights[idxx] for idxx in idx], cl_dat,
+                            no_of_cluster, w_dat, w_ate, y_dat, no_of_out,
+                            n_y, c_dict) for idx in obs_idx_list]
+                    jdx = 0
+                    for _, res_l in as_completed(ret_fut, with_results=True):
+                        jdx += 1
+                        for res in res_l:
+                            (pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var,
+                             l1_to_9, share_censored) = assign_ret_all_i(
+                             pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var,
+                             l1_to_9, share_censored, res, n_x)
+                        if c_dict['with_output'] and c_dict['verbose']:
+                            gp.share_completed(jdx+1, no_of_splits)
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
                                                  ) as fpp:
@@ -346,7 +396,7 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
             if idx == n_x-1:
                 effect_list = ret_all_idx[4]
     else:
-        if c_dict['mp_with_ray']:
+        if c_dict['_ray_or_dask'] == 'ray':
             if c_dict['mem_object_store_3'] is None:
                 if not ray.is_initialized():
                     ray.init(num_cpus=maxworkers, include_dashboard=False)
@@ -387,6 +437,30 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
                 del finished_res, finished
             if c_dict['_mp_ray_shutdown']:
                 ray.shutdown()
+        elif c_dict['_ray_or_dask'] == 'dask':
+            with Client(n_workers=maxworkers) as clt:
+                if c_dict['iate_se_flag']:
+                    ret_fut = [clt.submit(
+                        iate_func2_for_mp, idx, no_of_out, pot_y[idx],
+                        pot_y_var[idx], pot_y_m_ate[idx], pot_y_m_ate_var[idx],
+                        c_dict, d_values_dr, no_of_treat_dr)
+                        for idx in range(n_x)]
+                else:
+                    ret_fut = [clt.submit(
+                        iate_func2_for_mp, idx, no_of_out, pot_y[idx],
+                        None, None, None, c_dict, d_values_dr, no_of_treat_dr)
+                        for idx in range(n_x)]
+                jdx = 0
+                for _, res in as_completed(ret_fut, with_results=True):
+                    jdx += 1
+                    iix, iate[iix, :, :, :] = res[0], res[1]
+                    if c_dict['iate_se_flag']:
+                        iate_se[iix, :, :, :] = res[2]
+                        iate_p[iix, :, :, :] = res[3]
+                    if jdx == n_x-1:
+                        effect_list = res[4]
+                    if c_dict['with_output'] and c_dict['verbose']:
+                        gp.share_completed(jdx+1, n_x)
         else:
             with futures.ProcessPoolExecutor(max_workers=maxworkers) as fpp:
                 ret_fut = {fpp.submit(
@@ -479,8 +553,8 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
         name_pot_y_se = name_iate_se = name_iate_mate = None
         name_iate_mate_se = name_iate_se0 = name_iate_mate0 = None
         name_iate_mate_se0 = None
-    if (c_dict['with_output'] and save_predictions
-        ) or c_dict['_return_iate_sp']:
+    if (c_dict['with_output'] and save_predictions) or c_dict[
+            '_return_iate_sp']:
         pot_y_df = pd.DataFrame(data=pot_y_np, columns=name_pot_y)
         iate_df = pd.DataFrame(data=iate_np, columns=name_iate)
         if c_dict['iate_se_flag']:
@@ -501,18 +575,23 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
             df_list = [data_df, pot_y_df, iate_df]
         if c_dict['l_centering_uncenter']:
             x_pred_np = find_x_to_uncenter(data_df, var_x_type)
-            y_x_lc = lc_forest.predict(x_pred_np)
+            try:
+                y_x_lc = lc_forest.predict(x_pred_np)
+            except RuntimeError:
+                y_x_lc = np.empty(len(x_pred_np)) * np.nan
+                if c_dict['with_output']:
+                    print('Uncentering not successful.')
             pot_y_unlc_np += np.reshape(y_x_lc, (-1, 1))
             pot_y_unlc_df = pd.DataFrame(data=pot_y_unlc_np,
                                          columns=name_pot_y_unlc)
             df_list.append(pot_y_unlc_df)
-        data_file_new = pd.concat(df_list, axis=1)
+        data_pred_new = pd.concat(df_list, axis=1)
         if ((c_dict['with_output'] and save_predictions)
-            or (save_predictions and reg_round and c_dict['effiate_flag'])
-            or (save_predictions and c_dict['effiate_flag']
+            or (save_predictions and reg_round and c_dict['iate_eff_flag'])
+            or (save_predictions and c_dict['iate_eff_flag']
                 and c_dict['_return_iate_sp'])):
             gp.delete_file_if_exists(c_dict['pred_sample_with_pred'])
-            data_file_new.to_csv(c_dict['pred_sample_with_pred'], index=False)
+            data_pred_new.to_csv(c_dict['pred_sample_with_pred'], index=False)
         if c_dict['with_output']:
             gp.print_descriptive_stats_file(
                 c_dict['pred_sample_with_pred'], 'all',
@@ -530,9 +609,9 @@ def iate_est_mp(weights, data_file, y_dat, cl_dat, w_dat, v_dict, c_in_dict,
         'names_iate_mate_se': name_iate_mate_se0,
         'names_pot_y_uncenter': name_pot_y_unlc}
     if not c_dict['_return_iate_sp']:
-        data_file_new = None
+        data_pred_new = None
     return (c_dict['pred_sample_with_pred'], pot_y, pot_y_var, iate, iate_se,
-            (names_pot_iate, names_pot_iate0), data_file_new)
+            (names_pot_iate, names_pot_iate0), data_pred_new)
 
 
 def find_x_to_uncenter(data_df, var_x_type):
@@ -541,10 +620,7 @@ def find_x_to_uncenter(data_df, var_x_type):
     x_df = data_df[x_names]
     # This part must be identical to the same part in local centering!
     # To Do: Use same function in both.
-    names_unordered = []
-    for x_name in x_names:
-        if var_x_type[x_name] > 0:
-            names_unordered.append(x_name)
+    names_unordered = [x_name for x_name in x_names if var_x_type[x_name] > 0]
     if names_unordered:  # List is not empty
         x_dummies = pd.get_dummies(x_df, columns=names_unordered)
         x_df = pd.concat([x_df[names_unordered], x_dummies], axis=1)
@@ -703,8 +779,8 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
         w_all_i_unc[w_index] = w_i_unc
         return w_all_i, w_all_i_unc
 
-    if c_dict['with_output'] and (idx == 0) and not c_dict[
-            'mp_with_ray'] and c_dict['verbose']:
+    if (c_dict['with_output'] and (idx == 0)
+            and c_dict['_ray_or_dask'] != 'ray' and c_dict['verbose']):
         print('Starting to compute IATE - procedure 1', flush=True)
     if c_dict['d_type'] == 'continuous':
         continuous = True

@@ -29,6 +29,7 @@ from mcf import mcf_gate_functions as mcf_gate
 from mcf import mcf_gate_tables_functions as mcf_gate_tables
 from mcf import mcf_iate_functions as mcf_iate
 from mcf import mcf_iate_add_functions as mcf_iate_add
+from mcf import mcf_iate_cv_functions as mcf_iate_cv
 from mcf import mcf_forest_add_functions as mcf_forest_add
 
 
@@ -41,60 +42,64 @@ def modified_causal_forest(
         x_name_remain_ord=None, x_name_remain_unord=None,
         x_balance_name_ord=None, x_balance_name_unord=None,
         alpha_reg_min=0.1, alpha_reg_max=0.2, alpha_reg_grid=2,
-        atet_flag=False, balancing_test=True, bin_corr_threshold=0.1,
-        bin_corr_yes=True, boot=1000, ci_level=0.9, check_perfectcorr=True,
+        atet_flag=False, balancing_test=True,
+        boot=1000, ci_level=0.9, check_perfectcorr=True,
         choice_based_sampling=False, choice_based_weights=None,
         clean_data_flag=True, cluster_std=False, cond_var_flag=True,
         ct_grid_nn=10, ct_grid_w=10, ct_grid_dr=100,
-        datpfad=None, effiate_flag=True, fs_other_sample_share=0.2,
+        datpfad=None, fs_other_sample_share=0.2,
         fs_other_sample=True, fs_rf_threshold=0, fs_yes=None,
-        forest_files=None, gatet_flag=False,
-        gmate_no_evaluation_points=50, gmate_sample_share=None, iate_flag=True,
-        iate_se_flag=True, indata=None, knn_flag=True, knn_min_k=10,
+        forest_files=None,
+        gates_minus_previous=False, gates_smooth=True,
+        gates_smooth_bandwidth=1,
+        gates_smooth_no_evaluation_points=50, gatet_flag=False,
+        gmate_no_evaluation_points=50, gmate_sample_share=None,
+        iate_flag=True, iate_se_flag=True, iate_eff_flag=True,
+        iate_cv_flag=False, iate_cv_folds=5,
+        indata=None, knn_flag=True, knn_min_k=10,
         knn_const=1, l_centering=True, l_centering_share=0.25,
         l_centering_cv_k=5, l_centering_new_sample=False,
         l_centering_replication=True, l_centering_undo_iate=True,
         m_min_share=-1, m_max_share=-1, m_grid=2, m_random_poisson=True,
         match_nn_prog_score=True, max_cats_z_vars=None, max_weight_share=0.05,
         mce_vart=1, min_dummy_obs=10,  mp_parallel=None,
-        n_min_grid=1, n_min_min=-1, n_min_max=-1, nn_main_diag_only=False,
-        nw_kern_flag=1, nw_bandw=None, outfiletext=None,
-        outpfad=None, output_type=2, panel_data=False, panel_in_rf=True,
-        preddata=None, p_diff_penalty=None, post_est_stats=True,
-        post_plots=True, post_kmeans_yes=True, post_kmeans_max_tries=1000,
-        post_kmeans_no_of_groups=None, post_kmeans_replications=10,
-        post_random_forest_vi=True, predict_mcf=True,
-        reduce_prediction=False, reduce_prediction_share=0.5,
+        n_min_grid=1, n_min_min=-1, n_min_max=-1, n_min_treat=3,
+        nn_main_diag_only=False, nw_kern_flag=1, nw_bandw=None,
+        outfiletext=None, outpfad=None, output_type=2,
+        panel_data=False, panel_in_rf=True,
+        preddata=None, p_diff_penalty=None,
+        post_bin_corr_threshold=0.1, post_bin_corr_yes=True,
+        post_est_stats=True, post_plots=True, post_kmeans_yes=True,
+        post_kmeans_max_tries=1000, post_kmeans_no_of_groups=None,
+        post_kmeans_replications=10, post_random_forest_vi=True,
+        post_relative_to_first_group_only=True,
+        predict_mcf=True, reduce_prediction=False, reduce_prediction_share=0.5,
         reduce_split_sample=False, reduce_split_sample_pred_share=0.5,
         reduce_training=False, reduce_training_share=0.5,
-        relative_to_first_group_only=True, reduce_largest_group_train=False,
+        reduce_largest_group_train=False,
         reduce_largest_group_train_share=0.5, save_forest=False,
         screen_covariates=True, se_boot_ate=False, se_boot_gate=False,
-        se_boot_iate=False, smooth_gates=True, smooth_gates_bandwidth=1,
-        smooth_gates_no_evaluation_points=50, random_thresholds=None,
-        subsample_factor_forest=None, subsample_factor_eval=False,
+        se_boot_iate=False, random_thresholds=None,
+        subsample_factor_forest=None, subsample_factor_eval=None,
         support_check=1, support_min_p=None, support_quantil=1,
         support_max_del_train=0.5, support_adjust_limits=None, train_mcf=True,
         variable_importance_oob=False, weighted=False,
         _share_forest_sample=0.5, _weight_as_sparse=True,
         _mp_vim_type=None, _mp_weights_type=1, _mp_weights_tree_batch=None,
         _verbose=True, _fontsize=2, _descriptive_stats=True,
-        _no_filled_plot=20, _show_plots=True,
-        _smaller_sample=0, _with_output=True, _dpi=500,
-        _max_cats_cont_vars=None, _max_save_values=50,
-        _seed_sample_split=67567885, _mp_ray_del=None,
+        _no_filled_plot=20, _show_plots=True, _smaller_sample=0,
+        _with_output=True, _dpi=500, _max_cats_cont_vars=None,
+        _max_save_values=50, _seed_sample_split=67567885, _mp_ray_del=None,
         _mp_ray_shutdown=None, _mp_ray_objstore_multiplier=None,
-        _return_iate_sp=False):
+        _ray_or_dask='ray', _return_iate_sp=False):
     """Compute the honest causal/random forest (based on mcf)."""
     freeze_support()
-    time1 = time.time()
 
     # Some temporary operational flags may be changed at some point
     _boot_by_boot = 10    # Build forest x-by-x or in larger groups (not Ray)
     _obs_by_obs = False      # Compute IATE obs by obs or in chuncks
     _max_elements_per_split = 100 * 10e5  # reduce if breakdown (weights)
     _load_old_forest = False  # Useful for testing to save time
-    _mp_with_ray = True       # Is not stable without ray
     _no_ray_in_forest_building = False
 
 # Collect vars in a dictionary
@@ -119,6 +124,9 @@ def modified_causal_forest(
         else:
             preddata = 'smaller_indata'
         indata = 'smaller_indata'
+    iate_cv_flag, iate_cv_folds = mcf_iate_cv.check_if_iate_cv(
+        iate_cv_flag, iate_cv_folds, preddata, indata, iate_flag, d_type)
+
 # set values for control variables
     controls_dict = mcf_init_add.controls_into_dic(
         mp_parallel, _mp_vim_type, output_type, outpfad,
@@ -134,18 +142,18 @@ def modified_causal_forest(
         knn_const, choice_based_weights, nw_kern_flag, post_kmeans_max_tries,
         cond_var_flag, knn_flag, nw_bandw, panel_data, _max_cats_cont_vars,
         cluster_std, fs_yes, fs_other_sample_share, gatet_flag,
-        fs_other_sample, bin_corr_yes, panel_in_rf, fs_rf_threshold,
-        post_plots, post_est_stats, relative_to_first_group_only,
-        post_kmeans_yes, atet_flag, bin_corr_threshold,
+        fs_other_sample, post_bin_corr_yes, panel_in_rf, fs_rf_threshold,
+        post_plots, post_est_stats, post_relative_to_first_group_only,
+        post_kmeans_yes, atet_flag, post_bin_corr_threshold,
         post_kmeans_no_of_groups, post_kmeans_replications, _with_output,
         _max_save_values, nn_main_diag_only, _fontsize, _dpi, ci_level,
         max_weight_share, save_forest, l_centering, l_centering_share,
         l_centering_new_sample, l_centering_cv_k, post_random_forest_vi,
         gmate_no_evaluation_points, gmate_sample_share, _no_filled_plot,
-        smooth_gates, smooth_gates_bandwidth,
-        smooth_gates_no_evaluation_points, _show_plots, _weight_as_sparse,
+        gates_smooth, gates_smooth_bandwidth,
+        gates_smooth_no_evaluation_points, _show_plots, _weight_as_sparse,
         _mp_weights_type, _mp_weights_tree_batch, _boot_by_boot, _obs_by_obs,
-        _max_elements_per_split, _mp_with_ray, _mp_ray_objstore_multiplier,
+        _max_elements_per_split, _mp_ray_objstore_multiplier,
         _verbose, _no_ray_in_forest_building, predict_mcf, train_mcf,
         forest_files, match_nn_prog_score, se_boot_ate, se_boot_gate,
         se_boot_iate, support_max_del_train, _mp_ray_del, _mp_ray_shutdown,
@@ -154,14 +162,33 @@ def modified_causal_forest(
         reduce_largest_group_train, reduce_largest_group_train_share,
         iate_flag, iate_se_flag, l_centering_undo_iate, d_type, ct_grid_nn,
         ct_grid_w, ct_grid_dr, support_adjust_limits, l_centering_replication,
-        effiate_flag, _return_iate_sp)
+        iate_eff_flag, _return_iate_sp, iate_cv_flag, iate_cv_folds,
+        n_min_treat, gates_minus_previous, _ray_or_dask)
 # Set defaults for many control variables of the MCF & define variables
+    (ate, ate_se, gate, gate_se, iate, iate_se, pot_y, pot_y_var,
+     pred_outfile, pot_y_eff, iate_eff, names_pot_iate, preddata_all
+     ) = modified_causal_forest_master(controls_dict, variable_dict,
+                                       _load_old_forest, _seed_sample_split)
+    if iate_cv_flag:
+        iate_cv_file, iate_cv_names = mcf_iate_cv.iate_cv_proc(
+            controls_dict, variable_dict, seed_sample_split=_seed_sample_split,
+            with_output=controls_dict['with_output'],
+            file_with_out_path=pred_outfile)
+    else:
+        iate_cv_file = iate_cv_names = None
+    return (ate, ate_se, gate, gate_se, iate, iate_se, pot_y, pot_y_var,
+            pred_outfile, pot_y_eff, iate_eff, names_pot_iate, preddata_all,
+            iate_cv_file, iate_cv_names)
 
+
+def modified_causal_forest_master(controls_dict, variable_dict,
+                                  _load_old_forest, _seed_sample_split):
+    """Compute the honest causal/random forest (based on mcf)."""
+    # Some descriptive stats of input and direction of output file
+    time1 = time.time()
     c_dict, v_dict, text_to_print = mcf_init.get_controls(controls_dict,
                                                           variable_dict)
     ofs = c_dict['outfilesummary']
-
-# Some descriptive stats of input and direction of output file
     if c_dict['with_output']:
         if c_dict['print_to_file']:
             orig_stdout = sys.stdout
@@ -197,8 +224,8 @@ def modified_causal_forest(
                        '\n' + '-' * 80, f'\nIndata: {c_dict["indata"]}',
                        f'\nPrediction Data: {c_dict["indata"]}',
                        '\n' + '-' * 80, '\nThis is only the summary file. ',
-                       'For the complete results check',
-                       ' c_dict["outfiletext"]', '\n' + '-' * 80)
+                       'For the complete results check ',
+                       c_dict['outfiletext'], '\n' + '-' * 80)
             if c_dict['desc_stat']:
                 gp.print_descriptive_stats_file(c_dict['indata'], 'all',
                                                 c_dict['print_to_file'])
@@ -423,11 +450,11 @@ def modified_causal_forest(
         preddata3 = outfile[0]
         if c_dict['with_output']:
             print('-' * 80)
-    if c_dict['effiate_flag']:
+    if c_dict['iate_eff_flag']:
         est_rounds = ('regular', 'additional')
     else:
         est_rounds = ('regular', )
-        eff_pot_y = eff_iate = None
+        pot_y_eff = iate_eff = None
     for round_ in est_rounds:
         if round_ == 'regular':
             reg_round, pot_y = True, None
@@ -578,14 +605,16 @@ def modified_causal_forest(
                 time9_ate = time.time()
                 cont = c_dict['d_type'] == 'continuous'
                 if c_dict['marg_plots'] and c_dict['with_output']:
-                    mcf_gate.marg_gates_est(
+                    (mgate, mgate_se, mgate_diff, mgate_se_diff, amgate,
+                     amgate_se, amgate_diff, amgate_se_diff
+                     ) = mcf_gate.marg_gates_est(
                         forest, fill_y_sample, preddata3, v_dict, c_dict,
                         x_name_mcf, var_x_type, var_x_values, w_ate)
                     mcf_gate_tables.gate_tables_nice(c_dict, gate=False)
                     del forest
                 time9_marg = time.time()
                 if c_dict['gate_yes']:
-                    gate, gate_se = mcf_gate.gate_est(
+                    gate, gate_se, gate_diff, gate_se_diff = mcf_gate.gate_est(
                         weights, preddata3, y_train, cl_train, w_train, v_dict,
                         c_dict, var_x_type, var_x_values, w_ate, ate, ate_se)
                     if c_dict['with_output']:
@@ -606,10 +635,10 @@ def modified_causal_forest(
                     iate, iate_se = iate_, iate_se_
                     names_pot_iate = names_pot_iate_
                 else:
-                    eff_pot_y, eff_iate = pot_y_, iate_
+                    pot_y_eff, iate_eff = pot_y_, iate_
             else:
                 pot_y = pot_y_var = iate = iate_se = None
-                eff_iate = eff_pot_y = None
+                iate_eff = pot_y_eff = None
                 pred_outfile = names_pot_iate = preddata_all = None
             del _, w_ate
             if reg_round:
@@ -635,11 +664,11 @@ def modified_causal_forest(
             time7 = time8 = time9_ate = time9_marg = time9_gate = time.time()
             time9_iate = time9_bal = time10 = time3_2 = time.time()
             ate = ate_se = gate = gate_se = iate = iate_se = pot_y = None
-            pot_y_var = pred_outfile = eff_iate = eff_pot_y = None
+            pot_y_var = pred_outfile = iate_eff = pot_y_eff = None
             preddata_all = names_pot_iate = None
-    if not c_dict['effiate_flag']:
+    if not c_dict['iate_eff_flag']:
         time9_iate_2 = time.time()
-    timetot = time9_iate_2 if c_dict['effiate_flag'] else time10
+    timetot = time9_iate_2 if c_dict['iate_eff_flag'] else time10
     # Print timing information
     time_string = ['Data preparation and stats I:    ',
                    'Local centering (recoding of Y): ',
@@ -688,8 +717,10 @@ def modified_causal_forest(
         else:
             print('Multiprocessing')
             print('Number of cores used: ', c_dict['no_parallel'])
-            if c_dict['mp_with_ray']:
+            if c_dict['_ray_or_dask'] == 'ray':
                 print('Ray used for MP.')
+            elif c_dict['_ray_or_dask'] == 'dask':
+                print('Dask used for MP.')
             else:
                 print('Concurrent futures used for MP.')
                 if c_dict['mp_type_vim'] == 1:
@@ -711,8 +742,12 @@ def modified_causal_forest(
         else:
             outfiletext.close()
         sys.stdout = orig_stdout
-    return (ate, ate_se, gate, gate_se, iate, iate_se, pot_y, pot_y_var,
-            pred_outfile, eff_pot_y, eff_iate, names_pot_iate, preddata_all)
+    gate_all = (gate, mgate, mgate_diff, amgate, amgate_diff)
+    gate_se_all = (gate_se, mgate_se,  mgate_se_diff, amgate_se,
+                   amgate_se_diff)
+    return (ate, ate_se, gate_all, gate_se_all, iate, iate_se, pot_y,
+            pot_y_var, pred_outfile, pot_y_eff, iate_eff, names_pot_iate,
+            preddata_all)
 
 
 def save_train_data_for_pred(data_file, v_dict, c_dict, prob_score,
@@ -740,6 +775,7 @@ def save_train_data_for_pred(data_file, v_dict, c_dict, prob_score,
 
 class ModifiedCausalForest:
     """Estimate mcf in OOP style."""
+
     def __init__(
             self, id_name=None, cluster_name=None, w_name=None, d_name=None,
             d_type='discrete', y_tree_name=None, y_name=None, x_name_ord=None,
@@ -749,38 +785,44 @@ class ModifiedCausalForest:
             x_name_remain_ord=None, x_name_remain_unord=None,
             x_balance_name_ord=None, x_balance_name_unord=None,
             alpha_reg_min=0.1, alpha_reg_max=0.2, alpha_reg_grid=2,
-            atet_flag=False, balancing_test=True, bin_corr_threshold=0.1,
-            bin_corr_yes=True, boot=1000, ci_level=0.9, check_perfectcorr=True,
+            atet_flag=False, balancing_test=True,
+            boot=1000, ci_level=0.9, check_perfectcorr=True,
             choice_based_sampling=False, choice_based_weights=None,
             clean_data_flag=True, cluster_std=False, cond_var_flag=True,
             ct_grid_nn=10, ct_grid_w=10, ct_grid_dr=100,
-            datpfad=None, effiate_flag=True, fs_other_sample_share=0.2,
+            datpfad=None, fs_other_sample_share=0.2,
             fs_other_sample=True, fs_rf_threshold=0, fs_yes=None,
-            forest_files=None, gatet_flag=False,
+            forest_files=None,
+            gates_minus_previous=False,
+            gates_smooth=True, gates_smooth_bandwidth=1,
+            gates_smooth_no_evaluation_points=50, gatet_flag=False,
             gmate_no_evaluation_points=50, gmate_sample_share=None,
-            iate_flag=True, iate_se_flag=True, indata=None, knn_flag=True,
-            knn_min_k=10, knn_const=1, l_centering=True,
-            l_centering_share=0.25, l_centering_cv_k=5,
+            iate_flag=True, iate_se_flag=True, iate_eff_flag=True,
+            iate_cv_flag=False, iate_cv_folds=5,
+            indata=None, knn_flag=True, knn_min_k=10, knn_const=1,
+            l_centering=True, l_centering_share=0.25, l_centering_cv_k=5,
             l_centering_new_sample=False, l_centering_replication=True,
             l_centering_undo_iate=True, m_min_share=-1, m_max_share=-1,
             m_grid=2, m_random_poisson=True, match_nn_prog_score=True,
             max_cats_z_vars=None, max_weight_share=0.05,
             mce_vart=1, min_dummy_obs=10,  mp_parallel=None,
-            n_min_grid=1, n_min_min=-1, n_min_max=-1, nn_main_diag_only=False,
-            nw_kern_flag=1, nw_bandw=None, outfiletext=None,
-            outpfad=None, output_type=2, panel_data=False, panel_in_rf=True,
-            preddata=None, p_diff_penalty=None, post_est_stats=True,
+            n_min_grid=1, n_min_min=-1, n_min_max=-1, n_min_treat=3,
+            nn_main_diag_only=False, nw_kern_flag=1, nw_bandw=None,
+            outfiletext=None, outpfad=None, output_type=2, panel_data=False,
+            panel_in_rf=True, preddata=None, p_diff_penalty=None,
+            post_bin_corr_threshold=0.1, post_bin_corr_yes=True,
+            post_est_stats=True,
             post_plots=True, post_kmeans_yes=True, post_kmeans_max_tries=1000,
             post_kmeans_no_of_groups=None, post_kmeans_replications=10,
-            post_random_forest_vi=True, predict_mcf=True,
+            post_random_forest_vi=True, post_relative_to_first_group_only=True,
+            predict_mcf=True,
             reduce_prediction=False, reduce_prediction_share=0.5,
             reduce_split_sample=False, reduce_split_sample_pred_share=0.5,
             reduce_training=False, reduce_training_share=0.5,
-            relative_to_first_group_only=True, reduce_largest_group_train=False,
+            reduce_largest_group_train=False,
             reduce_largest_group_train_share=0.5, save_forest=False,
             screen_covariates=True, se_boot_ate=False, se_boot_gate=False,
-            se_boot_iate=False, smooth_gates=True, smooth_gates_bandwidth=1,
-            smooth_gates_no_evaluation_points=50, random_thresholds=None,
+            se_boot_iate=False, random_thresholds=None,
             subsample_factor_forest=None, subsample_factor_eval=False,
             support_check=1, support_min_p=None, support_quantil=1,
             support_max_del_train=0.5, support_adjust_limits=None,
@@ -793,7 +835,7 @@ class ModifiedCausalForest:
             _max_cats_cont_vars=None, _max_save_values=50,
             _seed_sample_split=67567885, _mp_ray_del=None,
             _mp_ray_shutdown=None, _mp_ray_objstore_multiplier=None,
-            _return_iate_sp=False):
+            _ray_or_dask='ray', _return_iate_sp=False):
         self.train_mcf = train_mcf
         self.predict_mcf = predict_mcf
         self.params = {
@@ -822,8 +864,8 @@ class ModifiedCausalForest:
             'alpha_reg_grid': alpha_reg_grid,
             'atet_flag': atet_flag,
             'balancing_test': balancing_test,
-            'bin_corr_threshold': bin_corr_threshold,
-            'bin_corr_yes': bin_corr_yes,
+            'post_bin_corr_threshold': post_bin_corr_threshold,
+            'post_bin_corr_yes': post_bin_corr_yes,
             'boot': boot,
             'ci_level': ci_level,
             'check_perfectcorr': check_perfectcorr,
@@ -836,17 +878,20 @@ class ModifiedCausalForest:
             'ct_grid_w': ct_grid_w,
             'ct_grid_dr': ct_grid_dr,
             'datpfad': datpfad,
-            'effiate_flag': effiate_flag,
             'fs_other_sample_share': fs_other_sample_share,
             'fs_other_sample': fs_other_sample,
             'fs_rf_threshold': fs_rf_threshold,
             'fs_yes': fs_yes,
             'forest_files': forest_files,
+            'gates_minus_previous': gates_minus_previous,
             'gatet_flag': gatet_flag,
             'gmate_no_evaluation_points': gmate_no_evaluation_points,
             'gmate_sample_share': gmate_sample_share,
             'iate_flag': iate_flag,
             'iate_se_flag': iate_se_flag,
+            'iate_eff_flag': iate_eff_flag,
+            'iate_cv_flag': iate_cv_flag,
+            'iate_cv_folds': iate_cv_folds,
             'indata': indata,
             'knn_flag': knn_flag,
             'knn_min_k': knn_min_k,
@@ -870,6 +915,7 @@ class ModifiedCausalForest:
             'n_min_grid': n_min_grid,
             'n_min_min': n_min_min,
             'n_min_max': n_min_max,
+            'n_min_treat': n_min_treat,
             'nn_main_diag_only': nn_main_diag_only,
             'nw_kern_flag': nw_kern_flag,
             'nw_bandw': nw_bandw,
@@ -894,17 +940,20 @@ class ModifiedCausalForest:
             'reduce_split_sample_pred_share': reduce_split_sample_pred_share,
             'reduce_training': reduce_training,
             'reduce_training_share': reduce_training_share,
-            'relative_to_first_group_only': relative_to_first_group_only,
+            'post_relative_to_first_group_only':
+                post_relative_to_first_group_only,
             'reduce_largest_group_train': reduce_largest_group_train,
-            'reduce_largest_group_train_share': reduce_largest_group_train_share,
+            'reduce_largest_group_train_share':
+                reduce_largest_group_train_share,
             'save_forest': save_forest,
             'screen_covariates': screen_covariates,
             'se_boot_ate': se_boot_ate,
             'se_boot_gate': se_boot_gate,
             'se_boot_iate': se_boot_iate,
-            'smooth_gates': smooth_gates,
-            'smooth_gates_bandwidth': smooth_gates_bandwidth,
-            'smooth_gates_no_evaluation_points': smooth_gates_no_evaluation_points,
+            'gates_smooth': gates_smooth,
+            'gates_smooth_bandwidth': gates_smooth_bandwidth,
+            'gates_smooth_no_evaluation_points':
+                gates_smooth_no_evaluation_points,
             'random_thresholds': random_thresholds,
             'subsample_factor_forest': subsample_factor_forest,
             'subsample_factor_eval': subsample_factor_eval,
@@ -934,7 +983,8 @@ class ModifiedCausalForest:
             '_seed_sample_split': _seed_sample_split,
             '_mp_ray_del': _mp_ray_del,
             '_mp_ray_shutdown': _mp_ray_shutdown,
-            '_mp_ray_objstore_multiplier': _mp_ray_objstore_multiplier}
+            '_mp_ray_objstore_multiplier': _mp_ray_objstore_multiplier,
+            '_ray_or_dask': _ray_or_dask}
 
     def train(self):
         """Train the mcf without prediction."""
@@ -947,19 +997,19 @@ class ModifiedCausalForest:
         self.params['train_mcf'] = False
         self.params['predict_mcf'] = True
         (ate, ate_se, gate, gate_se, iate, iate_se, pot_y, pot_y_var,
-         pred_outfile, eff_pot_y, eff_iate, names_pot_iate, preddata_all
-                ) = modified_causal_forest(**self.params)
+         pred_outfile, pot_y_eff, iate_eff, names_pot_iate, preddata_all,
+         iate_cv_file, iate_cv_names) = modified_causal_forest(**self.params)
         return (ate, ate_se, gate, gate_se, iate, iate_se, pot_y, pot_y_var,
-                pred_outfile, eff_pot_y, eff_iate, names_pot_iate,
-                preddata_all)
+                pred_outfile, pot_y_eff, iate_eff, names_pot_iate,
+                preddata_all, iate_cv_file, iate_cv_names)
 
     def train_predict(self):
         """Train and predict mcf in one go (recommended)."""
         self.params['train_mcf'] = True
         self.params['predict_mcf'] = True
         (ate, ate_se, gate, gate_se, iate, iate_se, pot_y, pot_y_var,
-         pred_outfile, eff_pot_y, eff_iate, names_pot_iate, preddata_all
-                ) = modified_causal_forest(**self.params)
+         pred_outfile, pot_y_eff, iate_eff, names_pot_iate, preddata_all,
+         iate_cv_file, iate_cv_names) = modified_causal_forest(**self.params)
         return (ate, ate_se, gate, gate_se, iate, iate_se, pot_y, pot_y_var,
-                pred_outfile, eff_pot_y, eff_iate, names_pot_iate,
-                preddata_all)
+                pred_outfile, pot_y_eff, iate_eff, names_pot_iate,
+                preddata_all, iate_cv_file, iate_cv_names)

@@ -32,7 +32,7 @@ def optpoltree(
     save_pred_to_file=True, id_name=None, polscore_name=None,
     polscore_desc_name=None, d_name=None, x_ord_name=None,
     x_unord_name=None, effect_vs_0=None, effect_vs_0_se=None, output_type=2,
-    outfiletext=None, mp_with_ray=True, parallel_processing=True,
+    outfiletext=None, _ray_or_dask='ray', parallel_processing=True,
     how_many_parallel=None, with_numba=True, screen_covariates=True,
     check_perfectcorr=True, min_dummy_obs=10, clean_data_flag=True,
     ft_yes=True, ft_no_of_evalupoints=100, ft_depth=3, ft_min_leaf_size=None,
@@ -62,7 +62,7 @@ def optpoltree(
         ft_no_of_evalupoints, max_shares, ft_depth, costs_of_treat,
         costs_of_treat_mult, with_numba, ft_min_leaf_size,
         only_if_sig_better_vs_0, sig_level_vs_0, save_pred_to_file,
-        mp_with_ray, st_yes, st_depth, st_min_leaf_size, ft_yes, bb_yes,
+        _ray_or_dask, st_yes, st_depth, st_min_leaf_size, ft_yes, bb_yes,
         ft_bootstraps, st_bootstraps, bb_bootstraps, bb_stochastic)
     variables = variable_dict(
         id_name, polscore_name, polscore_desc_name, d_name, x_ord_name,
@@ -397,10 +397,13 @@ def get_controls(c_dict, v_dict):
     if c_dict['no_parallel'] is None:
         c_dict['no_parallel'] = 0
     if c_dict['no_parallel'] < 0.5:
-        c_dict['no_parallel'] = cpu_count(logical=False) - 1
+        c_dict['no_parallel'] = round(cpu_count(logical=True) * 0.8)
     else:
         c_dict['no_parallel'] = round(c_dict['no_parallel'])
-    c_dict['mp_with_ray'] = c_dict['mp_with_ray'] is not False
+
+    if c_dict['_ray_or_dask'] not in ('dask', 'ray'):
+        c_dict['_ray_or_dask'] = 'ray'
+
     if c_dict['screen_covariates'] is not False:
         c_dict['screen_covariates'] = True
     if c_dict['check_perfectcorr'] is not True:
@@ -508,7 +511,7 @@ def get_controls(c_dict, v_dict):
     if c_dict['bb_stochastic']:
         if v_dict['effect_vs_0_se'] in (None, [], ()):
             raise Exception('effect_vs_0_se must be available for stochastic' +
-                           ' simulations.')
+                            ' simulations.')
         if len(v_dict['effect_vs_0_se']) != (no_of_treatments-1):
             raise Exception('Wrong dimension of variables effect_vs_0')
     c_dict['bb_bootstraps'] = recode_bootstrap(c_dict['bb_bootstraps'], 499)
@@ -588,7 +591,7 @@ def controls_into_dic(how_many_parallel, parallel_processing,
                       ft_no_of_evalupoints, max_shares, ft_depth,
                       costs_of_treat, costs_of_treat_mult, with_numba,
                       ft_min_leaf_size, only_if_sig_better_vs_0,
-                      sig_level_vs_0, save_pred_to_file, mp_with_ray,
+                      sig_level_vs_0, save_pred_to_file, _ray_or_dask,
                       st_yes, st_depth, st_min_leaf_size, ft_yes, bb_yes,
                       ft_bootstraps, st_bootstraps, bb_bootstraps,
                       bb_stochastic):
@@ -600,7 +603,7 @@ def controls_into_dic(how_many_parallel, parallel_processing,
         'preddata': preddata, 'with_output': with_output,
         'outfiletext': outfiletext, 'screen_covariates': screen_covariates,
         'check_perfectcorr': check_perfectcorr, 'min_dummy_obs': min_dummy_obs,
-        'clean_data_flag': clean_data_flag, 'mp_with_ray': mp_with_ray,
+        'clean_data_flag': clean_data_flag, '_ray_or_dask': _ray_or_dask,
         'with_numba': with_numba, 'max_shares': max_shares,
         'costs_of_treat': costs_of_treat, 'costs_mult': costs_of_treat_mult,
         'only_if_sig_better_vs_0': only_if_sig_better_vs_0,

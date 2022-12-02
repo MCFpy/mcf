@@ -100,18 +100,17 @@ def random_forest_scikit(
             no_features = round(no_of_vars/3)
     elif isinstance(no_features, float):
         no_features = round(no_features * no_of_vars)
-    if not isinstance(n_min, (list, tuple, np.ndarray)):
-        n_min = [n_min]
     if not isinstance(no_features, (list, tuple, np.ndarray)):
         no_features = [no_features]
     if not isinstance(alpha, (list, tuple, np.ndarray)):
         alpha = [alpha]
+    if not isinstance(n_min, (list, tuple, np.ndarray)):
+        n_min = [n_min]
     for nval in n_min:
         for mval in no_features:
-            # add optimisation über alpha --> see honestforests
             for aval in alpha:
                 regr = RandomForestRegressor(
-                    n_estimators=boot, min_samples_leaf=nval,
+                    n_estimators=boot, min_samples_leaf=round(nval),
                     max_features=mval, bootstrap=True, oob_score=True,
                     random_state=seed, n_jobs=workers, max_depth=max_depth,
                     min_weight_fraction_leaf=aval,
@@ -215,7 +214,7 @@ def variable_importance_testdata(
     x_train, x_test, y_train, y_test = train_test_split(
         x_all, y_all, test_size=share_test_data, random_state=42)
     regr_vi = RandomForestRegressor(
-        n_estimators=boot, min_samples_leaf=n_opt, max_features=m_opt,
+        n_estimators=boot, min_samples_leaf=round(n_opt), max_features=m_opt,
         bootstrap=True, oob_score=True, random_state=42, n_jobs=workers,
         max_depth=max_depth, min_weight_fraction_leaf=a_opt,
         max_leaf_nodes=max_leaf_nodes)
@@ -337,9 +336,6 @@ def print_vi(x_to_check, var_im_groups, loss_in_r2_single, loss_in_r2_dummy,
     if var_im_groups:
         # Get single names and ignore the dummies (last element)
         var_dummies = [name[-1] for name in var_im_groups]
-        # var_dummies = []
-        # for name in var_im_groups:
-        #     var_dummies.append(name[-1])
         x_to_check.extend(var_dummies)
         loss_in_r2_single = np.concatenate(
             (loss_in_r2_single, loss_in_r2_dummy))
@@ -360,7 +356,7 @@ def print_vi(x_to_check, var_im_groups, loss_in_r2_single, loss_in_r2_dummy,
             print('Here, all elements of these variables are jointly tested ',
                   '(in Table under heading of unordered variable).')
         for idx, vim in enumerate(vim_sorted):
-            print(f'{x_names_sorted[idx]:<50}: {vim*100:>7.2f}', '%')
+            print(f'{x_names_sorted[idx]:<50}: {vim*100:>7.4f}', '%')
         print('-' * 80, '\n' + '-' * 80, '\n')
     return x_names_sorted, vim_sorted
 
@@ -394,7 +390,7 @@ def get_r2_for_vi_oob(indices_of_x, x_name, name_to_delete, x_train,  y_1d,
     indices_to_delete = find_indices_vi(name_to_delete, x_name)
     indices_to_remain = [i for i in indices_of_x if i not in indices_to_delete]
     regr_vi = RandomForestRegressor(
-        n_estimators=boot, min_samples_leaf=n_opt, max_features=m_opt,
+        n_estimators=boot, min_samples_leaf=round(n_opt), max_features=m_opt,
         bootstrap=True, oob_score=True, random_state=42, n_jobs=workers,
         max_depth=max_depth, min_weight_fraction_leaf=a_opt,
         max_leaf_nodes=max_leaf_nodes)
@@ -866,10 +862,10 @@ def print_se_info(cluster_std, se_boot):
     return print_str
 
 
-def print_minus_ate_info(weighted, print_it=True):
+def print_minus_ate_info(weighted, print_it=True, gate_or_iate='GATE'):
     """Print info about effects minus ATE."""
     print_str = ('Weights used for comparison with ATE are not truncated. ' +
-                 'Therefore, GATEs - ATE may not aggregate to 0.')
+                 f'Therefore, {gate_or_iate}s - ATE may not aggregate to 0.')
     if weighted:
         print_str += ('Such differences may be particulary pronounced when ' +
                       'sampling weights are used.')

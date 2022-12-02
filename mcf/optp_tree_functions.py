@@ -11,6 +11,7 @@ Michael Lechner, SEW, University of St. Gallen, Switzerland
 import random
 import math
 from concurrent import futures
+from dask.distributed import Client, as_completed
 
 import pandas as pd
 import numpy as np
@@ -583,11 +584,11 @@ def tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
 def only_1st_tree_fct(data_ps, c_dict):
     """Find out if further splits make any sense. NOT USED."""
     no_further_splitting = True
-    for i, _ in enumerate(data_ps):
+    for i, data_psi in enumerate(data_ps):
         if i == 0:
-            ref_val = np.argmax(data_ps[i]-c_dict['costs_of_treat'])
+            ref_val = np.argmax(data_psi-c_dict['costs_of_treat'])
         else:
-            opt_treat = np.argmax(data_ps[i]-c_dict['costs_of_treat'])
+            opt_treat = np.argmax(data_psi-c_dict['costs_of_treat'])
             if ref_val != opt_treat:
                 no_further_splitting = False
                 break
@@ -868,7 +869,7 @@ def optimal_tree_proc(datafile_name, x_type, x_value, v_dict, c_dict):
     optimal_tree, x_trees = None, []
     if c_dict['parallel']:
         maxworkers = c_dict['no_parallel']
-        if c_dict['mp_with_ray']:
+        if c_dict['_ray_or_dask'] == 'ray':
             if not ray.is_initialized():
                 ray.init(num_cpus=maxworkers, include_dashboard=False)
             data_x_ref = ray.put(data_x)
@@ -887,6 +888,22 @@ def optimal_tree_proc(datafile_name, x_type, x_value, v_dict, c_dict):
                         gp.share_completed(idx+1, len(type_x))
                     x_trees[idx] = ret_all_i
                     idx += 1
+        elif c_dict['_ray_or_dask'] == 'dask':
+            with Client(n_workers=maxworkers) as clt:
+                data_ps_ref = clt.scatter(data_ps)
+                data_ps_diff_ref = clt.scatter(data_ps_diff)
+                data_x_ref = clt.scatter(data_x)
+                trees = [clt.submit(tree_search_multip_single, data_ps_ref,
+                                    data_ps_diff_ref, data_x_ref, name_x,
+                                    type_x, values_x, c_dict,
+                                    c_dict['ft_depth'], m_i)
+                         for m_i in range(len(type_x))]
+                jdx = 0
+                for _, res in as_completed(trees, with_results=True):
+                    jdx += 1
+                    if c_dict['with_output']:
+                        gp.share_completed(jdx, len(type_x))
+                    x_trees.append(res)
         else:
             with futures.ProcessPoolExecutor(max_workers=maxworkers) as fpp:
                 trees = {fpp.submit(tree_search_multip_single, data_ps,

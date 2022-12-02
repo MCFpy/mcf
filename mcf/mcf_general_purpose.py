@@ -34,8 +34,8 @@ def stars(pval):
 def find_precision(values):
     """Find precision so that all values can be differentiated in printing."""
     len_v = len(np.unique(values))
-    precision = 10
-    for prec in range(10):
+    precision = 20
+    for prec in range(20):
         rounded = np.around(values, decimals=prec)
         if len(set(rounded)) == len_v:  # all unique
             precision = prec            # + 2
@@ -43,11 +43,16 @@ def find_precision(values):
     return precision
 
 
-def print_effect_z(g_r, gm_r, z_values, gate_str, print_output=True):
+def print_effect_z(g_r, gm_r, z_values, gate_str, print_output=True,
+                   gates_minus_previous=False):
     """Print treatment effects."""
     no_of_effect_per_z = np.size(g_r[0][0])
-    print_str = ('- ' * 40 + f'\n                   {gate_str}'
-                 + f'                                {gate_str} - ATE')
+    if gates_minus_previous:
+        print_str = ('- ' * 40 + f'\n                   {gate_str}'
+                     + f'                                {gate_str}(change)')
+    else:    
+        print_str = ('- ' * 40 + f'\n                   {gate_str}'
+                     + f'                                {gate_str} - ATE')
     print_str += ('\nComparison      Z      Est         SE  t-val   p-val'
                   + '         Est        SE  t-val  p-val\n' + '- ' * 40
                   + '\n')
@@ -138,21 +143,23 @@ def statistics_by_treatment(indatei, treat_name, var_name, only_next=False):
     print('\n-------------- Statistics by treatment status ------------------')
     data = pd.read_csv(filepath_or_buffer=indatei, header=0)
     data = data[treat_name+var_name]
-    mean = data.groupby(treat_name).mean()
+    mean = data.groupby(treat_name).mean(numeric_only=True)
     std = data.groupby(treat_name).std()
     count = data.groupby(treat_name).count()
     count2 = data[treat_name+[var_name[0]]].groupby(treat_name).count()
-    pd.set_option('display.max_rows', len(data.columns),
-                  'display.max_columns', 10)
-    print('\nNumber of observations:')
-    print(count2.transpose())
-    print('\nMean')
-    print(mean.transpose())
-    print('\nMedian')
-    print(data.groupby(treat_name).median().transpose())
-    print('\nStandard deviation')
-    print(std.transpose())
-    balancing_tests(mean, std, count, only_next)
+    with pd.option_context(
+            'display.max_rows', 500, 'display.max_columns', 500,
+            'display.expand_frame_repr', True, 'display.width', 150,
+            'chop_threshold', 1e-13):
+        print('\nNumber of observations:')
+        print(count2.transpose())
+        print('\nMean')
+        print(mean.transpose())
+        print('\nMedian')
+        print(data.groupby(treat_name).median().transpose())
+        print('\nStandard deviation')
+        print(std.transpose())
+        balancing_tests(mean, std, count, only_next)
 
 
 def balancing_tests(mean, std, count, only_next=False):

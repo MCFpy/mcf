@@ -129,9 +129,10 @@ def generate_treatment_names(p_dict):
         List of strings with all possible combinations of treatment levels.
 
     """
-    columns = []
-    for i_c in p_dict['combi']:
-        columns.append(str(i_c[1]) + " vs. " + str(i_c[0]))
+    columns = [str(i_c[1]) + " vs. " + str(i_c[0]) for i_c in p_dict['combi']]
+    # columns = []
+    # for i_c in p_dict['combi']:
+    #     columns.append(str(i_c[1]) + " vs. " + str(i_c[0]))
     return columns
 
 
@@ -175,21 +176,26 @@ def generate_gate_table(p_dict, label_row=False):
                 dat = dat.rename(columns={'x_values': 'z_values'})
             dat['d'] = i_co
             data = pd.concat((data, dat))
-    for i_co, j_co in enumerate(p_dict['combi']):
-        if i_co == 0:
-            data_0 = np.array(data.pivot(index='z_values', columns="d",
-                                         values="effects"))
-            data_lower = np.array(data.pivot(index='z_values', columns="d",
-                                             values="lower"))
-            data_upper = np.array(data.pivot(index='z_values', columns="d",
-                                             values="upper"))
+
+    data.drop_duplicates(subset=['z_values'])
+
+    data_0 = np.array(data.pivot(index='z_values', columns="d",
+                                 values="effects"))
+    data_lower = np.array(data.pivot(index='z_values', columns="d",
+                                     values="lower"))
+    data_upper = np.array(data.pivot(index='z_values', columns="d",
+                                     values="upper"))
 
     results = np.concatenate((data_0, data_lower, data_upper), axis=1)
     df_new = pd.DataFrame(np.round(results,
                                    p_dict['number_of_decimal_places']))
     df_new.columns = p_dict['number_of_stats'] * p_dict['treatment_names']
     if not label_row:
-        df_new.index = dat.z_values
+        if len(p_dict['combi']) > 1:
+            dat.drop_duplicates(subset=['z_values'])
+            df_new.index = dat.z_values
+        else:
+            df_new.index = data.z_values
     else:
         df_new.index = label_row
     return df_new

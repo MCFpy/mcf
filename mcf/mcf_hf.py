@@ -170,7 +170,6 @@ def pred_func1_for_mp(idx, weights_idx, cl_data, no_of_cluster, w_data, y_data,
     w_index = weights_idx[0]  # Indices of non-zero weights
     w_i = np.array(weights_idx[1], copy=True)
     if c_dict['w_yes']:
-        # w_t = w_data[w_index].flatten()
         w_t = w_data[w_index].reshape(-1)
         w_i = w_i * w_t
     else:
@@ -188,18 +187,15 @@ def pred_func1_for_mp(idx, weights_idx, cl_data, no_of_cluster, w_data, y_data,
     for odx in range(no_of_out):
         ret = gp_est.weight_var(w_i, y_data[w_index, odx], cl_i, c_dict,
                                 weights=w_t)
-        # pred_y_idx[odx] = np.copy(ret[0])
         pred_y_idx[odx] = ret[0]
         pred_y_se_idx[odx] = np.sqrt(ret[1])
         if c_dict['cluster_std']:
             ret2 = gp_est.aggregate_cluster_pos_w(
                 cl_data, w_all_i, y_data[:, odx], sweights=w_data)
             if odx == 0:
-                # w_add = np.copy(ret2[0])
                 w_add = ret2[0]
         else:
             if odx == 0:
-                # w_add[w_index] = np.copy(ret[2])
                 w_add[w_index] = ret[2]
     l1_to_9 = analyse_weights_pred(w_add, c_dict)
     return idx, pred_y_idx, pred_y_se_idx, l1_to_9, share_i
@@ -333,9 +329,7 @@ def print_pred(y_data, y_pred, y_pred_se, w_data, c_dict, v_dict):
             print('\nOutcome variable: ', v_dict['y_name'][odx])
         print('- ' * 40)
         print('     Mean      Median      Std       mean(SE)  R2(%)')
-        # est = y_pred[:, odx].flatten()
         est = y_pred[:, odx].reshape(-1)
-        # est_se = y_pred_se[:, odx].flatten()
         est_se = y_pred_se[:, odx].reshape(-1)
         if (not c_dict['orf']) and (np.shape(y_data)[0] ==
                                     np.shape(y_pred)[0]):

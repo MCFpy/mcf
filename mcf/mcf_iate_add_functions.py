@@ -86,7 +86,8 @@ def print_iate(iate, iate_se, iate_p, effect_list, v_dict, c_dict,
     if c_dict['iate_se_flag']:
         print_str += ('\n' + gp_est.print_se_info(c_dict['cluster_std'],
                                                   c_dict['se_boot_iate']))
-        print_str += gp_est.print_minus_ate_info(c_dict['w_yes'])
+        print_str += gp_est.print_minus_ate_info(c_dict['w_yes'],
+                                                 gate_or_iate='IATE')
     print(print_str)
     gp.print_f(c_dict['outfilesummary'], print_str)
 
@@ -198,7 +199,8 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                 iate_temp = iate_temp[sorted_ind]
                 if c_dict['iate_se_flag']:
                     iate_se_temp = iate_se_temp[sorted_ind]
-                x_values = np.arange(len(iate_temp)) + 1
+                x_values = (np.arange(len(iate_temp)) + 1)
+                x_values = np.around(x_values / x_values[-1] * 100, decimals=1) 
                 k = np.round(c_dict['knn_const'] * np.sqrt(len(iate_temp)) * 2)
                 iate_temp = gp_est.moving_avg_mean_var(iate_temp, k, False)[0]
                 if c_dict['iate_se_flag']:
@@ -241,7 +243,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
                 if 'mate' in titel:
                     titel_tmp += ' (- ATE)'
                 axe.set_title(titel_tmp)
-                axe.set_xlabel('Index of sorted IATEs')
+                axe.set_xlabel('Quantile of sorted IATEs')
                 if c_dict['iate_se_flag']:
                     axe.fill_between(x_values, upper, lower, alpha=0.3,
                                      color='b', label=label_ci)
@@ -377,7 +379,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
             cluster_lab_tmp = KMeans(
                 n_clusters=cluster_no,
                 n_init=c_dict['post_km_replications'], init='k-means++',
-                max_iter=c_dict['post_kmeans_max_tries'], algorithm='full',
+                max_iter=c_dict['post_kmeans_max_tries'], algorithm='lloyd',
                 random_state=42, tol=1e-5, verbose=0, copy_x=True
                 ).fit_predict(iate_np)
             silhouette_avg = silhouette_score(iate_np, cluster_lab_tmp)
@@ -392,7 +394,8 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
         # Reorder labels for better visible inspection of results
         iate_name = iate_pot_name['names_iate']
         namesfirsty = iate_name[0:round(len(iate_name)/len(v_dict['y_name']))]
-        cl_means = iate[namesfirsty].groupby(by=cluster_lab_np).mean()
+        cl_means = iate[namesfirsty].groupby(by=cluster_lab_np).mean(
+            numeric_only=True)
         cl_means_np = cl_means.to_numpy()
         cl_means_np = np.mean(cl_means_np, axis=1)
         sort_ind = np.argsort(cl_means_np)
@@ -412,10 +415,10 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
         print('\nSaving cluster indicator from k-means clustering.')
         daten_neu.to_csv(file_name)
         del daten_neu
-        cl_means = iate.groupby(by=cl_group).mean()
+        cl_means = iate.groupby(by=cl_group).mean(numeric_only=True)
         print_str += '\n' + cl_means.transpose().to_string()
         print_str += '\n' + '-' * 80 + '\nPotential outcomes\n' + '-' * 80
-        cl_means = pot_y.groupby(by=cl_group).mean()
+        cl_means = pot_y.groupby(by=cl_group).mean(numeric_only=True)
         print_str += '\n' + cl_means.transpose().to_string()
         print_str += '\n' + '-' * 80 + '\nCovariates\n' + '-' * 80
         names_unordered = [xn for xn in v_x_type.keys() if v_x_type[xn] > 0]
@@ -424,7 +427,7 @@ def post_estimation_iate(file_name, iate_pot_all_name, ate_all, ate_all_se,
             x_km = pd.concat([x_dat[names_unordered], x_dummies], axis=1)
         else:
             x_km = x_dat
-        cl_means = x_km.groupby(by=cl_group).mean()
+        cl_means = x_km.groupby(by=cl_group).mean(numeric_only=True)
         print_str += '\n' + cl_means.transpose().to_string() + '\n' + '-' * 80
         print(print_str)
         gp.print_f(c_dict['outfilesummary'], print_str)

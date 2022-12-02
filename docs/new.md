@@ -1,5 +1,37 @@
 # Release Updates
 
+## Version 0.3.2
+
+### What's New
+
+* In estimation use cross-fitting to compute the IATEs. To enable cross-fitting set iate_cv to True. The default is False. The default number of folds is 5 and can be overwritten via the input argument iate_cv_folds. The estimates are stored in the  iate_cv_file.csv. Further information on estimation and descriptives are stored in the iate_cv_file.txt.
+* Compare GATE(x) to GATE(x-1), where x is the current evaluation point and x-1 the previous one by setting GATE_MINUS_PREVIOUS to True. The default is False.
+* Set n_min_treat to regulate the minimum number of observations in the treatment leaves.
+* Experimental support for Dask. The default for multiprocessing is Ray. You may deploy Dask by setting _RAY_OR_DASK ='dask'. Note that with Dask the call of the programme needs to proteced by setting ``__name__ == '__main__'``
+
+
+
+### Bug fixes
+* Minor bug when GATEs were printed is fixed.
+* Updated labels in sorted effects plots.
+
+### Name Changes and Default Updates
+* EFFIATE_FLAG = IATE_EFF_FLAG
+* SMOOTH_GATES = GATES_SMOOTH
+* SMOOTH_GATES_BANDWIDTH = GATES_SMOOTH_BANDWIDTH
+* SMOOTH_GATES_NO_EVALUATION_POINTS  = GATES_SMOOTH_NO_EVALUATION_POINTS
+* RELATIVE_TO_FIRST_GROUP_ONLY = POST_RELATIVE_TO_FIRST_GROUP_ONLY
+* BIN_CORR_YES = POST_BIN_CORR_YES
+* BIN_CORR_THRESHOLD = POST_BIN_CORR_THRESHOLD
+* Increase in the default for sampling share
+* New defaults for feature selection
+  - fs_other_sample_share = 0.33
+  - fs_rf_threshold = 0.0001
+* Defaults for n_min_min increased to n**0.4/10, at least 3; -1: n**0.4/5 - where n is the number of observations in the smallest treatment arm.
+* Number of parallel processes set to mp_parallel = 80% of logical cores.
+* subsample_factor_eval = True, where True means 2 * subsample size used for tree.
+
+
 ## Version 0.3.1
 
 ### What's New
@@ -14,7 +46,7 @@
 
 * csv files for GATE tables can also deal with general treatment definitions
 * _mp_with_ray no longer an input argument
-* names_pot_iate is an additional return from the estimator. It is a 2-tuple with the list of potentially outcomes. 
+* names_pot_iate is an additional return from the estimator. It is a 2-tuple with the list of potentially outcomes.
 * [_return_iate_sp](./core_6.md#_return_iate_sp) is a new parameter to algorithm to predict and return effects despite [_with_output](./core_6.md#_with_output) being set to False.
 
 

@@ -7,9 +7,12 @@ Contains the functions needed for data manipulation
 import copy
 import math
 from concurrent import futures
+from dask.distributed import Client, as_completed
+
 import numpy as np
 import pandas as pd
 import ray
+
 from mcf import general_purpose as gp
 from mcf import general_purpose_estimation as gp_est
 from mcf import mcf_general_purpose as mcf_gp
@@ -92,15 +95,7 @@ def prepare_data_for_forest(indatei, v_dict, v_x_type, v_x_values, c_dict,
     p_x = len(x_name)     # Number of variables
     c_dict = m_n_grid(c_dict, p_x)  # Grid for # of var's used for split
     x_ind = np.array(range(p_x))    # Indices instead of names of variable
-    # x_ai_ind = []                 # Indices of variables used for all splits
     if not v_dict['x_name_always_in'] == []:
-        # always_in_set = set(v_dict['x_name_always_in'])
-        # x_ai_ind = np.empty(len(always_in_set), dtype=np.uint32)
-        # j = 0
-        # for i in range(p_x):
-        #     if x_name[i] in always_in_set:
-        #         x_ai_ind[j] = i
-        #         j += 1
         x_ai_ind = np.array(
             [i for i in range(p_x) if x_name[i] in v_dict['x_name_always_in']])
     else:
@@ -324,7 +319,7 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
             y_dat_m = y_dat[d_m].copy()
             ret_rf = gp_est.random_forest_scikit(
                 x_dat_m, y_dat_m, x_dat, boot=c_dict['boot'],
-                n_min=c_dict['grid_n_min'],
+                n_min=c_dict['grid_n_min']/2,
                 pred_p_flag=True, pred_t_flag=False,
                 pred_oob_flag=False, with_output=False,
                 variable_importance=False, x_name=x_df.columns,
@@ -375,11 +370,11 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
             for i_treat, i_value in enumerate(d_values):
                 y_match[:, i_treat] = nn_neighbour_mcf2(
                     y_dat, x_dat, d_dat, obs, cov_x_inv, i_value)
-        else:
-            if c_dict['_mp_ray_shutdown']:  # Later on more workers needed
+        else:  # Later on more workers needed
+            if c_dict['_mp_ray_shutdown'] or c_dict['_ray_or_dask'] == 'dask':
                 if maxworkers > math.ceil(no_of_treat/2):
                     maxworkers = math.ceil(no_of_treat/2)
-            if c_dict['mp_with_ray']:
+            if c_dict['_ray_or_dask'] == 'ray':
                 if not ray.is_initialized():
                     ray.init(num_cpus=maxworkers, include_dashboard=False)
                 x_dat_ref = ray.put(x_dat)
@@ -397,6 +392,17 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
                     del finished_res, finished
                 if c_dict['_mp_ray_shutdown']:
                     ray.shutdown()
+            elif c_dict['_ray_or_dask'] == 'dask':
+                with Client(n_workers=maxworkers) as client:
+                    x_dat_ref = client.scatter(x_dat)
+                    y_dat_ref = client.scatter(y_dat)
+                    d_dat_ref = client.scatter(d_dat)
+                    ret_fut = [client.submit(
+                        nn_neighbour_mcf2, y_dat_ref, x_dat_ref, d_dat_ref,
+                        obs, cov_x_inv, d_values[idx], idx)
+                        for idx in range(no_of_treat)]
+                    for _, res in as_completed(ret_fut, with_results=True):
+                        y_match[:, res[1]] = res[0]
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
                                                  ) as fpp:
@@ -410,10 +416,8 @@ def nn_matched_outcomes(indatei, v_dict, v_type, c_dict):
     else:
         y_match = np.zeros((obs, no_of_treat))
     treat_val_str = [str(i) for i in d_values]
-    y_match_name = []
-    for i in range(no_of_treat):
-        y_match_name.append(v_dict['y_tree_name'][0] + "_NN"
-                            + treat_val_str[i])
+    y_match_name = [v_dict['y_tree_name'][0] + "_NN" + treat_val_str[i]
+                    for i in range(no_of_treat)]
     v_dict.update({'y_match_name': y_match_name})
     y_match_df = pd.DataFrame(data=y_match, columns=y_match_name,
                               index=data.index)
@@ -632,7 +636,8 @@ def create_xz_variables(
                             new_name = data1s.name + "CATV"
                             z_name_ord_new.extend([new_name])
                             data1new[new_name] = data1s.copy()
-                            means = data1new.groupby(new_name).mean()
+                            means = data1new.groupby(new_name).mean(
+                                numeric_only=True)
                             new_dic = means[data1s.name].to_dict()
                             data1new = data1new.replace({new_name: new_dic})
                             if c_dict['save_forest']:
@@ -707,7 +712,8 @@ def create_xz_variables(
                                     right=True, labels=False)
                     new_variable = data1s.name + "CR"
                     data1new[new_variable] = data1s
-                    means = data1new.groupby(new_variable).mean()
+                    means = data1new.groupby(new_variable).mean(
+                        numeric_only=True)
                     new_dic = means[data1s.name].to_dict()
                     data1new = data1new.replace({new_variable: new_dic})
                     vn_dict = gp.substitute_variable_name(vn_dict, variable,
@@ -721,7 +727,8 @@ def create_xz_variables(
                                     right=True, labels=False)
                     new_variable = data2s.name + "CR"
                     data2new[new_variable] = data2s
-                    means = data2new.groupby(new_variable).mean()
+                    means = data2new.groupby(new_variable).mean(
+                        numeric_only=True)
                     new_dic = means[data2s.name].to_dict()
                     data2new = data2new.replace({new_variable: new_dic})
                 if c_dict['with_output'] and c_dict['verbose']:
@@ -875,7 +882,7 @@ def adjust_y_names(var_dict, y_name_old, y_name_new, with_output):
     for indx, y_name in enumerate(y_name_old):
         if (var_dict['y_tree_name'] is None
             or var_dict['y_tree_name'] == []
-            or y_name == var_dict['y_tree_name'][0]):
+                or y_name == var_dict['y_tree_name'][0]):
             var_dict['y_tree_name'] = [y_name_new[indx]]
             break
     var_dict['y_name'] = y_name_new

@@ -5,6 +5,7 @@ Contains the functions needed for the weight computation of MCF
 -*- coding: utf-8 -*-
 """
 from concurrent import futures
+from dask.distributed import Client, as_completed
 
 import numpy as np
 import pandas as pd
@@ -69,7 +70,7 @@ def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
             maxworkers = c_dict['no_parallel']
     if c_dict['with_output'] and c_dict['verbose']:
         print('Number of parallel processes: ', maxworkers)
-    if maxworkers == 1 or c_dict['mp_with_ray']:
+    if maxworkers == 1 or c_dict['_ray_or_dask'] == 'ray':
         mp_over_boots = False
     else:
         mp_over_boots = (False if regrf
@@ -114,7 +115,7 @@ def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
                   f' {n_x / no_of_splits_i:5.2f}')
         all_idx_split = np.array_split(range(n_x), no_of_splits_i)
         split_forest = False
-        if not c_dict['mp_with_ray']:
+        if c_dict['_ray_or_dask'] != 'ray':
             if c_dict['mp_weights_tree_batch'] > 1:  # User def. # of batches
                 no_of_boot_splits = c_dict['mp_weights_tree_batch']
                 split_forest = True
@@ -164,9 +165,9 @@ def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
                     print(f'Boot Chunk {b_i+1:2} of {no_of_boot_splits:2}')
                     gp_sys.memory_statistics()
             else:
-                if not c_dict['mp_with_ray']:
+                if c_dict['_ray_or_dask'] != 'ray':
                     forest_temp = forest
-            if c_dict['mp_with_ray']:
+            if c_dict['_ray_or_dask'] == 'ray':
                 if c_dict['mem_object_store_3'] is None:
                     if not ray.is_initialized():
                         ray.init(num_cpus=maxworkers, include_dashboard=False)
@@ -220,6 +221,40 @@ def get_weights_mp(forest, x_file, y_file, v_dict, c_dict, x_name,
                     del finished_res, finished
                 if c_dict['_mp_ray_shutdown']:
                     ray.shutdown()
+            elif c_dict['_ray_or_dask'] == 'dask':
+                with Client(n_workers=maxworkers) as clt:
+                    x_dat_ref = clt.scatter(x_dat)
+                    d_dat_ref = clt.scatter(d_dat)
+                    forest_temp_ref = clt.scatter(forest_temp)
+                    ret_fut = [clt.submit(
+                        weights_many_obs_i, idx_list, n_y, forest_temp_ref,
+                        x_dat_ref, d_dat_ref, c_dict, regrf, split_forest)
+                        for idx_list in all_idx_split]
+                    jdx = 0
+                    for _, res in as_completed(ret_fut, with_results=True):
+                        if c_dict['with_output'] and c_dict['verbose']:
+                            if jdx == 0:
+                                print()
+                                print(f'   Obs chunk {jdx+1:2}',
+                                      f' ({no_of_splits_i:2})', end='')
+                            else:
+                                print(f' {jdx+1:2} ({no_of_splits_i:2})',
+                                      end='')
+                            jdx += 1
+                        idx_list = res[0]
+                        for idx, val_list in enumerate(idx_list):
+                            if c_dict['weight_as_sparse']:
+                                for d_idx in range(no_of_treat):
+                                    indices = res[1][idx][d_idx][0]
+                                    weights_obs = res[1][idx][d_idx][1]
+                                    weights[d_idx][val_list, indices
+                                                   ] = weights_obs
+                                    if regrf:
+                                        break
+                            else:
+                                weights[val_list] = res[1][idx]
+                        empty_leaf_counter += res[2]
+                        merge_leaf_counter += res[3]
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
                                                  ) as fpp:
@@ -496,8 +531,9 @@ def weights_obs_i_inside_boot(forest_b, x_dat_i, regrf, n_y, no_of_treat,
                 # We need to collect information over various leafs for the 0
                 # For the other leaves, the leaves are treatment specific
                 leaf_0_complete, leaf_pos_complete = False, True
-                for jdx, _ in enumerate(fb_lid_14_list):  # Zuerst 0 einsammeln
-                    fb_lid_14 = fb_lid_14_list[jdx]
+                # Zuerst 0 einsammeln
+                for jdx, fb_lid_14 in enumerate(fb_lid_14_list):
+                    # fb_lid_14 = fb_lid_14_list[jdx]
                     d_ib = d_dat[fb_lid_14].reshape(-1)  # view
                     indices_ibj_0 = d_ib < 1e-15
                     indices_ibj_pos = d_ib >= 1e-15

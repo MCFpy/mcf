@@ -6,6 +6,7 @@ Contains the functions needed for the tree and forest computations of MCF
 """
 from concurrent import futures
 from numba import njit
+from dask.distributed import Client, as_completed
 
 import numpy as np
 import ray
@@ -80,7 +81,7 @@ def fill_trees_with_y_indices_mp(forest, indatei, v_dict, v_x_type, v_x_values,
             if c_dict['with_output'] and c_dict['verbose']:
                 gp.share_completed(idx+1, c_dict['boot'])
     else:
-        if c_dict['mp_with_ray']:
+        if c_dict['_ray_or_dask'] == 'ray':
             if c_dict['mem_object_store_2'] is None:
                 if not ray.is_initialized():
                     ray.init(num_cpus=maxworkers, include_dashboard=False)
@@ -113,6 +114,21 @@ def fill_trees_with_y_indices_mp(forest, indatei, v_dict, v_x_type, v_x_values,
                 del finished_res, finished
             if c_dict['_mp_ray_shutdown']:
                 ray.shutdown()
+        elif c_dict['_ray_or_dask'] == 'dask':
+            with Client(n_workers=maxworkers) as clt:
+                x_dat_ref, d_dat_ref = clt.scatter(x_dat), clt.scatter(d_dat)
+                ret_fut = {clt.submit(fill_mp, forest[idx], obs, d_dat_ref,
+                                      x_dat_ref, idx, c_dict, regrf):
+                           idx for idx in range(c_dict['boot'])}
+                jdx = 0
+                for _, res in as_completed(ret_fut, with_results=True):
+                    jdx += 1
+                    iix = res[0]
+                    forest[iix] = res[1]
+                    terminal_nodes[iix] = res[2]
+                    nodes_empty[iix] = res[3]
+                    if c_dict['with_output'] and c_dict['verbose']:
+                        gp.share_completed(jdx+1, c_dict['boot'])
         else:
             with futures.ProcessPoolExecutor(max_workers=maxworkers) as fpp:
                 ret_fut = {fpp.submit(fill_mp, forest[idx], obs, d_dat, x_dat,
@@ -441,11 +457,11 @@ def fs_adjust_vars(vi_i, vi_g, vi_ag, v_dict, v_x_type, v_x_values, x_name,
                     v_x_values.pop(name_weg)
                     v_dict['x_name'].remove(name_weg)
                 if c_dict['with_output']:
-                    print('\nVariables deleted: ', names_to_remove2)
-                    print('\nVariables kept: ', v_dict['x_name'])
+                    print('\nVariables deleted: ', *names_to_remove2)
+                    print('\nVariables kept: ', *v_dict['x_name'])
                     gp.print_f(c_dict['outfilesummary'],
-                               'Variables deleted: ', names_to_remove2,
-                               '\nVariables kept: ', v_dict['x_name'])
+                               'Variables deleted: ', *names_to_remove2,
+                               '\nVariables kept: ', *v_dict['x_name'])
     if nothing_removed:
         if c_dict['with_output']:
             print('\n', 'No variables removed in feature selection')

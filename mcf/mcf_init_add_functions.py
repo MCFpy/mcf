@@ -47,7 +47,7 @@ def sub_size(n_train, subsample_share_mult, max_share):
         subsample_share_mult = -1
     if subsample_share_mult <= 0:
         subsample_share_mult = 1
-    subsam_share = 2 * ((n_train / 2)**0.85) / (n_train / 2)
+    subsam_share = 4 * ((n_train / 2)**0.85) / n_train
     subsam_share = min(subsam_share, 0.67)
     subsam_share = subsam_share * subsample_share_mult
     subsam_share = min(subsam_share, max_share)
@@ -107,7 +107,7 @@ def controls_into_dic(
         gmate_sample_share, no_filled_plot, smooth_gates,
         smooth_gates_bandwidth, smooth_gates_no_evaluation_points, show_plots,
         weight_as_sparse, mp_type_weights, mp_weights_tree_batch,
-        boot_by_boot, obs_by_obs, max_elements_per_split, mp_with_ray,
+        boot_by_boot, obs_by_obs, max_elements_per_split,
         mp_ray_objstore_multiplier, verbose, no_ray_in_forest_building,
         predict_mcf, train_mcf, forest_files, match_nn_prog_score,
         se_boot_ate, se_boot_gate, se_boot_iate, support_max_del_train,
@@ -117,7 +117,8 @@ def controls_into_dic(
         reduce_largest_group_train, reduce_largest_group_train_share,
         iate_flag, iate_se_flag, l_centering_uncenter, d_type, ct_grid_nn,
         ct_grid_w, ct_grid_dr, support_adjust_limits, l_centering_replication,
-        effiate_flag, _return_iate_sp):
+        iate_eff_flag, _return_iate_sp, iate_cv_flag, iate_cv_folds,
+        n_min_treat, gates_minus_previous, _ray_or_dask):
     """Build dictionary with parameters.
 
     Parameters
@@ -184,8 +185,8 @@ def controls_into_dic(
         'mp_type_weights': mp_type_weights, 'mp_weights_tree_batch':
         mp_weights_tree_batch, 'boot_by_boot': boot_by_boot, 'obs_by_obs':
         obs_by_obs, 'max_elements_per_split': max_elements_per_split,
-        'mp_with_ray': mp_with_ray, 'mp_ray_objstore_multiplier':
-        mp_ray_objstore_multiplier, 'verbose': verbose,
+        'mp_ray_objstore_multiplier': mp_ray_objstore_multiplier,
+        'verbose': verbose,
         'no_ray_in_forest_building': no_ray_in_forest_building,
         'pred_mcf': predict_mcf, 'train_mcf': train_mcf,
         'save_forest_files': forest_files,
@@ -201,10 +202,14 @@ def controls_into_dic(
         'reduce_largest_group_train': reduce_largest_group_train,
         'reduce_largest_group_train_share': reduce_largest_group_train_share,
         'iate_flag': iate_flag, 'iate_se_flag': iate_se_flag,
-        'effiate_flag': effiate_flag,
+        'iate_eff_flag': iate_eff_flag,
         'd_type': d_type, 'ct_grid_nn': ct_grid_nn, 'ct_grid_w': ct_grid_w,
         'ct_grid_dr': ct_grid_dr,
-        '_return_iate_sp': _return_iate_sp
+        '_return_iate_sp': _return_iate_sp,
+        'iate_cv_flag': iate_cv_flag,  'iate_cv_folds': iate_cv_folds,
+        'n_min_treat': n_min_treat,
+        'gates_minus_previous': gates_minus_previous,
+        '_ray_or_dask': _ray_or_dask
             }
     return controls_dict
 

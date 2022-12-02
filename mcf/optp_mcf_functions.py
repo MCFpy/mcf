@@ -11,16 +11,15 @@ Created on Thu Sep 22 08:31:20 2022
 
 """
 import sys
-import os
 import time
 from pathlib import Path
 
 import pandas as pd
-import numpy as np
 
 from mcf import general_purpose as gp
 from mcf import mcf_functions as mcf
 from mcf import optp_functions as optp
+from mcf import mcf_iate_cv_functions as mcf_iate_cv
 
 def optpolicy_with_mcf(
         bb_bootstraps=499,  bb_rest_variable=None, bb_stochastic=False,
@@ -86,7 +85,7 @@ def optpolicy_with_mcf(
         orig_stdout, print_f = start_printing(om_dict['print_to_file'],
                                               om_dict['print_to_terminal'],
                                               om_dict['outfiletext'])
-    iate_user_dict = iate_user_params(
+    iate_user_c_dict, iate_user_v_dict = iate_user_params(
         d_name=d_name, y_name=y_name, id_name=id_name, x_name_ord=x_name_ord,
         x_name_unord=x_name_unord, x_name_always_in_ord=x_name_always_in_ord,
         x_name_always_in_unord=x_name_always_in_unord,
@@ -108,9 +107,11 @@ def optpolicy_with_mcf(
             indata_file = om_dict['indata']
         # 2) Cross-validated estimates of IATEs
         time_1 = time.time()
-        iate_dict = params_for_iate_estimation(iate_user_dict, policy_tool)
+        iate_c_dict, iate_v_dict = params_for_iate_estimation(
+            iate_user_c_dict, iate_user_v_dict, policy_tool)
         if policy_tool == 'poltree':
-            iate_dict, om_dict = mcf_on_train_test(iate_dict, om_dict)
+            iate_c_dict, iate_dict, om_dict = mcf_on_train_test(
+                iate_c_dict, iate_v_dict, om_dict)
         cv_dict = params_for_cv(om_dict, indata_file)
         if om_dict['with_output']:
             print(f'Computing X-validated mcf predictions {policy_tool}')
@@ -119,8 +120,9 @@ def optpolicy_with_mcf(
             else:
                 print('With inference.')
         max_train = ft_max_train if policy_tool == 'poltree' else 1e100
-        names_pot_iate = estim_iate_cv(cv_dict, iate_dict, _seed_sample_split,
-                                       om_dict['with_output'], max_train)
+        names_pot_iate = mcf_iate_cv.estim_iate_cv(
+            cv_dict, iate_c_dict, iate_v_dict, _seed_sample_split,
+            om_dict['with_output'], max_train, called_by_mcf=False)
         if om_dict['with_output']:
             data_iate_save = pd.read_csv(om_dict['iate_sample'])
             data_iate_save.to_csv(om_dict['iate_sample_out'])
@@ -167,27 +169,28 @@ def optpolicy_with_mcf(
             print(' ', flush=True)   # clear print buffer
     time_end_all = time.time()
     gp.print_timing(['Total time all:       '], [time_end_all-time_start_all])
-    remove_dir(om_dict['temppath'], om_dict['with_output'])
+    mcf_iate_cv.remove_dir(om_dict['temppath'], om_dict['with_output'])
     if om_dict['with_output']:
         end_printing(om_dict['print_to_file'], om_dict['print_to_terminal'],
                      print_f, orig_stdout)
 
 
-def mcf_on_train_test(iate_dict, om_dict):
+def mcf_on_train_test(iate_c_dict, iate_v_dict, om_dict):
     """Estimate mcf on test and training sample."""
     if om_dict['with_output']:
         print('Policy Tree: Computing mcf on training sample')
-    iate_dict['datpfad'] = str(
+    iate_c_dict['datpfad'] = str(
         Path(om_dict['train_sample']).parent.resolve())
-    iate_dict['indata'] = str(Path(om_dict['train_sample']).stem)
-    iate_dict['preddata'] = str(Path(om_dict['test_sample']).stem)
-    iate_dict['outpfad'] = om_dict['temppath']
-    (ate, _, _, _, _, _, _, _, pred_outfile, _, _, _, _
+    iate_c_dict['indata'] = str(Path(om_dict['train_sample']).stem)
+    iate_c_dict['preddata'] = str(Path(om_dict['test_sample']).stem)
+    iate_c_dict['outpfad'] = om_dict['temppath']
+    iate_dict = {**iate_c_dict, **iate_v_dict}
+    (ate, _, _, _, _, _, _, _, pred_outfile, _, _, _, _, _, _
      ) = mcf.modified_causal_forest(**iate_dict)
     om_dict['test_sample'] = pred_outfile   # CS adjusted
     if om_dict['with_output']:
         print(f'Estimated ATE(s) from this step: {ate}')
-    return iate_dict, om_dict
+    return iate_c_dict, iate_dict, om_dict
 
 
 def add_vars_to_input_file(add_file, source_file, id_name, add_name):
@@ -239,67 +242,6 @@ def end_printing(print_to_file, print_to_terminal, print_f, orig_stdout):
         else:
             print_f.close()
         sys.stdout = orig_stdout
-
-
-def estim_iate_cv(cv_dict, iate_dict, seed_sample_split=122435467,
-                  with_output=True, max_train=1e100):
-    """Estimate iates via cross-validation"""
-    df_list_cv = split_data_into_folds(cv_dict['indata'], cv_dict['folds'],
-                                       seed_sample_split)
-    pred_data = []
-    obs_pred_all = 0
-    for i in range(cv_dict['folds']):
-        if with_output:
-            print(f'Fold: {i}', end='')
-        obs_est, obs_pred = make_estimation_file_folds(
-            i, df_list_cv, cv_dict['pred_temp_file'], cv_dict['est_temp_file'])
-        print(f'  Obs: Estimation folds: {obs_est},',
-              f' prediction folds: {obs_pred}  ATEs: ', end='')
-        iate_dict['datpfad'] = str(
-            Path(cv_dict['est_temp_file']).parent.resolve())
-        iate_dict['indata'] = str(Path(cv_dict['est_temp_file']).stem)
-        iate_dict['preddata'] = str(Path(cv_dict['pred_temp_file']).stem)
-        iate_dict['outpfad'] = cv_dict['temppath']
-        (ate, _, _, _, _, _, _, _, _, _, _, names_pot_iate, pred_cv
-        ) = mcf.modified_causal_forest(**iate_dict)
-        pred_data.append(pred_cv)
-        if with_output:
-            print(*ate)
-        obs_pred_all += len(pred_cv)
-        if obs_pred_all > max_train:
-            break
-    pred_data_all = pd.concat(pred_data, axis=0)
-    if obs_pred_all > max_train:
-        pred_data_all = pred_data_all.sample(n=int(max_train), replace=False,
-                                             axis=0,
-                                             random_state=seed_sample_split)
-    gp.delete_file_if_exists(cv_dict['iate_sample'])
-    pred_data_all.to_csv(cv_dict['iate_sample'], index=False)
-    return names_pot_iate
-
-
-def make_estimation_file_folds(fold_nr, df_list_cv, pred_temp_file,
-                               est_temp_file):
-    """Create file with estimation and prediction data."""
-    df_list_local = df_list_cv.copy()
-    pred_data = df_list_local[fold_nr]
-    df_list_local.pop(fold_nr)
-    est_data = pd.concat(df_list_local, axis=0, copy=False)
-    gp.delete_file_if_exists(pred_temp_file)
-    gp.delete_file_if_exists(est_temp_file)
-    pred_data.to_csv(pred_temp_file, index=False)
-    est_data.to_csv(est_temp_file, index=False)
-    return len(est_data), len(pred_data)
-
-
-def split_data_into_folds(csv_file, folds, seed_sample_split):
-    """Split data in folds for cross-validation."""
-    data = pd.read_csv(csv_file)
-    # random shufflinge the rows of the dataframe
-    data = data.sample(frac=1, replace=False, random_state=seed_sample_split,
-                       axis=0, ignore_index=True)
-    df_list_cv = np.array_split(data, folds, axis=0)
-    return df_list_cv
 
 
 def params_for_optp(om_dict, names_pot_iate, iate_dict, policy_tool, id_name,
@@ -401,26 +343,29 @@ def params_for_cv(om_dict, indata_file):
     return cv_dict
 
 
-def params_for_iate_estimation(iate_user_dict, policy_tool):
+def params_for_iate_estimation(iate_user_c_dict, iate_user_v_dict,
+                               policy_tool):
     """Get dictionary for parameters of iate estimation."""
-    iate_dict = iate_user_dict.copy()
-    iate_dict['d_type'] = 'discrete'
-    iate_dict['atet_flag']=False
-    iate_dict['gatet_flag'] = False
-    iate_dict['balancing_test'] = False
-    iate_dict['_descriptive_stats'] = False
-    iate_dict['iate_flag'] = True
-    iate_dict['post_est_stats'] = False
-    iate_dict['relative_to_first_group_only'] = True
-    iate_dict['se_boot_iate'] = False
-    iate_dict['support_check'] = 1
-    iate_dict['variable_importance_oob'] = False
-    iate_dict['_verbose'] = False
-    iate_dict['_with_output'] = False
-    iate_dict['_return_iate_sp'] = True
-    iate_dict['iate_se_flag'] = policy_tool == 'blackb'
-    iate_dict['effiate_flag'] = policy_tool == 'poltree'
-    return iate_dict
+    iate_c_dict = iate_user_c_dict.copy()
+    iate_c_dict['d_type'] = 'discrete'
+    iate_c_dict['atet_flag']=False
+    iate_c_dict['gatet_flag'] = False
+    iate_c_dict['balancing_test'] = False
+    iate_c_dict['_descriptive_stats'] = False
+    iate_c_dict['iate_flag'] = True
+    iate_c_dict['post_est_stats'] = False
+    iate_c_dict['relative_to_first_group_only'] = True
+    iate_c_dict['se_boot_iate'] = False
+    iate_c_dict['support_check'] = 1
+    iate_c_dict['variable_importance_oob'] = False
+    iate_c_dict['_verbose'] = False
+    iate_c_dict['_with_output'] = False
+    iate_c_dict['_return_iate_sp'] = True
+    iate_c_dict['iate_se_flag'] = policy_tool == 'blackb'
+    iate_c_dict['iate_eff_flag'] = policy_tool == 'poltree'
+    iate_c_dict['iate_cv_flag'] = False
+    iate_v_dict = iate_user_v_dict.copy()
+    return iate_c_dict, iate_v_dict
 
 
 def iate_user_params(d_name=None, y_name=None, id_name=None, x_name_ord=None,
@@ -429,23 +374,24 @@ def iate_user_params(d_name=None, y_name=None, id_name=None, x_name_ord=None,
                      boot=1000, l_centering=True, l_centering_undo_iate=False,
                      support_check=None, support_quantil=None):
     """Pack user parameters for IATE estimation into dictionary."""
-    iate_user_dict = {}
-    iate_user_dict['id_name'] = id_name
-    iate_user_dict['d_name'] = d_name
+    iate_user_v_dict = {}
+    iate_user_v_dict['id_name'] = id_name
+    iate_user_v_dict['d_name'] = d_name
     if isinstance(y_name, (list, tuple)):
         y_name = [y_name[0]]
-    iate_user_dict['y_name'] = y_name
-    iate_user_dict['x_name_ord'] = x_name_ord
-    iate_user_dict['x_name_unord'] = x_name_unord
-    iate_user_dict['x_name_always_in_ord'] = x_name_always_in_ord
-    iate_user_dict['x_name_always_in_unord'] = x_name_always_in_unord
-    iate_user_dict['x_name_remain_ord'] = x_name_remain_ord
-    iate_user_dict['boot'] = boot
-    iate_user_dict['l_centering'] = l_centering
-    iate_user_dict['l_centering_undo_iate'] = l_centering_undo_iate
-    iate_user_dict['support_check'] = support_check
-    iate_user_dict['support_quantil'] = support_quantil
-    return iate_user_dict
+    iate_user_v_dict['y_name'] = y_name
+    iate_user_v_dict['x_name_ord'] = x_name_ord
+    iate_user_v_dict['x_name_unord'] = x_name_unord
+    iate_user_v_dict['x_name_always_in_ord'] = x_name_always_in_ord
+    iate_user_v_dict['x_name_always_in_unord'] = x_name_always_in_unord
+    iate_user_v_dict['x_name_remain_ord'] = x_name_remain_ord
+    iate_user_c_dict = {}
+    iate_user_c_dict['boot'] = boot
+    iate_user_c_dict['l_centering'] = l_centering
+    iate_user_c_dict['l_centering_undo_iate'] = l_centering_undo_iate
+    iate_user_c_dict['support_check'] = support_check
+    iate_user_c_dict['support_quantil'] = support_quantil
+    return iate_user_c_dict, iate_user_v_dict
 
 
 def om_dictionary(indata, train_share, with_output, print_to_file,
@@ -464,8 +410,8 @@ def om_dictionary(indata, train_share, with_output, print_to_file,
     if outpath is None:
         outpath = str(Path(__file__).parent.absolute())
     om_dict['outpath'] = outpath
-    om_dict['outpath'] = create_dir(om_dict['outpath'], om_dict['with_output'],
-                                    create_new_if_exists=True)
+    om_dict['outpath'] = mcf_iate_cv.create_dir(
+        om_dict['outpath'], om_dict['with_output'], create_new_if_exists=True)
     if datapath is None:
         datapath = str(Path(__file__).parent.absolute())
     om_dict['datapath'] = datapath
@@ -486,8 +432,8 @@ def om_dictionary(indata, train_share, with_output, print_to_file,
                                + om_dict['train_sample'] + '.csv')
     om_dict['test_sample'] = (om_dict['temppath'] + '/'
                                + om_dict['test_sample'] + '.csv')
-    create_dir(om_dict['temppath'], om_dict['with_output'],
-               create_new_if_exists=False)
+    mcf_iate_cv.create_dir(om_dict['temppath'], om_dict['with_output'],
+                           create_new_if_exists=False)
 
     om_dict['cv_iate'] = 5 if cv_iate is None else cv_iate
     if isinstance(evaluate_what, str):
@@ -498,49 +444,3 @@ def om_dictionary(indata, train_share, with_output, print_to_file,
         raise ValueError(f'{evaluate_what} is not a valid OptP method.')
     om_dict['evaluate_what'] = evaluate_what
     return om_dict
-
-
-def create_dir(path, with_output=True, create_new_if_exists=True):
-    """Remove directory and all its files."""
-    if os.path.isdir(path):
-        if create_new_if_exists:
-            temppath = path
-            for i in range(1000):
-                if os.path.isdir(temppath):
-                    temppath = path + str(i)
-                else:
-                    break
-            if path != temppath:
-                if with_output:
-                    print(f'Directory for output {path} already ' +
-                          f'exists. {temppath} is created for' +
-                          ' the output.')
-                path = temppath
-    if not os.path.isdir(path):
-        try:
-            os.mkdir(path)
-        except OSError as oserr:
-            raise Exception(
-                f'Creation of the directory {path} failed') from oserr
-        else:
-            if with_output:
-                print(f'Successfully created the directory {path}')
-    return path
-
-
-def remove_dir(path, with_output=True):
-    """Remove directory and all its files."""
-    if os.path.isdir(path):
-        for temp_file in os.listdir(path):
-            os.remove(os.path.join(path, temp_file))
-        try:
-            os.rmdir(path)
-        except OSError:
-            if with_output:
-                print(f'Removal of the temorary directory {path:s} failed')
-        else:
-            if with_output:
-                print(f'Successfully removed the directory {path:s}')
-    else:
-        if with_output:
-            print('Temporary directory does not exist.')

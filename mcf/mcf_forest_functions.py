@@ -7,6 +7,7 @@ Contains the functions needed for the tree and forest computations of MCF
 from concurrent import futures
 import math
 import copy
+from dask.distributed import Client, as_completed
 from numba import njit
 
 import numpy as np
@@ -37,11 +38,11 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
     x_name: List. Order of x_name as used by tree building
 
     """
-    old_mp_with_ray = c_dict['mp_with_ray']
-    if c_dict['no_ray_in_forest_building'] and c_dict['mp_with_ray']:
+    old_ray_or_dask = c_dict['_ray_or_dask']
+    if c_dict['no_ray_in_forest_building'] and c_dict['_ray_or_dask'] == 'ray':
         if c_dict['with_output'] and c_dict['verbose']:
             print('No use of ray in forest building.')
-        c_dict['mp_with_ray'] = False
+        c_dict['_ray_or_dask'] = 'dask'
     (x_name, x_type, x_values, c_dict, pen_mult, data_np, y_i, y_nn_i, x_i,
      x_ind, x_ai_ind, d_i, w_i, cl_i, d_grid_i
      ) = mcf_data.prepare_data_for_forest(indatei, v_dict, v_x_type,
@@ -63,13 +64,14 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
             if c_dict['with_output'] and c_dict['verbose']:
                 gp.share_completed(idx+1, c_dict['boot'])
     else:
-        if c_dict['mem_object_store_1'] is not None and c_dict['mp_with_ray']:
+        if (c_dict['mem_object_store_1'] is not None
+                and c_dict['_ray_or_dask'] == 'ray'):
             boot_by_boot = 1
         else:
             boot_by_boot = c_dict['boot_by_boot']
         forest = []
         if boot_by_boot == 1:
-            if c_dict['mp_with_ray']:
+            if c_dict['_ray_or_dask'] == 'ray':
                 if c_dict['mem_object_store_1'] is None:
                     if not ray.is_initialized():
                         ray.init(num_cpus=maxworkers, include_dashboard=False)
@@ -103,6 +105,20 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
                     del finished_res, finished
                 if c_dict['_mp_ray_shutdown']:
                     ray.shutdown()
+            elif c_dict['_ray_or_dask'] == 'dask':
+                with Client(n_workers=maxworkers) as clt:
+                    data_np_ref = clt.scatter(data_np)
+                    ret_fut = [clt.submit(
+                        build_tree_mcf, data_np_ref, y_i, y_nn_i, x_i, d_i,
+                        d_grid_i, cl_i, w_i, x_type, x_values, x_ind, x_ai_ind,
+                        c_dict, boot, pen_mult, regrf)
+                            for boot in range(c_dict['boot'])]
+                    jdx = 0
+                    for _, res in as_completed(ret_fut, with_results=True):
+                        jdx += 1
+                        forest.append(res)
+                        if c_dict['with_output'] and c_dict['verbose']:
+                            gp.share_completed(jdx+1, c_dict['boot'])
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
                                                  ) as fpp:
@@ -126,7 +142,7 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
             if c_dict['with_output'] and c_dict['verbose']:
                 print('Avg. number of bootstraps per process:',
                       f' {round(c_dict["boot"] / no_of_split, 2)}')
-            if c_dict['mp_with_ray']:
+            if c_dict['_ray_or_dask'] == 'ray':
                 if c_dict['mem_object_store_1'] is None:
                     if not ray.is_initialized():
                         ray.init(num_cpus=maxworkers, include_dashboard=False)
@@ -157,6 +173,20 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
                     del finished_res, finished
                 if c_dict['_mp_ray_shutdown']:
                     ray.shutdown()
+            elif c_dict['_ray_or_dask'] == 'dask':
+                with Client(n_workers=maxworkers) as clt:
+                    data_np_ref = clt.scatter(data_np)
+                    ret_fut = [clt.submit(
+                        build_many_trees_mcf, data_np_ref, y_i, y_nn_i, x_i,
+                        d_i, d_grid_i, cl_i, w_i, x_type, x_values, x_ind,
+                        x_ai_ind, c_dict, boot, pen_mult, regrf)
+                        for boot in boot_indx_list]
+                    jdx = 0
+                    for _, res in as_completed(ret_fut, with_results=True):
+                        jdx += 1
+                        forest.extend(res)
+                        if c_dict['with_output'] and c_dict['verbose']:
+                            gp.share_completed(jdx+1, len(boot_indx_list))
             else:
                 with futures.ProcessPoolExecutor(max_workers=maxworkers
                                                  ) as fpp:
@@ -181,8 +211,8 @@ def build_forest(indatei, v_dict, v_x_type, v_x_values, c_dict, regrf=False):
     if c_dict['with_output']:
         mcf_forest_add.describe_forest(forest_final, m_n_final, v_dict, c_dict,
                                        pen_mult, regrf)
-    if c_dict['no_ray_in_forest_building'] and old_mp_with_ray:
-        c_dict['mp_with_ray'] = old_mp_with_ray
+    if c_dict['no_ray_in_forest_building'] and old_ray_or_dask == 'ray':
+        c_dict['_ray_or_dask'] = old_ray_or_dask
     return forest_final, x_name
 
 
@@ -229,7 +259,7 @@ def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
             else:
                 enough_data_in_leaf = True
                 if n_l < 40:          # this is done for efficiency reasons
-                    if set(d_dat_in_leaf.reshape(-1)) != set(treat_values):
+                    if set(d_dat_in_leaf.reshape(-1)) < set(treat_values):
                         enough_data_in_leaf = False
                 else:
                     if len(np.unique(d_dat_in_leaf)) < no_of_treat:  # No MSE
@@ -355,14 +385,16 @@ def best_m_n_min_alpha_reg(forest, c_dict):
             print('Minimum leafsize:    ', m_n_min_ar_combi[min_i][1])
             print('Alpha regularity:    ', m_n_min_ar_combi[min_i][2])
             print('-' * 80)
-        forest_final = []
-        for trees_m_n_min in forest:
-            forest_final.append(trees_m_n_min[min_i])
+        # forest_final = []
+        # for trees_m_n_min in forest:
+        #     forest_final.append(trees_m_n_min[min_i])
+        forest_final = [trees_m_n_min[min_i] for trees_m_n_min in forest]
         m_n_min_ar_opt = m_n_min_ar_combi[min_i]
     else:       # Find best of trees
-        forest_final = []
-        for trees_m_n_min_ar in forest:
-            forest_final.append(trees_m_n_min_ar[0])
+        # forest_final = []
+        # for trees_m_n_min_ar in forest:
+        #     forest_final.append(trees_m_n_min_ar[0])
+        forest_final = [trees_m_n_min_ar[0] for trees_m_n_min_ar in forest]
         m_n_min_ar_opt = m_n_min_ar_combi[0]
     return forest_final, m_n_min_ar_opt
 
@@ -467,8 +499,9 @@ def mcf_mse_not_numba(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
             mse_m = np.dot(y_dat[d_m], y_dat[d_m]) / n_m - (y_m_mean**2)
         if mtot in (1, 4):
             treat_shares[m_idx] = n_m / n_obs
-            mse_mce[m_idx, m_idx] = mse_m
-        elif mtot == 3:
+            # mse_mce[m_idx, m_idx] = mse_m
+        if mtot in (1, 3, 4):
+            # elif mtot == 3:
             mse_mce[m_idx, m_idx] = mse_m
         if mtot != 3:
             mce_ml = 0
@@ -701,9 +734,8 @@ def term_or_data(data_tr_ns, data_oob_ns, y_i, d_i, d_grid_i, x_i_ind_split,
                     if d_grid_i is not None:
                         d_grid_oob = data_oob_ns[:, d_grid_i]
             x_dat = data_tr_ns[:, x_i_ind_split]
-            for cols, _ in enumerate(x_i_ind_split):
-                x_no_variation.append(
-                    np.all(np.isclose(x_dat[:, cols], x_dat[0, cols])))
+            x_no_variation = [np.all(np.isclose(x_dat[:, cols], x_dat[0, cols])
+                                     ) for cols, _ in enumerate(x_i_ind_split)]
             if np.all(x_no_variation):
                 terminal_x = True
             else:
@@ -755,14 +787,14 @@ def next_split(current_node, data_tr, data_oob, y_i, y_nn_i, d_i, d_grid_i,
     elif not regrf and np.all(data_tr_ns[:, d_i] == data_tr_ns[0, d_i]):
         terminal = True
     else:
-        if not regrf and current_node[5] < 100:  # Otherwise, too slow:
+        if not regrf and current_node[5] < 200:  # Otherwise, too slow:
             if c_dict['d_type'] == 'continuous':
                 terminal = not (2 <= np.sum(data_tr_ns[:, d_i] == 0)
                                 <= current_node[5] - 2)
             else:
                 ret = np.unique(data_tr_ns[:, d_i], return_counts=True)
-                if np.any(ret[1] < 2):  # Cannot split with too few treated
-                    terminal = True
+                terminal = (len(ret[0]) < c_dict['no_of_treat']
+                            or np.any(ret[1] < 2 * c_dict['n_min_treat']))
     mtot, w_yes = c_dict['mtot'], c_dict['w_yes']
     if c_dict['d_type'] == 'continuous':
         no_of_treat, d_values, continuous = 2, [0, 1], True
@@ -871,14 +903,28 @@ def next_split(current_node, data_tr, data_oob, y_i, y_nn_i, d_i, d_grid_i,
                     if not regrf:
                         d_dat_l = (d_bin_dat[leaf_l]
                                    if continuous else d_dat[leaf_l])
-                        if len(np.unique(d_dat_l)) < no_of_treat:
-                            continue
+                        if continuous or c_dict['n_min_treat'] == 1:
+                            if len(np.unique(d_dat_l)) < no_of_treat:
+                                continue
+                        else:
+                            ret = np.unique(d_dat_l, return_counts=True)
+                            if len(ret[0]) < no_of_treat:
+                                continue
+                            if np.any(ret[1] < c_dict['n_min_treat']):
+                                continue
                     leaf_r = np.invert(leaf_l)  # Reverses True to False
                     if not regrf:
                         d_dat_r = (d_bin_dat[leaf_r]
                                    if continuous else d_dat[leaf_r])
-                        if len(np.unique(d_dat_r)) < no_of_treat:
-                            continue   # Splits possible?
+                        if continuous or c_dict['n_min_treat'] == 1:
+                            if len(np.unique(d_dat_r)) < no_of_treat:
+                                continue   # Splits possible?
+                        else:
+                            ret = np.unique(d_dat_r, return_counts=True)
+                            if len(ret[0]) < no_of_treat:
+                                continue
+                            if np.any(ret[1] < c_dict['n_min_treat']):
+                                continue
                     leaf_oob_r = np.invert(leaf_oob_l)
                     if not regrf:
                         if mtot in (1, 4):
@@ -1111,7 +1157,6 @@ def init_node_table(n_tr, n_oob, indices_oob):
     node_table : List of lists. First init_node_table
 
     """
-    node_table = []
     id_node_0 = 0
     id_parent_1 = id_child_left_2 = id_child_right_3 = None
     active_4 = 2
@@ -1121,23 +1166,12 @@ def init_node_table(n_tr, n_oob, indices_oob):
     data_tr_indi_11, data_oob_indi_12 = list(range(n_tr)), list(range(n_oob))
     pot_outcomes_13 = pot_variables_used_indi_14 = leaf_size_pot_15 = None
     indices_oob_16 = indices_oob
-    node_table.append(id_node_0)
-    node_table.append(id_parent_1)
-    node_table.append(id_child_left_2)
-    node_table.append(id_child_right_3)
-    node_table.append(active_4)
-    node_table.append(leaf_size_tr_5)
-    node_table.append(leaf_size_oob_6)
-    node_table.append(objective_fct_value_oob_7)
-    node_table.append(next_split_i_8)
-    node_table.append(cut_off_prime_l_9)
-    node_table.append(x_type_10)
-    node_table.append(data_tr_indi_11)
-    node_table.append(data_oob_indi_12)
-    node_table.append(pot_outcomes_13)
-    node_table.append(pot_variables_used_indi_14)
-    node_table.append(leaf_size_pot_15)
-    node_table.append(indices_oob_16)
+    node_table = [
+        id_node_0, id_parent_1, id_child_left_2, id_child_right_3, active_4,
+        leaf_size_tr_5, leaf_size_oob_6, objective_fct_value_oob_7,
+        next_split_i_8, cut_off_prime_l_9, x_type_10, data_tr_indi_11,
+        data_oob_indi_12, pot_outcomes_13, pot_variables_used_indi_14,
+        leaf_size_pot_15, indices_oob_16]
     return [node_table]
 
 
@@ -1210,11 +1244,6 @@ def build_tree_mcf(data, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
         n_cl = cl_unique.shape[0]
         n_train = round(n_cl * c_dict['subsam_share_forest'])
         indices_cl = list(rng.choice(n_cl, size=n_train, replace=False))
-        # indices = []
-        # for i in range(n_obs):
-        #     if data[i, cl_i] in indices_cl:
-        #         indices.append(i)
-        # # data = data[:, :-1]                 # CL_ind is at last position
         indices = [i for i in range(n_obs) if data[i, cl_i] in indices_cl]
     else:
         n_train = round(n_obs * c_dict['subsam_share_forest'])
@@ -1291,10 +1320,13 @@ def get_split_values(y_dat, w_dat, x_dat, x_type, x_values, leaf_size, c_dict,
     if x_type == 0:
         if bool(x_values):  # Limited number of values in x_value
             min_x, max_x = np.amin(x_dat), np.amax(x_dat)
-            del_values = []
-            for j, val in enumerate(x_values):
-                if (val < (min_x - 1e-15)) or (val > (max_x + 1e-15)):
-                    del_values.append(j)
+            del_values = [j for j, val in enumerate(x_values)
+                          if (val < (min_x - 1e-15))
+                          or (val > (max_x + 1e-15))]
+            # del_values = []
+            # for j, val in enumerate(x_values):
+            #     if (val < (min_x - 1e-15)) or (val > (max_x + 1e-15)):
+            #         del_values.append(j)
             if del_values:  # List is not empty
                 splits_x = [x for x in x_values if x not in del_values]
             else:

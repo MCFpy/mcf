@@ -108,8 +108,9 @@ def plot_marginal(pred, pred_se, names_pred, x_name, x_values_in, x_type,
             print_str += '\n' + gp_est.print_se_info(c_dict['cluster_std'],
                                                      c_dict['se_boot_gate'])
             if minus_ate:
-                print_str += gp_est.print_minus_ate_info(c_dict['w_yes'],
-                                                         print_it=False)
+                if not c_dict['gates_minus_previous']:
+                    print_str += gp_est.print_minus_ate_info(c_dict['w_yes'],
+                                                             print_it=False)
             print(print_str)
             gp.print_f(c_dict['outfilesummary'], print_str)
         axs.set_ylabel(label_y)
@@ -274,12 +275,12 @@ def make_gate_figures_discr(
     if ate_se is None:
         gate_str = 'AMGATE-avg.(AMGATE)' if am_gate else 'GATE-ATE'
         gate_str_y = 'Effect - average'
-        ate_label = '_nolegend_'
         if am_gate:
             label_m = 'AMGATE-avg.(AMATE)'
         else:
             label_m = 'GATET-ATET' if gatet_yes else 'GATE-ATE'
         label_y = 'Effect - average'
+        ate_label = '_nolegend_'
     else:
         if am_gate:
             label_m = 'AMGATE'
@@ -322,7 +323,7 @@ def make_gate_figures_discr(
                     alpha=0.3, color='r', label=label_ci)
                 label_ate = 'ATE'
             else:
-                label_ate = '_nolegend_'
+                label_ate = '_nolegend_'            
             axs.plot(z_values, ate, line_ate, label=label_ate)
             axs.set_ylabel(label_y)
             axs.legend(loc=c_dict['fig_legend_loc'], shadow=True,

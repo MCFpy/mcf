@@ -195,7 +195,7 @@ def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
         if add_title is not None:
             print_str += 'f{add_info:6.2f} '
         print_str += f'{est[j]:12.6f}  {stderr[j]:12.6f} '
-        print_str += f'{t_val[j]:8.2f}  {p_val[j]*100:8.3f}% '
+        print_str += f'{t_val[j]:8.2f}  {p_val[j]:8.3%} '
         if p_val[j] < 0.001:
             print_str += '****'
         elif p_val[j] < 0.01:
@@ -650,7 +650,7 @@ def add_var_names(names1, names2=None, names3=None, names4=None, names5=None,
 
 
 def print_descriptive_stats_file(indata, varnames='all', to_file=False,
-                                 df_instead_of_file=False):
+                                 df_instead_of_file=False, file_to_print=None):
     """Print descriptive statistics of a dataset on file.
 
     Parameters
@@ -685,6 +685,9 @@ def print_descriptive_stats_file(indata, varnames='all', to_file=False,
                            'display.expand_frame_repr', expand,
                            'chop_threshold', 1e-13):
         print(to_print)
+        if file_to_print is not None:
+            print_f(file_to_print, '\nData set:', indata)
+            print_f(file_to_print, to_print)
 
 
 def check_all_vars_in_data(indata, variables):

@@ -9,6 +9,7 @@ Michael Lechner, SEW, University of St. Gallen, Switzerland
 """
 from math import inf
 
+from dask.distributed import Client, as_completed
 import pandas as pd
 import numpy as np
 import ray
@@ -59,11 +60,11 @@ def black_box_allocation(indata, preddata, c_dict, v_dict, seed):
         allocation = bb_allocation(po_np.copy(), data_df.copy(), c_dict,
                                    v_dict, rng)
         if c_dict['bb_bootstraps'] > 0:
-            if c_dict['mp_with_ray']:
-                maxworkers = c_dict['no_parallel']
+            maxworkers = c_dict['no_parallel']
+            obs = len(po_np)
+            if c_dict['_ray_or_dask'] == 'ray':
                 if not ray.is_initialized():
                     ray.init(num_cpus=maxworkers, include_dashboard=False)
-                obs = len(po_np)
                 po_np_ref, data_df_ref = ray.put(po_np), ray.put(data_df)
                 still_running = [ray_bb_allocation_boot.remote(
                     b_idx, obs, po_np_ref, data_df_ref, c_dict, v_dict)
@@ -77,6 +78,20 @@ def black_box_allocation(indata, preddata, c_dict, v_dict, seed):
                             gp.share_completed(idx+1,
                                                c_dict['bb_bootstraps'])
                         allocation_b[idx] = ret_all_i
+                        idx += 1
+            elif c_dict['_ray_or_dask'] == 'dask':
+                with Client(n_workers=maxworkers) as clt:
+                    po_np_ref = clt.scatter(po_np)
+                    data_df_ref = clt.scatter(data_df)
+                    ret_fut = [
+                        clt.submit(dask_bb_allocation_boot, b_idx, obs,
+                                   po_np_ref, data_df_ref, c_dict, v_dict)
+                        for b_idx in range(c_dict['bb_bootstraps'])]
+                    idx, allocation_b = 0, [None] * c_dict['bb_bootstraps']
+                    for _, res in as_completed(ret_fut, with_results=True):
+                        if c_dict['with_output']:
+                            gp.share_completed(idx+1, c_dict['bb_bootstraps'])
+                        allocation_b[idx] = res
                         idx += 1
             else:   # no multiprocessing
                 allocation_b = []
@@ -113,6 +128,15 @@ def ray_bb_allocation_boot(boot, obs, po_np, data_df, c_dict, v_dict):
     return bb_allocation(po_np_b, data_df_b, c_dict, v_dict, rng)
 
 
+def dask_bb_allocation_boot(boot, obs, po_np, data_df, c_dict, v_dict):
+    """Do bootstrapping black box allocation with dask."""
+    rng = np.random.default_rng((10+boot)**2+121)
+    boot_ind = rng.integers(low=0, high=obs, size=obs)
+    po_np_b = po_np[boot_ind, :].copy()
+    data_df_b = data_df.iloc[boot_ind, :].copy()
+    return bb_allocation(po_np_b, data_df_b, c_dict, v_dict, rng)
+
+
 def add_boot_stats_to_allocation(allocation, allocation_b):
     """Create Bootstrap stats and add to results dictionaries in allocation."""
     for a_idx, alloc in enumerate(allocation):
@@ -139,7 +163,10 @@ def add_boot_stats_to_results(boot_data):
         quants = (0.25, 0.50, 0.75)
     else:
         quants = (0.33, 0.50, 0.66)
-    no_vars_add = boot_data['score_add'].shape[1]
+    if boot_data['score_add'] is not None:
+        no_vars_add = boot_data['score_add'].shape[1]
+    else:
+        no_vars_add = None
     score_std, score_q = std_quantile(boot_data['score'], quants)
     score_m_obs_std, score_m_obs_q = std_quantile(boot_data['score_m_obs'],
                                                   quants)
@@ -147,24 +174,30 @@ def add_boot_stats_to_results(boot_data):
                                                     quants)
     score_change_m_obs_std, score_change_m_obs_q = std_quantile(
         boot_data['score_change_m_obs'], quants)
-    score_add_std = np.zeros(no_vars_add)
-    score_add_m_obs_std = np.zeros_like(score_add_std)
-    score_add_q = np.zeros((no_vars_add, len(quants)))
-    score_add_m_obs_q = np.zeros_like(score_add_q)
-    score_change_add_std = np.zeros_like(score_add_std)
-    score_change_add_m_obs_std = np.zeros_like(score_add_std)
-    score_change_add_q = np.zeros_like(score_add_q)
-    score_change_add_m_obs_q = np.zeros_like(score_add_q)
-    for i in range(no_vars_add):
-        score_add_std[i], score_add_q[i, :] = std_quantile(
-            boot_data['score_add'][i], quants)
-        score_add_m_obs_std[i], score_add_m_obs_q[i, :] = std_quantile(
-            boot_data['score_add_m_obs'][i], quants)
-        score_change_add_std[i], score_change_add_q[i, :] = std_quantile(
-            boot_data['score_change_add'][i], quants)
-        ret = std_quantile(boot_data['score_change_add_m_obs'][i], quants)
-        score_change_add_m_obs_std[i] = ret[0]
-        score_change_add_m_obs_q[i, :] = ret[1]
+    if no_vars_add is not None:
+        score_add_std = np.zeros(no_vars_add)
+        score_add_m_obs_std = np.zeros_like(score_add_std)
+        score_add_q = np.zeros((no_vars_add, len(quants)))
+        score_add_m_obs_q = np.zeros_like(score_add_q)
+        score_change_add_std = np.zeros_like(score_add_std)
+        score_change_add_m_obs_std = np.zeros_like(score_add_std)
+        score_change_add_q = np.zeros_like(score_add_q)
+        score_change_add_m_obs_q = np.zeros_like(score_add_q)
+        for i in range(no_vars_add):
+            score_add_std[i], score_add_q[i, :] = std_quantile(
+                boot_data['score_add'][i], quants)
+            score_add_m_obs_std[i], score_add_m_obs_q[i, :] = std_quantile(
+                boot_data['score_add_m_obs'][i], quants)
+            score_change_add_std[i], score_change_add_q[i, :] = std_quantile(
+                boot_data['score_change_add'][i], quants)
+            ret = std_quantile(boot_data['score_change_add_m_obs'][i], quants)
+            score_change_add_m_obs_std[i] = ret[0]
+            score_change_add_m_obs_q[i, :] = ret[1]
+    else:
+        score_add_std = score_add_m_obs_std = score_add_q = None
+        score_add_m_obs_q = score_change_add_std = None
+        score_change_add_m_obs_std = score_change_add_q = None
+        score_change_add_m_obs_q = None
     bootstat_dict = {
         'score_std': score_std, 'score_q': score_q,
         'score_change_std': score_change_std, 'score_change_q': score_change_q,
@@ -201,6 +234,7 @@ def collect_data_all_boots(allocation, a_idx):
                 score_change_add_m_obs = np.zeros_like(score_add)
             else:
                 score_add = score_change_add = None
+                score_add_m_obs = score_change_add_m_obs = None
         score[b_idx] = result['score']
         obs_by_treat[b_idx] = result['obs_by_treat']
         score_change[b_idx] = result['score_change']
@@ -389,7 +423,8 @@ def bb_allocation(po_np, data_df, c_dict, v_dict, rng):
             po_alloc_np, no_treat, no_obs, max_by_cat, largest_gain, rng))
         if v_dict['bb_rest_variable']:
             allocations.append(largest_gain_rest_other_var_fct(
-                po_alloc_np, no_treat, max_by_cat, v_dict, largest_gain, data_df))
+                po_alloc_np, no_treat, max_by_cat, v_dict, largest_gain,
+                data_df))
     if v_dict['polscore_desc_name'] is not None:
         po_descr_np = data_df[v_dict['polscore_desc_name']].to_numpy()
     else:

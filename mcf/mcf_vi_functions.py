@@ -9,6 +9,7 @@ Created on Thu Dec 8 09:11:57 2020.
 """
 from concurrent import futures
 import math
+from dask.distributed import Client, as_completed
 
 import numpy as np
 import ray
@@ -58,8 +59,8 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
     if c_dictin['with_output'] and c_dictin['verbose']:
         print('\nVariable importance measures (OOB data)')
         print('\nSingle variables')
-    (x_name, _, _, c_dict, _, data_np, y_i, y_nn_i, x_i, _, _, d_i, w_i, _,
-     d_grid_i) = mcf_data.prepare_data_for_forest(
+    (x_name, _, _, c_dict, _, data_np, y_i, y_nn_i, x_i, _, _, d_i, w_i, _, _
+     ) = mcf_data.prepare_data_for_forest(
          indatei, v_dict, v_x_type, v_x_values, c_dictin, regrf=regrf)
     no_of_vars = len(x_name)
     partner_k = determine_partner_k(x_name)
@@ -78,7 +79,7 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
             maxworkers = c_dict['no_parallel']
     if c_dict['with_output'] and c_dict['verbose']:
         print('Number of parallel processes: ', maxworkers)
-    if c_dict['mp_with_ray'] and maxworkers > 1:
+    if maxworkers > 1 and c_dict['_ray_or_dask'] == 'ray':
         if c_dict['mem_object_store_2'] is None:
             if not ray.is_initialized():
                 ray.init(num_cpus=maxworkers, include_dashboard=False)
@@ -91,7 +92,7 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
                       round(c_dict['mem_object_store_2']/(1024*1024)), " MB")
         data_np_ref = ray.put(data_np)
         forest_ref = ray.put(forest)
-    if (c_dict['mp_type_vim'] == 2 and not c_dict['mp_with_ray']) or (
+    if (c_dict['mp_type_vim'] == 2 and c_dict['_ray_or_dask'] != 'ray') or (
             maxworkers == 1):
         for jdx in range(number_of_oobs):
             oob_values[jdx], _ = get_oob_mcf(
@@ -101,12 +102,7 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
                 gp.share_completed(jdx+1, number_of_oobs)
     else:  # Fast but needs a lot of memory because it copied a lot
         maxworkers = min(maxworkers, number_of_oobs)
-        if c_dict['mp_with_ray']:
-            # tasks = [ray_get_oob_mcf.remote(
-            #     data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx,True,[],
-            #     forest_ref, True, regrf, partner_k[idx])
-            #     for idx in range(number_of_oobs)]
-            # still_running = list(tasks)
+        if c_dict['_ray_or_dask'] == 'ray':
             still_running = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx, True, [],
                 forest_ref, True, regrf, partner_k[idx])
@@ -121,6 +117,20 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
                     if c_dict['with_output'] and c_dict['verbose']:
                         gp.share_completed(jdx+1, number_of_oobs)
                         jdx += 1
+        elif c_dict['_ray_or_dask'] == 'dask':
+            with Client(n_workers=maxworkers) as clt:
+                data_np_ref = clt.scatter(data_np)
+                ret_fut = [clt.submit(
+                    get_oob_mcf, data_np_ref, y_i, y_nn_i, x_i, d_i, w_i,
+                    c_dict, idx, True, [], forest, True, regrf, partner_k[idx])
+                           for idx in range(number_of_oobs)]
+                jdx = 0
+                for _, res in as_completed(ret_fut, with_results=True):
+                    jdx += 1
+                    iix = res[1]
+                    oob_values[iix] = res[0]
+                    if c_dict['with_output'] and c_dict['verbose']:
+                        gp.share_completed(jdx+1, number_of_oobs)
         else:
             with futures.ProcessPoolExecutor(max_workers=maxworkers) as fpp:
                 ret_fut = {fpp.submit(
@@ -150,12 +160,7 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
         ind_groups = vim_grouping(vim, no_g)
         n_g = len(ind_groups)
         oob_values = [None] * n_g
-        if c_dict['mp_with_ray'] and maxworkers > 1:
-            # tasks = [ray_get_oob_mcf.remote(
-            #     data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx, False,
-            #     ind_groups, forest_ref, True, regrf, partner_k)
-            #     for idx in range(n_g)]
-            # still_running = list(tasks)
+        if maxworkers > 1 and c_dict['_ray_or_dask'] == 'ray':
             still_running = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx, False,
                 ind_groups, forest_ref, True, regrf, partner_k)
@@ -170,6 +175,22 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
                     if c_dict['with_output'] and c_dict['verbose']:
                         gp.share_completed(idx+1, n_g)
                         idx += 1
+        elif c_dict['_ray_or_dask'] == 'dask':
+            with Client(n_workers=maxworkers) as clt:
+                data_np_ref = clt.scatter(data_np)
+                forest_ref = clt.scatter(forest)
+                ret_fut = [
+                    clt.submit(get_oob_mcf, data_np_ref, y_i, y_nn_i, x_i, d_i,
+                               w_i, c_dict, idx, False, ind_groups, forest_ref,
+                               True, regrf, partner_k)
+                    for idx in range(n_g)]
+                jdx = 0
+                for _, res in as_completed(ret_fut, with_results=True):
+                    jdx += 1
+                    iix = res[1]
+                    oob_values[iix] = res[0]
+                    if c_dict['with_output'] and c_dict['verbose']:
+                        gp.share_completed(jdx+1, n_g)
         else:
             for idx in range(n_g):
                 oob_values[idx], _ = get_oob_mcf(
@@ -191,12 +212,7 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
         ind_groups = vim_grouping(vim_g, no_m_g, True)
         n_g = len(ind_groups)
         oob_values = [None] * n_g
-        if c_dict['mp_with_ray'] and maxworkers > 1:
-            # tasks = [ray_get_oob_mcf.remote(
-            #     data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx, False,
-            #     ind_groups, forest_ref, True, regrf, partner_k)
-            #     for idx in range(n_g)]
-            # still_running = list(tasks)
+        if maxworkers > 1 and c_dict['_ray_or_dask'] == 'ray':
             still_running = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, c_dict, idx, False,
                 ind_groups, forest_ref, True, regrf, partner_k)
@@ -211,6 +227,21 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
                     if c_dict['with_output'] and c_dict['verbose']:
                         gp.share_completed(idx+1, n_g)
                         idx += 1
+        elif c_dict['_ray_or_dask'] == 'dask':
+            with Client(n_workers=maxworkers) as clt:
+                data_np_ref = clt.scatter(data_np)
+                forest_ref = clt.scatter(forest)
+                ret_fut = [clt.submit(
+                    get_oob_mcf, data_np_ref, y_i, y_nn_i, x_i, d_i, w_i,
+                    c_dict, idx, False, ind_groups, forest_ref, True,
+                    regrf, partner_k) for idx in range(n_g)]
+                jdx = 0
+                for _, res in as_completed(ret_fut, with_results=True):
+                    jdx += 1
+                    iix = res[1]
+                    oob_values[iix] = res[0]
+                    if c_dict['with_output'] and c_dict['verbose']:
+                        gp.share_completed(jdx+1, n_g)
         else:
             for idx in range(n_g):
                 oob_values[idx], _ = get_oob_mcf(
@@ -225,14 +256,11 @@ def variable_importance(indatei, forest, v_dict, v_x_type, v_x_values,
                            c_dict['with_output'], False)
     else:
         vim_mg = None
-    if c_dict['mp_with_ray'] and maxworkers > 1:
+    if c_dict['_ray_or_dask'] == 'ray' and maxworkers > 1:
         if 'refs' in c_dict['_mp_ray_del']:
             del data_np_ref, forest_ref
-        # if 'remote' in c_dict['_mp_ray_del']:
-        #     del tasks
         if 'rest' in c_dict['_mp_ray_del']:
             del finished_res, finished
-            #     del ret_all_i_list
         if c_dict['_mp_ray_shutdown']:
             ray.shutdown()
     return vim, vim_g, vim_mg, x_name
@@ -346,9 +374,6 @@ def vim_print(mse_ref, mse_values, x_name, ind_list=0, with_output=True,
             ind_i = ind_list[i]
             ind_sorted.append(ind_i)
             x_name_i = [x_name[j] for j in ind_i]
-            # x_name_i = []
-            # for j in ind_i:
-            #     x_name_i.append(x_name[j])
             x_names_sorted.append(x_name_i)
     if with_output:
         print('\n')
@@ -358,10 +383,10 @@ def vim_print(mse_ref, mse_values, x_name, ind_list=0, with_output=True,
         print('Variable importance statistics in %-lost of base value')
         for idx, vim in enumerate(vim_sorted):
             if single:
-                print(f'{x_names_sorted[idx]:<50}: {vim-100:>7.2f}%')
+                print(f'{x_names_sorted[idx]:<50}: {vim-100:>7.4f}%')
             else:
-                print(x_names_sorted[idx])
-                print(f' {" ":<50}: {vim-100:>7.2f} %')
+                print(*x_names_sorted[idx])
+                print(f' {" ":<50}: {vim-100:>7.4f}%')
         print('-' * 80)
         print('Computed as share of OOB MSE of estimated forest relative to',
               'OOB MSE of variable (or group of variables) with randomized',

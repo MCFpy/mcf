@@ -59,10 +59,12 @@ def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
         print('\nIndependent sample used for local centering.')
         print('Number of observations used only for computing E(y|x): ',
               len(lc_y_df.index))
-    names_unordered = []
-    for x_name in x_names:
-        if var_x_type_dict[x_name] > 0:
-            names_unordered.append(x_name)
+    names_unordered = [x_name for x_name in x_names
+                       if var_x_type_dict[x_name] > 0]
+    # names_unordered = []
+    # for x_name in x_names:
+    #     if var_x_type_dict[x_name] > 0:
+    #         names_unordered.append(x_name)
     if names_unordered:  # List is not empty
         lc_x_dummies = pd.get_dummies(lc_x_df, columns=names_unordered)
         nonlc_x_dummies = pd.get_dummies(nonlc_x_df, columns=names_unordered)
@@ -77,13 +79,14 @@ def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
     x_pred = nonlc_x_df.to_numpy()
     y_m_yx = np.empty(np.shape(nonlc_y_df))
     centered_y_name = []
+    n_min_lc = n_min_lc_fct(c_dict['grid_n_min'])
     for indx, y_name in enumerate(v_dict['y_name']):
         y_train = lc_y_df[y_name].to_numpy()
         y_nonlc = nonlc_y_df[y_name].to_numpy()
         save_forest = indx == 0 and c_dict['l_centering_uncenter']
         y_pred, _, _, _, _, _, lc_forest_temp = gp_est.random_forest_scikit(
             x_train, y_train, x_pred, y_name=y_name, boot=c_dict['boot'],
-            n_min=c_dict['grid_n_min'], no_features=c_dict['m_grid'],
+            n_min=n_min_lc, no_features='sqrt',
             workers=max_workers, pred_p_flag=True,
             pred_t_flag=False, pred_oob_flag=False,
             with_output=c_dict['with_output'],
@@ -103,6 +106,15 @@ def local_centering_new_sample(lc_csvfile, nonlc_csvfile, v_dict,
         gp.print_descriptive_stats_file(
             nonlc_csvfile, all_y_name, c_dict['print_to_file'])
     return nonlc_csvfile, v_dict['y_name'], centered_y_name, lc_forest
+
+
+def n_min_lc_fct(n_grid):
+    """Get minimum leaf size for local centering."""
+    if isinstance(n_grid, (list, tuple)):
+        n_lc = [max(round(x / 4), 3) for x in n_grid]
+    else:
+        n_lc = max(round(n_grid / 4), 3)
+    return n_lc
 
 
 def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict, seed=42):
@@ -135,6 +147,7 @@ def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict, seed=42):
     add_yx_names = True
     centered_y_name = []
     names_unordered = []
+    n_min_lc = n_min_lc_fct(c_dict['grid_n_min'])
     for file_name in datafiles:
         data_df = pd.read_csv(file_name)
         x_names = var_x_type_dict.keys()
@@ -167,8 +180,8 @@ def local_centering_cv(datafiles, v_dict, var_x_type_dict, c_dict, seed=42):
                 (y_pred_rf, _, _, _, _, _, lc_forest_temp
                  ) = gp_est.random_forest_scikit(
                     x_train, y_train, x_pred, y_name=y_name,
-                    boot=c_dict['boot'], n_min=c_dict['grid_n_min'],
-                    no_features=c_dict['m_grid'], workers=max_workers,
+                    boot=c_dict['boot'], n_min=n_min_lc,
+                    no_features='sqrt', workers=max_workers,
                     pred_p_flag=True, pred_t_flag=False, pred_oob_flag=False,
                     with_output=c_dict['with_output'],
                     return_forest_object=save_forest, seed=seed)

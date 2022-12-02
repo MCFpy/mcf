@@ -279,20 +279,30 @@ def get_controls(c_dict, v_dict):
             cnew_dict['n_min_min'] = round(c_dict['n_min_min'])   # grid n_min
         if cnew_dict['n_min_min'] < 1:
             if cnew_dict['n_min_min'] == -1:
-                cnew_dict['n_min_min'] = round((n_d_subsam**0.4)/10)
+                cnew_dict['n_min_min'] = round((n_d_subsam**0.4)/5)
                 if cnew_dict['n_min_min'] < 5:
                     cnew_dict['n_min_min'] = 5
             else:
-                cnew_dict['n_min_min'] = round((n_d_subsam**0.4)/20)
+                cnew_dict['n_min_min'] = round((n_d_subsam**0.4)/10)
                 if cnew_dict['n_min_min'] < 3:
                     cnew_dict['n_min_min'] = 3
+            if cnew_dict['d_type'] == 'discrete':
+                cnew_dict['n_min_min'] *= len(d_values)
         if cnew_dict['d_type'] == 'discrete':
-            if cnew_dict['n_min_min'] < len(d_values):
-                cnew_dict['n_min_min'] = len(d_values)
-                text_to_print = ('Required to have support. Smallest ',
+            if c_dict['n_min_treat'] is None or c_dict['n_min_treat'] < 1:
+                cnew_dict['n_min_treat'] = 3
+            else:
+                cnew_dict['n_min_treat'] = int(c_dict['n_min_treat'])
+            if cnew_dict['n_min_min'] < cnew_dict['n_min_treat'
+                                                  ] * len(d_values):
+                cnew_dict['n_min_min'] = cnew_dict['n_min_treat'
+                                                   ] * len(d_values)
+                text_to_print = ('Minimum leaf size adjusted. Smallest ',
                                  ' leafsize set to: ', cnew_dict['n_min_min'])
             else:
                 text_to_print = None
+        else:
+            cnew_dict['n_min_treat'] = 0
         if c_dict['n_min_max'] is None:
             c_dict['n_min_max'] = cnew_dict['n_min_max'] = -1
         else:
@@ -306,6 +316,8 @@ def get_controls(c_dict, v_dict):
                 cnew_dict['n_min_max'] = round(math.sqrt(n_d_subsam) / 10)
                 if cnew_dict['n_min_max'] < 3:
                     cnew_dict['n_min_max'] = 3
+            if cnew_dict['d_type'] == 'discrete':
+                cnew_dict['n_min_max'] *= len(d_values)
         if c_dict['n_min_grid'] is None:
             cnew_dict['n_min_grid'] = 0
         else:
@@ -364,13 +376,13 @@ def get_controls(c_dict, v_dict):
         if c_dict['fs_rf_threshold'] is None:
             c_dict['fs_rf_threshold'] = -1
         if c_dict['fs_rf_threshold'] <= 0:
-            cnew_dict['fs_rf_threshold'] = 0
+            cnew_dict['fs_rf_threshold'] = 0.0001
         cnew_dict['fs_other_sample'] = not c_dict['fs_other_sample'] is False
         if c_dict['fs_other_sample_share'] is None:
             c_dict['fs_other_sample_share'] = -1
         if (c_dict['fs_other_sample_share'] < 0) or (
                 c_dict['fs_other_sample_share'] > 0.5):
-            cnew_dict['fs_other_sample_share'] = 0.2
+            cnew_dict['fs_other_sample_share'] = 0.33
         if cnew_dict['fs_other_sample'] is False or (
                 cnew_dict['fs_yes'] is False):
             cnew_dict['fs_other_sample_share'] = 0
@@ -379,16 +391,15 @@ def get_controls(c_dict, v_dict):
         subsam_share_forest = mcf_ia.sub_size(
             n_train, c_dict['subsample_factor_forest'], 0.67)
         if c_dict['subsample_factor_eval'] is None:
-            c_dict['subsample_factor_eval'] = False  # Default
+            c_dict['subsample_factor_eval'] = True  # Default
         if c_dict['subsample_factor_eval'] is False:
             c_dict['subsample_factor_eval'] = 1000000000
         if c_dict['subsample_factor_eval'] is True:
-            c_dict['subsample_factor_eval'] = 1
+            c_dict['subsample_factor_eval'] = 2
         if c_dict['subsample_factor_eval'] < 0.01:
             c_dict['subsample_factor_eval'] = 1000000000
-        subsam_share_eval = mcf_ia.sub_size(
-            n_train, c_dict['subsample_factor_eval'], 1)
-        # Define method to be used later on
+        subsam_share_eval = min(
+            subsam_share_forest * c_dict['subsample_factor_eval'], 1)
         if c_dict['mce_vart'] is None:
             c_dict['mce_vart'] = -1
         if (c_dict['mce_vart'] == 1) or (c_dict['mce_vart'] == -1):
@@ -488,7 +499,7 @@ def get_controls(c_dict, v_dict):
         # Choice based sampling (oversampling of treatments)
         if c_dict['choice_based_yes'] is True:
             err_txt = 'No choice based sample with continuous treatments.'
-            assert ['d_type'] == 'discrete', err_txt
+            assert cnew_dict['d_type'] == 'discrete', err_txt
             cnew_dict['choice_based_yes'] = True
             err_t = ('Choice based sampling. Rows in choice probabilities do'
                      + ' not correspond to number of treatments.')
@@ -591,13 +602,17 @@ def get_controls(c_dict, v_dict):
         cnew_dict['sgates_no_evaluation_points'] = (
             50 if c_dict['sgates_no_evaluation_points'] < 2
             else round(c_dict['sgates_no_evaluation_points']))
+        if c_dict['gates_minus_previous']:
+            cnew_dict['gates_minus_previous'] = True
+        else:
+            cnew_dict['gates_minus_previous'] = False
         if c_dict['iate_flag'] is False:
             cnew_dict['iate_flag'] = cnew_dict['iate_se_flag'] = False
             c_dict['post_est_stats'] = False
         else:
             cnew_dict['iate_flag'] = True
             cnew_dict['iate_se_flag'] = not c_dict['iate_se_flag'] is False
-        cnew_dict['effiate_flag'] = not c_dict['effiate_flag'] is False
+        cnew_dict['iate_eff_flag'] = not c_dict['iate_eff_flag'] is False
         # Post estimation parameters
         cnew_dict['post_est_stats'] = not c_dict['post_est_stats'] is False
         cnew_dict['bin_corr_yes'] = not c_dict['bin_corr_yes'] is False
@@ -707,7 +722,6 @@ def get_controls(c_dict, v_dict):
         c_dict['support_max_del_train'] = -1
     if not 0 < c_dict['support_max_del_train'] <= 1:
         cnew_dict['support_max_del_train'] = 0.33
-    cnew_dict['mp_with_ray'] = not c_dict['mp_with_ray'] is False
     memory = psutil.virtual_memory()
     if c_dict['mp_ray_objstore_multiplier'] is None:
         c_dict['mp_ray_objstore_multiplier'] = -1
@@ -748,13 +762,18 @@ def get_controls(c_dict, v_dict):
     if c_dict['no_parallel'] is None:
         c_dict['no_parallel'] = -1
     if c_dict['no_parallel'] < -0.5:
-        cnew_dict['no_parallel'] = psutil.cpu_count(logical=True) - 2
+        cnew_dict['no_parallel'] = round(psutil.cpu_count(logical=True)*0.8)
         mp_automatic = True
     elif -0.5 <= c_dict['no_parallel'] <= 1.5:
         cnew_dict['no_parallel'] = 1
     else:
         cnew_dict['no_parallel'] = round(c_dict['no_parallel'])
     sys_share = 0.7 * getattr(psutil.virtual_memory(), 'percent') / 100
+
+    if c_dict['_ray_or_dask'] == 'dask':
+        cnew_dict['_ray_or_dask'] == 'dask'
+    else:
+        cnew_dict['_ray_or_dask'] == 'ray'
 
     if c_dict['_mp_ray_del'] is None:
         cnew_dict['_mp_ray_del'] = ('refs',)
@@ -878,11 +897,11 @@ def get_controls(c_dict, v_dict):
     cnew_dict.update(cn_add)
     # Check for inconsistencies
     if cnew_dict['iate_flag'] is False or cnew_dict['pred_mcf'] is False:
-        cnew_dict['effiate_flag'] = False
-    if cnew_dict['effiate_flag'] and not cnew_dict['train_mcf']:
+        cnew_dict['iate_eff_flag'] = False
+    if cnew_dict['iate_eff_flag'] and not cnew_dict['train_mcf']:
         print('2nd round efficient IATEs are only computed if training is ',
               'activated. They will be disabled.')
-        cnew_dict['effiate_flag'] = False
+        cnew_dict['iate_eff_flag'] = False
     if c_dict['train_mcf']:
         if v_dict['y_name'] is None or v_dict['y_name'] == []:
             raise Exception('y_name must be specified.')
@@ -892,7 +911,7 @@ def get_controls(c_dict, v_dict):
             if isinstance(v_dict['y_name'], (list, tuple)):
                 v_dict['y_tree_name'] = [v_dict['y_name'][0]]
             else:
-                v_dict['y_tree_name'] = [v_dict['y_name']]        
+                v_dict['y_tree_name'] = [v_dict['y_name']]
     if (v_dict['x_name_ord'] is None or v_dict['x_name_ord'] == []) and (
             v_dict['x_name_unord'] is None or v_dict['x_name_unord'] == []):
         raise Exception('x_name_ord or x_name_unord must be specified.')
@@ -962,7 +981,7 @@ def get_controls(c_dict, v_dict):
         if cnew_dict['balancing_test_w']:
             x_name_remain = gp.cleaned_var_names(copy.deepcopy(
                 x_balance_name + x_name_remain))
-    if x_name_in_tree != []:
+    if x_name_in_tree:
         x_name_remain = gp.cleaned_var_names(copy.deepcopy(
             x_name_in_tree + x_name_remain))
         x_name = gp.cleaned_var_names(copy.deepcopy(x_name_in_tree + x_name))

@@ -84,7 +84,7 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
         treat_vals = pd.unique(treat_pd)
         print('--------------- Mean by treatment status ------------------')
         if len(treat_vals) > 0:
-            mean = data_pd.groupby(treat_pd).mean()
+            mean = data_pd.groupby(treat_pd).mean(numeric_only=True)
             print(mean.transpose())
         else:
             print('All obs have same treatment:', treat_vals)
@@ -114,7 +114,7 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
             print_str = ('-' * 80 + '\nData investigated and saved:'
                          + f'{out_file}' + '\n' + '-' * 80 + '\n'
                          + f'Observations deleted: {np.sum(obs_to_del_np):4}'
-                         + f' ({np.mean(obs_to_del_np)*100:.3f}%)'
+                         + f' ({np.mean(obs_to_del_np):.3%})'
                          + '\n' + '-' * 80)
             print(print_str)
             gp.print_f(c_dict['outfilesummary'], print_str)
@@ -193,10 +193,6 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
     else:
         d_name, no_of_treat = v_dict['d_name'], c_dict['no_of_treat']
     x_name, x_type = gp.get_key_values_in_list(var_x_type)
-    # names_unordered = []  # Split ordered variables into dummies
-    # for j, val in enumerate(x_type):
-    #     if val > 0:
-    #         names_unordered.append(x_name[j])
     names_unordered = [x_name[j] for j, val in enumerate(x_type) if val > 0]
     fs_adjust, obs_fs = False, 0
     if c_dict['train_mcf']:
@@ -280,8 +276,8 @@ def common_support(predict_file, tree_file, fill_y_file, fs_file, var_x_type,
             return_forest = bool(c_dict['save_forest'])
             ret_rf = gp_est.random_forest_scikit(
                 x_tr_np, d_tr_np[:, idx], x_pred_all_np, boot=c_dict['boot'],
-                n_min=c_dict_new['grid_n_min'],
-                no_features=c_dict_new['grid_m'], workers=workers_mp,
+                n_min=c_dict_new['grid_n_min']/2,
+                no_features='sqrt', workers=workers_mp,
                 pred_p_flag=True, pred_t_flag=True, pred_oob_flag=True,
                 with_output=False, variable_importance=c_dict['verbose'],
                 x_name=x_name_all, var_im_with_output=c_dict['with_output'],
@@ -457,7 +453,8 @@ def off_support_and_plot(pred_t, pred_p, d_t, c_dict):
         color_list = color_list[:len(d_values)]
         for idx_p, ival_p in enumerate(d_values):  # iterate treatment probs
             treat_prob = pred_t[:, idx_p]
-            titel = f'Probability of treatment {ival_p} in subsamples'
+            titel = (f'Probability of treatment {ival_p} in different '
+                     + 'subsamples')
             f_titel = f'common_support_pr_treat{ival_p}'
             file_name_jpeg = (c_dict['common_support_fig_pfad_jpeg']
                               + '/' + f_titel + '.jpeg')
@@ -467,9 +464,11 @@ def off_support_and_plot(pred_t, pred_p, d_t, c_dict):
                                 + '/' + f_titel + '_d.jpeg')
             file_name_pdf_d = (c_dict['common_support_fig_pfad_pdf']
                                + '/' + f_titel + '_d.pdf')
-            data_hist = []
-            for idx_sa, _ in enumerate(d_values):  # iterate treat.sample
-                data_hist.append(treat_prob[d_t[:, idx_sa] == 1])
+            # data_hist = []
+            # for idx_sa, _ in enumerate(d_values):  # iterate treat.sample
+            #     data_hist.append(treat_prob[d_t[:, idx_sa] == 1])
+            data_hist = [treat_prob[d_t[:, idx_sa] == 1]
+                         for idx_sa, _ in enumerate(d_values)]
             fig, axs = plt.subplots()
             fig_d, axs_d = plt.subplots()
             labels = ['Treat ' + str(d) for d in d_values]

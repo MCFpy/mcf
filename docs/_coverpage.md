@@ -1,8 +1,8 @@
 <!-- _coverpage.md -->
 
 
-# **M**odified **C**ausal **F**orest  <small>0000000</small>
-TEST
+# **M**odified **C**ausal **F**orest  <small>0.3.2</small>
+
 
 
 

@@ -7,3 +7,4 @@ Here’s a list of tips for getting involved with the MCF:
 * Star and follow us on on GitHub.
 * To post questions, feature requests or bugs, file an issue on GitHub!
 
+Cheers!

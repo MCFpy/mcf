@@ -224,13 +224,13 @@ Alternatively, two separate data sets can be generated for running the local cen
 ### Average effects
 
 The program computes three types of average treatment effects, which differ in their aggregation level and are discussed in depth by [Lechner (2018)](https://arxiv.org/abs/1812.09487). The effects are the individualized average treatment effect (IATE), the group average treatment effect (GATE), and the average treatment effect (ATE). They can be defined in the following way:
-$$
+
 \begin{aligned}
 IATE(m,l;x) &= \mathbb{E} \big[ Y^m-Y^l \big\vert X=x \big] \\
 GATE(m,l;z,\Delta) &= \mathbb{E} \big[ Y^m-Y^l \big\vert Z=z, D\in \Delta \big] \\
 ATE(m,l;\Delta)    &= \mathbb{E} \big[ Y^m-Y^l \big\vert D\in \Delta \big] \\
 \end{aligned}
-$$
+
 
 The potential outcomes are denoted by $Y^d$, where $Y$ stands for the outcome and $\Delta$ comprises different treatment states $d$. By default, the program will consider all treatments, as well as treatment $m$ if ATET and/or GATET are set to *True*. Group-specific features are indicated by $Z$, and the feature vector $X$ comprises all features used by the program (and not deselected by Feature Selection, if activated).
 
@@ -254,12 +254,12 @@ ATEs are computed without the need of specifying any input arguments.
 
 The program further calculates two forms of marginal effects. The difference to the GATEs show above is that they keep the distribution of the other features fixed, while the GATEs implicitly also capture changes in the distribution of other features if correlated with the feature of interest. The two forms of marginal effects are the marginal treatment effect evaluated at fixed reference points (MTE) and the average marginal treatment effect (AMTE). The marginal effects can be approximated by a discrete version of the definition of a derivative as:
 
-$$
+
 \begin{aligned}
     MTE(m,l;x) &= \frac{\mathbb{E} \big[ IATE(m,l;x) \big\vert X^p=x^{pU}, X^{-p}=x^{-p} \big]}{x^{pU}-x^{pL}}\\ &- \frac{\mathbb{E} \big[ IATE(m,l;x) \big\vert X^p=x^{pL}, X^{-p}=x^{-p} \big]}{x^{pU}-x^{pL}}\\
 AMTE(m,l;x)    &= \mathbb{E} \big[ MTE(m,l;x) \big] \\
 \end{aligned}
-$$
+
 
 Here, $p$ is a single feature of $X$ and $X^{-p}$ denotes the remaining features of $X$ without $p$. The values of $x^{pU}$ and $x^{pL}$ are chosen to be larger and smaller than $x^p$, respectively, while insuring that the support of $x^p$ is respected.
 

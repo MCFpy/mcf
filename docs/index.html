@@ -12,48 +12,53 @@
   <meta http-equiv='pragma' content='no-cache'>
   
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple-dark.css">
+  
+  <link
+      rel="stylesheet"
+      href="//cdn.jsdelivr.net/npm/katex@0.16.2/dist/katex.min.css"
+      integrity="sha384-bYdxxUwYipFNohQlHt0bjN/LCpueqWz13HufFEV1SUatKs1cm4L6fFgCi1jT643X"
+      crossorigin="anonymous"
+    />
+   <script
+      src="//cdn.jsdelivr.net/npm/katex@0.16.2/dist/katex.min.js"
+      integrity="sha384-Qsn9KnoKISj6dI8g7p1HBlNpVx0I8p1SvlwOldgi3IorMle61nQy4zEahWYtljaz"
+      crossorigin="anonymous"
+    ></script>
+  
   <link rel="icon" href="_media/favicon.ico">
-  <script>
-  MathJax = {
-    tex: {
-      inlineMath: [['$', '$'], ['\\(', '\\)']]
-    },
-    svg: {
-      fontCache: 'global'
-    }
-  };
+  <script type="text/javascript" id="MathJax-script" async 
+          src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js">
   </script>
-  <script type="text/javascript" id="MathJax-script" async
-    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js">
-  </script>
+  <!-- the version of marked must above 2.1.0 -->
+    <script src="//cdn.jsdelivr.net/npm/marked@4"></script>
+
 </head>
   
 <body>
   <div id="app"></div>
-</body>
-<script>
-  window.$docsify = {
-    repo: 'MCFpy/mcf',
-    name: 'mcf',
-    subMaxLevel: 2,
-    auto2top: true,
-    loadSidebar: true,
-    coverpage: true,
-    search: {
-      noData: {
-        '/': 'No results!'
-      },
-      paths: 'auto',
-      placeholder: {
-        '/': 'Search'
+  <script>
+    window.$docsify = {
+      repo: 'MCFpy/mcf',
+      name: 'mcf',
+      subMaxLevel: 3,
+      auto2top: true,
+      loadSidebar: true,
+      coverpage: true,
+      search: {
+        noData: {
+          '/': 'No results!'
+        },
+        paths: 'auto',
+        placeholder: {
+          '/': 'Search'
+        }
       }
     }
-  }
-</script>
-  
-<!-- Docsify v4 -->
-<script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
-<script src="https://unpkg.com/docsify-copy-code@2"></script>
-<script src="//unpkg.com/docsify/lib/plugins/search.min.js"></script>
-<script src="//unpkg.com/docsify/lib/docsify.min.js"></script>
+  </script>
+
+<!-- before docsify.js-->
+  <script src="docsify_md.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify@4/lib/docsify.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify@latest/lib/plugins/search.min.js"></script>
+  </body>
 </html>

@@ -256,10 +256,12 @@ The program further calculates two forms of marginal effects. The difference to 
 
 
 \begin{aligned}
-    MTE(m,l;x) &= \frac{\mathbb{E} \big[ IATE(m,l;x) \big\vert X^p=x^{pU}, X^{-p}=x^{-p} \big]}{x^{pU}-x^{pL}}\\ &- \frac{\mathbb{E} \big[ IATE(m,l;x) \big\vert X^p=x^{pL}, X^{-p}=x^{-p} \big]}{x^{pU}-x^{pL}}\\
-AMTE(m,l;x)    &= \mathbb{E} \big[ MTE(m,l;x) \big] \\
+    MTE(m,l;x) &= \frac{\mathbb{E} \big[ IATE(m,l;x) \big\vert X^p=x^{pU}, X^{-p}=x^{-p} \big]}{x^{pU}-x^{pL}}\\ &- \frac{\mathbb{E} \big[ IATE(m,l;x) \big\vert X^p=x^{pL}, X^{-p}=x^{-p} \big]}{x^{pU}-x^{pL}}
 \end{aligned}
 
+\begin{aligned}
+AMTE(m,l;x)    &= \mathbb{E} \big[ MTE(m,l;x) \big]
+\end{aligned}
 
 Here, $p$ is a single feature of $X$ and $X^{-p}$ denotes the remaining features of $X$ without $p$. The values of $x^{pU}$ and $x^{pL}$ are chosen to be larger and smaller than $x^p$, respectively, while insuring that the support of $x^p$ is respected.
 

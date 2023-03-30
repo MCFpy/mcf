@@ -255,13 +255,9 @@ ATEs are computed without the need of specifying any input arguments.
 The program further calculates two forms of marginal effects. The difference to the GATEs show above is that they keep the distribution of the other features fixed, while the GATEs implicitly also capture changes in the distribution of other features if correlated with the feature of interest. The two forms of marginal effects are the marginal treatment effect evaluated at fixed reference points (MTE) and the average marginal treatment effect (AMTE). The marginal effects can be approximated by a discrete version of the definition of a derivative as:
 
 
-\begin{aligned}
-    MTE(m,l;x) &= \frac{\mathbb{E} \big[ IATE(m,l;x) \big\vert X^p=x^{pU}, X^{-p}=x^{-p} \big]}{x^{pU}-x^{pL}}\\ &- \frac{\mathbb{E} \big[ IATE(m,l;x) \big\vert X^p=x^{pL}, X^{-p}=x^{-p} \big]}{x^{pU}-x^{pL}}
-\end{aligned}
+$$MTE(m,l;x) &= \frac{\mathbb{E} \big[ IATE(m,l;x) \big\vert X^p=x^{pU}, X^{-p}=x^{-p} \big]}{x^{pU}-x^{pL}}\\ &- \frac{\mathbb{E} \big[ IATE(m,l;x) \big\vert X^p=x^{pL}, X^{-p}=x^{-p} \big]}{x^{pU}-x^{pL}}$$
 
-\begin{aligned}
-AMTE(m,l;x)    &= \mathbb{E} \big[ MTE(m,l;x) \big]
-\end{aligned}
+$$AMTE(m,l;x)    &= \mathbb{E} \big[ MTE(m,l;x) \big]$$
 
 Here, $p$ is a single feature of $X$ and $X^{-p}$ denotes the remaining features of $X$ without $p$. The values of $x^{pU}$ and $x^{pL}$ are chosen to be larger and smaller than $x^p$, respectively, while insuring that the support of $x^p$ is respected.
 

@@ -1,5 +1,56 @@
 # Release Updates
 
+# Release Updates
+
+## Version 0.3.3
+
+### What's New
+
+* Now runs also on Python 3.10.x.
+* Renaming of output: Marginal effects became Moderated effects.
+* Speed and memory improvements
+  Weight matrix computed in smaller chunks for large data
+  There is also a parameter that comes along this change (which should usually
+  not be changed by the user)
+  _weight_as_sparse_splits  Default value is
+  round(Rows of prediction data * rows of Fill_y data / (20'000 * 20'000))
+* Additional and improved statistics for balancing tests.
+
+### Bug fixes
+
+* Correction of prognostic score nearest neighbour matching when local
+centering was activated.
+
+### Name Changes and Default Updates
+
+* Name changes:
+  -* m_share_min --> m_min_share
+  -* m_share_max --> m_max_share
+  * nw_kern_flag --> nw_kern
+  * atet_flag --> atet
+  * gatet_flag --> gatet
+  * iate_flag --> iate
+  * iate_se_flag --> iate_se
+  -* iate_eff_flag --> iate_eff
+  -* iate_cv_flag --> iate_cv
+  * cond_var_flag --> cond_var
+  * knn_flag --> knn
+  * clean_data_flag --> clean_data
+
+* Default values
+  * alpha_reg_min = 0.05
+  * alpha_reg_max = 0.15
+  * If alpha_reg_grid = 1 (default): alpha = (alpha_reg_min+alpha_reg_ax)/2
+  * m_share_min = 0.1
+  * m_share_max = 0.6
+  * m_grid = 1
+  * number of variables used for splitting = share * total # of variable
+  * If m_grid == 1: m_share = (m_share_min + m_share_max)/2
+  * n_min_min=n_d**0.4/6; at least 4
+  * n_min_max=sqrt(n_d)/6, at least ^4 where n_d denotes the number of observations in the smallest treatment arm
+  * If n_min_grid == 1: n_min=(n_min_min+n_min_max)/2
+  * n_min_treat = n_min_min+n_min_max)/2 / # of treatments / 4. Minimum is 2.
+
 ## Version 0.3.2
 
 ### What's New

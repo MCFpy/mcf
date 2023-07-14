@@ -467,7 +467,7 @@ def screen_variables(indatei, var_names, perfectcorr, min_dummy, with_output):
         corr_matrix = datanew.corr().abs()
         # Upper triangle of corr matrix
         upper = corr_matrix.where(np.triu(np.ones(corr_matrix.shape),
-                                          k=1).astype(np.bool))
+                                          k=1).astype(bool))
         to_delete = [c for c in upper.columns if any(upper[c] > 0.999)]
         if not to_delete == []:
             datanew = datanew.drop(columns=to_delete)

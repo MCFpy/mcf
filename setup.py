@@ -1,8 +1,26 @@
 from distutils.core import setup
 import os
+import sys
 
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
+
+# If Python version < 3.8 need to also install importlib
+required_packages = [
+    'numpy>=1.20.0',
+    'pandas>=1.3.0',
+    'matplotlib>=3.4.2',
+    'scipy>=1.7.0',
+    'ray>=1.4.0',
+    'numba>=0.53.1',
+    'scikit-learn>=0.24.2',
+    'psutil>=5.8.0',
+    'sympy>=1.8',
+    'pathlib>=1.0.1',
+    'dask'
+]
+if not ((sys.version_info[0] >= 3) and (sys.version_info[1] >= 8)):
+    required_packages.append('importlib>=1.0.4')
 
 setup(
   name = 'mcf',
@@ -21,17 +39,5 @@ setup(
     'License :: OSI Approved :: MIT License',
     'Programming Language :: Python :: 3.9'
   ],
-  install_requires=[
-   'numpy>=1.20.0',
-   'pandas>=1.3.0',
-   'matplotlib>=3.4.2',
-   'scipy>=1.7.0',
-   'ray>=1.4.0',
-   'numba>=0.53.1',
-   'scikit-learn>=0.24.2',
-   'psutil>=5.8.0',
-   'importlib>=1.0.4',
-   'sympy>=1.8',
-   'pathlib>=1.0.1',
-   'dask']
+  install_requires=required_packages
 )

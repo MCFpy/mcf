@@ -151,7 +151,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Name of variable containing weights.
 
 - <a id="var_x_balance_name_ord"><strong>var_x_balance_name_ord</strong></a>
-		* Names of ordered variables for balancing tests.
+	* Names of ordered variables for balancing tests.
 
 - <a id="var_x_balance_name_unord"><strong>var_x_balance_name_unord</strong></a>
 	* Names of unordered variables for balancing tests.
@@ -166,7 +166,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	*	Names of ordered features.
 
 - <a id="var_x_name_unord"><strong>var_x_name_unord</strong></a>
-		*	Names of unordered features.
+	* Names of unordered features.
 
 - <a id="var_x_name_remain_ord"><strong>var_x_name_remain_ord</strong></a>
 	*	Names of unordered features.
@@ -178,7 +178,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Name(s) of outcome variable(s).
 
 - <a id="var_y_tree_name"><strong>var_y_tree_name</strong></a>
-		* Name of variable to build trees. If None or empty list, the first string in **var_y_name** is used.
+	* Name of variable to build trees. If None or empty list, the first string in **var_y_name** is used.
 
 - <a id="var_z_name_list"><strong>var_z_name_list</strong></a>
 	* Names of variables for heterogeneity analysis.
@@ -199,13 +199,13 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Maximum alpha. May take values between 0 and 0.5. Default is 0.15.
 
 - <a id="cf_alpha_reg_min"><strong>cf_alpha_reg_min</strong></a>
-		* Minimum alpha. May take values between 0 and 0.4. Default is 0.05.
+	* Minimum alpha. May take values between 0 and 0.4. Default is 0.05.
 
 - <a id="cf_boot"><strong>cf_boot</strong></a>
 	* Number of bootstrap or subsampling replications. Default is 1000.
 
 - <a id="cf_chunks_maxsize"><strong>cf_chunks_maxsize</strong></a>
-		* Specifies maximum allowed number of observations per block. If the number is larger than the sample size, there is no random splitting. For the default, None, the number is set to $round(60000 + \sqrt{number of observations - 60000)}$.
+	* Specifies maximum allowed number of observations per block. If the number is larger than the sample size, there is no random splitting. For the default, None, the number is set to $round(60000 + \sqrt{number of observations - 60000)}$.
 
 - <a id="cf_m_grid"><strong>cf_m_grid</strong></a>
 	* Number of grid values logarithmically spaced between **m_min** and **m_max**. If **m_grid** is 1, **m_share** is equal to 0.5(**m_share_min** + **m_share_max**). The default is 2.
@@ -214,7 +214,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	*  If True, number of randomly selected variables is drawn from a Poisson distribution with expectation m - 1. If m > 10, the default is set to True. Otherwise, the default is set to False.
 
 - <a id="cf_m_share_max"><strong>cf_m_share_max</strong></a>
-		* Maximum share of variables to be included in tree growing. Viable range is from 0 to 1 excluding the bounds. Default is 0.6.
+	* Maximum share of variables to be included in tree growing. Viable range is from 0 to 1 excluding the bounds. Default is 0.6.
 
 - <a id="cf_m_share_min"><strong>cf_m_share_min</strong></a>
 	* Minimum share of variables to be included in tree growing. Viable range is from 0 to 1 excluding the bounds. Default is 0.1.
@@ -266,7 +266,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* If **cs_min_p** equals 2, an observation is deleted if at least one of the estimated propensities is less or equal than **support_min_p**. The default is 0.01.
 
 - <a id="cs_quantil"><strong>cs_quantil</strong></a>
-		* If **cs_type** is 1, the min-max rule is deployed. For values between 0 and 1 the respective quantiles are taken. The default is the mi-max rule.
+	* If **cs_type** is 1, the min-max rule is deployed. For values between 0 and 1 the respective quantiles are taken. The default is the mi-max rule.
 
 - <a id="ct_grid_dr"><strong>ct_grid_dr</strong></a>
 	* Specifies number of grid point for discretization of continuous treatment. Used to approximate the dose response function. The grid is defined in terms of the quantiles of the continuous treatment. The default is 100.
@@ -282,7 +282,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* If True, all missing and unnecessary variables are removed. The default is True.
 
 - <a id="dc_min_dummy_obs"><strong>dc_min_dummy_obs</strong></a>
-		* If **dc_screen_covariates** is True, dummy variables with less than **dc_min_dummy_obs** will be deleted. The default is 10.
+	* If **dc_screen_covariates** is True, dummy variables with less than **dc_min_dummy_obs** will be deleted. The default is 10.
 
 - <a id="dc_screen_covariates"><strong>dc_screen_covariates</strong></a>
 	* If True, covariates are screened. The default is True.
@@ -294,7 +294,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Specifies threshold for feature selection as relative loss of variable importance (in percent). The default is 1.
 
 - <a id="fs_yes"><strong>fs_yes</strong></a>
-		* If True, feature selection is active. Default is False.
+	* If True, feature selection is active. Default is False.
 
 - <a id="gen_d_type"><strong>gen_d_type</strong></a>
 	* Specifies type of treatment. Choose between 'discrete' and 'continuous'. Default is 'discrete'.
@@ -303,7 +303,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* If True, the second round of IATEs are estimated based on switching training and estimation subsamples. If False, execution time is considerable faster. Default is False.
 
 - <a id="gen_mp_parallel"><strong>gen_mp_parallel</strong></a>
-		* Specifies the number of parallel processes in the parallelization. For values of 0 and 1, there are no parallel computations. By default, the number of parallel processes is set to 80 percent of the logical cores.
+	* Specifies the number of parallel processes in the parallelization. For values of 0 and 1, there are no parallel computations. By default, the number of parallel processes is set to 80 percent of the logical cores.
 
 - <a id="gen_outfiletext"><strong>gen_outfiletext</strong></a>
 	* Specifies filename, in which the text output is stored. If None, name of the training data with extension .out is used.
@@ -312,13 +312,13 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Regulates where text output is rendered. When set to 0, output goes to the terminal. When set to 1, the output goes exclusively to the text file. When set to 2, the output goes to the file and terminal. The default is 2.
 
 - <a id="gen_outpath"><strong>gen_outpath</strong></a>
-		* Specifies path to  where the output is written too. If this is None, a ``out`` directory will be created in the current working directory.
+	* Specifies path to  where the output is written too. If this is None, a ``out`` directory will be created in the current working directory.
 
 - <a id="gen_panel_data"><strong>gen_panel_data</strong></a>
 	* If set to True, clustered standard errors are computed. Use **cluster_name** to pass over panel unit information. If None or False, data is assumed to have no panel structure. Default is False.
 
 - <a id="gen_panel_in_rf"><strong>gen_panel_in_rf</strong></a>
-		* If True, the panel structure is also used when drawing the random samples in the forest growing process. The default is True.
+	* If True, the panel structure is also used when drawing the random samples in the forest growing process. The default is True.
 
 - <a id="gen_weighted"><strong>gen_weighted</strong></a>
 	* If set to True, sampling weights are used. The sampling weights are specified via **w_name**. Sampling weights slow down the program. The default is False.
@@ -327,28 +327,28 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Specifies which data to use for local centering and common support. If set to True, cross-validation is used. If False, a random sample is used, which is not used for the causal forest later. The default is True.
 
 - <a id="lc_cs_cv_k"><strong>lc_cs_cv_k</strong></a>
-		* Specifies number of folds for cross validation. The default is 5.
+	* Specifies number of folds for cross validation. The default is 5.
 
 - <a id="lc_cs_share"><strong>lc_cs_share</strong></a>
-				* Specifies share of data used for conditonal outcome estimation. Viable range is from 0.1 to 0.9. The default is 0.25.
+	* Specifies share of data used for conditonal outcome estimation. Viable range is from 0.1 to 0.9. The default is 0.25.
 
 - <a id="lc_uncenter_po"><strong>lc_uncenter_po</strong></a>
 	* If True, predicted potential outcomes are added to the data output. Default is True.
 
 - <a id="lc_yes"><strong>lc_yes</strong></a>
-		* If True, local centering is deployed. The default is True.
+	* If True, local centering is deployed. The default is True.
 
 - <a id="p_amgate"><strong>p_amgate</strong></a>
 	* If set to True, the program computes AMGATEs.  If no variables are specified for GATE estimation, **p_amgate** is set to False. The default is False.
 
 - <a id="p_atet"><strong>p_atet</strong></a>
-		* If True, the average effects are estimated by treatment group. This works only if at least one heterogeneity variable is defined. The default is False.
+	* If True, the average effects are estimated by treatment group. This works only if at least one heterogeneity variable is defined. The default is False.
 
 - <a id="p_choice_based_probs"><strong>p_choice_based_probs</strong></a>
 	* Specifies sampling probabilities. These weights are used for (G)ATEs only. Treatment information must be available in the prediction file.
 
 - <a id="p_ci_level"><strong>p_ci_level</strong></a>
-		* Specifies confidence level for plots. Default is 0.9.
+	* Specifies confidence level for plots. Default is 0.9.
 
 - <a id="p_choice_based_sampling"><strong>p_choice_based_sampling</strong></a>
 	* If True, implements choice based sampling. The default is False.
@@ -357,7 +357,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* If True, clustered standard errors are computed. If False, standard errors are not clustered. Default is False. Option will be automatically turned on, if panel data option is activated.
 
 - <a id="p_cond_var"><strong>p_cond_var</strong></a>
-		* If False, variance estimation uses $var(wy)$. If True, conditonal mean and variances are used. The default is True.
+	* If False, variance estimation uses $var(wy)$. If True, conditonal mean and variances are used. The default is True.
 
 - <a id="p_gates_minus_previous"><strong>p_gates_minus_previous</strong></a>
 	* If set to True, GATES will be compared to GATEs computed at the previous evaluation point. GATE estimation is a bit slower as it is not optimized for multiprocessing. No plots are shown. Default is False.
@@ -381,19 +381,19 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* IF True, IATEs will be estimated. The default is True.
 
 - <a id="p_iate_m_ate"><strong>p_iate_m_ate</strong></a>
-			* If True, IATE(x) - ATE will be estimated. The default is False.
+	* If True, IATE(x) - ATE will be estimated. The default is False.
 
 - <a id="p_iate_se"><strong>p_iate_se</strong></a>
-		* If True, standard errors for the IATEs will be computed. The default is False.
+	* If True, standard errors for the IATEs will be computed. The default is False.
 
 - <a id="p_knn"><strong>p_knn</strong></a>
 	* If set to False, the program uses Nadaraya-Watson for variance estimation. If True, k-nearest neighbor estimation is used. Nadaraya-Watson estimation gives a better approximation of the variance, but k-nearest neighbor estimation is faster.
 
 - <a id="p_knn_const"><strong>p_knn_const</strong></a>
-		* If True, considers constant in number of neighbour asymptotic expansion formula of k-nearest neighbor. The default is True.
+	* If True, considers constant in number of neighbour asymptotic expansion formula of k-nearest neighbor. The default is True.
 
 - <a id="p_knn_min_k"><strong>p_knn_min_k</strong></a>
-				* Specifies minimum number of neighbors in k-nearest neighbor estimation. The default is 10.
+	* Specifies minimum number of neighbors in k-nearest neighbor estimation. The default is 10.
 
 - <a id="p_max_cats_z_vars"><strong>p_max_cats_z_vars</strong></a>
 	* Specifies the maximum number of categories for discretizing heterogeneity variable in the GATE estimation. Default is $n^{0.3}$.
@@ -415,7 +415,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 
 
 - <a id="p_se_boot_gate"><strong>p_se_boot_gate</strong></a>
-		* If True, use bootstrap for GATE standard errors. The default is False.
+	* If True, use bootstrap for GATE standard errors. The default is False.
 
 - <a id="p_se_boot_iate"><strong>p_se_boot_iate</strong></a>
 	* If True, use 199 bootstraps (block-bootstrap). If **cluster_std** is False, **p_se_boot_iate** is by default False. If **cluster_std** is False, **p_se_boot_iate** is by default False. If **cluster_std** is True, the default is True.
@@ -454,7 +454,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* If True, descriptive stats of input and output files are printed. The default is True.
 
 - <a id="_int_dpi"><strong>_int_dpi</strong></a>
-		* Specifies dpi for plots. Default is 500.
+	* Specifies dpi for plots. Default is 500.
 
 
 - <a id="_int_fontsize"><strong>_int_fontsize</strong></a>
@@ -483,7 +483,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Regulates type of multiprocessing for weights computation. If set to 1, multiprocessing is based on groups of observations (fast, memory-intensive). If set to 2, multiprocessing is tree based (slow, less memory-intensive). Default is 1.
 
 - <a id="_int_no_filled_plot"><strong>_int_no_filled_plot</strong></a>
-		* Use filled plots for for more than **_int_no_filled_plot** points. The default is 20.
+	* Use filled plots for for more than **_int_no_filled_plot** points. The default is 20.
 
 - <a id="_int_ray_or_dask"><strong>_int_ray_or_dask</strong></a>
 	* Specifies multiprocessing framework. Choose between two packages 'ray' and 'dask'. The default is 'ray'.

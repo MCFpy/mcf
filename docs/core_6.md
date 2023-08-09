@@ -135,7 +135,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 
 ## Variable Names
 
-* <a id="var_bgate_name"><strong>var_bgate_name</strong></a>
+- <a id="var_bgate_name"><strong>var_bgate_name</strong></a>
 	* Variable to balance the GATEs on. Only relevant if **p_bgate** is set to True.
 
 *<a id="var_cluster_name"><strong>var_cluster_name</strong></a>

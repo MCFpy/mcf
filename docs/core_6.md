@@ -241,7 +241,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Relevant if **match_nn_prog_score** is set to False. If set to True, only the main diagonal is used. If False, the inverse of the covariance matrix is used. Default is False.
 
 - <a id="cf_p_diff_penalty"><strong>cf_p_diff_penalty</strong></a>
-	* * Sets value to further specify the utilized penalty function in combination with *mce_vart*; if *mce_vart* is 0, the *p_diff_penalty* is irrelevant; if  *mce_vart* is 1, for the default value of None or -1 the multiplier of the penalty is computed as follows $2((no^{train} \times \text{subsample share} )^{0.9})/(no^{train}\times \text{subsample share})\times(\text{no of treatments} \times(\text{no of treatments}-1)/2)^{0.5}$; if the balancing tests indicate bad balance, you should increase the penalty above the default. If *mce_vart* is 2, the penalty is set by the program as follows: for the default value of None or -1, the penalty is $200((no^{train} \times \text{subsample share} )^{0.9})/(no^{train}\times \text{subsample share})\times(\text{no of treatments} \times(\text{no of treatments}-1)/2)^{0.5}$; increase the penalty if balancing tests indicate bad balance. If the value is set to 0, there is no penalty; if *mce_vart* is equal to 3, by default the probability of setting the p-score is 0.5; if the specified probability is larger $1$, the program checks if the user-defined probability has been accidentally scaled in percent and rescales the number to obtain valid scores in the zero-one interval.
+	* Sets value to further specify the utilized penalty function in combination with *mce_vart*; if *mce_vart* is 0, the *p_diff_penalty* is irrelevant; if  *mce_vart* is 1, for the default value of None or -1 the multiplier of the penalty is computed as follows $2((no^{train} \times \text{subsample share} )^{0.9})/(no^{train}\times \text{subsample share})\times(\text{no of treatments} \times(\text{no of treatments}-1)/2)^{0.5}$; if the balancing tests indicate bad balance, you should increase the penalty above the default. If *mce_vart* is 2, the penalty is set by the program as follows: for the default value of None or -1, the penalty is $200((no^{train} \times \text{subsample share} )^{0.9})/(no^{train}\times \text{subsample share})\times(\text{no of treatments} \times(\text{no of treatments}-1)/2)^{0.5}$; increase the penalty if balancing tests indicate bad balance. If the value is set to 0, there is no penalty; if *mce_vart* is equal to 3, by default the probability of setting the p-score is 0.5; if the specified probability is larger $1$, the program checks if the user-defined probability has been accidentally scaled in percent and rescales the number to obtain valid scores in the zero-one interval.
 
 - <a id="cf_random_thresholds"><strong>cf_random_thresholds</strong></a>
 	* For values larger 0, only **cf_random_thresholds** are considered for splitting. Randomisation is repeated for each split. If set to 0, all possible splits are considered. The default value is $4 + n_t^{0.2}$, where $n_t$ denotes the length of the training data.
@@ -407,7 +407,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 
 
 - <a id="p_nw_kern"><strong>p_nw_kern</strong></a>
-		* Specifies kernel for Nadaraya-Watson estimation. If set to 1, Epanechikov. If set to 2, the  normal. The default is 1.
+	* Specifies kernel for Nadaraya-Watson estimation. If set to 1, Epanechikov. If set to 2, the  normal. The default is 1.
 
 
 - <a id="p_se_boot_ate"><strong>p_se_boot_ate</strong></a>
@@ -501,7 +501,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* If True, ``plt.show()`` is executed.
 
 - <a id="_int_verbose"><strong>_int_verbose</strong></a>
-		* If True, the program provides information on the status quo. The default is True.
+	* If True, the program provides information on the status quo. The default is True.
 
 - <a id="_int_weight_as_sparse"><strong>_int_weight_as_sparse</strong></a>
 	* Specifies if the weights matrix is presented as a sparse matrix. The default is True.

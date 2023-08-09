@@ -1,50 +1,42 @@
-# Modified Causal Forest 
+# Modified Causal Forest
 
 ## Quick Start
 
-The package `mcf` is accompanied by synthetic data, which we  use in our tutorial. The data can be downloaded from the [Github repository](https://github.com/MCFpy/mcf/tree/main/data). Sticking to most default values, the programme can be as quickly started as follows:
+Sticking to most default values, you generate an instance of the model class `ModifiedCausalForest` as follows:
 
 ```python
-from mcf import modified_causal_forest
-
-# If paths are not specified, the current directory will be used
-outpfad = 'your/output/goes/here'
-datpfad = 'your/data/is/here'
-
-indata = 'dgp_mcfN1000S5'           # csv for estimation
-
-d_name = ['d']          # Treatment: Must be discrete
-y_name = ['y']          # List of outcome variables
-x_name_ord = ['cont0']
-```
-
-Now, to run the programme simply type:
-
-```python
-
-modified_causal_forest(outpfad=outpfad, datpfad=datpfad, indata=indata,
-                       d_name=d_name, y_name=y_name, x_name_ord=x_name_ord)
-
-```
-Per default, the output will be printed to the console and written into the output directory. More details follow in the [walkthrough](./part_i.md) and [tutorial](./tutorial_1.md).
-
-Should you prefer an object oriented interface, you instantiate
-
-```python
+import pandas as pd
 from mcf import ModifiedCausalForest
 
-my_mcf = ModifiedCausalForest(outpfad=outpfad, datpfad=datpfad, indata=indata,
-                       d_name=d_name, y_name=y_name, x_name_ord=x_name_ord, preddata=indata)
+my_mcf = ModifiedCausalForest(var_d_name="d", var_x_name_ord="x_ord",
+                              var_x_unord="x_unord", var_y_name="y")
 ```
-Then you are ready to train and predict.
+Before calling the train and predict method, load the data, i.e.
 
 ```python
-my_mcf.train()
-my_mcf.predict()
+training_data = pd.read_csv("here/are/my/train_data.csv")
+prediction_data = pd.read_csv("here/are/my/pred_data.csv")
 ```
+Note the difference to earlier versions where the data was passed over in form of a path.
 
-Alternatively, to train and predict.
+Now, you are ready to train and predict:
 
 ```python
-my_mcf.train_predict()
+tree_df, fill_y_df = my_mcf.train(training_data)
+results = my_mcf.predict(prediction_data)
 ```
+
+The ``results`` object is a dictionary, storing all estimated effects and their standard errors. Feel free to explore the scope of the object yourself via
+
+```python
+print(results.keys())
+```
+Variables without the *_df* suffix are lists or numpy arrays. Variables with the *_df* suffix are pandas DataFrames. The *iate_pred_df* contains the outcome variables, the IATEs, and the corresponding outcomes, which you can use later on for an optimal policy analysis.
+
+To receive information on cluster membership as implied by the k-means analysis, type
+
+```python
+results_with_cluster = my_mcf.analyse(results)
+```
+
+The resulting object *results_with_cluster* differs from the predict method only through the ``iate_pred_df`` object, which contains the cluster indicator for each observation in addition.

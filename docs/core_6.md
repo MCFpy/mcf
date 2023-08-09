@@ -142,7 +142,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Name of cluster variable.
 
 - <a id="var_d_name"><strong>var_d_name</strong></a>
-		* Name of treatment.
+	* Name of treatment.
 
 - <a id="var_id_name"><strong>var_id_name</strong></a>
 	* Identifier. If **None** or an empty list is specified, identifier will be added to the data. Default is **None**.

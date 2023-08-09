@@ -22,7 +22,7 @@ Note the difference to earlier versions where the data was passed over in form o
 Now, you are ready to train and predict:
 
 ```python
-tree_df, fill_y_df = my_mcf.train(training_data)
+my_mcf.train(training_data)
 results = my_mcf.predict(prediction_data)
 ```
 
@@ -39,4 +39,4 @@ To receive information on cluster membership as implied by the k-means analysis,
 results_with_cluster = my_mcf.analyse(results)
 ```
 
-The resulting object *results_with_cluster* differs from the predict method only through the ``iate_pred_df`` object, which contains the cluster indicator for each observation in addition.
+The resulting object *results_with_cluster* differs from the predict method only through the ``iate_pred_df`` object, which contains the cluster indicator for each observation.

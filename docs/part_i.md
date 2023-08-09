@@ -267,7 +267,7 @@ The effects for the treated are computed if the input arguments [p_atet](./core_
 
 ### Stabilizing estimates of effects by truncating weights
 
-To obtain stable estimates, the program provides the option to truncate estimated forest weights to an upper threshold given by [max_weight_shares](./core_6.md#max_weight_shares). After truncation, the program renormalizes the weights for estimation. Because of the renormalization step, the final weights can be slightly above the threshold defined in [p_max_weight_share](./core_6.md#p_max_weight_share).
+To obtain stable estimates, the program provides the option to truncate estimated forest weights to an upper threshold. After truncation, the program renormalizes the weights for estimation. Because of the renormalization step, the final weights can be slightly above the threshold defined in [p_max_weight_share](./core_6.md#p_max_weight_share).
 
 ### Evaluation of effect heterogeneity
 

@@ -192,6 +192,8 @@ _int_with_output=_INT_WITH_OUTPUT)
 
 ## Parameters
 
+**cf** or **causal forest**
+
 - <a id="cf_alpha_reg_grid"><strong>cf_alpha_reg_grid</strong></a>
 	* Number of grid values. Default is 1.
 
@@ -205,7 +207,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Number of bootstrap or subsampling replications. Default is 1000.
 
 - <a id="cf_chunks_maxsize"><strong>cf_chunks_maxsize</strong></a>
-	* Specifies maximum allowed number of observations per block. If the number is larger than the sample size, there is no random splitting. For the default, None, the number is set to $round(60000 + \sqrt{number of observations - 60000)}$.
+	* Specifies maximum allowed number of observations per block. If the number is larger than the sample size, there is no random splitting. For the default, None, the number is set to $round(60000 + \sqrt{n - 60000)}$, where $n$ denotes the number of observations.
 
 - <a id="cf_m_grid"><strong>cf_m_grid</strong></a>
 	* Number of grid values logarithmically spaced between **m_min** and **m_max**. If **m_grid** is 1, **m_share** is equal to 0.5(**m_share_min** + **m_share_max**). The default is 2.
@@ -232,9 +234,9 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Determines largest minimum leaf size. The default is $\max(\sqrt{n_d} / 6,3)$, where $n_d$ denotes the number of observations in the smallest treatment arm. All values are multiplied by the number of treatments.
 
 - <a id="cf_n_min_min"><strong>cf_n_min_min</strong></a>
-	* Determines smallest minimum leaf size; specify an integer larger than 2. The default is $ n_d^{0.4}/6$.
+	* Determines smallest minimum leaf size; specify an integer larger than 2. The default is $n_d^{0.4}/6$.
 
-- <a id="cf_n_min_treat"><strong>c</strong></a>
+- <a id="cf_n_min_treat"><strong>cf_n_min_treat</strong></a>
 	* Specifies minimum number of observations per treatment in leaf. The default is 0.5(**n_min_min** + **n_min_max**) / number of of treatments / 4. The minimum is 2.
 
 - <a id="cf_nn_main_diag_only"><strong>cf_nn_main_diag_only</strong></a>
@@ -255,6 +257,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 - <a id="cf_vi_oob_yes"><strong>cf_vi_oob_yes</strong></a>
 	* If set to True, the causal forest's variable importance is computed. The variable importance measure is based on permuting every single feature in the OOB prediction. The default is False.
 
+**common support**
 
 - <a id="cs_adjust_limits"><strong>cs_adjust_limits</strong></a>
 	* This parameter reduces the restrictiveness of the common support criterion, which increases in the number of treatments. The upper limit is multiplied by 1 + **support_adjust_limits**, and the minimum by 1 - **support_adjust_limits**. The default is None and renders **support_adjust_limits** being equal to 0.05 (number of treatments - 2). If **cs_type** is 0 or **None**, there is no adjustment. Default is None.
@@ -271,9 +274,12 @@ _int_with_output=_INT_WITH_OUTPUT)
 - <a id="ct_grid_dr"><strong>ct_grid_dr</strong></a>
 	* Specifies number of grid point for discretization of continuous treatment. Used to approximate the dose response function. The grid is defined in terms of the quantiles of the continuous treatment. The default is 100.
 
+**ct** or **continuous treatment**
 
 - <a id="ct_grid_nn"><strong>ct_grid_nn</strong></a>
 	* Specifies number of grid point for the discretization of the continuous treatment. Grid is defined in terms of quantiles of the continuous treatment.
+
+**dc** or **data cleaning**
 
 - <a id="dc_check_perfectcorr"><strong>dc_check_perfectcorr</strong></a>
 	* If **dc_screen_covariates** is True, variables that are perfectly correlated with others will be deleted.
@@ -287,14 +293,19 @@ _int_with_output=_INT_WITH_OUTPUT)
 - <a id="dc_screen_covariates"><strong>dc_screen_covariates</strong></a>
 	* If True, covariates are screened. The default is True.
 
+**fs** or **feature selection**
+
 - <a id="fs_other_sample_share"><strong>fs_other_sample_share</strong></a>
 	* If **fs_other_sample** is set to True, **fs_other_sample_share** determines sample share for feature selection. Default is 0.33.
+
 
 - <a id="fs_rf_threshold"><strong>fs_rf_threshold</strong></a>
 	* Specifies threshold for feature selection as relative loss of variable importance (in percent). The default is 1.
 
 - <a id="fs_yes"><strong>fs_yes</strong></a>
 	* If True, feature selection is active. Default is False.
+
+**gen** or **general**
 
 - <a id="gen_d_type"><strong>gen_d_type</strong></a>
 	* Specifies type of treatment. Choose between 'discrete' and 'continuous'. Default is 'discrete'.
@@ -312,7 +323,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Regulates where text output is rendered. When set to 0, output goes to the terminal. When set to 1, the output goes exclusively to the text file. When set to 2, the output goes to the file and terminal. The default is 2.
 
 - <a id="gen_outpath"><strong>gen_outpath</strong></a>
-	* Specifies path to  where the output is written too. If this is None, a ``out`` directory will be created in the current working directory.
+	* Specifies path to  where the output is written too. If this is None, an ``out`` directory will be created in the current working directory.
 
 - <a id="gen_panel_data"><strong>gen_panel_data</strong></a>
 	* If set to True, clustered standard errors are computed. Use **cluster_name** to pass over panel unit information. If None or False, data is assumed to have no panel structure. Default is False.
@@ -322,6 +333,8 @@ _int_with_output=_INT_WITH_OUTPUT)
 
 - <a id="gen_weighted"><strong>gen_weighted</strong></a>
 	* If set to True, sampling weights are used. The sampling weights are specified via **w_name**. Sampling weights slow down the program. The default is False.
+
+**lc** or **local centering**
 
 - <a id="lc_cs_cv"><strong>lc_cs_cv</strong></a>
 	* Specifies which data to use for local centering and common support. If set to True, cross-validation is used. If False, a random sample is used, which is not used for the causal forest later. The default is True.
@@ -337,6 +350,8 @@ _int_with_output=_INT_WITH_OUTPUT)
 
 - <a id="lc_yes"><strong>lc_yes</strong></a>
 	* If True, local centering is deployed. The default is True.
+
+**p** or **predicting effects**
 
 - <a id="p_amgate"><strong>p_amgate</strong></a>
 	* If set to True, the program computes AMGATEs.  If no variables are specified for GATE estimation, **p_amgate** is set to False. The default is False.
@@ -420,6 +435,8 @@ _int_with_output=_INT_WITH_OUTPUT)
 - <a id="p_se_boot_iate"><strong>p_se_boot_iate</strong></a>
 	* If True, use 199 bootstraps (block-bootstrap). If **cluster_std** is False, **p_se_boot_iate** is by default False. If **cluster_std** is False, **p_se_boot_iate** is by default False. If **cluster_std** is True, the default is True.
 
+**post** or **post-estimation**
+
 - <a id="post_bin_corr_threshold"><strong>post_bin_corr_threshold</strong></a>
 	* Specifies minimum threshhold of absolute correlation. Default is 0.1.
 
@@ -449,6 +466,9 @@ _int_with_output=_INT_WITH_OUTPUT)
 
 - <a id="post_relative_to_first_group_only"><strong>post_relative_to_first_group_only</strong></a>
 	* If True, only the effects of the lowest treatment value are used. The default is True.
+
+
+**_** or **internal**
 
 - <a id="_int_descriptive_stats"><strong>_int_descriptive_stats</strong></a>
 	* If True, descriptive stats of input and output files are printed. The default is True.

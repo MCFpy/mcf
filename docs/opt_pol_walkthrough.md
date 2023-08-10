@@ -16,8 +16,7 @@ The class ``OptimalPolicy``requires at least three distinct lists, containing th
 |[var_polscore_name](./opt_pol_1.md#var_polscore_name)|Specifies the policy score. |
 
 
- The optional variables are [effect_vs_0‌](./opt_pol_1.md#effect_vs_0‌), [effect_vs_0‌_se](./opt_pol_1.md#effect_vs_0‌_se
-), and [only_if_sig_better_vs_0](./opt_pol_1.md#only_if_sig_better_vs_0) and are detailed [here](###Tree-Search):
+ The optional variables are [var_effect_vs_0](./opt_pol_1.md#var_effect_vs_0), [var_effect_vs_0_se](./opt_pol_1.md#var_effect_vs_0_se). 
 
 ## Data cleaning
 

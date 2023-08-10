@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-The ``optpoltree`` is quickly set up as follows:
+An object of the class ``OptimalPolicy`` is quickly set up as follows:
 
 ```python
 from mcf import OptimalPolicy

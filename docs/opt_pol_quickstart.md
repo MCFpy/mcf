@@ -15,7 +15,7 @@ myoptp = OptimalPolicy(var_d_name="d",
 
 Admissible methods of the class ``OptimalPolicy`` are ``solve``, ``allocate``, and ``evaluate``. Use ``solve`` to learn the policy rule. Use ``allocate`` to map observations to treatments. Use ``evaluate`` to evaluate the derived allocation.
 
-In line with the mcf workflow, the data is passed over in form of a pandas dataframe. Hence, in a first step we read in the training and prediction data.
+In line with the mcf workflow, the data is passed over in form of a pandas DataFrame. Hence, in a first step we read in the training and prediction data.
 
 ```python
 training_data = pd.read_csv("here/are/my/train_data.csv")

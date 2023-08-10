@@ -32,11 +32,8 @@ For a more detailed analysis, further variables can be specified optionally.
 | [var_x_balance_name_ord](./core_6.md#var_x_balance_name_ord)         | Ordered feature(s) for balancing tests.                      |
 | [var_x_balance_name_unord](./core_6.md#var_x_balance_name_unord)     | Unordered feature(s) for balancing tests.                    |
 | [var_z_name_list](./core_6.md#var_z_name_list)                       | Ordered GATE (group average treatment effect) variable(s) with many values. |
-| [var_z_name_split_ord](./core_6.md#var_z_name_split_ord)             | Ordered GATE variable(s) with few values.                    |
-| [var_z_name_split_unord](./core_6.md#var_z_name_split_unord)         | Unordered GATE variable(s).                                  |
-| [var_z_name_mgate](./core_6.md#var_z_name_mgate)                     | GATE variable(s) for estimating marginal effect(s) evaluated at the median. Must be included in [var_x_name_ord](./core_6.md#var_x_name_ord) or [var_x_name_unord](./core_6.md#var_x_name_unord). |
-| [var_z_name_amgate](./core_6.md#var_z_name_amgate)                   | GATE variable(s) for estimating average marginal effect(s). Must be included in [var_x_name_ord](./core_6.md#var_x_name_ord) or [var_x_name_unord](./core_6.md#var_x_name_unord). |
-
+| [var_z_name_ord](./core_6.md#var_z_name_ord)             | Ordered GATE variable(s) with few values.                    |
+| [var_z_name_unord](./core_6.md#var_z_name_unord)         | Unordered GATE variable(s).                                  |
 
 
 ## Data cleaning
@@ -69,10 +66,10 @@ The user can specify sampling weights for each observation of the data. This opt
 
 | Keyword                                                    | Details                                                      |
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
-| [dc_clean_data](./core_6.md#dc_clean_data)             | Removing observations with missing values and keeping only variables in the data set that are defined as variable arguments. The default is *True*. |
-| [dc_screen_covariates](./core_6.md#dc_screen_covariates)         | Dropping features without variation. The default is *True*.  |
-| [dc_check_perfectcorr](./core_6.md#dc_check_perfectcorr)         | Removing perfectly correlated features. The default is *True*. |
-| [dc_min_dummy_obs](./core_6.md#dc_min_dummy_obs)                 | Threshold in observations per category determining if dummies are dropped due to low variation. The default is 10. |
+| [dc_clean_data](./core_6.md#dc_clean_data)             | If True, all missing and unnecessary variables are removed. The default is True. |
+| [dc_screen_covariates](./core_6.md#dc_screen_covariates)         | If True, covariates are screened. The default is True. |
+| [dc_check_perfectcorr](./core_6.md#dc_check_perfectcorr)         | If **dc_screen_covariates** is True, variables that are perfectly correlated with others will be deleted. |
+| [dc_min_dummy_obs](./core_6.md#dc_min_dummy_obs)                 | If **dc_screen_covariates** is True, dummy variables with less than **dc_min_dummy_obs** will be deleted. The default is 10.|
 | [gen_weighted](./core_6.md#gen_weighted)                           | If *True*, sampling weights for each observation $i$ specified in  [var_w_name](./core_6.md#var_w_name) will be used. The default is *False*. |
 
 ## Common support
@@ -85,7 +82,7 @@ Estimation methods adjusting for differences in features require common support 
 
 Common support checks and corrections are done before any estimation. The estimated probabilities are based on the random forest classifier. If common support is based on cross-validation, all training data will be used.
 
-The support checks are based on the estimated propensity scores discussed above. For data-driven support, you have to specify a quantile in [cs_quantil](./core_6.md#cs_quantil). Denoting by $q$ the quantile chosen, the program drops observations with propensities scores smaller than the largest $q$ or larger than the smallest ($1-q$) quantile of the treatment groups. Contrary to this condition, user-defined support directly specifies the support threshold of the propensity scores in [cs_min_p](./core_6.md#cs_min_p). If a support check is conducted, the program removes all observations with at least one treatment state off support.
+The support checks are based on the estimated propensity scores discussed above. You may specify a quantile in [cs_quantil](./core_6.md#cs_quantil). Denoting by $q$ the quantile chosen, the program drops observations with propensities scores smaller than the largest $q$ or larger than the smallest ($1-q$) quantile of the treatment groups. Alternatively, you may specify the support threshold of the propensity scores in [cs_min_p](./core_6.md#cs_min_p). If a support check is conducted, the program removes all observations with at least one treatment state off support.
 
 The argument [cs_max_del_train](./core_6.md#cs_max_del_train) defines a threshold for the share of observations off support in the training data set. If this threshold is exceeded, the program terminates because of too large imbalances in the features across treatment states. In such a case, a new and more balanced input data set is required to run the program.
 
@@ -93,7 +90,7 @@ The argument [cs_max_del_train](./core_6.md#cs_max_del_train) defines a threshol
 
 | Argument                                       | Description                                                  |
 | ---------------------------------------------- | ------------------------------------------------------------ |
-| [cs_type](./core_6.md#cs_type)     | Three options (0,1,2). The option 0 does not check for common support. The option 1 carries out a data-driven support check by using min-max decision rules for probabilities in each treatment state specified by [cs_quantil](./core_6.md#cs_quantil). The option 2 starts a support check by enforcing minimum and maximum probabilities defined by [cs_min_p](./core_6.md#cs_min_p). The default is 1. |
+| [cs_type](./core_6.md#cs_type)     | Specifies type of common support adjustment. If set to 0, there is no common support adjustment. If set to 1 or 2, the support check is based on the estimated classification regression forests. For 1, the min-max rules for the estimated probabilities in the treatment subsamples are deployed. For 2, the minimum and maximum probabilities for all observations are deployed. All observations off support are removed. Note that out-of-bag predictions are used to avoid overfitting (which leads to a too large reduction in observations) |
 
 
 
@@ -110,15 +107,15 @@ If [fs_yes](./core_6.md#fs_yes) is True, the program builds a random forest clas
 
 Of note, an irrelevant feature is not dropped if
 - the correlation between two variables to be deleted is bigger than 0.5,
-- the variable is required for the estimation of the GATEs and AMGATEs,
+- the variable is required for the estimation of the GATEs, AMGATEs,and BGATEs,
 - the variable is specified in [var_x_name_remain_ord](./core_6.md#var_x_name_remain_ord) or [var_x_name_remain_unord](./core_6.md#var_x_name_remain_unord).
 
 ### Keyword arguments for feature selection
 
 | Keyword                                                    | Details                                                      |
 | ---------------------------------------------------------- | ------------------------------------------------------------ |
-| [fs_yes](./core_6.md#fs_yes)                               | True if feature selection is activated. The default is *False*. |
-| [fs_other_sample](./core_6.md#fs_other_sample)| Determines if sample distinct from main estimation is deployed |
+| [fs_yes](./core_6.md#fs_yes)                               | If True, feature selection is active. Default is False. |
+| [fs_other_sample](./core_6.md#fs_other_sample)| If True, random sample from training data is used, which will not be used for the causal forest. If False, the same data is used for feature selection and the causal forest. The default is True. |
 | [fs_other_sample_share](./core_6.md#fs_other_sample_share)| 
 If [fs_other_sample](./core_6.md#fs_other_sample) is set to True, [fs_other_sample_share](./core_6.md#fs_other_sample_share) determines sample share for feature selection. The default is 0.33|
 |[fs_rf_threshold](./core_6.md#fs_rf_threshold)| Specifies threshold for feature selection as relative loss of variable importance (in percent). The default is 1. |
@@ -128,7 +125,7 @@ If [fs_other_sample](./core_6.md#fs_other_sample) is set to True, [fs_other_samp
 
 ### Idea
 
-Random Forests are an ensemble of decorrelated trees. A regression tree is a non-parametric estimator that splits the data into non-overlapping regions and takes the average of the dependent variable in these strata as prediction for observations sharing the same or similar values of the covariates. The key issue with this approach is that a discrete, non-overlapping data split may be inefficient (no information from neighboring cells are used) and the potential curse of dimensionality may make it difficult to fit a stable split (‘tree’) that has overall good performance. Furthermore, when the number of covariates increases, there are many possible splits of the data, and the computing time needed to form a tree may increase exponentially if all possible splits are considered at each knot. Random Forests solve these problems to some extent by building many decorrelated trees and averaging their predictions. This is achieved by using different random samples of the data for each tree (generated by bootstrapping or subsampling) as well as random subsets of covariates for each splitting decision in an individual leaf of a developing tree.
+Random Forests are an ensemble of decorrelated trees. A regression tree is a non-parametric estimator that splits the data into non-overlapping regions and takes the average of the dependent variable in these strata as prediction for observations sharing the same or similar values of the covariates. The key issue with this approach is that a discrete, non-overlapping data split may be inefficient (no information from neighboring cells are used) and the potential curse of dimensionality may make it difficult to fit a stable split (‘tree’) that has overall good performance. Furthermore, when the number of covariates increases, there are many possible splits of the data, and the computing time needed to form a tree may increase exponentially if all possible splits are considered at each knot. Random Forests solve these problems to some extent by building many decorrelated trees and averaging their predictions. This is achieved by using different random samples of the data for each tree (generated by bootstrapping or subsampling) as well as random subsets of covariates for each splitting decision in an individual leaf of a developing tree. Note that in the forest growing the mcf differ from the causal forest of [Wager and Athey (2018)](https://www.tandfonline.com/doi/abs/10.1080/01621459.2017.1319839) with respect to the splitting criterion. Setting [cf_mce_vart](./core_6.md#cf_mce_vart) to 2, you may switch to the splitting rule of [Wager and Athey (2018)](https://www.tandfonline.com/doi/abs/10.1080/01621459.2017.1319839). Abstracting from the difference in the splitting criterion, the regression forest may seem very much related to the mcf. However, note that the underlying prediction tasks are fundamentally different. The mcf aims to predict causal effects, for which there is no data, and provide (asymptotically) valid inference. To impute the missing data, the mcf requires a causal model. To provide valid inference, the mcf borrows the concept of honesty introduced by [Athey and Imbens](2016)(https://www.pnas.org/doi/10.1073/pnas.1510489113). For a textbook like discussion refer to [Bodory, Busshoff and Lechner (2022)](https://www.pnas.org/doi/10.1073/pnas.1510489113).
 
 ### Implementation
 
@@ -144,8 +141,8 @@ As a tree is grown the algorithm greedily chooses the split, which leads to the 
 |Argument | Description |
 |---------|-------------|
 |[cf_mce_vart](./core_6.md#cf_mce_vart) | Determines the splitting rule when growing trees. |
-|[cf_match_nn_prog_score](./core_6.md#cf_match_nn_prog_score) | Computing prognostic scores to find close neighbors for MCE. |
-|[cf_nn_main_diag_only](./core_6.md#cf_nn_main_diag_only) | Use main diagonal of covariance matrix only for Mahalanobis matching (only relevant if |[cf_match_nn_prog_score](./core_6.md#cf_match_nn_prog_score) is False). |
+|[cf_match_nn_prog_score](./core_6.md#cf_match_nn_prog_score) | Specifies matching procedure in the MCE computation. If set to False, Mahalanobis matching is deployed. If set to True, prognostic scores are deployed. Default is True. |
+|[cf_nn_main_diag_only](./core_6.md#cf_nn_main_diag_only) | Relevant if **cf_match_nn_prog_score** is set to False. If set to True, only the main diagonal is used. If False, the inverse of the covariance matrix is used. Default is False. |
 |[cf_p_diff_penalty](./core_6.md#cf_p_diff_penalty) | Determines penalty function. |
 
 ### Parameter tuning
@@ -154,15 +151,15 @@ The program allows for a grid search over tree tuning parameters: (i) the number
 
 |Argument | Description |
 |---------|-------------|
-|[cf_n_min_grid](./core_6.md#cf_n_min_grid) | Number of grid values for the minimum leaf size (default is 1, for which the minimum leaf size is governed by [cf_n_min_min](./core_6.md#cf_n_min_min)).|
-|[cf_n_min_min](./core_6.md#cf_n_min_min) | Smallest minimum leaf size for grid-search,  (default is -1, for which the leaf size is computed as $\max(n^{0.4}/10, 5)$, where $n$ is twice the number of observations in the smallest treatment group).|
-|[cf_n_min_max](./core_6.md#cf_n_min_max)| Largest minimum leaf size for grid-search (default is -1, for which the leaf size is computed as $\max(\sqrt{n}/5, 5)$, where $n$ is twice the number of observations in the smallest treatment group).|
-|[cf_alpha_reg_grid](./core_6.md#cf_alpha_reg_grid) | Number of grid values for the  alpha-regularity parameter (default is 1).|
-|[cf_alpha_reg_max](./core_6.md#cf_alpha_reg_max)  | Largest value for the  alpha-regularity parameter (default is 0.1).|
-|[cf_alpha_reg_min](./core_6.md#cf_alpha_reg_min)  | Smallest value for the  alpha-regularity parameter (default is 0.1).|
-|[cf_m_min_share](./core_6.md#cf_m_min_share) | Minimum share of variables used for splitting (default is -1, for which this share is computed as $0.1*q$, where $q$ denotes the number of variables).|
-|[cf_m_max_share](./core_6.md#cf_m_max_share) | Maximum share of variables used for next split (default is -1, for which this share is computed as $0.66*q$, where $q$ denotes the number of variables).|
-|[cf_m_grid](./core_6.md#cf_m_grid) | Number of grid values which are logarithmically spaced (default is 2).|
+|[cf_n_min_grid](./core_6.md#cf_n_min_grid) | Determines number of grid values. Default is 1. For the default of 1, **n_min**= 0.5(**n_min_min**+**n_min_max**).|
+|[cf_n_min_min](./core_6.md#cf_n_min_min) | Determines smallest minimum leaf size; specify an integer larger than 2. The default is $n_d^{0.4}/6$.|
+|[cf_n_min_max](./core_6.md#cf_n_min_max)| Determines largest minimum leaf size. The default is $\max(\sqrt{n_d} / 6,3)$, where $n_d$ denotes the number of observations in the smallest treatment arm. All values are multiplied by the number of treatments.|
+|[cf_alpha_reg_grid](./core_6.md#cf_alpha_reg_grid) | Number of grid values. Default is 1.|
+|[cf_alpha_reg_max](./core_6.md#cf_alpha_reg_max)  | Maximum alpha. May take values between 0 and 0.5. Default is 0.15.|
+|[cf_alpha_reg_min](./core_6.md#cf_alpha_reg_min)  | Minimum alpha. May take values between 0 and 0.4. Default is 0.05.|
+|[cf_m_share_min](./core_6.md#cf_m_share_min) | Minimum share of variables to be included in tree growing. Viable range is from 0 to 1 excluding the bounds. Default is 0.1.|
+|[cf_m_share_max](./core_6.md#cf_m_share_max) | Maximum share of variables to be included in tree growing. Viable range is from 0 to 1 excluding the bounds. Default is 0.6.|
+|[cf_m_grid](./core_6.md#cf_m_grid) | Number of grid values which are logarithmically spaced between the upper and lower bounds.|
 |[cf_m_random_poisson](./core_6.md#cf_m_random_poisson) | If True the number of randomly selected variables is stochastic and obtained as a random draw from the Poisson distribution with expectation $m-1$, where $m$ denotes the number of variables used for splitting. |
 
 ### Remarks on computational speed
@@ -199,9 +196,9 @@ Alternatively, two separate data sets can be generated for running the local cen
 | Argument                                                     | Description                                                  |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | [lc_yes](./core_6.md#lc_yes)                       | *True* activates local centering. The default is *True*.    |
-| [lc_cs_cv](./core_6.md#lc_cs_cv) | If False, new separate samples for tree building and estimation of $\mathbb{E}[Y_i \vert X_i=x_i]$ are generated. The default is *True*. |
-| [lc_cs_share](./core_6.md#lc_cs_share)           | Share of data used for estimating $\mathbb{E}[Y_i \vert X_i=x_i]$ if [lc_cs_cv](./core_6.md#lc_cs_cv) is False. The default is 0.25. |
-| [lc_cs_cv_k](./core_6.md#lc_cs_cv_k)             | Number of folds used in cross-validation. The default is 5.  |
+| [lc_cs_cv](./core_6.md#lc_cs_cv) |  Specifies number of folds for cross validation. The default is 5. |
+| [lc_cs_share](./core_6.md#lc_cs_share)           | Specifies share of data used for conditonal outcome estimation. Viable range is from 0.1 to 0.9. The default is 0.25. |
+| [lc_cs_cv_k](./core_6.md#lc_cs_cv_k)             | Specifies number of folds for cross validation. The default is 5. |
 
 
 ## Estimation  
@@ -235,15 +232,15 @@ By default, the program smooths the distribution of the GATEs for continuous fea
 
 ATEs are computed without the need of specifying any input arguments.
 
-### Marginal effects
+### AMGATEs and BGATEs
 
 The average marginal group effect (AMGATE) is an integrated pseudo-causal derivative of the treatment effect with respect to a heterogeneity variable of interest, i.e.
 
-$$AMTE(m,l;x)    = \mathbb{E} \big[ MTE(m,l;x) \big],$$
+$$AMGATE(m,l;x)    = \mathbb{E} \big[ MGATE(m,l;x) \big],$$
 
 where
 
-$$MTE(m,l;x) = \frac{\mathbb{E} \big[ IATE(m,l;x) \big\vert X^p=x^{pU}, X^{-p}=x^{-p} \big]}{x^{pU}-x^{pL}}\\ - \frac{\mathbb{E} \big[ IATE(m,l;x) \big\vert X^p=x^{pL}, X^{-p}=x^{-p} \big]}{x^{pU}-x^{pL}}.$$
+$$MGATE(m,l;x) = \frac{\mathbb{E} \big[ IATE(m,l;x) \big\vert X^p=x^{pU}, X^{-p}=x^{-p} \big]}{x^{pU}-x^{pL}}\\ - \frac{\mathbb{E} \big[ IATE(m,l;x) \big\vert X^p=x^{pL}, X^{-p}=x^{-p} \big]}{x^{pU}-x^{pL}}.$$
 
 Here, $p$ is a single feature of $X$ and $X^{-p}$ denotes the remaining features of $X$ without $p$. The values of $x^{pU}$ and $x^{pL}$ are chosen to be larger and smaller than $x^p$, respectively, while insuring that the support of $x^p$ is respected.
 
@@ -285,13 +282,15 @@ To see if the estimated treatment effects are heterogeneous in their features, t
 | [p_atet](./core_6.md#p_atet)                           | If *True*, average treatment effects for subpopulations defined by treatment status are computed. This only works if at least one GATE feature is specified. The default is *False*. |
 | [p_gatet](./core_6.md#p_gatet)                         | If *True*, group average treatment effects for subpopulations defined by treatment status are computed. The default is *False*. |
 | [p_max_weight_share](./core_6.md#p_max_weight_share)           | Maximum value of the weights. The default is 0.05.           |
+|[p_gates_minus_previous](./core_6.md#p_gates_minus_previous)|If set to True, GATES will be compared to GATEs computed at the previous evaluation point. GATE estimation is a bit slower as it is not optimized for multiprocessing. No plots are shown. Default is False.|
+
 
 
 ## Inference
 
 ### General remarks
 
-The program offers three ways of conducting inference. The default is a weights-based inference procedure, which is particularly useful for gaining information on the precision of estimators that have a representation as weighted averages of the outcomes, see [Lechner (2018)](https://arxiv.org/abs/1812.09487). The [Technical Appendix](./techn_app.md#Technical Appendix) shows the tuning parameters for this method. The second inference procedure provided by the program simply estimates the variance of treatment effect estimates as the sum of the variance of weighted outcomes. Finally, a bootstrap algorithm can be applied to obtain inference.
+The program offers three ways of conducting inference. The default is a weights-based inference procedure, which is particularly useful for gaining information on the precision of estimators that have a representation as weighted averages of the outcomes, see [Lechner (2019)](https://arxiv.org/abs/1812.09487). The [Technical Appendix](./techn_app.md) shows the tuning parameters for this method. The second inference procedure provided by the program simply estimates the variance of treatment effect estimates as the sum of the variance of weighted outcomes. Finally, a bootstrap algorithm can be applied to obtain inference.
 
 ### Methods
 
@@ -335,10 +334,10 @@ The post-estimation feature importance procedure runs if the flag  [post_random_
 | Arguments                                                    | Descriptions                                                 |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | [post_plots](./core_6.md#post_plots)                         | Printing plots. The default is *True*.                       |
-| [post_kmeans_yes](./core_6.md#post_kmeans_yes)               | Applying *k-Means* clustering. The default is *True*.        |
-| [post_kmeans_no_of_groups](./core_6.md#post_kmeans_no_of_groups) | Number of clusters for *k-Means* clustering. The default is a function of the sample size and ranges from 5 to 10, see [Technical Appendix](./techn_app.md). |
-| [post_kmeans_replications](./core_6.md#post_kmeans_replications) | Number of replications with different random start centers for *k-Means* clustering. The default is 10. |
-| [post_kmeans_max_tries](./core_6.md#post_kmeans_max_tries)   | Maximum number of iterations in each replication for *k-Means* clustering. The default is 1000. |
+| [post_kmeans_yes](./core_6.md#post_kmeans_yes)               | AIf True, the program uses k-means clustering to analyse patterns in the estimated effects. The default is True.      |
+| [post_kmeans_no_of_groups](./core_6.md#post_kmeans_no_of_groups) | If **post_kmeans_yes** is True, **post_kmeans_no_of_groups** determines number of clusters. Information is passed over in the form  of an integer list or tuple. If not otherwise specified, the default is a list of 5 values: $[a, b, c, d, e]$, where depending on $n$, c takes values from 5 to 10. If c is smaller than 7, $a=c-2$, $b=c-1$, $d=c+1$, $e=c+2$ else $a=c-4$, $b=c-2$, $d=c+2$, $e=c+4$. |
+| [post_kmeans_replications](./core_6.md#post_kmeans_replications) | If **post_kmeans_yes** is True, **post_kmeans_replications** regulates the number of replications for the k-means clustering algorithm. The default is 10. |
+| [post_kmeans_max_tries](./core_6.md#post_kmeans_max_tries)   | If **post_kmeans_yes** is True, **post_kmeans_max_tries** sets the maximum number of iterations in each replication to archive convergence. Default is 1000. |
 
 
 ## Balancing Tests  
@@ -359,4 +358,4 @@ The tests are based on estimations of ATEs by replacing the outcomes with user-s
 
 | Arguments                                    | Description                                                 |
 | -------------------------------------------- | ----------------------------------------------------------- |
-| [p_bt_yes](./core_6.md#p_bt_yes) | Flag for activating balancing tests. The default is *True*. |
+| [p_bt_yes](./core_6.md#p_bt_yes) | Flag for activating balancing tests. The default is False. |

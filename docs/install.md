@@ -8,12 +8,14 @@ The mcf can be installed from PyPI:
 pip install mcf
 ```
 
-We recommend setting up a virtual environment designated to the mcf to rule out dependency conflicts. Should you work with anaconda, you can specify
+The current mcf runs with Python 3.11. We recommend setting up a virtual environment designated to the mcf to rule out dependency conflicts. Should you work with anaconda, you can specify
 
 
 ```conda
 conda create --name mcf_environment
 ```
+
+
 
 Before pip installing, make sure to activate the correct environment, i.e.
 

@@ -25,18 +25,19 @@ Now, you are ready to train and predict:
 my_mcf.train(training_data)
 results = my_mcf.predict(prediction_data)
 ```
+Note that training and prediction data need not be the same. The prediction data needs to have the same features and treatment. Outcome information is not necessary.
 
 The ``results`` object is a dictionary, storing all estimated effects and their standard errors. Feel free to explore the scope of the object yourself via
 
 ```python
 print(results.keys())
 ```
-Variables without the *_df* suffix are lists or numpy arrays. Variables with the *_df* suffix are pandas DataFrames. The *iate_pred_df* contains the outcome variables, the IATEs, and the corresponding outcomes, which you can use later on for an optimal policy analysis.
+Variables without the *_df* suffix are lists or numpy arrays. Variables with the *_df* suffix are pandas DataFrames. The *iate_pred_df* contains the the IATEs, and the estimated potential outcomes, which you can use later on for an optimal policy analysis.
 
-To receive information on cluster membership as implied by the k-means analysis, type
+For the analysis of the IATEs from prediction, such as information on cluster membership as implied by the k-means analysis, type
 
 ```python
 results_with_cluster = my_mcf.analyse(results)
 ```
 
-The resulting object *results_with_cluster* differs from the predict method only through the ``iate_pred_df`` object, which contains the cluster indicator for each observation.
+The resulting object *results_with_cluster* differs from the predict method only through the ``iate_pred_df`` object, which contains the cluster indicator for each observation. Cluster are assigned to individuals according based on their features.

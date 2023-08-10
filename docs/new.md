@@ -4,36 +4,36 @@
 
 ## Version 0.4.0
 
+Both the mcf module and the optimal policy module have undergone major revisions. The goal was to increase scalability and reduce internal complexity of the modules. The entire package now runs on Python 3.11, which is also recommended and tested. Note that all keywords changed compared to prior versions. Refer to the APIs for an updated list. For details on the updated worfklow, consult the respective tutorials.
+
 ### What's New
 
-* Now runs on Python 3.11.
-* Update on the causal estimation workflow. Amidst other functional interface no longer supported, updated keywords, updated output, and data is passed as pandas DataFrame.
-- For details on the updated worfklow, consult the [Getting Started](https://mcfpy.github.io/mcf/#/quick_start),
-- and for the updated keywords the [Python API](https://mcfpy.github.io/mcf/#/short_api) and the [extended Python API](https://mcfpy.github.io/mcf/#/core_6).  
+#### Changes concerning the class ``modified_causal_forest``
+
 * Update in the feature selection algorithm. For details refer to [Walkthrough](https://mcfpy.github.io/mcf/#/part_i).
 * Update in the common support estimation. For details refer to [Walkthrough](https://mcfpy.github.io/mcf/#/part_i).
 * Updates related to GATE estimation:
 - Wald tests are no longer provided,
 - MGATEs are no longer estimated.
 - AMGATEs will be conducted for the same heterogeneity variables as the GATEs.
-* Updates related to IATE estimation:
 - New parameter [p_iate_m_ate](https://mcfpy.github.io/mcf/#//core_6/p_iate_m_ate)  to compute difference of the IATEs and the ATE. The default is False.
+* New parameter [p_iate_eff](https://mcfpy.github.io/mcf/#//core_6/p_iate_eff).
 * Introduction of the the BGATEs. For details refer to [Walkthrough](https://mcfpy.github.io/mcf/#/part_i).
 * Sample reductions for computational speed ups, need to be user-defined. Related options are removed from the mcf:
--  _INT_RED_SPLIT_SAMPLE
-- _INT_RED_SPLIT_SAMPLE_PRED_SHARE
-- _INT_SMALLER_SAMPLE
-- _INT_RED_TRAINING
-- _INT_RED_TRAINING_SHARE
-- _INT_RED_PREDICTION
-- _INT_RED_PREDICTION_SHARE
-- _INT_RED_LARGEST_GROUP_TRAIN
-- _INT_RED_LARGEST_GROUP_TRAIN_SHARE
+-  _INT_RED_SPLIT_SAMPLE,
+- _INT_RED_SPLIT_SAMPLE_PRED_SHARE,
+- _INT_SMALLER_SAMPLE,
+- _INT_RED_TRAINING,
+- _INT_RED_TRAINING_SHARE,
+- _INT_RED_PREDICTION,
+- _INT_RED_PREDICTION_SHARE,
+- _INT_RED_LARGEST_GROUP_TRAIN,
+- _INT_RED_LARGEST_GROUP_TRAIN_SHARE.
 * Improved scalability by splitting training data into chunks and taking averages.
 * Unified data concept to deal with common support and local centering.
 
 ### Name Changes and Default Updates
-* All keywords are changed. Please refer to [Python API](https://mcfpy.github.io/mcf/#/short_api) and the [extended Python API](https://mcfpy.github.io/mcf/#/core_6).
+* All keywords are changed. Please refer to the [Python API](https://mcfpy.github.io/mcf/#/short_api) and the [extended Python API](https://mcfpy.github.io/mcf/#/core_6).
 
 
 ## Version 0.3.3

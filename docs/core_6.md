@@ -145,7 +145,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Name of treatment.
 
 - <a id="var_id_name"><strong>var_id_name</strong></a>
-	* Identifier. If **None** or an empty list is specified, identifier will be added to the data. Default is **None**.
+	* Identifier. If None or an empty list is specified, identifier will be added to the data. Default is None.
 
 - <a id="var_w_name"><strong>var_w_name</strong></a>
 	* Name of variable containing weights.
@@ -169,10 +169,10 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Names of unordered features.
 
 - <a id="var_x_name_remain_ord"><strong>var_x_name_remain_ord</strong></a>
-	*	Names of unordered features.
+	*	Names of ordered features excluded from preliminary feature selection. Default is None.
 
 - <a id="var_x_name_remain_unord"><strong>var_x_name_remain_unord</strong></a>
-	* Names of variables excluded from preliminary feature selection. Default is None.
+	* Names of unordered variables excluded from preliminary feature selection. Default is None.
 
 - <a id="var_y_name"><strong>var_y_name</strong></a>
 	* Name(s) of outcome variable(s).
@@ -210,7 +210,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Specifies maximum allowed number of observations per block. If the number is larger than the sample size, there is no random splitting. For the default, None, the number is set to $round(60000 + \sqrt{n - 60000)}$, where $n$ denotes the number of observations.
 
 - <a id="cf_m_grid"><strong>cf_m_grid</strong></a>
-	* Number of grid values logarithmically spaced between **m_min** and **m_max**. If **m_grid** is 1, **m_share** is equal to 0.5(**m_share_min** + **m_share_max**). The default is 2.
+	* Number of grid values logarithmically spaced between the lower and upper bounds. If **cf_m_grid** is 1, **cf_m_share** is equal to 0.5(**cf_m_share_min** + **cf_m_share_max**). The default is 2.
 
 - <a id="cf_m_random_poisson"><strong>cf_m_random_poisson</strong></a>
 	*  If True, number of randomly selected variables is drawn from a Poisson distribution with expectation m - 1. If m > 10, the default is set to True. Otherwise, the default is set to False.
@@ -228,7 +228,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Determines splitting rule in the tree-growing process. When set to 0, only the MSEs are considered. When set to 1, the sum of MSE and MCE are used (MSE-MCE criterion). When set to 2, the effect  heterogeneity maximizing rule of Wager and Athey (2018) is deployed. When set to 3, the rule randomly switches between outcome and MSE-MCE criterion in combination with the penalty function.
 
 - <a id="cf_n_min_grid"><strong>cf_n_min_grid</strong></a>
-	* Determines number of grid values. Default is 1. For the default of 1, **n_min**= 0.5(**n_min_min**+**n_min_max**).
+	* Determines number of grid values. Default is 1. For the default of 1, **cf_n_min**= 0.5(**cf_n_min_min**+**cf_n_min_max**).
 
 - <a id="cf_n_min_max"><strong>cf_n_min_max</strong></a>
 	* Determines largest minimum leaf size. The default is $\max(\sqrt{n_d} / 6,3)$, where $n_d$ denotes the number of observations in the smallest treatment arm. All values are multiplied by the number of treatments.
@@ -237,10 +237,10 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Determines smallest minimum leaf size; specify an integer larger than 2. The default is $n_d^{0.4}/6$.
 
 - <a id="cf_n_min_treat"><strong>cf_n_min_treat</strong></a>
-	* Specifies minimum number of observations per treatment in leaf. The default is 0.5(**n_min_min** + **n_min_max**) / number of of treatments / 4. The minimum is 2.
+	* Specifies minimum number of observations per treatment in leaf. The default is 0.5(**cf_n_min_min** + **cf_n_min_max**) / number of of treatments / 4. The minimum is 2.
 
 - <a id="cf_nn_main_diag_only"><strong>cf_nn_main_diag_only</strong></a>
-	* Relevant if **match_nn_prog_score** is set to False. If set to True, only the main diagonal is used. If False, the inverse of the covariance matrix is used. Default is False.
+	* Relevant if **cf_match_nn_prog_score** is set to False. If set to True, only the main diagonal is used. If False, the inverse of the covariance matrix is used. Default is False.
 
 - <a id="cf_p_diff_penalty"><strong>cf_p_diff_penalty</strong></a>
 	* Sets value to further specify the utilized penalty function in combination with *mce_vart*; if *mce_vart* is 0, the *p_diff_penalty* is irrelevant; if  *mce_vart* is 1, for the default value of None or -1 the multiplier of the penalty is computed as follows $2((no^{train} \times \text{subsample share} )^{0.9})/(no^{train}\times \text{subsample share})\times(\text{no of treatments} \times(\text{no of treatments}-1)/2)^{0.5}$; if the balancing tests indicate bad balance, you should increase the penalty above the default. If *mce_vart* is 2, the penalty is set by the program as follows: for the default value of None or -1, the penalty is $200((no^{train} \times \text{subsample share} )^{0.9})/(no^{train}\times \text{subsample share})\times(\text{no of treatments} \times(\text{no of treatments}-1)/2)^{0.5}$; increase the penalty if balancing tests indicate bad balance. If the value is set to 0, there is no penalty; if *mce_vart* is equal to 3, by default the probability of setting the p-score is 0.5; if the specified probability is larger $1$, the program checks if the user-defined probability has been accidentally scaled in percent and rescales the number to obtain valid scores in the zero-one interval.
@@ -252,29 +252,32 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Determines the subsampling size. If set to False, there is no subsampling in the evaluation subsample. If True or None, the size is 2 times the subsampling size used for the tree building. For a float greater 0, the multiplier of the subsample size used for tree building is deployed. Subsampling in the evaluation may speed up computations and reduce memory demands. The default is True.
 
 - <a id="cf_subsample_factor_forest"><strong>cf_subsample_factor_forest</strong></a>
-	* Determines size of subsampling sample for the tree building. The default share is $\min(0.67,(2*(n^{0.8})/n))$, where $n$ is 2 times the sample size of the smallest treatment arm. The viable range is (0, 0.8]. The actual share of the subsample is equal to **def_share** times **cf_subsample_factor_forest**.
+	* Determines size of subsampling sample for the tree building. The default share is $\min(0.67,(2*(n^{0.8})/n))$, where $n$ is 2 times the sample size of the smallest treatment arm. The viable range is (0, 0.8]. The actual share of the subsample is equal to **cf_def_share** times **cf_subsample_factor_forest**.
 
 - <a id="cf_vi_oob_yes"><strong>cf_vi_oob_yes</strong></a>
 	* If set to True, the causal forest's variable importance is computed. The variable importance measure is based on permuting every single feature in the OOB prediction. The default is False.
 
-**common support**
+**cs** or **common support**
 
 - <a id="cs_adjust_limits"><strong>cs_adjust_limits</strong></a>
-	* This parameter reduces the restrictiveness of the common support criterion, which increases in the number of treatments. The upper limit is multiplied by 1 + **support_adjust_limits**, and the minimum by 1 - **support_adjust_limits**. The default is None and renders **support_adjust_limits** being equal to 0.05 (number of treatments - 2). If **cs_type** is 0 or **None**, there is no adjustment. Default is None.
+	* This parameter reduces the restrictiveness of the common support criterion, which increases in the number of treatments. The upper limit is multiplied by 1 + **cs_support_adjust_limits**, and the minimum by 1 - **cs_support_adjust_limits**. The default is None and renders **cs_support_adjust_limits** being equal to 0.05 (number of treatments - 2). If **cs_type** is 0 or None, there is no adjustment. Default is None.
 
 - <a id="cs_max_del_train"><strong>cs_max_del_train</strong></a>
-	* If share of observations in training data used for forest data that are off support is larger than **support_max_del_train**, program terminates. Viable range is between 0 and 1. Default is 0.5.
+	* If share of observations in training data used for forest data that are off support is larger than **cs_support_max_del_train**, program terminates. Viable range is between 0 and 1. Default is 0.5.
 
 - <a id="cs_min_p"><strong>cs_min_p</strong></a>
-	* If **cs_min_p** equals 2, an observation is deleted if at least one of the estimated propensities is less or equal than **support_min_p**. The default is 0.01.
+	* If **cs_min_p** equals 2, an observation is deleted if at least one of the estimated propensities is less or equal than **cs_support_min_p**. The default is 0.01.
 
 - <a id="cs_quantil"><strong>cs_quantil</strong></a>
 	* If **cs_type** is 1, the min-max rule is deployed. For values between 0 and 1 the respective quantiles are taken. The default is the mi-max rule.
 
-- <a id="ct_grid_dr"><strong>ct_grid_dr</strong></a>
-	* Specifies number of grid point for discretization of continuous treatment. Used to approximate the dose response function. The grid is defined in terms of the quantiles of the continuous treatment. The default is 100.
+- <a id="cs_type"><strong>cs_type</strong></a>
+	* Specifies type of common support adjustment. If set to 0, there is no common support adjustment. If set to 1 or 2, the support check is based on the estimated classification regression forests. For 1, the min-max rules for the estimated probabilities in the treatment subsamples are deployed. For 2, the minimum and maximum probabilities for all observations are deployed. All observations off support are removed. Note that out-of-bag predictions are used to avoid overfitting (which leads to a too large reduction in observations).
 
 **ct** or **continuous treatment**
+
+- <a id="ct_grid_dr"><strong>ct_grid_dr</strong></a>
+	* Specifies number of grid point for discretization of continuous treatment. Used to approximate the dose response function. The grid is defined in terms of the quantiles of the continuous treatment. The default is 100.
 
 - <a id="ct_grid_nn"><strong>ct_grid_nn</strong></a>
 	* Specifies number of grid point for the discretization of the continuous treatment. Grid is defined in terms of quantiles of the continuous treatment.
@@ -294,6 +297,9 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* If True, covariates are screened. The default is True.
 
 **fs** or **feature selection**
+
+- <a id="fs_other_sample"><strong>fs_other_sample</strong></a>
+	* If True, random sample from training data is used, which will not be used for the causal forest. If False, the same data is used for feature selection and the causal forest. The default is True.
 
 - <a id="fs_other_sample_share"><strong>fs_other_sample_share</strong></a>
 	* If **fs_other_sample** is set to True, **fs_other_sample_share** determines sample share for feature selection. Default is 0.33.
@@ -326,15 +332,13 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Specifies path to  where the output is written too. If this is None, an ``out`` directory will be created in the current working directory.
 
 - <a id="gen_panel_data"><strong>gen_panel_data</strong></a>
-	* If set to True, clustered standard errors are computed. Use **cluster_name** to pass over panel unit information. If None or False, data is assumed to have no panel structure. Default is False.
+	* If set to True, clustered standard errors are computed. If None or False, data is assumed to have no panel structure. Default is False.
 
 - <a id="gen_panel_in_rf"><strong>gen_panel_in_rf</strong></a>
 	* If True, the panel structure is also used when drawing the random samples in the forest growing process. The default is True.
 
 - <a id="gen_weighted"><strong>gen_weighted</strong></a>
-	* If set to True, sampling weights are used. The sampling weights are specified via **w_name**. Sampling weights slow down the program. The default is False.
-
-**lc** or **local centering**
+	* If set to True, sampling weights are used. The sampling weights are specified via **var_w_name**. Sampling weights slow down the program. The default is False.
 
 - <a id="lc_cs_cv"><strong>lc_cs_cv</strong></a>
 	* Specifies which data to use for local centering and common support. If set to True, cross-validation is used. If False, a random sample is used, which is not used for the causal forest later. The default is True.
@@ -351,13 +355,14 @@ _int_with_output=_INT_WITH_OUTPUT)
 - <a id="lc_yes"><strong>lc_yes</strong></a>
 	* If True, local centering is deployed. The default is True.
 
-**p** or **predicting effects**
-
 - <a id="p_amgate"><strong>p_amgate</strong></a>
 	* If set to True, the program computes AMGATEs.  If no variables are specified for GATE estimation, **p_amgate** is set to False. The default is False.
 
 - <a id="p_atet"><strong>p_atet</strong></a>
 	* If True, the average effects are estimated by treatment group. This works only if at least one heterogeneity variable is defined. The default is False.
+
+- <a id="p_bt_yes"><strong>p_bt_yes</strong></a>
+	* If True, executes balancing test based on wights. Requires weight based inference. Relevance of this test not fully clear. Default is False.
 
 - <a id="p_choice_based_probs"><strong>p_choice_based_probs</strong></a>
 	* Specifies sampling probabilities. These weights are used for (G)ATEs only. Treatment information must be available in the prediction file.
@@ -378,7 +383,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* If set to True, GATES will be compared to GATEs computed at the previous evaluation point. GATE estimation is a bit slower as it is not optimized for multiprocessing. No plots are shown. Default is False.
 
 - <a id="p_gates_smooth"><strong>p_gates_smooth</strong></a>
-	* Alternative way to estimate GATEs for continuous variables. Instead of discretizing the heterogeneity variable, the GATE is evaluated at a local neighbourhood around the **smooth_gates_no_evaluation_points**. Default is True.
+	* Alternative way to estimate GATEs for continuous variables. Instead of discretizing the heterogeneity variable, the GATE is evaluated at a local neighbourhood around the **p_gates_smooth_no_evalu_points**. Default is True.
 
 - <a id="p_gates_smooth_bandwidth"><strong>p_gates_smooth_bandwidth</strong></a>
 	* Specifies multiplier for smoothed GATE aggregation. Default is 1.
@@ -426,16 +431,14 @@ _int_with_output=_INT_WITH_OUTPUT)
 
 
 - <a id="p_se_boot_ate"><strong>p_se_boot_ate</strong></a>
-	* If True, $(w_{ji} y_i)$ are bootstrapped **se_boot_xate** times.
+	* If True, $(w_{ji} y_i)$ are bootstrapped.
 
 
 - <a id="p_se_boot_gate"><strong>p_se_boot_gate</strong></a>
 	* If True, use bootstrap for GATE standard errors. The default is False.
 
 - <a id="p_se_boot_iate"><strong>p_se_boot_iate</strong></a>
-	* If True, use 199 bootstraps (block-bootstrap). If **cluster_std** is False, **p_se_boot_iate** is by default False. If **cluster_std** is False, **p_se_boot_iate** is by default False. If **cluster_std** is True, the default is True.
-
-**post** or **post-estimation**
+	* If True, use 199 bootstraps (block-bootstrap). If **p_cluster_std** is False, **p_se_boot_iate** is by default False. If **p_cluster_std** is False, **p_se_boot_iate** is by default False. If **p_cluster_std** is True, the default is True.
 
 - <a id="post_bin_corr_threshold"><strong>post_bin_corr_threshold</strong></a>
 	* Specifies minimum threshhold of absolute correlation. Default is 0.1.
@@ -466,9 +469,6 @@ _int_with_output=_INT_WITH_OUTPUT)
 
 - <a id="post_relative_to_first_group_only"><strong>post_relative_to_first_group_only</strong></a>
 	* If True, only the effects of the lowest treatment value are used. The default is True.
-
-
-**_** or **internal**
 
 - <a id="_int_descriptive_stats"><strong>_int_descriptive_stats</strong></a>
 	* If True, descriptive stats of input and output files are printed. The default is True.

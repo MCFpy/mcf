@@ -47,7 +47,7 @@ modified_causal_forest(cf_boot=cf_boot,
   * Name(s) of outcome variable(s).
 
 - <a id="var_z_name_list"><strong>var_z_name_list</strong></a>
-  * Names of variables for heterogeneity analysis.
+  * Names of variables for heterogeneity analysis relevant for group treatment effects.
 
 - <a id="var_z_name_ord"><strong>var_z_name_ord</strong></a>
   * Names of ordered variables to define policy relevant heterogeneity.
@@ -58,13 +58,13 @@ modified_causal_forest(cf_boot=cf_boot,
 ## Parameters
 
 - <a id="cf_boot"><strong>cf_boot</strong></a>
-  * Number of bootstrap or subsampling replications. Default is 1000.
+  * Number of subsampling replications. Default is 1000.
 
 - <a id="lc_yes"><strong>lc_yes</strong></a>
   * If True, local centering is deployed. The default is True.
 
 - <a id="p_atet"><strong>p_atet</strong></a>
-  * If True, the average effects are estimated by treatment group. This works only if at least one heterogeneity variable is defined. The default is False.
+  * If True, the average effects are estimated by treatment group. The default is False.
 
 - <a id="p_gatet"><strong>p_gatet</strong></a>
-  * If set to True, GATEs and GATETs are computed. If no variables are specified for GATE estimation, **p_bgate** is set to False. The default is False.
+  * If set to True, GATEs and GATETs are computed. The default is False.

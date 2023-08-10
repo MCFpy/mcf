@@ -278,7 +278,7 @@ To see if the estimated treatment effects are heterogeneous in their features, t
 | [p_gates_smooth_no_evalu_points](./core_6.md#p_gates_smooth_no_evalu_points) | Number of evaluation points for GATEs. The default is 50.    |
 | [p_gates_smooth_bandwidth](./core_6.md#p_gates_smooth_bandwidth) | Multiplier for Silverman's bandwidth rule for GATEs. The default is 1. |
 | [p_gmate_no_evalu_points](./core_6.md#p_gmate_no_evalu_points) | Number of evaluation points for marginal treatment effects. The default is 50. |
-| [p_gmate_sample_share](./core_6.md#p_gmate_sample_share)         | Number in the interval $(0,1]$ determining the size of $N_{SS}$ for the computation of AMTEs. Note that $N_{SS}$ also depends on the number of evaluation points, see [Technical Appendix](./techn_app.md). |
+| [p_gmate_sample_share](./core_6.md#p_gmate_sample_share)         | Number in the interval $(0,1]$ determining the size of $N_{SS}$ for the computation of AMTEs. Note that $N_{SS}$ also depends on the number of evaluation points. |
 | [p_atet](./core_6.md#p_atet)                           | If *True*, average treatment effects for subpopulations defined by treatment status are computed. This only works if at least one GATE feature is specified. The default is *False*. |
 | [p_gatet](./core_6.md#p_gatet)                         | If *True*, group average treatment effects for subpopulations defined by treatment status are computed. The default is *False*. |
 | [p_max_weight_share](./core_6.md#p_max_weight_share)           | Maximum value of the weights. The default is 0.05.           |
@@ -290,7 +290,7 @@ To see if the estimated treatment effects are heterogeneous in their features, t
 
 ### General remarks
 
-The program offers three ways of conducting inference. The default is a weights-based inference procedure, which is particularly useful for gaining information on the precision of estimators that have a representation as weighted averages of the outcomes, see [Lechner (2019)](https://arxiv.org/abs/1812.09487). The [Technical Appendix](./techn_app.md) shows the tuning parameters for this method. The second inference procedure provided by the program simply estimates the variance of treatment effect estimates as the sum of the variance of weighted outcomes. Finally, a bootstrap algorithm can be applied to obtain inference.
+The program offers three ways of conducting inference. The default is a weights-based inference procedure, which is particularly useful for gaining information on the precision of estimators that have a representation as weighted averages of the outcomes, see [Lechner (2019)](https://arxiv.org/abs/1812.09487). The second inference procedure provided by the program simply estimates the variance of treatment effect estimates as the sum of the variance of weighted outcomes. Finally, a bootstrap algorithm can be applied to obtain inference.
 
 ### Methods
 
@@ -301,9 +301,6 @@ Another way to obtain inference is to compute the variance of a treatment effect
 Alternatively, the standard bootstrap can be applied to compute standard errors. Our algorithm bootstraps the equally weighted weights $\hat{w}_i$ and then renormalizes $\hat{w}_i$.   
 
 Note that because of the weighting representation, inference can also readily be used to account for clustering, which is a common feature in economics data.
-
-Details on parameters of the inference procedures, as well as on options for clustered data, are shown in the [Technical Appendix](./techn_app.md).
-
 
 ## Post-estimation diagnostics
 

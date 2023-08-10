@@ -115,7 +115,7 @@ the highest value. Default is None.
 	* Specifies minimum leaf size; the default is the integer part of 10% of the sample size divided by the number of leaves.
 
 - <a id="pt_no_of_evalupoints"><strong>pt_no_of_evalupoints</strong></a>
-	* Implicitly set the approximation parameter of [Zhou, Athey, and Wager (2018)](https://arxiv.org/abs/1810.04778) - $A$. Accordingly, $A = N/n_{\text{evalupoints}}$, where $N$ is the number of observations and $n_{\text{evalupoints}}$ the number of evaluation points; default value is 100.
+	* Implicitly set the approximation parameter of [Zhou, Athey, and Wager (2012)](https://pubsonline.informs.org/doi/10.1287/opre.2022.2271) - $A$. Accordingly, $A = N/n_{\text{evalupoints}}$, where $N$ is the number of observations and $n_{\text{evalupoints}}$ the number of evaluation points; default value is 100.
 
 - <a id="rnd_shares"><strong>rnd_shares</strong></a>
 	* Create a stochastic assignment of the data passed. Tuple of size of number treatments. Sum of all elements must add to 1. This used only used as a comparison in the evaluation of other allocations. Default is shares of treatments in allocation under investigation.

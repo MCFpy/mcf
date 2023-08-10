@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-An object of the class ``OptimalPolicy`` is quickly set up as follows:
+To set up an object of the class ``OptimalPolicy``, type
 
 ```python
 from mcf import OptimalPolicy

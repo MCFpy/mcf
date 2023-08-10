@@ -121,7 +121,6 @@ _int_mp_vim_type=_INT_MP_VIM_TYPE,
 _int_mp_weights_tree_batch=_INT_MP_WEIGHTS_TREE_BATCH,
 _int_mp_weights_type=_INT_MP_WEIGHTS_TYPE,
 _int_no_filled_plot=_INT_NO_FILLED_PLOT,
-_int_ray_or_dask=_INT_RAY_OR_DASK,
 _int_return_iate_sp=_INT_RETURN_IATE_SP,
 _int_seed_sample_split=_INT_SEED_SAMPLE_SPLIT,
 _int_share_forest_sample=_INT_SHARE_FOREST_SAMPLE,
@@ -299,7 +298,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 **fs** or **feature selection**
 
 - <a id="fs_other_sample"><strong>fs_other_sample</strong></a>
-	* If True, random sample from training data is used, which will not be used for the causal forest. If False, the same data is used for feature selection and the causal forest. The default is True.
+	* If True, a random sample from training data is used, which will not be used for the causal forest. If False, the same data is used for feature selection and the causal forest. The default is True. For small datasets, we recommend changing the parameter to False. 
 
 - <a id="fs_other_sample_share"><strong>fs_other_sample_share</strong></a>
 	* If **fs_other_sample** is set to True, **fs_other_sample_share** determines sample share for feature selection. Default is 0.33.
@@ -504,9 +503,6 @@ _int_with_output=_INT_WITH_OUTPUT)
 
 - <a id="_int_no_filled_plot"><strong>_int_no_filled_plot</strong></a>
 	* Use filled plots for for more than **_int_no_filled_plot** points. The default is 20.
-
-- <a id="_int_ray_or_dask"><strong>_int_ray_or_dask</strong></a>
-	* Specifies multiprocessing framework. Choose between two packages 'ray' and 'dask'. The default is 'ray'.
 
 - <a id="_int_return_iate_sp"><strong>_int_return_iate_sp</strong></a>
 	* If True, data with predictions is returned despite *with_output* being set False. Default is False.

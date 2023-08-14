@@ -5,7 +5,7 @@
 
 ### Variables
 
-The class ``OptimalPolicy``requires at least three distinct lists, containing the column names for the policy scores and the features which shall be deployed to build the policy tree. The policy scores are injected via [var_polscore_name](./opt_pol_1.md#var_polscore_name), the ordered features via [var_x_ord](./opt_pol_1.md#var_x_ord) and the unordered via [var_x_unord](./opt_pol_1.md#var_x_unord).  
+The class ``OptimalPolicy``requires information on the column names for the policy scores and the features which shall be deployed to build the policy tree if the policy tree shall be built. The policy scores are injected via [var_polscore_name](./opt_pol_1.md#var_polscore_name), the ordered features via [var_x_ord](./opt_pol_1.md#var_x_ord) and the unordered via [var_x_unord](./opt_pol_1.md#var_x_unord). Note for the blackbox allocation the policy scores are sufficient.  
 
 ### Compulsory variable arguments
 
@@ -16,7 +16,7 @@ The class ``OptimalPolicy``requires at least three distinct lists, containing th
 |[var_polscore_name](./opt_pol_1.md#var_polscore_name)|Specifies the policy score. |
 
 
- The optional variables are [var_effect_vs_0](./opt_pol_1.md#var_effect_vs_0), [var_effect_vs_0_se](./opt_pol_1.md#var_effect_vs_0_se). 
+ The optional variables are [var_effect_vs_0](./opt_pol_1.md#var_effect_vs_0), [var_effect_vs_0_se](./opt_pol_1.md#var_effect_vs_0_se).
 
 ## Data cleaning
 
@@ -27,11 +27,14 @@ The `optpoltree` function offers several useful data wrangling routines. First, 
 |**Keyword** |**Details**|
 | -- | -- |
 |[dc_clean_data](./opt_pol_1.md#dc_clean_data)|If True, all missing and unnecessary variables are removed from the data set; the default is True.|  
-|[screen_covariates](./opt_pol_1.md#screen_covariates)|Determines whether the covariates are screened; the default is True; to omit screening stage specify False.|
 |[dc_screen_covariates](./opt_pol_1.md#dc_screen_covariates)|If [dc_screen_covariates](./opt_pol_1.md#dc_screen_covariates) is True and if there are perfectly correlated variables, as many variables as necessary are excluded to remove the perfect correlation.|
-|[dc_screen_covariates](./opt_pol_1.md#dc_screen_covariates)|If the program also screens covariates, i.e. when [dc_screen_covariates](./opt_pol_1.md#dc_screen_covariates) is True, the [dc_min_dummy_obs](./opt_pol_1.md#dc_min_dummy_obs) regulates the minimal number of observations in one category of a dummy variable for the dummy variable not to be removed from the data set; the default is set to 10.|
+|[dc_min_dummy_obs](./opt_pol_1.md#dc_min_dummy_obs)|If the program also screens covariates, i.e. when [dc_screen_covariates](./opt_pol_1.md#dc_screen_covariates) is True, the [dc_min_dummy_obs](./opt_pol_1.md#dc_min_dummy_obs) regulates the minimal number of observations in one category of a dummy variable for the dummy variable not to be removed from the data set; the default is set to 10.|
 
 ## The Quest for the Optimal Policy Tree
+
+You may choose between two methods in determining policy allocation: a policy tree following [Zhou, Athey, and Wager (2022)](https://pubsonline.informs.org/doi/10.1287/opre.2022.2271) and a blackbox rule. Use [gen_method](./opt_pol_1.md#gen_method) to opt for the 'best_policy_score' or 'policy tree'. The blackbox rule follows the logic of allocating the treatment, which implies the best potential outcome (potentially taking estimation uncertainty into account if passed over to the program via [var_effect_vs_0_se](./opt_pol_1.md#var_effect_vs_0_se)).
+
+In what follows, we briefly explain the solution method for finding the optimal policy tree.
 
 **A Primer**
 
@@ -61,9 +64,9 @@ The ``optpoltree``comes with options:
 
 1. To control how many observations are required at minimum in a partition, inject a number into [pt_min_leaf_size](./opt_pol_1.md#pt_min_leaf_size).
 2. If the number of individuals who receive a specific treatment is constrained, you may specify admissible treatment shares via the keyword argument [other_max_shares](./opt_pol_1.md#other_max_shares). Note that the information must come as a tuple with as many entries as there are treatments.
-2. If costs of the respective treatment(s) are relevant, you may input [other_costs_of_treat](./opt_pol_1.md#other_costs_of_treat). When evaluating the reward, the aggregate costs (costs per unit times units) of the policy allocation are subtracted. If you leave the costs to their default, None, the program determines a cost vector that imply an optimal reward (policy score minus costs) for each individual, while guaranteeing that the restrictions as specified in [other_max_shares](./opt_pol_1.md#other_max_shares) are satisfied.
-3. If  [other_costs_of_treat](./opt_pol_1.md#other_costs_of_treat) is left to its default, the [other_costs_of_treat_mult](./opt_pol_1.md#other_costs_of_treat_mult) can be specified. Admissible values are either a scalar greater zero or a tuple with values greater zero. The tuple needs as many entries as there are treatments.  The imputed cost vector is then multiplied by this factor.  
-3. If you set [only_if_sig_better](./opt_pol_1.md#only_if_sig_better) to True, the  ``optpoltree`` programme examines whether any given treatment significantly outperforms the null treatment; in practice, this is checked by a one-sided test of statistical significance. Note that due to the nature of our optimization problem, we only take interest in positive deviations from the null treatment. Hence, the one-sided test. If the null that the difference of the two treatments is greater zero, cannot be rejected, the program recodes the policy score for the corresponding individual and treatment to the score implied by the null treatment minus an arbitrarily small float (1e-8).  To execute those tests, you have to specify a list of strings, which correspond to the column names where the [var_effect_vs_0](./opt_pol_1.md#var_effect_vs_0) and the corresponding standard errors are stored [var_effect_vs_0_se](./opt_pol_1.md#var_effect_vs_0_se).
+2. If costs of the respective treatment(s) are relevant, you may input [other_costs_of_treat](./opt_pol_1.md#other_costs_of_treat). When evaluating the reward, the aggregate costs (costs per unit times units) of the policy allocation are subtracted. If you leave the costs to their default, None, the program determines a cost vector that imply an optimal reward (policy score minus costs) for each individual, while guaranteeing that the restrictions as specified in [other_max_shares](./opt_pol_1.md#other_max_shares) are satisfied. This is of course only relevant when [other_max_shares](./opt_pol_1.md#other_max_shares) is specified.
+3. If there are restrictions, and  [other_costs_of_treat](./opt_pol_1.md#other_costs_of_treat) is left to its default, the [other_costs_of_treat_mult](./opt_pol_1.md#other_costs_of_treat_mult) can be specified. Admissible values are either a scalar greater zero or a tuple with values greater zero. The tuple needs as many entries as there are treatments.  The imputed cost vector is then multiplied by this factor.  
+
 
 
 |**Keyword** |**Details**|
@@ -72,7 +75,7 @@ The ``optpoltree``comes with options:
 |[var_effect_vs_0_se](./opt_pol_1.md#var_effect_vs_0_se) |Specifies standard errors of the effects given in [var_effect_vs_0](./opt_pol_1.md#var_effect_vs_0). |
 |[other_max_shares](./opt_pol_1.md#other_max_shares)|Specifies maximum shares of treated for each policy.|
 |[other_costs_of_treat_mult](./opt_pol_1.md#other_costs_of_treat_mult)|Specifies a multiplier to costs; valid values range from 0 to 1; the default is 1. Note that parameter is only relevant if [other_costs_of_treat](./opt_pol_1.md#other_costs_of_treat) is set to its default None.|
-|[other_costs_of_treat](./opt_pol_1.md#other_costs_of_treat)|Specifies costs per distributed unit of treatment. Costs will be subtracted from policy scores; 0 is no costs; the default is None. Accordingly, the program determines individually best treatments that fulfils the restrictions in [other_max_shares](./opt_pol_1.md#other_max_shares) and imply the smallest possible costs.|
+|[other_costs_of_treat](./opt_pol_1.md#other_costs_of_treat)|Specifies costs per  unit of treatment. Costs will be subtracted from policy scores; 0 is no costs; the default is None, which implies 0 costs if there are no constraints. Accordingly, the program determines individually best treatments that fulfils the restrictions in [other_max_shares](./opt_pol_1.md#other_max_shares) and imply the smallest possible costs.|
 |[pt_min_leaf_size](./opt_pol_1.md#pt_min_leaf_size)|Specifies minimum leaf size; the default is the integer part of 10% of the sample size divided by the number of leaves.|
 |[pt_depth](./opt_pol_1.md#pt_depth)|Regulates depth of the policy tree; the default is 3; the programme accepts any number strictly greater 0.|
 |[pt_no_of_evalupoints](./opt_pol_1.md#pt_no_of_evalupoints)|Implicitly set the approximation parameter of [Zhou, Athey, and Wager (2022)](https://pubsonline.informs.org/doi/10.1287/opre.2022.2271) - $A$. Accordingly, $A = N/n_{\text{evalupoints}}$, where $N$ is the number of observations and $n_{\text{evalupoints}}$ the number of evaluation points; default value is 100.|
@@ -84,7 +87,7 @@ The ``optpoltree``comes with options:
 
 1. Specify the number of evaluation points via [pt_no_of_evalupoints](./opt_pol_1.md#pt_no_of_evalupoints). This regulates when performing the tree search how many of the possible splits in the covariate space are considered. If the [pt_no_of_evalupoints](./opt_pol_1.md#pt_no_of_evalupoints)  is smaller than the number of distinct values of a certain feature, the algorithm visits fewer splits, thus increasing computational efficiency.
 2. Specify the admissible depth of the tree via the keyword argument [pt_depth](./opt_pol_1.md#pt_depth).
-2. Run the program in parallel. You can set the the number of processes via the keyword argument [int_how_many_parallel](./opt_pol_1.md#int_how_many_parallel). By default, the number is set equal to the number of logical cores on your machine.
+2. Run the program in parallel. You can set the the number of processes via the keyword argument [int_how_many_parallel](./opt_pol_1.md#int_how_many_parallel). By default, the number is set equal to the 80 percent of the number of logical cores on your machine.
  2. A further speed up is accomplished through Numba. Numba is a Python library, which translates Python functions to optimized machine code at runtime. By default, the program uses Numba. To disable Numba, set [int_with_numba](./opt_pol_1.md#int_with_numba) to False.
 
 

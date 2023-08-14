@@ -2,10 +2,18 @@
 
 ## Installing from PyPI
 
-The mcf can be installed from PyPI:
+The mcf can be installed from PyPI. Please follow the installation steps, as outlined here. Otherwise, you may encounter errors.
+
+First,
 
 ```
 pip install mcf
+```
+
+Second,
+
+```
+pip install -U --force-reinstall charset-normalizer==3.2.0
 ```
 
 The current mcf runs with Python 3.11. We recommend setting up a virtual environment designated to the mcf to rule out dependency conflicts. Should you work with anaconda, you can specify

@@ -1,482 +1,94 @@
-"""Created on Thu Feb 24 10:17:14 2022.
-
-Contains the functions needed for the tree and forest computations of MCF
-@author: MLechner
--*- coding: utf-8 -*-
 """
-from concurrent import futures
+Contains functions for building the forest.
+
+Created on Thu May 11 16:30:11 2023
+
+@author: MLechner
+# -*- coding: utf-8 -*-
+"""
+from copy import deepcopy
 from numba import njit
-from dask.distributed import Client, as_completed
 
 import numpy as np
 import ray
+# import pandas as pd
 
-from mcf import general_purpose as gp
-from mcf import general_purpose_estimation as gp_est
-from mcf import mcf_data_functions as mcf_data
-from mcf import mcf_general_purpose as mcf_gp
+from mcf import mcf_forest_data_functions as mcf_data
+from mcf import mcf_general as mcf_gp
+from mcf import mcf_general_sys as mcf_sys
+from mcf import mcf_print_stats_functions as ps
 
 
-def fill_trees_with_y_indices_mp(forest, indatei, v_dict, v_x_type, v_x_values,
-                                 c_dictin, x_name_mcf, regrf=False):
-    """Fill trees with indices of outcomes, MP.
+def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, cf_dic, mmm, rng):
+    """Generate variables to be used for split.
 
     Parameters
     ----------
-    forest : Tuple of lists. Node_table.
-    indatei : String. csv-file with data.
-    v_dict : Dict. Variables.
-    v_x_type : Dict. Name and type of covariates.
-    v_x_values : Dict. Name and values of covariates.
-    c_dictin : Dict. Parameters.
-    x_name_mcf : List of str.
-    regrf : Bool. Regression or MCF. Default is False.
+    x_ind_pos : List. Indices of all x-variables.
+    x_ai_ind : List. Indices of all x-variables always used for splitting.
+    c_dict : Dict. Parameters
+    mmm : Number of variables to draw.
+    rng : default random number generator.
 
     Returns
     -------
-    forest_with_y : List of lists. Updated Node_table.
-    terminal_nodes: Tuple of np.arrays. No of final node.
-    no_of_avg_nodes: INT. Average no of unfilled leafs.
+    x_i_for_split : List of indices in x of splitting variables.
 
     """
-    if c_dictin['with_output'] and c_dictin['verbose']:
-        print("\nFilling trees with indicies of outcomes")
-    (x_name, _, _, c_dict, _, data_np, _, _, x_i, _, _, d_i, _, _, _
-     ) = mcf_data.prepare_data_for_forest(
-         indatei, v_dict, v_x_type, v_x_values, c_dictin, True, regrf=regrf)
-    err_txt = 'Wrong order of variables' + str(x_name) + ': ' + str(x_name_mcf)
-    assert x_name_mcf == x_name, err_txt
-    if c_dict['d_type'] == 'continuous':
-        d_dat = data_np[:, d_i]
-        # substitute those d used for splitting only that have a zero with
-        # random element from the positive treatment levels
-        d_pos = d_dat[d_dat > 1e-15]
-        rng = np.random.default_rng(12366456)
-        d_values = rng.choice(d_pos, size=len(d_dat)-len(d_pos), replace=False)
-        d_dat_for_x = np.copy(d_dat)
-        j = 0
-        for i, d_i in enumerate(d_dat):
-            if d_i < 1e-15:
-                d_dat_for_x[i, 0] = d_values[j]
-                j += 1
-        x_dat = np.concatenate((data_np[:, x_i], d_dat_for_x), axis=1)
+    qqq = len(x_ind_pos)
+    if cf_dic['m_random_poisson'] and mmm > cf_dic['m_random_poisson_min']:
+        m_l = 1 + rng.poisson(lam=mmm-1, size=1)
+        if m_l < 1:
+            m_l = 1
+        elif m_l > qqq:
+            m_l = qqq
     else:
-        x_dat = data_np[:, x_i]
-        d_dat = np.int16(np.round(data_np[:, d_i]))
-    obs = len(x_dat)
-    terminal_nodes = [None] * c_dict['boot']
-    nodes_empty = np.zeros(c_dict['boot'])
-    if c_dict['no_parallel'] < 1.5:
-        maxworkers = 1
+        m_l = mmm
+    if x_ai_ind_pos == []:
+        x_i_for_split = rng.choice(x_ind_pos, m_l, replace=False)
+        x_i_for_split_list = x_i_for_split.tolist()
     else:
-        maxworkers = (mcf_gp.find_no_of_workers(c_dict['no_parallel'],
-                                                c_dict['sys_share'])
-                      if c_dict['mp_automatic'] else c_dict['no_parallel'])
-    if c_dict['with_output'] and c_dict['verbose']:
-        print('Number of parallel processes: ', maxworkers)
-    if maxworkers == 1:
-        for idx in range(c_dict['boot']):
-            (_, forest[idx], terminal_nodes[idx], nodes_empty[idx]
-             ) = fill_mp(forest[idx], obs, d_dat, x_dat, idx, c_dict, regrf)
-            if c_dict['with_output'] and c_dict['verbose']:
-                gp.share_completed(idx+1, c_dict['boot'])
-    else:
-        if c_dict['_ray_or_dask'] == 'ray':
-            if c_dict['mem_object_store_2'] is None:
-                if not ray.is_initialized():
-                    ray.init(num_cpus=maxworkers, include_dashboard=False)
-            else:
-                if not ray.is_initialized():
-                    ray.init(num_cpus=maxworkers, include_dashboard=False,
-                             object_store_memory=c_dict['mem_object_store_2'])
-                if c_dict['with_output'] and c_dict['verbose']:
-                    print("Size of Ray Object Store: ", round(
-                        c_dict['mem_object_store_2']/(1024*1024)), " MB")
-            x_dat_ref = ray.put(x_dat)
-            still_running = [ray_fill_mp.remote(
-                forest[idx], obs, d_dat, x_dat_ref, idx, c_dict, regrf)
-                for idx in range(c_dict['boot'])]
-            jdx = 0
-            while len(still_running) > 0:
-                finished, still_running = ray.wait(still_running)
-                finished_res = ray.get(finished)
-                for ret_all_i in finished_res:
-                    iix = ret_all_i[0]
-                    forest[iix] = ret_all_i[1]
-                    terminal_nodes[iix] = ret_all_i[2]
-                    nodes_empty[iix] = ret_all_i[3]
-                    if c_dict['with_output'] and c_dict['verbose']:
-                        gp.share_completed(jdx+1, c_dict['boot'])
-                    jdx += 1
-            if 'refs' in c_dict['_mp_ray_del']:
-                del x_dat_ref
-            if 'rest' in c_dict['_mp_ray_del']:
-                del finished_res, finished
-            if c_dict['_mp_ray_shutdown']:
-                ray.shutdown()
-        elif c_dict['_ray_or_dask'] == 'dask':
-            with Client(n_workers=maxworkers) as clt:
-                x_dat_ref, d_dat_ref = clt.scatter(x_dat), clt.scatter(d_dat)
-                ret_fut = {clt.submit(fill_mp, forest[idx], obs, d_dat_ref,
-                                      x_dat_ref, idx, c_dict, regrf):
-                           idx for idx in range(c_dict['boot'])}
-                jdx = 0
-                for _, res in as_completed(ret_fut, with_results=True):
-                    jdx += 1
-                    iix = res[0]
-                    forest[iix] = res[1]
-                    terminal_nodes[iix] = res[2]
-                    nodes_empty[iix] = res[3]
-                    if c_dict['with_output'] and c_dict['verbose']:
-                        gp.share_completed(jdx+1, c_dict['boot'])
+        if m_l > len(x_ai_ind_pos):
+            x_i_for_split = rng.choice(x_ind_pos, m_l-len(x_ai_ind_pos),
+                                       replace=False)
+            x_i_for_split = np.concatenate((x_i_for_split, x_ai_ind_pos))
+            x_i_for_split = np.unique(x_i_for_split)
+            x_i_for_split_list = x_i_for_split.tolist()
         else:
-            with futures.ProcessPoolExecutor(max_workers=maxworkers) as fpp:
-                ret_fut = {fpp.submit(fill_mp, forest[idx], obs, d_dat, x_dat,
-                                      idx, c_dict, regrf):
-                           idx for idx in range(c_dict['boot'])}
-                for jdx, frv in enumerate(futures.as_completed(ret_fut)):
-                    ret_all_i = frv.result()
-                    del ret_fut[frv]
-                    del frv
-                    iix = ret_all_i[0]
-                    forest[iix] = ret_all_i[1]
-                    terminal_nodes[iix] = ret_all_i[2]
-                    nodes_empty[iix] = ret_all_i[3]
-                    if c_dict['with_output'] and c_dict['verbose']:
-                        gp.share_completed(jdx+1, c_dict['boot'])
-    no_of_avg_enodes = np.mean(nodes_empty)
-    if c_dict['with_output'] and c_dict['verbose']:
-        print('\nNumber of leaves w/o all treatments per tree',
-              f' in %: {no_of_avg_enodes*100:8.3f}')
-        if no_of_avg_enodes > 0:
-            print('Incomplete leafs will not be considered for weight',
-                  'computation.')
-    return forest, terminal_nodes, no_of_avg_enodes
+            x_i_for_split_list = x_ai_ind_pos[:]
+    return x_i_for_split_list
 
 
-@ray.remote
-def ray_fill_mp(node_table, obs, d_dat, x_dat, b_idx, c_dict, regrf=False):
-    """Make it work under Ray."""
-    return fill_mp(node_table, obs, d_dat, x_dat, b_idx, c_dict, regrf)
-
-
-def fill_mp(node_table, obs, d_dat, x_dat, b_idx, c_dict, regrf=False):
-    """Compute new node_table and list of final leaves.
+def init_node_table(n_tr, n_oob, indices_oob):
+    """Initialise node table for first leaf.
 
     Parameters
     ----------
-    node_table : List of lists.
-    obs : Int. Sample size.
-    d_dat : Numpy array. Treatment.
-    x_dat : Numpy array. Features.
-    b_idx : Int. Tree number.
-    c_dict : Dict. Controls.
-    regrf: Bool. Regression or MCF. Default is False.
+    n_tr : INT. Number of observation in training subsample.
+    n_oob : INT. Number of observation in OOB subsample.
+    indices_oob: Int.
 
     Returns
     -------
-    node_table : List of lists.
-    unique_leafs : List.
-    b_idx : Int. Tree number.
+    node_table : List of lists. First init_node_table
 
     """
-    subsam = c_dict['subsam_share_eval'] < 1 if not regrf else False
-    indices = np.arange(obs)
-    if subsam:
-        obs = round(obs * c_dict['subsam_share_eval'])
-        rng = np.random.default_rng((10+b_idx)**2+121)
-        indices = rng.choice(indices, size=obs, replace=False)
-    obs_in_leaf = np.zeros((obs, 1), dtype=np.uint32)
-    for i, idx in enumerate(indices):
-        obs_in_leaf[i] = get_terminal_leaf_no(node_table, x_dat[idx, :])
-    unique_leafs = np.unique(obs_in_leaf)
-    if subsam:
-        unique_leafs = unique_leafs[1:]  # remove first index: obs not used
-        d_dat = d_dat[indices]
-    nodes_empty = 0
-    no_of_treat = (2 if c_dict['d_type'] == 'continuous'
-                   else c_dict['no_of_treat'])
-    for leaf_id in unique_leafs:
-        sel_ind = obs_in_leaf.reshape(-1) == leaf_id
-        node_table[leaf_id][14] = indices[sel_ind]
-        empty_leaf = (len(sel_ind) < 1 if regrf else len(np.unique(
-            d_dat[sel_ind])) < no_of_treat)
-        if empty_leaf:
-            node_table[leaf_id][16] = 1   # Leaf to be ignored
-            nodes_empty += 1
-    return b_idx, node_table, unique_leafs, nodes_empty/len(unique_leafs)
-
-
-def get_terminal_leaf_no(node_table, x_dat):
-    """Get the leaf number of the terminal node for single observation.
-
-    Parameters
-    ----------
-    node_table : List of list. Single tree.
-    x_dat : Numpy array. Data.
-
-    Returns
-    -------
-    leaf_no : INT. Number of terminal leaf the observation belongs to.
-
-    Note: This only works if nodes are ordered subsequently. Do not remove
-          leafs when pruning. Only changes their activity status.
-
-    """
-    not_terminal = True
-    leaf_id = 0
-    while not_terminal:
-        leaf = node_table[leaf_id]
-        assert leaf[4] == 1 or leaf[4] == 0, f'Leaf is still active. {leaf[4]}'
-        if leaf[4] == 1:             # Terminal leaf
-            not_terminal = False
-            leaf_no = leaf[0]
-        elif leaf[4] == 0:          # Intermediate leaf
-            if leaf[10] == 0:        # Continuous variable
-                leaf_id = (leaf[2] if (x_dat[leaf[8]] - 1e-15) <= leaf[9]
-                           else leaf[3])
-            else:                   # Categorical variable
-                prime_factors = gp.primes_reverse(leaf[9], False)
-                leaf_id = (leaf[2]
-                           if int(np.round(x_dat[leaf[8]])) in prime_factors
-                           else leaf[3])
-    return leaf_no
-
-
-def structure_of_node_tabl():
-    """Info about content of NODE_TABLE.
-
-    Returns
-    -------
-    decription : STR. Information on node table with inital node
-
-    """
-    description = """Trees are fully saved in Node_Table (list of lists)
-    Structure of node_table
-      - Each knot is one list that contains further lists
-    This is the position and information for a given node
-    The following items will be filled in the first sample
-    0: Node identifier (INT: 0-...)
-    1: Parent kno
-    2: Child node left
-    3: Child node right
-    4: Type of node (2: Active -> will be further splitted or made terminal
-                    1: Terminal node, no further splits
-                    0: previous node that lead already to further splits)
-    5: Leafsize Training (later on used for pruning)
-    6: Leafsize OOB sample
-    7: OOB value of objective function (if node size <= n_min_max, or
-                                         terminal node)
-    8: INT: Index of variable used for decision of next split
-    9: If x_type = 0: Cut-off value (larger goes to right daughter,
-                                    equal and smaller to left daughter)
-        (ID of right dauhgter equals ID of left daughter + 1)
-    9:  If x_type = 1,2: Product of primes that goes to left daughter
-    10: x_type of variable
-    11: Numpy arrays: Training  data
-        -either list with data or indices
-    12: Numpy array: OOB data
-        -either list with data or indices
-    The following items will be filled in second sample
-    13: List of potential outcomes for all treatments
-    14: List of indices of variables used to compute predictions
-    15: Number of obs (2nd sample) in terminal leaf
-    16: Indices of OOB observations in total sample (only in leaf 0)
-        In second part used to indicate need for pruning (1: prune, 0: ok,
-        used only in terminal leaf)
-    """
-    print("\n", description)
-
-
-def describe_forest(forest, m_n_min_ar, v_dict, c_dict, pen_mult=0,
-                    regrf=False):
-    """Describe estimated forest by collecting information in trees.
-
-    Parameters
-    ----------
-    forest : List of List. Each forest consist of one node_table.
-    m_n_min : List of INT. Number of variables and minimum leaf size
-    v_dict : Dict. Variables.
-    c_dict : Dict. Parameters.
-
-    Returns
-    -------
-    None.
-
-    """
-    print('\n')
-    print('-' * 80)
-    print('Parameters of estimation to build random forest')
-    print('Outcome variable used to build forest:  ', *v_dict['y_tree_name'])
-    print('Features used to build forest:          ', *v_dict['x_name'])
-    print('Variables always included in splitting: ',
-          *v_dict['x_name_always_in'])
-    print(f'Number of replications:     {c_dict["boot"]:<4}')
-    if not regrf:
-        if c_dict['mtot'] == 3:
-            splitting_rule = 'MSEs of regressions only considered'
-        elif c_dict['mtot'] == 1:
-            splitting_rule = 'MSE+MCE criterion'
-        elif c_dict['mtot'] == 2:
-            splitting_rule = '-Var(effect)'
-        elif c_dict['mtot'] == 4:
-            splitting_rule = 'Random switching'
-        print(f'Splitting rule used:        {splitting_rule:<4}')
-        if c_dict['mtot_p_diff_penalty'] > 0:
-            print('Penalty used in splitting: ', pen_mult)
-    print('Share of data in subsample for forest buildung:',
-          f' {c_dict["subsam_share_forest"]:<4}')
-    print('Share of data in subsample for forest evaluation:',
-          f' {c_dict["subsam_share_eval"]:<4}')
-    print('Total number of variables available for splitting:',
-          f' {len(v_dict["x_name"]):<4}')
-    print(f'# of variables (M) used for split: {m_n_min_ar[0]:<4}')
-    if c_dict['m_random_poisson']:
-        print('           (# of variables drawn from 1+Poisson(M-1))')
-    print(f'Minimum leaf size:                 {m_n_min_ar[1]:<4}')
-    print(f'Alpha regularity:                  {m_n_min_ar[2]:5.3f}')
-    print('------------------- Estimated tree -------------------------------')
-    leaf_info = get_tree_infos(forest)
-    print(f'Average # of leaves:      {leaf_info[0]:4.1f}')
-    print(f'Average size of leaves:   {leaf_info[1]:4.1f}')
-    print(f'Median size of leaves:    {leaf_info[2]:4.1f}')
-    print(f'Min size of leaves:       {leaf_info[3]:4.0f}')
-    print(f'Max size of leaves:       {leaf_info[4]:4.0f}')
-    print(f'Total # of obs in leaves: {leaf_info[5]:4.0f}')
-    print('-' * 80)
-
-
-def get_tree_infos(forest):
-    """Obtain some basic information about estimated trees.
-
-    Parameters
-    ----------
-    forest : List of lists. Collection of node_tables.
-
-    Returns
-    -------
-    leaf_info : List. Some information about tree.
-
-    """
-    leaf_info_tmp = np.zeros([len(forest), 6])
-    for boot, tree in enumerate(forest):
-        for leaf in tree:
-            if leaf[4] == 1:   # Terminal leafs only
-                leaf_info_tmp[boot, 0] += 1  # Number of leaves
-        leaf_info_tree = np.zeros(int(leaf_info_tmp[boot, 0]))
-        j = 0
-        for leaf in tree:
-            if leaf[4] == 1:
-                leaf_info_tree[j] = leaf[5]
-                j += 1
-        leaf_info_tmp[boot, 1] = np.mean(leaf_info_tree)
-        leaf_info_tmp[boot, 2] = np.median(leaf_info_tree)
-        leaf_info_tmp[boot, 3] = np.min(leaf_info_tree)
-        leaf_info_tmp[boot, 4] = np.max(leaf_info_tree)
-        leaf_info_tmp[boot, 5] = np.sum(leaf_info_tree)
-    leaf_info = np.empty(6)
-    list_of_ind = [0, 1, 5]  # Average #, size of leaves, # of obs in leaves
-    leaf_info[list_of_ind] = np.mean(leaf_info_tmp[:, list_of_ind], axis=0)
-    leaf_info[2] = np.median(leaf_info_tmp[:, 2])   # Min size of leaves
-    leaf_info[3] = np.min(leaf_info_tmp[:, 3])      # Min size of leaves
-    leaf_info[4] = np.max(leaf_info_tmp[:, 4])      # Min size of leaves
-    return leaf_info
-
-
-def remove_oob_from_leaf0(forest):
-    """Save memory by removing OOB indices.
-
-    Parameters
-    ----------
-    forest : List of list. Node_tables.
-
-    Returns
-    -------
-    forest_out : List of list. Node_tables.
-    """
-    for idx, _ in enumerate(forest):
-        forest[idx][0][16] = 0
-    return forest
-
-
-def fs_adjust_vars(vi_i, vi_g, vi_ag, v_dict, v_x_type, v_x_values, x_name,
-                   c_dict, regrf=False):
-    """Deselect variables that have a too low variable importance.
-
-    Parameters
-    ----------
-    vi_i : Tuple (List relative OOB, indices). Least important variables last.
-    vi_g : Tuple (List relative OOB, indices). Least important group last.
-    vi_ag : Tuple (List relative OOB, indices). Least import. accu. group last.
-    v : Dict. Variables.
-    v_x_type : Dict. Type of variable.
-    v_x_values : Dict. Possible values of variables.
-    x_name: List of strings. Names of covariates.
-    c_dict : Dict. Parameters.
-    regrf : Bool. Honest regression forest. Default is False.
-
-    Returns
-    -------
-    var : Dict. Variables.
-    var_x_type : Dict. Type of variable.
-    var_x_values : Dict. Possible values of variables.
-
-    """
-    ind_i = np.array(vi_i[1], copy=True, dtype=object)
-    ind_g = np.array(vi_g[1], copy=True, dtype=object)
-    ind_ag = (ind_g if vi_ag is None
-              else np.array(vi_ag[1], copy=True, dtype=object))
-    below_i = vi_i[0] <= (100 + c_dict['fs_rf_threshold'])
-    below_g = vi_g[0] <= (100 + c_dict['fs_rf_threshold'])
-    below_ag = (below_g if vi_ag is None
-                else vi_ag[0] <= (100 + c_dict['fs_rf_threshold']))
-    nothing_removed = True
-    if ((np.count_nonzero(below_i) > 0) and (np.count_nonzero(below_g) > 0)
-            and (np.count_nonzero(below_ag) > 0)):   # necessary conditions met
-        ind_i = set(ind_i[below_i])
-        indi_g_flat = set(gp_est.flatten_list(list(ind_g[below_g])))
-        indi_ag_flat = set(gp_est.flatten_list(list(ind_ag[below_ag])))
-        remove_ind = ind_i & indi_g_flat & indi_ag_flat
-        if remove_ind:           # If list is empty, this will be False
-            names_to_remove1 = [x_name[i] for i in remove_ind]
-            if regrf:
-                forbidden_vars = (v_dict['x_name_always_in']
-                                  + v_dict['x_name_remain'])
-            else:
-                forbidden_vars = (v_dict['x_name_always_in']
-                                  + v_dict['x_name_remain']
-                                  + v_dict['z_name'] + v_dict['z_name_list']
-                                  + v_dict['z_name_mgate']
-                                  + v_dict['z_name_amgate'])
-            names_to_remove2 = [name for name in names_to_remove1
-                                if name not in forbidden_vars]
-            if names_to_remove2:
-                nothing_removed = False
-                for name_weg in names_to_remove2:
-                    v_x_type.pop(name_weg)
-                    v_x_values.pop(name_weg)
-                    v_dict['x_name'].remove(name_weg)
-                if c_dict['with_output']:
-                    print('\nVariables deleted: ', *names_to_remove2)
-                    print('\nVariables kept: ', *v_dict['x_name'])
-                    gp.print_f(c_dict['outfilesummary'],
-                               'Variables deleted: ', *names_to_remove2,
-                               '\nVariables kept: ', *v_dict['x_name'])
-    if nothing_removed:
-        if c_dict['with_output']:
-            print('\n', 'No variables removed in feature selection')
-            gp.print_f(c_dict['outfilesummary'],
-                       'No variables removed in feature selection')
-    return v_dict, v_x_type, v_x_values
-
-
-@njit
-def select_one_row_element(data, indices):
-    """Randomly find one element per row."""
-    data_selected = np.empty((data.shape[0], 1))
-    for idx, val in enumerate(indices):
-        data_selected[idx, 0] = data[idx, val]
-    return data_selected
+    id_node_0 = 0
+    id_parent_1 = id_child_left_2 = id_child_right_3 = None
+    active_4 = 2
+    leaf_size_tr_5, leaf_size_oob_6 = n_tr, n_oob
+    objective_fct_value_oob_7 = next_split_i_8 = cut_off_prime_l_9 = None
+    x_type_10 = None
+    data_tr_indi_11, data_oob_indi_12 = list(range(n_tr)), list(range(n_oob))
+    pot_outcomes_13 = pot_variables_used_indi_14 = leaf_size_pot_15 = None
+    indices_oob_16 = indices_oob
+    node_table = [
+        id_node_0, id_parent_1, id_child_left_2, id_child_right_3, active_4,
+        leaf_size_tr_5, leaf_size_oob_6, objective_fct_value_oob_7,
+        next_split_i_8, cut_off_prime_l_9, x_type_10, data_tr_indi_11,
+        data_oob_indi_12, pot_outcomes_13, pot_variables_used_indi_14,
+        leaf_size_pot_15, indices_oob_16]
+    return [node_table]
 
 
 def match_cont(d_grid, y_nn, grid_values, rng):
@@ -511,3 +123,553 @@ def match_cont(d_grid, y_nn, grid_values, rng):
     y_nn_sel = select_one_row_element(y_nn[:, 1:], nn_indices)
     y_nn_red = np.concatenate((y_nn[:, 0].reshape(-1, 1), y_nn_sel), axis=1)
     return y_nn_red
+
+
+@njit
+def select_one_row_element(data, indices):
+    """Randomly find one element per row."""
+    data_selected = np.empty((data.shape[0], 1))
+    for idx, val in enumerate(indices):
+        data_selected[idx, 0] = data[idx, val]
+    return data_selected
+
+
+def mcf_mse(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat, treat_values,
+            w_yes=False, splitting=False):
+    """Compute average mse for the data passed. Based on different methods.
+
+    Parameters
+    ----------
+    y_dat : Numpy Nx1 vector. Outcome variable of observation.
+    y_nn : Numpy N x no_of_treatments array. Matched outcomes.
+    d_dat : Numpy Nx1 vector. Treatment.
+    w_dat : Numpy Nx1 vector. Weights (or 0)
+    n : INT. Leaf size.
+    mtot : INT. Method.
+    no_of_treat : INT. Number of treated.
+    treat_values : List of INT. Treatment values.
+    w_yes: Boolean. Weighted estimation.
+    splitting: Boolean. Default is False.
+
+    Returns
+    -------
+    mse : Mean squared error (average not acccount of number of obs).
+    treat_share: 1D Numpy array. Treatment shares.
+
+    """
+    if w_yes or mtot in (2, 3):
+        mse_mce, treat_shares, no_of_obs_by_treat = mcf_mse_not_numba(
+            y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
+            treat_values, w_yes, splitting)
+    else:
+        mse_mce, treat_shares, no_of_obs_by_treat = mcf_mse_numba(
+            y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat,
+            np.array(treat_values, dtype=np.int8))
+    return mse_mce, treat_shares, no_of_obs_by_treat
+
+
+def mcf_mse_not_numba(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
+                      treat_values, w_yes, splitting=False):
+    """Compute average mse for the data passed. Based on different methods.
+
+    CURRENTLY ONLY USED FOR WEIGHTED.
+
+    Parameters
+    ----------
+    y_dat : Numpy Nx1 vector. Outcome variable of observation.
+    y_nn : Numpy N x no_of_treatments array. Matched outcomes.
+    d_all : Numpy Nx1 vector. Treatment.
+    w_dat : Numpy Nx1 vector. Weights (or 0)
+    n : INT. Leaf size.
+    mtot : INT. Method.
+    no_of_treat : INT. Number of treated.
+    treat_values : List of INT. Treatment values.
+    w_yes: Boolean. Weighted estimation.
+    splitting: Boolean. Default is False.
+
+    Returns
+    -------
+    mse : Mean squared error (average not acccount of number of obs).
+    treat_share: 1D Numpy array. Treatment shares.
+
+    """
+    treat_shares = np.empty(no_of_treat) if mtot in (1, 4) else 0
+    mse_mce = np.zeros((no_of_treat, no_of_treat))
+    no_of_obs_by_treat = np.zeros(no_of_treat)
+    for m_idx in range(no_of_treat):
+        d_m = d_dat == treat_values[m_idx]   # d_m is Boolean
+        n_m = len(y_dat[d_m])
+        no_of_obs_by_treat[m_idx] = n_m
+        if w_yes:
+            w_m = w_dat[d_m]
+            y_m_mean = np.average(y_dat[d_m], weights=w_m, axis=0)
+            mse_m = np.average(np.square(y_dat[d_m] - y_m_mean),
+                               weights=w_m, axis=0)
+        else:
+            y_m_mean = np.average(y_dat[d_m], axis=0)
+            mse_m = np.dot(y_dat[d_m], y_dat[d_m]) / n_m - (y_m_mean**2)
+        if mtot in (1, 4):
+            treat_shares[m_idx] = n_m / n_obs
+        if mtot in (1, 3, 4):
+            mse_mce[m_idx, m_idx] = mse_m
+        if mtot != 3:
+            mce_ml = 0
+            for v_idx in range(m_idx + 1, no_of_treat):
+                if mtot == 2:  # Variance of effects mtot = 2
+                    d_l = d_dat == treat_values[v_idx]   # d_l is Boolean
+                    if w_yes:
+                        y_l_mean = np.average(y_dat[d_l], weights=w_dat[d_l],
+                                              axis=0)
+                    else:
+                        y_l_mean = np.average(y_dat[d_l], axis=0)
+                    mce_ml = (y_m_mean - y_l_mean)**2
+                else:
+                    d_ml = (d_dat == treat_values[v_idx]) | (
+                        d_dat == treat_values[m_idx])
+                    d_ml = d_ml[:, 0]
+                    y_nn_m, y_nn_l = y_nn[d_ml, m_idx], y_nn[d_ml, v_idx]
+                    if w_yes:
+                        w_ml = w_dat[d_ml].reshape(-1)
+                        if splitting and (no_of_treat == 2):
+                            mce_ml = ((np.average(y_nn_m, weights=w_ml,
+                                                  axis=0)) *
+                                      (np.average(y_nn_l, weights=w_ml,
+                                                  axis=0)) * (-1))
+                        else:
+                            mce_ml = np.average(
+                                (y_nn_m - np.average(y_nn_m, weights=w_ml,
+                                                     axis=0)) *
+                                (y_nn_l - np.average(y_nn_l, weights=w_ml,
+                                                     axis=0)),
+                                weights=w_ml, axis=0)
+                    else:
+                        aaa = np.average(y_nn_m, axis=0) * np.average(y_nn_l,
+                                                                      axis=0)
+                        bbb = np.dot(y_nn_m, y_nn_l) / len(y_nn_m)
+                        mce_ml = bbb - aaa
+                mse_mce[m_idx, v_idx] = mce_ml
+    return mse_mce, treat_shares, no_of_obs_by_treat
+
+
+@njit
+def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat, treat_values):
+    """Compute average mse for the data passed. Based on different methods.
+
+       WEIGHTED VERSION DOES NOT YET WORK. TRY with next Numba version.
+       Need to change list format soon.
+
+    Parameters
+    ----------
+    y_dat : Numpy Nx1 vector. Outcome variable of observation.
+    y_nn : Numpy N x no_of_treatments array. Matched outcomes.
+    d_dat : Numpy Nx1 vector. Treatment.
+    d_bin_dat : Numpy Nx1 vector. Treatment larger 0.
+    n : INT. Leaf size.
+    mtot : INT. Method.
+    no_of_treat : INT. Number of treated.
+    treat_values : 1D Numpy array of INT. Treatment values.
+    cont. Boolean. Continuous treatment.
+
+    Returns
+    -------
+    mse : Mean squared error (average not acccount of number of obs).
+    treat_share: 1D Numpy array. Treatment shares.
+    """
+    obs = len(y_dat)
+    treat_shares = np.zeros(no_of_treat) if mtot in (1, 3, 4) else np.zeros(1)
+    mse_mce = np.zeros((no_of_treat, no_of_treat))
+    no_of_obs_by_treat = np.zeros(no_of_treat)
+    for m_idx in range(no_of_treat):
+        d_m = d_dat == treat_values[m_idx]   # d_m is Boolean
+        n_m = np.sum(d_m)
+        no_of_obs_by_treat[m_idx] = n_m
+        y_m = np.empty(n_m)
+        j = 0
+        for i in range(obs):
+            if d_m[i]:
+                y_m[j] = y_dat[i, 0]
+                j += 1
+        y_m_mean = np.sum(y_m) / n_m
+        mse_m = np.dot(y_m, y_m) / n_m - (y_m_mean**2)
+        if mtot in (1, 3, 4):
+            treat_shares[m_idx] = n_m / n_obs
+            mse_mce[m_idx, m_idx] = mse_m
+        if mtot != 3:
+            mce_ml = 0
+            for v_idx in range(m_idx + 1, no_of_treat):
+                d_l = d_dat == treat_values[v_idx]   # d_l is Boolean
+                n_l = np.sum(d_l)
+                if mtot == 2:  # Variance of effects mtot = 2
+                    y_l = np.empty(n_l)
+                    j = 0
+                    for i in range(obs):
+                        if d_l[i]:
+                            y_l[j] = y_dat[i, 0]
+                            j += 1
+                    y_l_mean = np.sum(y_l) / n_l
+                    mce_ml = (y_m_mean - y_l_mean)**2
+                elif mtot in (1, 4):
+                    d_ml = (d_dat == treat_values[v_idx]) | (
+                        d_dat == treat_values[m_idx])
+                    n_ml = np.sum(d_ml)
+                    y_nn_l = np.empty(n_ml)
+                    y_nn_m = np.empty_like(y_nn_l)
+                    j = 0
+                    for i in range(obs):
+                        if d_ml[i]:
+                            y_nn_l[j] = y_nn[i, v_idx]
+                            y_nn_m[j] = y_nn[i, m_idx]
+                            j += 1
+                    aaa = np.sum(y_nn_m) / n_ml * np.sum(y_nn_l) / n_ml
+                    bbb = np.dot(y_nn_m, y_nn_l) / n_ml
+                    mce_ml = bbb - aaa
+                mse_mce[m_idx, v_idx] = mce_ml
+    return mse_mce, treat_shares, no_of_obs_by_treat
+
+
+def get_avg_mse_mce(mse_mce, obs_by_treat, mtot, no_of_treat):
+    """Bring MSE_MCE matrix in average form."""
+    mse_mce_avg = mse_mce.copy()
+    for m_idx in range(no_of_treat):
+        mse_mce_avg[m_idx, m_idx] = mse_mce[m_idx, m_idx] / obs_by_treat[m_idx]
+        if mtot != 3:
+            for v_idx in range(m_idx+1, no_of_treat):
+                mse_mce_avg[m_idx, v_idx] = mse_mce[m_idx, v_idx] / (
+                    obs_by_treat[m_idx] + obs_by_treat[v_idx])
+    return mse_mce_avg
+
+
+def describe_forest(forest, m_n_min_ar, var_dic, cf_dic, gen_dic, pen_mult=0,
+                    summary=True):
+    """Describe estimated forest by collecting information in trees.
+
+    Parameters
+    ----------
+    forest : List of List. Each forest consist of one node_table.
+    m_n_min : List of INT. Number of variables and minimum leaf size
+    v_dict : Dict. Variables.
+    c_dict : Dict. Parameters.
+
+    Returns
+    -------
+    None.
+
+    """
+    txt = ('\n' + '-' * 100 + '\nParameters of estimation to build random'
+           ' forest')
+    txt += '\nOutcome variable used to build forest: '
+    txt += ' '.join(var_dic['y_tree_name'])
+    txt += '\nFeatures used to build forest:          '
+    txt += ' '.join(var_dic['x_name'])
+    txt += '\nVariables always included in splitting: '
+    txt += ' '.join(var_dic['x_name_always_in'])
+    txt += (f'\nNumber of replications:     {cf_dic["boot"]:<4}')
+    if cf_dic['mtot'] == 3:
+        splitting_rule = 'MSEs of regressions only considered'
+    elif cf_dic['mtot'] == 1:
+        splitting_rule = 'MSE+MCE criterion'
+    elif cf_dic['mtot'] == 2:
+        splitting_rule = '-Var(effect)'
+    elif cf_dic['mtot'] == 4:
+        splitting_rule = 'Random switching'
+    txt += f'\nSplitting rule used:        {splitting_rule:<4}'
+    if cf_dic['p_diff_penalty'] > 0:
+        txt += f'\nPenalty used in splitting:  {pen_mult}'
+    txt += '\nShare of data in subsample for forest buildung:'
+    txt += f' {cf_dic["subsample_share_forest"]:<4}'
+    txt += '\nShare of data in subsample for forest evaluation:'
+    txt += f' {cf_dic["subsample_share_eval"]:<4}'
+    txt += '\nTotal number of variables available for splitting:'
+    txt += f' {len(var_dic["x_name"]):<4}'
+    txt += f'\n# of variables (M) used for split: {m_n_min_ar[0]:<4}'
+    if cf_dic['m_random_poisson']:
+        txt += '\n           (# of variables drawn from 1+Poisson(M-1))'
+        txt += '\nMinimum threshold for using Poisson: '
+        txt += f'{cf_dic["m_random_poisson_min"]}'
+    txt += f'\nMinimum leaf size:                 {m_n_min_ar[1]:<4}'
+    txt += f'\nAlpha regularity:                  {m_n_min_ar[2]:5.3f}'
+    txt += '\n------------------- Estimated trees ----------------------------'
+    leaf_info = get_tree_infos(forest)
+    txt += f'\nAverage # of leaves:      {leaf_info[0]:4.1f}'
+    txt += f'\nAverage size of leaves:   {leaf_info[1]:4.1f}'
+    txt += f'\nMedian size of leaves:    {leaf_info[2]:4.1f}'
+    txt += f'\nMin size of leaves:       {leaf_info[3]:4.0f}'
+    txt += f'\nMax size of leaves:       {leaf_info[4]:4.0f}'
+    txt += f'\nTotal # of obs in leaves: {leaf_info[5]:4.0f}\n' + '-' * 100
+    ps.print_mcf(gen_dic, txt, summary=summary)
+
+
+def get_tree_infos(forest):
+    """Obtain some basic information about estimated trees.
+
+    Parameters
+    ----------
+    forest : List of lists. Collection of node_tables.
+
+    Returns
+    -------
+    leaf_info : List. Some information about tree.
+
+    """
+    leaf_info_tmp = np.zeros([len(forest), 6])
+    for boot, tree in enumerate(forest):
+        for leaf in tree:
+            if leaf[4] == 1:   # Terminal leafs only
+                leaf_info_tmp[boot, 0] += 1  # Number of leaves
+        leaf_info_tree = np.zeros(int(leaf_info_tmp[boot, 0]))
+        j = 0
+        for leaf in tree:
+            if leaf[4] == 1:
+                leaf_info_tree[j] = leaf[5]
+                j += 1
+        leaf_info_tmp[boot, 1] = np.mean(leaf_info_tree)
+        leaf_info_tmp[boot, 2] = np.median(leaf_info_tree)
+        leaf_info_tmp[boot, 3] = np.min(leaf_info_tree)
+        leaf_info_tmp[boot, 4] = np.max(leaf_info_tree)
+        leaf_info_tmp[boot, 5] = np.sum(leaf_info_tree)
+    leaf_info = np.empty(6)
+    list_of_ind = [0, 1, 5]  # Average #, size of leaves, # of obs in leaves
+    leaf_info[list_of_ind] = np.mean(leaf_info_tmp[:, list_of_ind], axis=0)
+    leaf_info[2] = np.median(leaf_info_tmp[:, 2])   # Med size of leaves
+    leaf_info[3] = np.min(leaf_info_tmp[:, 3])      # Min size of leaves
+    leaf_info[4] = np.max(leaf_info_tmp[:, 4])      # Max size of leaves
+    return leaf_info
+
+
+def get_terminal_leaf_no(node_table, x_dat):
+    """Get the leaf number of the terminal node for single observation.
+
+    Parameters
+    ----------
+    node_table : List of list. Single tree.
+    x_dat : Numpy array. Data.
+
+    Returns
+    -------
+    leaf_no : INT. Number of terminal leaf the observation belongs to.
+
+    Note: This only works if nodes are ordered subsequently. Do not remove
+          leafs when pruning. Only changes their activity status.
+
+    """
+    not_terminal = True
+    leaf_id = 0
+    while not_terminal:
+        leaf = node_table[leaf_id]
+        if leaf[4] not in (0, 1):
+            raise RuntimeError(f'Leaf is still active. {leaf[4]}')
+        if leaf[4] == 1:             # Terminal leaf
+            not_terminal = False
+            leaf_no = leaf[0]
+        elif leaf[4] == 0:          # Intermediate leaf
+            if leaf[10] == 0:        # Continuous variable
+                leaf_id = (leaf[2] if (x_dat[leaf[8]] - 1e-15) <= leaf[9]
+                           else leaf[3])
+            else:                   # Categorical variable
+                prime_factors = mcf_gp.primes_reverse(leaf[9], False)
+                leaf_id = (leaf[2]
+                           if int(np.round(x_dat[leaf[8]])) in prime_factors
+                           else leaf[3])
+    return leaf_no
+
+
+def remove_oob_from_leaf0(forest):
+    """Save memory by removing OOB indices.
+
+    Parameters
+    ----------
+    forest : List of list. Node_tables.
+
+    Returns
+    -------
+    forest_out : List of list. Node_tables.
+    """
+    for idx, _ in enumerate(forest):
+        forest[idx][0][16] = 0
+    return forest
+
+
+def fill_trees_with_y_indices_mp(mcf_, data_df, forest):
+    """Fill trees with indices of outcomes, MP.
+
+    Returns
+    -------
+    forest_with_y : List of lists. Updated Node_table.
+    terminal_nodes: Tuple of np.arrays. No of final node.
+    no_of_avg_nodes: INT. Average no of unfilled leafs.
+
+    """
+    int_dic, gen_dic, cf_dic = mcf_.int_dict, mcf_.gen_dict, mcf_.cf_dict
+    if int_dic['with_output'] and int_dic['verbose']:
+        print("\nFilling trees with indicies of outcomes")
+    (x_name, _, _, cf_dic, _, data_np, _, _, x_i, _, _, d_i, _, _, _
+     ) = mcf_data.prepare_data_for_forest(mcf_, data_df, True)
+    err_txt = 'Wrong order of variables' + str(x_name) + ': ' + str(
+        cf_dic['x_name_mcf'])
+    if cf_dic['x_name_mcf'] != x_name:
+        raise ValueError(err_txt)
+    if gen_dic['d_type'] == 'continuous':
+        d_dat = data_np[:, d_i]
+        # substitute those d used for splitting only that have a zero with
+        # random element from the positive treatment levels
+        d_pos = d_dat[d_dat > 1e-15]
+        rng = np.random.default_rng(12366456)
+        d_values = rng.choice(d_pos, size=len(d_dat)-len(d_pos), replace=False)
+        d_dat_for_x = np.copy(d_dat)
+        j = 0
+        for i, d_i in enumerate(d_dat):
+            if d_i < 1e-15:
+                d_dat_for_x[i, 0] = d_values[j]
+                j += 1
+        x_dat = np.concatenate((data_np[:, x_i], d_dat_for_x), axis=1)
+    else:
+        x_dat = data_np[:, x_i]
+        d_dat = np.int16(np.round(data_np[:, d_i]))
+    obs = len(x_dat)
+    terminal_nodes = [None] * cf_dic['boot']
+    nodes_empty = np.zeros(cf_dic['boot'])
+    if gen_dic['mp_parallel'] < 1.5:
+        maxworkers = 1
+    else:
+        maxworkers = (mcf_sys.find_no_of_workers(gen_dic['mp_parallel'],
+                                                 gen_dic['sys_share'])
+                      if gen_dic['mp_automatic'] else gen_dic['mp_parallel'])
+    if int_dic['with_output'] and int_dic['verbose']:
+        print('Number of parallel processes: ', maxworkers)
+    if maxworkers == 1:
+        for idx in range(cf_dic['boot']):
+            (_, forest[idx], terminal_nodes[idx], nodes_empty[idx]
+             ) = fill_mp(forest[idx], obs, d_dat, x_dat, idx, gen_dic, cf_dic)
+            if int_dic['with_output'] and int_dic['verbose']:
+                mcf_gp.share_completed(idx+1, cf_dic['boot'])
+    else:
+        if int_dic['ray_or_dask'] == 'ray':
+            if int_dic['mem_object_store_2'] is None:
+                if not ray.is_initialized():
+                    ray.init(num_cpus=maxworkers, include_dashboard=False)
+            else:
+                if not ray.is_initialized():
+                    ray.init(num_cpus=maxworkers, include_dashboard=False,
+                             object_store_memory=int_dic['mem_object_store_2'])
+                if int_dic['with_output'] and int_dic['verbose']:
+                    num = round(int_dic["mem_object_store_2"] / (1024 * 1024))
+                    txt = f'\nSize of Ray Object Store: {num} MB'
+                    ps.print_mcf(gen_dic, txt, summary=False)
+            x_dat_ref = ray.put(x_dat)
+            still_running = [ray_fill_mp.remote(
+                forest[idx], obs, d_dat, x_dat_ref, idx, gen_dic, cf_dic)
+                for idx in range(cf_dic['boot'])]
+            jdx = 0
+            while len(still_running) > 0:
+                finished, still_running = ray.wait(still_running)
+                finished_res = ray.get(finished)
+                for ret_all_i in finished_res:
+                    iix = ret_all_i[0]
+                    forest[iix] = ret_all_i[1]
+                    terminal_nodes[iix] = ret_all_i[2]
+                    nodes_empty[iix] = ret_all_i[3]
+                    if int_dic['with_output'] and int_dic['verbose']:
+                        mcf_gp.share_completed(jdx+1, cf_dic['boot'])
+                    jdx += 1
+            if 'refs' in int_dic['mp_ray_del']:
+                del x_dat_ref
+            if 'rest' in int_dic['mp_ray_del']:
+                del finished_res, finished
+            if int_dic['mp_ray_shutdown']:
+                ray.shutdown()
+    no_of_avg_enodes = np.mean(nodes_empty)
+    if int_dic['with_output'] and int_dic['verbose']:
+        txt = ('\nNumber of leaves w/o all treatments per tree: '
+               f'{no_of_avg_enodes:6.3%}')
+        if no_of_avg_enodes > 0:
+            txt += ('\nIncomplete leafs will not be considered for weight'
+                    ' computation.')
+        txt += '\n' + '-' * 100
+        mem = round(mcf_sys.total_size(forest) / (1024 * 1024), 2)
+        txt += f'\nSize of forest: {mem} MB' + '\n' + '-' * 100
+        ps.print_mcf(gen_dic, txt, summary=True)
+    return forest, terminal_nodes, no_of_avg_enodes
+
+
+@ray.remote
+def ray_fill_mp(node_table, obs, d_dat, x_dat, b_idx, gen_dic, cf_dic):
+    """Make it work under Ray."""
+    return fill_mp(node_table, obs, d_dat, x_dat, b_idx, gen_dic, cf_dic)
+
+
+def fill_mp(node_table, obs, d_dat, x_dat, b_idx, gen_dic, cf_dic):
+    """Compute new node_table and list of final leaves.
+
+    Parameters
+    ----------
+    node_table : List of lists.
+    obs : Int. Sample size.
+    d_dat : Numpy array. Treatment.
+    x_dat : Numpy array. Features.
+    b_idx : Int. Tree number.
+    gen_dic, cf_dic : Dict. Controls.
+
+    Returns
+    -------
+    node_table : List of lists.
+    unique_leafs : List.
+    b_idx : Int. Tree number.
+
+    """
+    subsam = cf_dic['subsample_share_eval'] < 1
+    indices = np.arange(obs)
+    if subsam:
+        obs = round(obs * cf_dic['subsample_share_eval'])
+        rng = np.random.default_rng((10+b_idx)**2+121)
+        indices = rng.choice(indices, size=obs, replace=False)
+    obs_in_leaf = np.zeros((obs, 1), dtype=np.uint32)
+    for i, idx in enumerate(indices):
+        obs_in_leaf[i] = get_terminal_leaf_no(node_table, x_dat[idx, :])
+    unique_leafs = np.unique(obs_in_leaf)
+    if subsam:
+        unique_leafs = unique_leafs[1:]  # remove first index: obs not used
+        d_dat = d_dat[indices]
+    nodes_empty = 0
+    no_of_treat = (2 if gen_dic['d_type'] == 'continuous'
+                   else gen_dic['no_of_treat'])
+    for leaf_id in unique_leafs:
+        sel_ind = obs_in_leaf.reshape(-1) == leaf_id
+        node_table[leaf_id][14] = indices[sel_ind]
+        empty_leaf = len(np.unique(d_dat[sel_ind])) < no_of_treat
+        if empty_leaf:
+            node_table[leaf_id][16] = 1   # Leaf to be ignored
+            nodes_empty += 1
+    return b_idx, node_table, unique_leafs, nodes_empty/len(unique_leafs)
+
+
+def save_forests_in_cf_dic(forest_dic, forest_list, fold, no_folds, reg_round,
+                           eff_iate):
+    """Save forests in dictionary as list of list."""
+    # Initialise
+    if fold == 0 and reg_round:
+        innerlist = [None, None] if eff_iate else [None]
+        forest_list = [innerlist for idx in range(no_folds)]
+    forest_list[fold][0 if reg_round else 1] = deepcopy(forest_dic)
+    return forest_list
+
+
+def train_save_data(mcf_, data_df, forest):
+    """Save data needed in the prediction part of mcf."""
+    y_train_df = data_df[mcf_.var_dict['y_name']]
+    d_train_df = data_df[mcf_.var_dict['d_name']]
+    if mcf_.p_dict['cluster_std']:
+        cl_train_df = data_df[mcf_.var_dict['cluster_name']]
+    else:
+        cl_train_df = None
+    if mcf_.gen_dict['weighted']:
+        w_train_df = data_df[mcf_.var_dict['w_name']]
+    else:
+        w_train_df = None
+    if mcf_.p_dict['bt_yes']:
+        x_bala_train_df = data_df[mcf_.var_dict['x_balance_name']]
+    else:
+        x_bala_train_df = None
+    forest_dic = {'forest': forest, 'y_train_df': y_train_df,
+                  'd_train_df': d_train_df, 'x_bala_df': x_bala_train_df,
+                  'cl_train_df': cl_train_df, 'w_train_df': w_train_df}
+    return forest_dic

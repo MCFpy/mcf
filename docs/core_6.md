@@ -224,7 +224,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Specifies matching procedure in the MCE computation. If set to False, Mahalanobis matching is deployed. If set to True, prognostic scores are deployed. Default is True.
 
 - <a id="cf_mce_vart"><strong>cf_mce_vart</strong></a>
-	* Determines splitting rule in the tree-growing process. When set to 0, only the MSEs are considered. When set to 1, the sum of MSE and MCE are used (MSE-MCE criterion). When set to 2, the effect  heterogeneity maximizing rule of Wager and Athey (2018) is deployed. When set to 3, the rule randomly switches between outcome and MSE-MCE criterion in combination with the penalty function.
+	* Determines splitting rule in the tree-growing process. When set to 0, only the MSEs are considered. When set to 1, the sum of MSE and MCE are used (MSE-MCE criterion). When set to 2, the effect  heterogeneity maximizing rule of Wager and Athey (2018) is deployed. When set to 3, the rule randomly switches between outcome and MSE-MCE criterion in combination with the penalty function. Default is None, which implies 1.
 
 - <a id="cf_n_min_grid"><strong>cf_n_min_grid</strong></a>
 	* Determines number of grid values. Default is 1. For the default of 1, **cf_n_min**= 0.5(**cf_n_min_min**+**cf_n_min_max**).
@@ -279,12 +279,12 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Specifies number of grid point for discretization of continuous treatment. Used to approximate the dose response function. The grid is defined in terms of the quantiles of the continuous treatment. The default is 100.
 
 - <a id="ct_grid_nn"><strong>ct_grid_nn</strong></a>
-	* Specifies number of grid point for the discretization of the continuous treatment. Grid is defined in terms of quantiles of the continuous treatment.
+	* Specifies number of grid point for the discretization of the continuous treatment. Grid is defined in terms of quantiles of the continuous treatment. Default is 10.
 
 **dc** or **data cleaning**
 
 - <a id="dc_check_perfectcorr"><strong>dc_check_perfectcorr</strong></a>
-	* If **dc_screen_covariates** is True, variables that are perfectly correlated with others will be deleted.
+	* If **dc_screen_covariates** is True, variables that are perfectly correlated with others will be deleted if True. Default is True.
 
 - <a id="dc_clean_data"><strong>dc_clean_data</strong></a>
 	* If True, all missing and unnecessary variables are removed. The default is True.
@@ -298,7 +298,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 **fs** or **feature selection**
 
 - <a id="fs_other_sample"><strong>fs_other_sample</strong></a>
-	* If True, a random sample from training data is used, which will not be used for the causal forest. If False, the same data is used for feature selection and the causal forest. The default is True. For small datasets, we recommend changing the parameter to False. 
+	* If True, a random sample from training data is used, which will not be used for the causal forest. If False, the same data is used for feature selection and the causal forest. The default is True. For small datasets, we recommend changing the parameter to False.
 
 - <a id="fs_other_sample_share"><strong>fs_other_sample_share</strong></a>
 	* If **fs_other_sample** is set to True, **fs_other_sample_share** determines sample share for feature selection. Default is 0.33.
@@ -406,7 +406,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* If True, standard errors for the IATEs will be computed. The default is False.
 
 - <a id="p_knn"><strong>p_knn</strong></a>
-	* If set to False, the program uses Nadaraya-Watson for variance estimation. If True, k-nearest neighbor estimation is used. Nadaraya-Watson estimation gives a better approximation of the variance, but k-nearest neighbor estimation is faster.
+	* If set to False, the program uses Nadaraya-Watson for variance estimation. If True, k-nearest neighbor estimation is used. Nadaraya-Watson estimation gives a better approximation of the variance, but k-nearest neighbor estimation is faster. Default is True.
 
 - <a id="p_knn_const"><strong>p_knn_const</strong></a>
 	* If True, considers constant in number of neighbour asymptotic expansion formula of k-nearest neighbor. The default is True.
@@ -514,7 +514,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	*  Determines share of sample used for predicting $y$ given  forests. The default is 0.5.
 
 - <a id="_int_show_plots"><strong>_int_show_plots</strong></a>
-	* If True, ``plt.show()`` is executed.
+	* If True, ``plt.show()`` is executed. Default is True.
 
 - <a id="_int_verbose"><strong>_int_verbose</strong></a>
 	* If True, the program provides information on the status quo. The default is True.

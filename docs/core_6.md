@@ -271,7 +271,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* If **cs_type** is 1, the min-max rule is deployed. For values between 0 and 1 the respective quantiles are taken. The default is the mi-max rule.
 
 - <a id="cs_type"><strong>cs_type</strong></a>
-	* Specifies type of common support adjustment. If set to 0, there is no common support adjustment. If set to 1 or 2, the support check is based on the estimated classification regression forests. For 1, the min-max rules for the estimated probabilities in the treatment subsamples are deployed. For 2, the minimum and maximum probabilities for all observations are deployed. All observations off support are removed. Note that out-of-bag predictions are used to avoid overfitting (which leads to a too large reduction in observations).
+	* Specifies type of common support adjustment. If set to 0, there is no common support adjustment. If set to 1 or 2, the support check is based on the estimated classification regression forests. For 1, the min-max rules for the estimated probabilities in the treatment subsamples are deployed. For 2, the minimum and maximum probabilities for all observations are deployed. All observations off support are removed. Note that out-of-bag predictions are used to avoid overfitting (which leads to a too large reduction in observations). The default is 1.
 
 **ct** or **continuous treatment**
 

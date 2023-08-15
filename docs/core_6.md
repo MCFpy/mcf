@@ -480,7 +480,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Regulates font size for legends varying from 1 (very small) to 7 (very large). The default is 2.
 
 - <a id="_int_max_cats_cont_vars"><strong>_int_max_cats_cont_vars</strong></a>
-	* Regulates if continuous variables are discretized. The smaller the admissible cardenality, the faster the computation. By default the functionality is not used.
+	* Regulates if continuous variables are discretized. The smaller the admissible cardenality, the faster the computation. By default the functionality is not used. The default is 50.
 
 - <a id="_int_max_save_values"><strong>_int_max_save_values</strong></a>
 	* Save value of x only if it is smaller than 50 (continuous variables).
@@ -508,7 +508,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* If True, data with predictions is returned despite *with_output* being set False. Default is False.
 
 - <a id="_int_seed_sample_split"><strong>_int_seed_sample_split</strong></a>
-	* Seeding is redone when building forest.
+	* Seeding is redone when building forest. The default is 67567885. 
 
 - <a id="_int_share_forest_sample"><strong>_int_share_forest_sample</strong></a>
 	*  Determines share of sample used for predicting $y$ given  forests. The default is 0.5.
@@ -526,4 +526,4 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Determines in how many pieces the sparse weight matrix is computed. The default is int(Rows of prediction data * rows of Fill_y data / (20'000 * 20'000)).
 
 - <a id="_int_with_output"><strong>_int_with_output</strong></a>
-	* If True, print statements are used.
+	* If True, print statements are used. The default is True.

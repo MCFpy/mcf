@@ -2,27 +2,20 @@
 
 ## Installing from PyPI
 
-The mcf can be installed from PyPI. Please follow the installation steps, as outlined here. Otherwise, you may encounter errors.
-
-First,
+The mcf can be installed from PyPI. 
 
 ```
 pip install mcf
 ```
 
-Second,
+The current mcf runs with Python 3.11. We recommend setting up a virtual environment designated to the mcf to rule out dependency conflicts. It is always a good idea to first ``conda install`` packages and only then ``pip install`` packages. Should you work on a Windows machine and wish to deploy Spyder as an IDE, make sure to first ``conda install spyder`` and then ``pip install mcf``. Otherwise, you may run into errors. 
 
-```
-pip install -U --force-reinstall charset-normalizer==3.2.0
-```
-
-The current mcf runs with Python 3.11. We recommend setting up a virtual environment designated to the mcf to rule out dependency conflicts. Should you work with anaconda, you can specify
+To set up a new environment with anaconda, you can specify
 
 
 ```conda
 conda create --name mcf_environment
 ```
-
 
 
 Before pip installing, make sure to activate the correct environment, i.e.

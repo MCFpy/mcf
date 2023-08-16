@@ -33,7 +33,7 @@ Both the mcf module and the optimal policy module have undergone major revisions
 * Unified data concept to deal with common support and local centering.
 
 ### Name Changes and Default Updates
-* All keywords are changed. Please refer to the [Python API](https://mcfpy.github.io/mcf/#/short_api) and the [extended Python API](https://mcfpy.github.io/mcf/#/core_6).
+* All keywords are changed. Please refer to the [Python API](https://mcfpy.github.io/mcf/#/short_api) and the [extended Python API](https://mcfpy.github.io/mcf/#/core_6). The keywords will stay the same in future versions.
 
 
 ## Version 0.3.3

@@ -9,7 +9,7 @@ import pandas as pd
 from mcf import ModifiedCausalForest
 
 my_mcf = ModifiedCausalForest(var_d_name="d", var_x_name_ord="x_ord",
-                              var_x_unord="x_unord", var_y_name="y")
+                              var_x_name_unord="x_unord", var_y_name="y")
 ```
 Before calling the train and predict method, load the data, i.e.
 

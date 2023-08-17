@@ -23,37 +23,37 @@ ModifiedCausalForest(cf_boot=cf_boot,
 ## Variable Names
 
 - <a id="var_d_name"><strong>var_d_name</strong></a>
-	* Name of treatment.
+	* Name of treatment. Pass over as string.
 
 - <a id="var_x_name_always_in_ord"><strong>var_x_name_always_in_ord</strong></a>
-  * Names of ordered variables, which should be always included when deciding on next split.
+  * Names of ordered variables, which should be always included when deciding on the next split. Pass over as a list of strings.
 
 - <a id="var_x_name_always_in_unord"><strong>var_x_name_always_in_unord</strong></a>
-  * Names of unordered variables, which should be always included when deciding on next split.
+  * Names of unordered variables, which should be always included when deciding on the next split. Pass over as a list of strings.
 
 - <a id="var_x_name_ord"><strong>var_x_name_ord</strong></a>
-  *	Names of ordered features.
+  *	Names of ordered features. Pass over as a list of strings.
 
 - <a id="var_x_name_unord"><strong>var_x_name_unord</strong></a>
-  * Names of unordered features.
+  * Names of unordered features. Pass over as a list of strings.
 
 - <a id="var_x_name_remain_ord"><strong>var_x_name_remain_ord</strong></a>
-  *	Names of unordered features.
+  *	Names of unordered features. Pass over as a list of strings.
 
 - <a id="var_x_name_remain_unord"><strong>var_x_name_remain_unord</strong></a>
-  * Names of variables excluded from preliminary feature selection. Default is None.
+  * Names of variables excluded from preliminary feature selection. The default is None. Pass over as a list of strings.
 
 - <a id="var_y_name"><strong>var_y_name</strong></a>
-  * Name(s) of outcome variable(s).
+  * Name(s) of outcome variable(s). Pass over as a list of strings.
 
 - <a id="var_z_name_list"><strong>var_z_name_list</strong></a>
-  * Names of variables for heterogeneity analysis relevant for group treatment effects.
+  * Names of variables for heterogeneity analysis relevant to group treatment effects. Pass over as a list of strings.
 
 - <a id="var_z_name_ord"><strong>var_z_name_ord</strong></a>
-  * Names of ordered variables to define policy relevant heterogeneity.
+  * Names of ordered variables to define policy-relevant heterogeneity. Pass over as a list of strings.
 
 - <a id="var_z_name_unord"><strong>var_z_name_unord</strong></a>
-  * Names of unordered variables to define policy relevant heterogeneity.
+  * Names of unordered variables to define policy-relevant heterogeneity. Pass over as a list of strings.
 
 ## Parameters
 

@@ -2,7 +2,7 @@
 
 
 ```python
-modified_causal_forest(
+ModifiedCausalForest(
 cf_alpha_reg_grid=CF_ALPHA_REG_GRID,
 cf_alpha_reg_max=CF_ALPHA_REG_MAX,
 cf_alpha_reg_min=CF_ALPHA_REG_MIN,

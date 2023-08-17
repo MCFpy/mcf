@@ -16,7 +16,7 @@ modified_causal_forest(cf_boot=cf_boot,
                        var_y_name=var_y_name,
                        var_z_name_list=var_z_name_list,
                        var_z_name_ord=var_z_name_ord,
-                       var_z_name_unord=var_z_name_ord,)
+                       var_z_name_unord=var_z_name_unord,)
 ```
 
 

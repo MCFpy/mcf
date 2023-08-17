@@ -2,7 +2,7 @@
 
 
 ```python
-modified_causal_forest(cf_boot=cf_boot,
+ModifiedCausalForest(cf_boot=cf_boot,
                        lc_yes=lc_yes,
                        p_atet=p_atet,
                        p_gatet_flag=p_gatet_flag,

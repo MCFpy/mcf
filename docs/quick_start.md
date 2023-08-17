@@ -25,7 +25,7 @@ Now, you are ready to train and predict:
 my_mcf.train(training_data)
 results = my_mcf.predict(prediction_data)
 ```
-Note that training and prediction data need not be the same. The prediction data needs to have the same features and treatment. Outcome information is not necessary.
+Note that training and prediction data need not be the same. The prediction data needs to have the same features and treatment. Outcome information is not necessary for predicting treatment effects. This may be convenient if you wish to deploy an existing forest structure for estimating treatment effects on similar but distinct data. This may speed up your research workflow considerably. 
 
 The ``results`` object is a dictionary, storing all estimated effects and their standard errors. Feel free to explore the scope of the object yourself via
 

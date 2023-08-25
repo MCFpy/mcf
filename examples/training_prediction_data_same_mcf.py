@@ -1,3 +1,4 @@
+import pandas as pd
 from mcf import ModifiedCausalForest
 
 # ------------------ NOT parameters of the ModifiedCausalForest ---------------

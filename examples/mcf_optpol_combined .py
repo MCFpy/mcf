@@ -21,11 +21,9 @@ may be superior to the simple split used here.
 """
 import pandas as pd
 
-from mcf.mcf_functions import ModifiedCausalForest
-from mcf.optpolicy_functions import OptimalPolicy
 
-# from mcf import ModifiedCausalForest
-# from mcf import OptimalPolicy
+from mcf import ModifiedCausalForest
+from mcf import OptimalPolicy
 
 #  In this example we combine mcf estimation and an optimal policy tree in a
 #  simple split sample approach.

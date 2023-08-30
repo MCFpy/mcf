@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mcf
-Version: 0.4.0
+Version: 0.4.1
 Summary: mcf is a powerful package to estimate heterogeneous treatment effects for multiple treatment models in a selection-on-observables setting and learn optimal policy rules
 Home-page: https://github.com/MCFpy/mcf
 Author: mlechner

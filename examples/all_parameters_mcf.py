@@ -22,8 +22,7 @@ import pickle
 
 import pandas as pd
 
-from mcf.mcf_functions import ModifiedCausalForest
-# from mcf import ModifiedCausalForest
+from mcf import ModifiedCausalForest
 
 # ------------------ NOT parameters of the ModifiedCausalForest ---------------
 #  Define data to be used in this example

@@ -26,8 +26,7 @@ import pickle
 
 import pandas as pd
 
-from mcf.optpolicy_functions import OptimalPolicy
-# from mcf import OptimalPolicy
+from mcf import OptimalPolicy
 
 # ------------- NOT passed to OptimalPolicy -----------------------------------
 #  Define data to be used in this example

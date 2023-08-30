@@ -7,6 +7,7 @@
 - Minor bug fixes in Forest and  Optimal Policy module
 
 ### New
+- We provide the ``change_log.py``, which provides extensive information on past changes and upcoming changes.
 - We provide example data and example files on how to use ModifiedCausalForest
   and OptimalPolicy in various ways.
   - The following data files are provided. The names are self-explanatory. The number denotes the sample size, x are

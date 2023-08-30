@@ -9,26 +9,25 @@
 ### New
 - We provide example data and example files on how to use ModifiedCausalForest
   and OptimalPolicy in various ways.
-  - The following data files are provided:
-      data_x_1000.csv
-      data_x_4000.csv
-      data_x_ps_1_1000.csv
-      data_x_ps_2_1000.csv
-      data_y_d_x_1000.csv
-      data_y_d_x_4000.csv
-      The names are self-explanatory. The number denotes the sample size, x are
-      features, y is outcome, d is treatment, and ps denotes policy scores.
+  - The following data files are provided. The names are self-explanatory. The number denotes the sample size, x are
+      features, y is outcome, d is treatment, and ps denotes policy scores.:
+      - data_x_1000.csv
+      - data_x_4000.csv
+      - data_x_ps_1_1000.csv
+      - data_x_ps_2_1000.csv
+      - data_y_d_x_1000.csv
+      - data_y_d_x_4000.csv
   - The following example programmes are provided:
-      all_parameters_mcf.py, all_parameters_optpolicy.py
+      - all_parameters_mcf.py, all_parameters_optpolicy.py
          Contain an explanation of all available parameters / keywords for the
          ModifiedCausalForest and OptimalPolicy classes.
-      min_parameters_mcf.py, min_parameters_optpolicy.py
+      - min_parameters_mcf.py, min_parameters_optpolicy.py
          Contains the minimum specifications to run the methods of the
          ModifiedCausalForest and OptimalPolicy classes.
-      training_prediction_data_same_mcf.py
+      - training_prediction_data_same_mcf.py
          One suggestion on how to proceed when data to train and fill the
          forest are the same as those used to compute the effects.
-      mcf_and_optpol_combined.py
+      - mcf_and_optpol_combined.py
          One suggestion on how to combine mcf and optimal policy estimation in
          a simple split sample approach.
 

@@ -136,7 +136,7 @@ The number of trees forming the forest is given by the argument [cf_boot](./core
 |[cf_boot](./core_6.md#cf_boot)| Number of trees (default is 1000). |
 
 
-As a tree is grown the algorithm greedily chooses the split, which leads to the best possible reduction of objective function, which is specified in [cf_mce_vart](./core_6.md#cf_mce_vart). To this end, the following objective criteria are implemented: (i) the outcome mean squared error (MSE), (ii) the outcome MSE and mean correlated errors (MCE), (iii) the variance of the effect, and (iv) the criterion randomly switches between outcome MSE and MCE and penalty functions which are defined under [cf_p_diff_penalty](./core_6.md#cf_p_diff_penalty). The outcome MSE is estimated as the sum of mean squared errors of the outcome regression in each treatment. The MCE depends on correlations between treatment states. For this reason, before building the trees, for each observation in each treatment state, the program finds a close ‘neighbor’ in every other treatment state and saves its outcome to then estimate the MCE. How the program matches is governed by the argument [cf_match_nn_prog_score](./core_6.md#cf_match_nn_prog_score). The program matches either by outcome scores (one per treatment) or on all covariates by Mahalanobis matching. If there are many covariates, it is advisable to match on outcome scores due to the curse of dimensionality. When performing Mahalanobis matching, a practical issue may be that the required inverse of the covariance matrix is unstable. For this reason the program allows to only use the main diagonal to invert the covariance matrix. This is regulated via the argument [cf_nn_main_diag_only](./core_6.md#cf_nn_main_diag_only). Likewise, the program allows for a modification of the splitting rule by adding a penalty to the objective function specified in [cf_mce_vart](./core_6.md#cf_mce_vart). The idea for deploying a penalty based upon the propensity score is to increase treatment homogeneity within new split in order to reduce selection bias. Which specific penalty function is used, is passed over to the program via the argument [cf_p_diff_penalty](./core_6.md#cf_p_diff_penalty). Note that from cf_mce_vart](./core_6.md#cf_mce_vart) only option (iv) cannot work without the penalty. More details on choosing the minimum number of observations in a leaf are given below in section [Parameter tuning](#Parameter tuning). Once the forest is settled for the training data, the splits obtained in the training data are transferred to all data subsamples (by treatment state) in the held-out data. Finally, the mean of the outcomes in the respective leaf is the prediction.
+As a tree is grown the algorithm greedily chooses the split, which leads to the best possible reduction of objective function, which is specified in [cf_mce_vart](./core_6.md#cf_mce_vart). To this end, the following objective criteria are implemented: (i) the outcome mean squared error (MSE), (ii) the outcome MSE and mean correlated errors (MCE), (iii) the variance of the effect, and (iv) the criterion randomly switches between outcome MSE and MCE and penalty functions which are defined under [cf_p_diff_penalty](./core_6.md#cf_p_diff_penalty). The outcome MSE is estimated as the sum of mean squared errors of the outcome regression in each treatment. The MCE depends on correlations between treatment states. For this reason, before building the trees, for each observation in each treatment state, the program finds a close ‘neighbor’ in every other treatment state and saves its outcome to then estimate the MCE. How the program matches is governed by the argument [cf_match_nn_prog_score](./core_6.md#cf_match_nn_prog_score). The program matches either by outcome scores (one per treatment) or on all covariates by Mahalanobis matching. If there are many covariates, it is advisable to match on outcome scores due to the curse of dimensionality. When performing Mahalanobis matching, a practical issue may be that the required inverse of the covariance matrix is unstable. For this reason the program allows to only use the main diagonal to invert the covariance matrix. This is regulated via the argument [cf_nn_main_diag_only](./core_6.md#cf_nn_main_diag_only). Likewise, the program allows for a modification of the splitting rule by adding a penalty to the objective function specified in [cf_mce_vart](./core_6.md#cf_mce_vart). The idea for deploying a penalty based upon the propensity score is to increase treatment homogeneity within new split in order to reduce selection bias. Which specific penalty function is used, is passed over to the program via the argument [cf_p_diff_penalty](./core_6.md#cf_p_diff_penalty). Note that from [cf_mce_vart](./core_6.md#cf_mce_vart) only option (iv) cannot work without the penalty. More details on choosing the minimum number of observations in a leaf are given below in section [Parameter tuning](#Parameter tuning). Once the forest is settled for the training data, the splits obtained in the training data are transferred to all data subsamples (by treatment state) in the held-out data. Finally, the mean of the outcomes in the respective leaf is the prediction.
 
 |Argument | Description |
 |---------|-------------|
@@ -147,7 +147,7 @@ As a tree is grown the algorithm greedily chooses the split, which leads to the 
 
 ### Parameter tuning
 
-The program allows for a grid search over tree tuning parameters: (i) the number of variables drawn at each split, (ii) the alpha-regularity, and (iii) the minimum leaf size. In practical terms, for all combinations of  a forest is estimated fixing a random seed. Remark: The finer the grid-search, the more forests are effectively estimated, which slows down computation time. To identify the best values from the grid-search, the program implements the *out-of-bag estimation* of the chosen objective. The forest, which performs best with respect to its out-of-bag value of its objective function is taken for further computations.   
+The program allows for a grid search over tree tuning parameters: (i) the number of variables drawn at each split, (ii) the alpha-regularity, and (iii) the minimum leaf size. In practical terms, for all possible combinations, a forest is estimated fixing a random seed. Remark: The finer the grid-search, the more forests are effectively estimated, which slows down computation time. To identify the best values from the grid-search, the program implements the *out-of-bag estimation* of the chosen objective. The forest, which performs best with respect to its out-of-bag value of its objective function is taken for further computations.   
 
 |Argument | Description |
 |---------|-------------|
@@ -175,7 +175,6 @@ Local centering is a form of residualization, which can improve the performance 
 
 Formally, a conditionally centered outcome $\tilde{Y}_i$ can be defined as:
 
-<img src="https://render.githubusercontent.com/render/math?math=\tilde{Y}_i = Y_i - \hat{y}^{-i}(X_i)">
 
 $$
 \tilde{Y}_i = Y_i - \hat{y}^{-i}(X_i).
@@ -208,10 +207,16 @@ Alternatively, two separate data sets can be generated for running the local cen
 The program computes three types of average treatment effects, which differ in their aggregation level and are discussed in depth by [Lechner (2018)](https://arxiv.org/abs/1812.09487). The effects are the individualized average treatment effect (IATE), the group average treatment effect (GATE), and the average treatment effect (ATE). They can be defined in the following way:
 
 \begin{aligned}
-IATE(m,l;x) &= \mathbb{E} \big[ Y^m-Y^l \big\vert X=x \big] \\
-GATE(m,l;z,\Delta) &= \mathbb{E} \big[ Y^m-Y^l \big\vert Z=z, D\in \Delta \big] \\
-ATE(m,l;\Delta)    &= \mathbb{E} \big[ Y^m-Y^l \big\vert D\in \Delta \big] \\
+IATE(m,l;x) &= \mathbb{E} \big[ Y^m-Y^l \big\vert X=x \big]
 \end{aligned}
+
+\begin{aligned}
+GATE(m,l;z,\Delta) &= \mathbb{E} \big[ Y^m-Y^l \big\vert Z=z, D\in \Delta \big]
+\end{aligned}
+
+\begin{aligned}
+ATE(m,l;\Delta)    &= \mathbb{E} \big[ Y^m-Y^l \big\vert D\in \Delta \big]
+\end{algined}
 
 
 The potential outcomes are denoted by $Y^d$, where $Y$ stands for the outcome and $\Delta$ comprises different treatment states $d$. By default, the program will consider all treatments, as well as treatment $m$ if ATET and/or GATET are set to *True*. Group-specific features are indicated by $Z$, and the feature vector $X$ comprises all features used by the program (and not deselected by Feature Selection, if activated).

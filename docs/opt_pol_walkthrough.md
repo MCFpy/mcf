@@ -57,8 +57,8 @@ But first things first! To begin with, we need to introduce some notation. Suppo
 		* (reward_left, tree_left) = Tree-search(sample_left, L-1)
 		* (reward_right, tree_right) = Tree-search(sample_right, L-1)
 	- If reward_left + reward_right > reward:
- 		- reward = reward_left + reward_right
-     		- tree = Tree-search(m, splitting value, tree_left, tree_right)
+		 - reward = reward_left + reward_right
+		 - tree = Tree-search(m, splitting value, tree_left, tree_right)
 
 The ``optpoltree``comes with options:
 

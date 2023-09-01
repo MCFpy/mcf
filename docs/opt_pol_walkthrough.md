@@ -50,15 +50,15 @@ But first things first! To begin with, we need to introduce some notation. Suppo
 1. If L = 1:
 	2. Choose $j^* \in \{0, 1, \cdots, M\}$, which maximizes $\sum \hat{\Theta}_i(j)$ and return the corresponding reward = $\sum_{\forall i} \hat{\Theta}_{i}(j^*)$
 2. Else:
-	3. Initialize reward = $-\infty$, and an empty tree = $\varnothing$
-	 2. For all $m = 1, ..., p_1 + p_2$
-		 3. Pick the m-th feature;  for ordered features return the unique values observed and sorted; if unordered return the unique categories to derive all possible splits.  
-			 4. Then, for all possible splitting values of the m-th feature split the sample accordingly into a sample_left and sample_right
-				 5. (reward_left, tree_left) = Tree-search(sample_left, L-1)
-				 6. (reward_right, tree_right) = Tree-search(sample_right, L-1)
-				 7. If reward_left + reward_right > reward:
-					 8. reward = reward_left + reward_right
-					 9. tree = Tree-search(m, splitting value, tree_left, tree_right)
+	- Initialize reward = $-\infty$, and an empty tree = $\varnothing$
+	  For all $m = 1, ..., p_1 + p_2$
+	- Pick the m-th feature;  for ordered features return the unique values observed and sorted; if unordered return the unique categories to derive all possible splits.  
+        - Then, for all possible splitting values of the m-th feature split the sample accordingly into a sample_left and sample_right
+				 - (reward_left, tree_left) = Tree-search(sample_left, L-1)
+				 - (reward_right, tree_right) = Tree-search(sample_right, L-1)
+				 - If reward_left + reward_right > reward:
+					 * reward = reward_left + reward_right
+					 * tree = Tree-search(m, splitting value, tree_left, tree_right)
 
 The ``optpoltree``comes with options:
 

@@ -206,17 +206,12 @@ Alternatively, two separate data sets can be generated for running the local cen
 
 The program computes three types of average treatment effects, which differ in their aggregation level and are discussed in depth by [Lechner (2018)](https://arxiv.org/abs/1812.09487). The effects are the individualized average treatment effect (IATE), the group average treatment effect (GATE), and the average treatment effect (ATE). They can be defined in the following way:
 
-\begin{aligned}
-IATE(m,l;x) &= \mathbb{E} \big[ Y^m-Y^l \big\vert X=x \big]
-\end{aligned}
 
-\begin{aligned}
-GATE(m,l;z,\Delta) &= \mathbb{E} \big[ Y^m-Y^l \big\vert Z=z, D\in \Delta \big]
-\end{aligned}
+$$IATE(m,l;x) = \mathbb{E} \big[ Y^m-Y^l \big\vert X=x \big]$$
 
-\begin{aligned}
-ATE(m,l;\Delta)    &= \mathbb{E} \big[ Y^m-Y^l \big\vert D\in \Delta \big]
-\end{algined}
+$$GATE(m,l;z,\Delta) = \mathbb{E} \big[ Y^m-Y^l \big\vert Z=z, D\in \Delta \big]$$
+
+$$ATE(m,l;\Delta) = \mathbb{E} \big[ Y^m-Y^l \big\vert D\in \Delta \big]$$
 
 
 The potential outcomes are denoted by $Y^d$, where $Y$ stands for the outcome and $\Delta$ comprises different treatment states $d$. By default, the program will consider all treatments, as well as treatment $m$ if ATET and/or GATET are set to *True*. Group-specific features are indicated by $Z$, and the feature vector $X$ comprises all features used by the program (and not deselected by Feature Selection, if activated).

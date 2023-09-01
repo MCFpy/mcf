@@ -54,11 +54,11 @@ But first things first! To begin with, we need to introduce some notation. Suppo
 	  For all $m = 1, ..., p_1 + p_2$
 	- Pick the m-th feature;  for ordered features return the unique values observed and sorted; if unordered return the unique categories to derive all possible splits.  
         - Then, for all possible splitting values of the m-th feature split the sample accordingly into a sample_left and sample_right
-				 - (reward_left, tree_left) = Tree-search(sample_left, L-1)
-				 - (reward_right, tree_right) = Tree-search(sample_right, L-1)
-				 - If reward_left + reward_right > reward:
-					 * reward = reward_left + reward_right
-					 * tree = Tree-search(m, splitting value, tree_left, tree_right)
+		* (reward_left, tree_left) = Tree-search(sample_left, L-1)
+		* (reward_right, tree_right) = Tree-search(sample_right, L-1)
+	- If reward_left + reward_right > reward:
+	        * reward = reward_left + reward_right
+	        * tree = Tree-search(m, splitting value, tree_left, tree_right)
 
 The ``optpoltree``comes with options:
 

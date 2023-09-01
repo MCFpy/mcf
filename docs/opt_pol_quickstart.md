@@ -5,11 +5,12 @@
 To set up an object of the class ``OptimalPolicy``, type
 
 ```python
-from mcf import optimalPolicy
+from mcf import OptimalPolicy
 myoptp = OptimalPolicy(var_d_name="d",
                        var_polscore_name=["y0", "y1"],
                        var_x_ord_name=["x1"],
-                       var_x_unord_name=["x2"]
+                       var_x_unord_name=["x2"],
+                       gen_method="policy tree"
                         )
 ```
 
@@ -41,6 +42,6 @@ prediction_data = results["iate_pred_df"]
 ```
 Of course, you may specify a different dataset for the prediction task. Note that the results object is the results object from calling the ``predict`` method.
 
-Note that the program automatically generates pickles in the application path, which contain informaton on the instantiated object of the class.
+Note that the program automatically generates pickles in the application path, which contain information on the instantiated object of the class.
 
 In addition to the output mentioned above, the program generates two text files (a long and short version) with further details.

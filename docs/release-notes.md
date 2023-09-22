@@ -1,4 +1,4 @@
-# Release Updates
+# Release Notes
 
 ## Version 0.4.1
 

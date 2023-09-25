@@ -14,7 +14,7 @@ setup(
   author_email = 'michael.lechner@unisg.ch',
   url = 'https://github.com/MCFpy/mcf',
   keywords = ['causal machine learning, heterogeneous treatment effects, causal forests, optimal policy learning'],
-  long_description=read('README_PyPI.txt'),
+  long_description=read('README.txt'),
   classifiers=[
     'Development Status :: 5 - Production/Stable',
     'Topic :: Software Development :: Build Tools',

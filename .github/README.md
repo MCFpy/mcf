@@ -1,4 +1,4 @@
-<!-- This file serves as the "Home" section of our website https://mcfpy.github.io/mcf/#/ -->
+<!-- This file serves as the README on https://github.com/MCFpy/mcf -->
 
 # The MCF package in a nutshell
 

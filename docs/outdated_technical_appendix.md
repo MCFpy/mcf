@@ -1,3 +1,6 @@
+<!-- This part of the documentation is outdated and no longer published on the
+website of the package -->
+
 # Technical Appendix
 
 ## Parallelization
@@ -20,8 +23,6 @@ We have found that Ray scales better in terms of CPU utilization than the concur
 |[mp_ray_objstore_multiplier](./mcf_api.md#mp_ray_objstore_multiplier)|Increase internal default values for the Ray object store above 1 if programme crashes because object store is full.|
 
 Note that, in the current Ray version 1.3 results from the Ray futures are not evicted once they fall out of scope. This induces the program to crash eventually as the local object store is full of objects. We correct for this behavior explicitly via the general purpose function `auto_garbage_collect(pct=80.0)`. This routine deletes objects (to some extent) if memory used is larger than 80% of total available memory.
-
-
 
 ## Technical details on feature selection
 
@@ -121,7 +122,6 @@ AMTEs are based on random subsets of the data if $\frac{N}{N_{EP}}>10$, where $N
 $$
 N_{SS} = \frac{C_{SS}}{N_{EP}}.
 $$
-
 
 You can specify the constant $C_{SS} \in (0,1]$ by assigning it to the input argument [gmate_sample_share](./mcf_api.md#gmate_sample_share). By default, $C_{SS}$ is defined as a function of $N$:
 

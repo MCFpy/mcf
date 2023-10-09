@@ -6,6 +6,7 @@ mcf/mcf_ate_functions.py
 mcf/mcf_common_support_functions.py
 mcf/mcf_data_functions.py
 mcf/mcf_estimation_functions.py
+mcf/mcf_fair_iate_functions.py
 mcf/mcf_feature_selection_functions.py
 mcf/mcf_forest_add_functions.py
 mcf/mcf_forest_data_functions.py
@@ -28,6 +29,7 @@ mcf/optpolicy_evaluation_functions.py
 mcf/optpolicy_functions.py
 mcf/optpolicy_init_functions.py
 mcf/optpolicy_pt_add_functions.py
+mcf/optpolicy_pt_eff_functions.py
 mcf/optpolicy_pt_functions.py
 mcf.egg-info/PKG-INFO
 mcf.egg-info/SOURCES.txt

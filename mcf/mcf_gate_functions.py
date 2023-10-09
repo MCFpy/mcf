@@ -154,7 +154,8 @@ def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
     for z_name_j, z_name in enumerate(var_dic['z_name']):
         txt_z_name = txt + ' '
         if int_dic['with_output'] and int_dic['verbose'] and with_output:
-            print(z_name_j+1, '(', len(var_dic['z_name']), ')', z_name,
+            z_name_ = ps.del_added_chars(z_name, prime=True)
+            print(z_name_j + 1, '(', len(var_dic['z_name']), ')', z_name_,
                   flush=True)
         z_values, z_smooth = z_values_l[z_name_j], z_smooth_l[z_name_j]
         if z_smooth:
@@ -290,7 +291,7 @@ def bamgate_est(mcf_, data_df, weights_dic, w_ate, forest_dic,
     txt = ''
     if int_dic['with_output']:
         txt_1 = '\n' + '=' * 100 + f'\nComputing {gate_type}'
-        print(txt)
+        print(txt_1)
     if p_dic['gatet']:
         p_dic['gatet'] = p_dic['atet'] = False
         if int_dic['with_output']:
@@ -315,7 +316,8 @@ def bamgate_est(mcf_, data_df, weights_dic, w_ate, forest_dic,
             raise ValueError(f'Heterogeneity variable for {gate_type} NOT used'
                              ' for splitting. Perhaps turn off {type_txt}.')
         if int_dic['with_output'] and int_dic['verbose']:
-            print(vname, end=' ')
+            vname_ = ps.del_added_chars(vname, prime=True)
+            print(ps.del_added_chars(vname_, prime=True), end=' ')
         if bgate:
             data_df_new, z_values, txt_sim = ref_data_bgate(
                 data_df.copy(), vname, int_dic, p_dic, eva_values,
@@ -323,7 +325,8 @@ def bamgate_est(mcf_, data_df, weights_dic, w_ate, forest_dic,
         else:
             data_df_new, z_values, txt_sim = ref_data_amgate(
                 data_df.copy(), vname, int_dic, p_dic, eva_values)
-        text_sim_all += f'\n{vname}: ' + txt_sim
+        vname_ = ps.del_added_chars(vname, prime=True)
+        text_sim_all += f'\n{vname_}: ' + txt_sim
         txt += txt_sim
         var_x_values[vname] = z_values[:]
         weights_dic = mcf_w.get_weights_mp(mcf_, data_df_new, forest_dic,
@@ -638,7 +641,8 @@ def gate_zj(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
                         ret = mcf_est.weight_var(
                             w_gate_cont, y_dat[:, o_idx], cl_dat, gen_dic,
                             p_dic, weights=w_dat,
-                            bootstrap=p_dic['se_boot_gate'])
+                            bootstrap=p_dic['se_boot_gate'],
+                            keep_all=int_dic['keep_w0'])
                         ti_idx = index_full[t_idx, i]  # pylint: disable=E1136
                         y_pot_zj[a_idx, ti_idx, o_idx] = ret[0]
                         y_pot_var_zj[a_idx, ti_idx, o_idx] = ret[1]
@@ -649,7 +653,8 @@ def gate_zj(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
                             ret2 = mcf_est.weight_var(
                                 w_diff_cont, y_dat[:, o_idx], cl_dat, gen_dic,
                                 p_dic, norm=False, weights=w_dat,
-                                bootstrap=p_dic['se_boot_gate'])
+                                bootstrap=p_dic['se_boot_gate'],
+                                keep_all=int_dic['keep_w0'])
                             y_pot_mate_zj[a_idx, ti_idx, o_idx] = ret2[0]
                             y_pot_mate_var_zj[a_idx, ti_idx, o_idx] = ret2[1]
                         if t_idx == (no_of_treat - 1):  # last element,no inter
@@ -658,14 +663,16 @@ def gate_zj(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
                     ret = mcf_est.weight_var(
                         w_gate_zj[a_idx, t_idx, :], y_dat[:, o_idx], cl_dat,
                         gen_dic, p_dic, weights=w_dat,
-                        bootstrap=p_dic['se_boot_gate'])
+                        bootstrap=p_dic['se_boot_gate'],
+                        keep_all=int_dic['keep_w0'])
                     y_pot_zj[a_idx, t_idx, o_idx] = ret[0]
                     y_pot_var_zj[a_idx, t_idx, o_idx] = ret[1]
                     if int_dic['with_output']:
                         ret2 = mcf_est.weight_var(
                             w_diff, y_dat[:, o_idx], cl_dat,
                             gen_dic, p_dic, norm=False, weights=w_dat,
-                            bootstrap=p_dic['se_boot_gate'])
+                            bootstrap=p_dic['se_boot_gate'],
+                            keep_all=int_dic['keep_w0'])
                         y_pot_mate_zj[a_idx, t_idx, o_idx] = ret2[0]
                         y_pot_mate_var_zj[a_idx, t_idx, o_idx] = ret2[1]
     return (y_pot_zj, y_pot_var_zj, y_pot_mate_zj, y_pot_mate_var_zj,
@@ -755,7 +762,8 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
                         ret = mcf_est.weight_var(
                             w_gate_cont, y_dat[:, o_idx], cl_dat, gen_dic,
                             p_dic, weights=w_dat,
-                            bootstrap=p_dic['se_boot_gate'])
+                            bootstrap=p_dic['se_boot_gate'],
+                            keep_all=int_dic['keep_w0'])
                         ti_idx = index_full[t_idx, i]  # pylint: disable=E1136
                         y_pot_zj[a_idx, ti_idx, o_idx] = ret[0]
                         y_pot_var_zj[a_idx, ti_idx, o_idx] = ret[1]
@@ -766,7 +774,8 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
                             ret2 = mcf_est.weight_var(
                                 w_diff_cont, y_dat[:, o_idx], cl_dat, gen_dic,
                                 p_dic, norm=False, weights=w_dat,
-                                bootstrap=p_dic['se_boot_gate'])
+                                bootstrap=p_dic['se_boot_gate'],
+                                keep_all=int_dic['keep_w0'])
                             y_pot_mate_zj[a_idx, ti_idx, o_idx] = ret2[0]
                             y_pot_mate_var_zj[a_idx, ti_idx, o_idx] = ret2[1]
                         if t_idx == (no_of_treat - 1):  # last element,no inter
@@ -775,14 +784,16 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
                     ret = mcf_est.weight_var(
                         w_gate_zj[a_idx, t_idx, :], y_dat[:, o_idx], cl_dat,
                         gen_dic, p_dic, weights=w_dat,
-                        bootstrap=p_dic['se_boot_gate'])
+                        bootstrap=p_dic['se_boot_gate'],
+                        keep_all=int_dic['keep_w0'])
                     y_pot_zj[a_idx, t_idx, o_idx] = ret[0]
                     y_pot_var_zj[a_idx, t_idx, o_idx] = ret[1]
                     if int_dic['with_output']:
                         ret2 = mcf_est.weight_var(
                             w_diff, y_dat[:, o_idx], cl_dat, gen_dic,
                             p_dic, norm=False, weights=w_dat,
-                            bootstrap=p_dic['se_boot_gate'])
+                            bootstrap=p_dic['se_boot_gate'],
+                            keep_all=int_dic['keep_w0'])
                         y_pot_mate_zj[a_idx, t_idx, o_idx] = ret2[0]
                         y_pot_mate_var_zj[a_idx, t_idx, o_idx] = ret2[1]
     if w_gate_zj.nbytes > 1e+9 and int_dic['ray_or_dask'] != 'ray':

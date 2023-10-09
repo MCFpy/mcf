@@ -1,4 +1,4 @@
-"""Created on Wed Apr  1 15:58:30 2020.
+"""Created on Wed Apr  1 15:58:30 2020.  -*- coding: utf-8 -*- .
 
 Optimal Policy Trees - Python implementation
 
@@ -12,9 +12,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.4.1
-
--*- coding: utf-8 -*- .
+Version: 0.4.2
 
 This is an example to show the optimal policy package can be implemented with
 a minimum number of specification (it could be even more further simplified
@@ -24,7 +22,9 @@ method-specific parameters redundant).
 
 """
 import pandas as pd
-from mcf import OptimalPolicy
+
+from mcf.optpolicy_functions import OptimalPolicy
+# from mcf import OptimalPolicy
 
 # ------------- NOT passed to OptimalPolicy -----------------------------------
 #  Define data to be used in this example

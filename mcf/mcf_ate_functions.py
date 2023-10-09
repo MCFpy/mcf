@@ -80,7 +80,11 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
         else:
             print('\n\nComputing ATEs')
     w_ate = np.zeros((no_of_ates, no_of_treat, n_y))
-    w_ate_export, ind_d_val = np.zeros_like(w_ate), np.arange(no_of_treat)
+    if p_dic['ate_no_se_only']:
+        w_ate_export = None
+    else:
+        w_ate_export = np.zeros_like(w_ate)
+    ind_d_val = np.arange(no_of_treat)
     weights = weights_dic['weights']
     if int_dic['weight_as_sparse']:
         for i in range(n_p):
@@ -155,7 +159,8 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
                     raise RuntimeError(txt)
             if not continuous:
                 w_ate[a_idx, ta_idx, :] /= sumw[a_idx, ta_idx]
-            w_ate_export[a_idx, ta_idx, :] = w_ate[a_idx, ta_idx, :]
+            if not p_dic['ate_no_se_only']:
+                w_ate_export[a_idx, ta_idx, :] = w_ate[a_idx, ta_idx, :]
             if (p_dic['max_weight_share'] < 1) and not continuous:
                 w_ate[a_idx, ta_idx, :], _, share = mcf_gp.bound_norm_weights(
                     w_ate[a_idx, ta_idx, :], p_dic['max_weight_share'])
@@ -175,7 +180,10 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
         no_of_treat_dr = len(d_values_dr)
     no_of_treat_1dim = no_of_treat_dr if continuous else no_of_treat
     pot_y = np.empty((no_of_ates, no_of_treat_1dim, no_of_out))
-    pot_y_var = np.empty_like(pot_y)
+    if p_dic['ate_no_se_only']:
+        pot_y_var = None
+    else:
+        pot_y_var = np.empty_like(pot_y)
     if p_dic['cluster_std']:
         cl_dat = weights_dic['cl_dat_np']
         if p_dic['se_boot_ate'] < 1:
@@ -204,10 +212,13 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
                         ret = mcf_est.weight_var(
                             w_ate_cont, y_dat[:, o_idx], cl_dat, gen_dic,
                             p_dic, weights=w_dat,
-                            bootstrap=p_dic['se_boot_ate'])
+                            bootstrap=p_dic['se_boot_ate'],
+                            keep_all=int_dic['keep_w0'],
+                            se_yes=not p_dic['ate_no_se_only'])
                         ti_idx = index_full[t_idx, i]  # pylint: disable=E1136
                         pot_y[a_idx, ti_idx, o_idx] = ret[0]
-                        pot_y_var[a_idx, ti_idx, o_idx] = ret[1]
+                        if not p_dic['ate_no_se_only']:
+                            pot_y_var[a_idx, ti_idx, o_idx] = ret[1]
                         if o_idx == 0:
                             w_ate_1dim[a_idx, ti_idx, :] = (
                                 ret[2] if p_dic['cluster_std']
@@ -218,9 +229,12 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
                     ret = mcf_est.weight_var(
                         w_ate[a_idx, t_idx, :], y_dat[:, o_idx], cl_dat,
                         gen_dic, p_dic, weights=w_dat,
-                        bootstrap=p_dic['se_boot_ate'])
+                        bootstrap=p_dic['se_boot_ate'],
+                        keep_all=int_dic['keep_w0'],
+                        se_yes=not p_dic['ate_no_se_only'])
                     pot_y[a_idx, t_idx, o_idx] = ret[0]
-                    pot_y_var[a_idx, t_idx, o_idx] = ret[1]
+                    if not p_dic['ate_no_se_only']:
+                        pot_y_var[a_idx, t_idx, o_idx] = ret[1]
                     if o_idx == 0:
                         w_ate_1dim[a_idx, t_idx, :] = (
                             ret[2] if p_dic['cluster_std']
@@ -270,19 +284,23 @@ def ate_effects_print(mcf_, effect_dic, y_pred_lc, balancing_test=False):
                 else:
                     txt += ('\n   Reference population: Treatment group:'
                             f' {d_values[a_idx-1]}')
-                txt += '\nTreatment  Potential Outcome  SE of PO'
+                if mcf_.p_dict['ate_no_se_only']:
+                    txt += '\nTreatment  Potential Outcome'
+                else:
+                    txt += '\nTreatment  Potential Outcome  SE of PO     '
                 if lc_yes:
-                    txt += '       Uncentered Outcome'
+                    txt += '  Uncentered Outcome'
                 for t_idx in range(no_of_treat):
                     txt += '\n' + (f'{d_values[t_idx]:>10.5f} '
                                    if continuous else f'{d_values[t_idx]:<9} ')
-                    sqrt_var = np.sqrt(y_pot_var[a_idx, t_idx, o_idx])
-                    txt += (f' {y_pot[a_idx, t_idx, o_idx]:>12.6f} '
-                            f' {sqrt_var:>12.6f}')
+                    txt += f' {y_pot[a_idx, t_idx, o_idx]:>12.6f}'
+                    if not mcf_.p_dict['ate_no_se_only']:
+                        sqrt_var = np.sqrt(y_pot_var[a_idx, t_idx, o_idx])
+                        txt += f'   {sqrt_var:>12.6f}'
                     if lc_yes:
                         y_adjust = (y_pot[a_idx, t_idx, o_idx]
-                                    + y_pred_lc_ate[o_idx])
-                        txt += f'      {y_adjust:>12.6f}'
+                                    + y_pred_lc_ate.iloc[o_idx])
+                        txt += f'       {y_adjust:>12.6f}'
         txt += '\n' + '-' * 100 + '\nTreatment effects (ATE, ATETs)'
         txt += '\n' + '-' * 100
     if continuous:  # only comparison to zero
@@ -307,10 +325,14 @@ def ate_effects_print(mcf_, effect_dic, y_pred_lc, balancing_test=False):
                     label_ate = 'ATET' + str(d_values[a_idx-1])
                 txt += '\n' + '- ' * 50
             pot_y_ao = y_pot[a_idx, :, o_idx]
-            pot_y_var_ao = y_pot_var[a_idx, :, o_idx]
+            if mcf_.p_dict['ate_no_se_only']:
+                pot_y_var_ao = None
+            else:
+                pot_y_var_ao = y_pot_var[a_idx, :, o_idx]
             (est, stderr, t_val, p_val, effect_list
              ) = mcf_est.effect_from_potential(
-                pot_y_ao, pot_y_var_ao, d_values, continuous=continuous)
+                pot_y_ao, pot_y_var_ao, d_values, continuous=continuous,
+                se_yes=not mcf_.p_dict['ate_no_se_only'])
             ate[o_idx, a_idx], ate_se[o_idx, a_idx] = est, stderr
             if balancing_test and gen_dic['with_output']:
                 ate_t[o_idx, a_idx] = t_val

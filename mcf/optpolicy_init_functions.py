@@ -12,8 +12,8 @@ from mcf import mcf_general as gp
 from mcf import mcf_general_sys as mcf_sys
 
 
-def init_int(how_many_parallel=None, parallel_processing=None, with_numba=None,
-             with_output=None):
+def init_int(how_many_parallel=None, parallel_processing=None,
+             output_no_new_dir=None, with_numba=None, with_output=None):
     """Initialise basic technical pamameters."""
     dic = {}
     dic['parallel_processing'] = parallel_processing is not False
@@ -24,22 +24,28 @@ def init_int(how_many_parallel=None, parallel_processing=None, with_numba=None,
             dic['mp_parallel'] = round(how_many_parallel)
     else:
         dic['mp_parallel'] = 1
+    dic['output_no_new_dir'] = output_no_new_dir is True
     dic['with_numba'] = with_numba is not False
     dic['with_output'] = with_output is not False
     return dic
 
 
 def init_gen(method=None, outfiletext=None, outpath=None, output_type=None,
-             with_output=None):
+             variable_importance=None, with_output=None, new_outpath=None):
     """Initialise general parameters."""
     dic = {}
     dic['method'] = 'best_policy_score' if method is None else method
-    if dic['method'] not in ('best_policy_score', 'policy tree',):
+    if dic['method'] not in ('best_policy_score', 'policy tree',
+                             'policy tree eff',):
         raise ValueError(f'{dic["method"]} is not a valid method.')
     if method == 'best_policy_score':
         dir_nam = 'BPS'
     elif method == 'policy tree':
         dir_nam = 'PT'
+    elif method == 'policy tree eff':
+        dir_nam = 'PT_EFF'
+    dic['variable_importance'] = variable_importance is True
+
     dic['output_type'] = 2 if output_type is None else output_type
     if dic['output_type'] == 0:
         dic['print_to_file'], dic['print_to_terminal'] = False, True
@@ -51,9 +57,10 @@ def init_gen(method=None, outfiletext=None, outpath=None, output_type=None,
         dic['print_to_file'] = dic['print_to_terminal'] = False
     dic['with_output'] = with_output
     if outpath is None:
-        dic['outpath'] = mcf_sys.define_outpath(None) if with_output else None
+        dic['outpath'] = mcf_sys.define_outpath(None, new_outpath
+                                                ) if with_output else None
     else:
-        dic['outpath'] = mcf_sys.define_outpath(outpath + dir_nam)
+        dic['outpath'] = mcf_sys.define_outpath(outpath + dir_nam, new_outpath)
     dic['outfiletext'] = ('txtFileWithOutput'
                           if outfiletext is None else outfiletext)
     dic['outfiletext'] = dic['outpath'] + '/' + dic['outfiletext'] + '.txt'
@@ -90,7 +97,9 @@ def init_dc(check_perfectcorr=None, clean_data=None, min_dummy_obs=None,
     return dic
 
 
-def init_pt(depth=None, no_of_evalupoints=None, min_leaf_size=None):
+def init_pt(depth=None, enforce_restriction=None, eva_cat_mult=None,
+            no_of_evalupoints=None, min_leaf_size=None,
+            select_values_cat=None):
     """Initialise parameters related to policy tree."""
     dic = {}
     if no_of_evalupoints is None or no_of_evalupoints < 5:
@@ -101,7 +110,14 @@ def init_pt(depth=None, no_of_evalupoints=None, min_leaf_size=None):
         dic['depth'] = 4
     else:
         dic['depth'] = round(depth + 1)
-    dic['min_leaf_size'] = min_leaf_size
+    dic['min_leaf_size'] = min_leaf_size   # To be initialized later
+    dic['select_values_cat'] = select_values_cat is True
+    dic['enforce_restriction'] = enforce_restriction is True
+    if (eva_cat_mult is None or not isinstance(eva_cat_mult, (float, int))
+            or eva_cat_mult < 0.1):
+        dic['eva_cat_mult'] = 1
+    else:
+        dic['eva_cat_mult'] = eva_cat_mult
     return dic
 
 
@@ -153,7 +169,8 @@ def init_rnd_shares(optp_, data_df, d_in_data):
 
 def init_var(bb_restrict_name=None, d_name=None, effect_vs_0=None,
              effect_vs_0_se=None, id_name=None, polscore_desc_name=None,
-             polscore_name=None, x_ord_name=None, x_unord_name=None):
+             polscore_name=None, vi_x_name=None, vi_to_dummy_name=None,
+             x_ord_name=None, x_unord_name=None):
     """Initialise variables."""
     var_dic = {}
     var_dic['bb_restrict_name'] = check_var(bb_restrict_name)
@@ -165,6 +182,11 @@ def init_var(bb_restrict_name=None, d_name=None, effect_vs_0=None,
     var_dic['polscore_name'] = check_var(polscore_name)
     var_dic['x_ord_name'] = check_var(x_ord_name)
     var_dic['x_unord_name'] = check_var(x_unord_name)
+    var_dic['vi_x_name'] = check_var(vi_x_name)
+    var_dic['vi_to_dummy_name'] = check_var(vi_to_dummy_name)
+    var_dic['name_ordered'] = var_dic['z_name'] = var_dic['x_name_remain'] = []
+    var_dic['name_unordered'] = var_dic['x_balance_name'] = []
+    var_dic['x_name_always_in'] = []
     return var_dic
 
 

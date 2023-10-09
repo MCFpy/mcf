@@ -48,21 +48,27 @@ class OptimalPolicy:
         solve : Building the assignment algorithm with training data.
         allocate : Allocate treatments given the assignment algorithm.
         evaluate : Evaluate an allocation.
+        evaluate_multiple : Evaluate several allocations simultanously.
     """
 
     def __init__(
         self, dc_check_perfectcorr=True,
         dc_clean_data=True, dc_min_dummy_obs=10, dc_screen_covariates=True,
         gen_method='best_policy_score', gen_outfiletext='txtFileWithOutput',
-        gen_outpath=None, gen_output_type=2,
-        int_how_many_parallel=None, int_parallel_processing=True,
-        int_with_numba=True, int_with_output=True, other_costs_of_treat=None,
-        other_costs_of_treat_mult=None, other_max_shares=None,
-        pt_depth=3, pt_no_of_evalupoints=100, pt_min_leaf_size=None,
+        gen_outpath=None, gen_output_type=2, gen_variable_importance=False,
+        other_costs_of_treat=None, other_costs_of_treat_mult=None,
+        other_max_shares=None,
+        pt_depth=3, pt_enforce_restriction=True, pt_eva_cat_mult=1,
+        pt_no_of_evalupoints=100, pt_min_leaf_size=None,
+        pt_select_values_cat=False,
         rnd_shares=None,
         var_bb_restrict_name=None, var_d_name=None, var_effect_vs_0=None,
         var_effect_vs_0_se=None, var_id_name=None, var_polscore_desc_name=None,
-        var_polscore_name=None, var_x_ord_name=None, var_x_unord_name=None
+        var_polscore_name=None, var_vi_x_name=None, var_vi_to_dummy_name=None,
+        var_x_ord_name=None, var_x_unord_name=None,
+        _int_how_many_parallel=None, _int_output_no_new_dir=False,
+        _int_parallel_processing=True, _int_with_numba=True,
+        _int_with_output=True,
             ):
         """Define Constructor for OptimalPolicy class.
 
@@ -83,7 +89,7 @@ class OptimalPolicy:
             Default (or None) is True.
         gen_method : String (or None), optional.
             Method to compute assignment algorithm (available methods:
-            'best_policy_score', 'policy tree')
+            'best_policy_score', 'policy tree', 'policy tree eff')
             'best_policy_score' conducts Black-Box allocations, which are
             obtained by using the scores directly (potentially subject to
             restrictions). When the Black-Box allocations are used for
@@ -97,6 +103,9 @@ class OptimalPolicy:
             policy scores fulfil their conditions (i.e., they use a doubly
             robust double machine learning like score), then they also provide
             attractive theoretical properties.
+            'policy tree eff' is very similar to 'policy tree.' It uses
+            different approximation rules and uses slightly different coding.
+            In many cases it should be faster than 'policy tree'.
             Default (or None) is 'best_policy_score'.
         gen_outfiletext : String (or None), optional
             File for text output. *.txt file extension will be automatically
@@ -109,16 +118,9 @@ class OptimalPolicy:
         gen_output_type : Integer (or None), optional
             Destination of the output. 0: Terminal, 1: File,
             2: File and terminal. Default (or None) is 2.
-        int_how_many_parallel : Integer (or None), optional
-            Number of parallel process. None: 80% of logical cores, if this can
-            be effectively implemented. Default is None.
-        int_parallel_processing : Boolean (or None), optional
-            Multiprocessing.
-            Default (or None) is True.
-        int_with_numba : Boolean (or None), optional
-            Use Numba to speed up computations. Default (or None) is True.
-        int_with_output : Boolean (or None), optional
-            Print output on file and/or screen. Default (or None) is True.
+        gen_variable_importance : Boolean
+            Compute variable importance statistics based on random forest
+            classifiers. Default is False.
         other_costs_of_treat : List of floats (or None), optional
             Treatment specific costs. These costs are directly substracted from
             the policy scores. Therefore, they should be measured in the same
@@ -132,7 +134,7 @@ class OptimalPolicy:
         other_costs_of_treat_mult : Float or tuple of floats (with as many
                                     elements as treatments) (or None), optional
             Multiplier of automatically determined cost values. Use only when
-            automatic costs violate the constraints given by OTHE_MAX_SHARES.
+            automatic costs violate the constraints given by OTHER_MAX_SHARES.
             This allows to increase (>1) or decrease (<1) the share of treated
             in particular treatment. None: (1, ..., 1). Default is None.
         other_max_shares : Tuple of float elements as treatments) (or None),
@@ -143,13 +145,23 @@ class OptimalPolicy:
             pt_depth = 2 implies 4 leafs, pt_depth= 3 implies 8 leafs, etc.
             Only relevant if gen_method is 'policy tree'.
             Default (or None) is 3.
+        pt_enforce_restriction : Boolean (or None)
+            Enforces the imposed restriction (to some extent) during the
+            computation of the policy tree. This can be very time consuming.
+            Default is True.
+        pt_eva_cat_mult : Integer (or None).
+            Changes the number of the evaluation points (pt_no_of_evalupoints)
+            for the unordered (categorical) variables to:
+                pt_eva_cat_mult * pt_no_of_evalupoints
+            (available only for the method 'policy tree eff').
+            Default (or None is 1).
         pt_no_of_evalupoints : Integer (or None), optional
             No of evaluation points for continous variables. The lower this
             value, the faster the algorithm, but it may also deviate more from
             the optimal splitting rule. This parameter is closely related to
             the approximation parameter of Zhou, Athey, Wager (2022)(A) with
             pt_no_of_evalupoints = number of observation / A.
-            Only relevant if gen_method is 'policy tree'.
+            Only relevant if gen_method is 'policy tree' or 'policy tree eff'.
             Default (or None) is 100.
         pt_min_leaf_size : Integer (or None), optional
             Minimum leaf size. Leaves that are smaller than PT_MIN_LEAF_SIZE in
@@ -157,12 +169,32 @@ class OptimalPolicy:
             computation time and avoids some overfitting.
             None: 0.1 x # of training observations / # of leaves.
             Only relevant if gen_method is 'policy tree'. Default is None.
+        pt_select_values_cat : Boolean (or None), optional
+            Approximation method for larger categorical variables. Since we
+            search among optimal trees, for catorgical variables variables we
+            need to check for all possible combinations of the different values
+            that lead to binary splits. Thus number could indeed be huge.
+            Therefore, we compare only pt_no_of_evalupoints * 2 different
+            combinations. Method 1 (pt_select_values_cat == True) does this by
+            randomly drawing values from the particular categorical variable
+            and forming groups only using those values. Method 2
+            (pt_select_values_cat == False) sorts the values of the categorical
+            variables according to a values of the policy score as one would do
+            for a standard random forest. If this set is still too large, a
+            random sample of the entailed combinations is drawn. Method 1 is
+            only available for the method 'policy tree eff'.
         rnd_shares : Tuple of floats (or None), optional
             Share of treatments of a stochastic assignment as computed by the
             evaluate method. Sum of all elements must add to 1. This used only
             used as a comparison in the evaluation of other allocations.
             None: Shares of treatments in the allocation under investigation.
             Default is None.
+        var_vi_x_name : List of strings or None, optional
+            Names of variables for which variable importance is computed.
+            Default is None.
+        var_vi_to_dummy_name : List of strings or None, optional
+            Names of variables for which variable importance is computed.
+            These variables will be broken up into dummies. Default is None.
         var_bb_restrict_name : String (or None), optional
             Name of variable related to a restriction in case of capacity
             constraints. If there is a capacity constraint, preference will be
@@ -201,25 +233,44 @@ class OptimalPolicy:
         var_x_unord_name : Tuple of strings (or None), optional
             Name of unordered variables used to build policy tree. They are
             also used to characterise the allocation. Default is None.
+        _int_how_many_parallel : Integer (or None), optional
+            Number of parallel process. None: 80% of logical cores, if this can
+            be effectively implemented. Default is None.
+        _int_output_no_new_dir: Boolean
+            Do not create a new directory when the path already exists. Default
+            is False.
+        _int_parallel_processing : Boolean (or None), optional
+            Multiprocessing.
+            Default (or None) is True.
+        _int_with_numba : Boolean (or None), optional
+            Use Numba to speed up computations. Default (or None) is True.
+        _int_with_output : Boolean (or None), optional
+            Print output on file and/or screen. Default (or None) is True.
         """
         self.int_dict = op_init.init_int(
-            how_many_parallel=int_how_many_parallel,
-            parallel_processing=int_parallel_processing,
-            with_numba=int_with_numba, with_output=int_with_output)
+            how_many_parallel=_int_how_many_parallel,
+            output_no_new_dir=_int_output_no_new_dir,
+            parallel_processing=_int_parallel_processing,
+            with_numba=_int_with_numba, with_output=_int_with_output)
 
         self.gen_dict = op_init.init_gen(
             method=gen_method, outfiletext=gen_outfiletext,
             outpath=gen_outpath, output_type=gen_output_type,
-            with_output=self.int_dict['with_output'])
+            variable_importance=gen_variable_importance,
+            with_output=self.int_dict['with_output'],
+            new_outpath=not self.int_dict['output_no_new_dir'])
 
         self.dc_dict = op_init.init_dc(
             check_perfectcorr=dc_check_perfectcorr,
             clean_data=dc_clean_data, min_dummy_obs=dc_min_dummy_obs,
             screen_covariates=dc_screen_covariates)
 
-        self.pt_dict = op_init.init_pt(depth=pt_depth,
-                                       no_of_evalupoints=pt_no_of_evalupoints,
-                                       min_leaf_size=pt_min_leaf_size)
+        self.pt_dict = op_init.init_pt(
+            depth=pt_depth, eva_cat_mult=pt_eva_cat_mult,
+            enforce_restriction=pt_enforce_restriction,
+            no_of_evalupoints=pt_no_of_evalupoints,
+            select_values_cat=pt_select_values_cat,
+            min_leaf_size=pt_min_leaf_size)
 
         self.other_dict = {'costs_of_treat': other_costs_of_treat,
                            'costs_of_treat_mult': other_costs_of_treat_mult,
@@ -232,7 +283,8 @@ class OptimalPolicy:
             effect_vs_0=var_effect_vs_0, effect_vs_0_se=var_effect_vs_0_se,
             id_name=var_id_name, polscore_desc_name=var_polscore_desc_name,
             polscore_name=var_polscore_name, x_ord_name=var_x_ord_name,
-            x_unord_name=var_x_unord_name)
+            x_unord_name=var_x_unord_name, vi_x_name=var_vi_x_name,
+            vi_to_dummy_name=var_vi_to_dummy_name)
 
         self.time_strings, self.var_x_type, self.var_x_values = {}, {}, {}
 
@@ -257,18 +309,18 @@ class OptimalPolicy:
         op_init.init_gen_solve(self, data_df)
         op_init.init_other_solve(self)
         method = self.gen_dict['method']
-        if method == 'policy tree':
+        if method in ('policy tree', 'policy tree eff'):
             op_init.init_pt_solve(self, len(data_df))
         if self.gen_dict['with_output']:
             print_dic_values_all_optp(self, summary_top=True,
                                       summary_dic=False, stage='Training')
-        if method in ('policy tree', 'best_policy_score'):
+        if method in ('policy tree', 'policy tree eff', 'best_policy_score'):
             (data_new_df, bb_rest_variable) = op_data.prepare_data_bb_pt(
-                self, data_df, black_box=method == 'best_policy_score')
+                self, data_df)
             if method == 'best_policy_score':
                 allocation_df = op_bb.black_box_allocation(self, data_new_df,
                                                            bb_rest_variable)
-            elif method == 'policy tree':
+            elif method in ('policy tree', 'policy tree eff'):
                 allocation_df = op_pt.policy_tree_allocation(self, data_new_df)
         # Timing
         time_name = [f'Time for {method:20} training:    ',]
@@ -306,7 +358,7 @@ class OptimalPolicy:
         method = self.gen_dict['method']
         if method == 'best_policy_score':
             allocation_df = self.solve(data_df, data_title='Prediction data')
-        elif method == 'policy tree':
+        elif method in ('policy tree', 'policy tree eff'):
             allocation_df = op_pt.policy_tree_prediction_only(self, data_df)
         time_name = [f'Time for {method:20} allocation:  ',]
         time_difference = [time() - time_start]
@@ -351,7 +403,6 @@ class OptimalPolicy:
          ) = op_data.prepare_data_eval(self, data_df)
         if len(allocation_df) != len(data_df):
             d_ok = False
-        # op_init.init_rnd_shares(self, allocation_df, d_ok)
         op_init.init_rnd_shares(self, data_df, d_ok)
         if d_ok:
             allocation_df['observed'] = data_df[var_dic['d_name']]
@@ -359,6 +410,8 @@ class OptimalPolicy:
             self, len(data_df), seed)
         results_dic = op_eval.evaluate(self, data_df, allocation_df, d_ok,
                                        polscore_desc_ok, desc_var)
+        if self.gen_dict['with_output']:
+            op_eval.variable_importance(self, data_df, allocation_df, seed)
         time_name = [f'Time for Evaluation {data_title}:     ',]
         time_difference = [time() - time_start]
         if self.gen_dict['with_output']:
@@ -369,6 +422,28 @@ class OptimalPolicy:
         key = 'evaluate_' + data_title
         self.time_strings[key] = time_str
         return results_dic
+
+    def evaluate_multiple(self, allocations_dic, data_df):
+        """
+        Evaluate several allocations simultanously.
+
+        Parameters
+        ----------
+        allocations_dic : Dictionary.
+            Contains dataframes with specific allocations.
+        data_df : DataFrame.
+            Data with the relevant information about potential outcomes which
+            will be used to evaluate the allocations.
+
+        Returns
+        -------
+        None.
+
+        """
+        if not self.gen_dict['with_output']:
+            raise ValueError('To use this method, allow output to be written.')
+        potential_outcomes_np = data_df[self.var_dict['polscore_name']]
+        op_eval.evaluate_multiple(self, allocations_dic, potential_outcomes_np)
 
     def print_time_strings_all_steps(self):
         """Print an overview over the time needed in all steps of programme."""
@@ -395,7 +470,7 @@ def print_dic_values_optp(optp_, summary=False):
                 optp_.other_dict, optp_.rnd_dict, optp_.var_dict]
     dic_name_list = ['int_dict', 'gen_dict', 'dc_dict',
                      'other_dict', 'rnd_dict', 'var_dict']
-    if optp_.gen_dict['method'] == 'policy_tree':
+    if optp_.gen_dict['method'] in ('policy tree', 'policy tree eff'):
         add_list = [optp_.var_x_type, optp_.var_x_values, optp_.pt_dict]
         add_list_name = ['var_x_type', 'var_x_values', 'pt_dict']
         dic_list.extend(add_list)

@@ -144,7 +144,8 @@ def iate_est_mp(mcf_, weights_dic, w_ate, reg_round=True):
                     w_dat, w_ate, y_dat, no_of_out, n_y, ct_dic, int_dic,
                     gen_dic, p_dic, iate_se_flag, se_boot_iate,
                     iate_m_ate_flag) for idx in obs_idx_list]
-                warn_text_to_console()
+                if int_dic['with_output'] and int_dic['verbose']:
+                    warn_text_to_console()
             else:
                 still_running = [ray_iate_func1_for_mp_many_obs.remote(
                     idx, [weights[idxx] for idxx in idx], cl_dat,
@@ -670,7 +671,7 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                     ret = mcf_est.weight_var(
                         w_i_cont, y_dat_cont, cl_i_cont, gen_dic, p_dic,
                         weights=w_t_cont, se_yes=iate_se_flag,
-                        bootstrap=se_boot_iate)
+                        bootstrap=se_boot_iate, keep_all=int_dic['keep_w0'])
                     ti_idx = index_full[t_idx, i]  # pylint: disable=E1136
                     pot_y_i[ti_idx, o_idx] = ret[0]
                     if iate_se_flag:
@@ -697,7 +698,8 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                             ret = mcf_est.weight_var(
                                 w_diff, y_dat[:, o_idx], cl_dat, gen_dic,
                                 p_dic, norm=False, weights=w_dat,
-                                bootstrap=se_boot_iate, se_yes=iate_se_flag)
+                                bootstrap=se_boot_iate, se_yes=iate_se_flag,
+                                keep_all=int_dic['keep_w0'])
                     else:
                         if o_idx == 0:
                             w_add[ti_idx, w_index_both] = ret[2]
@@ -722,7 +724,8 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                             ret = mcf_est.weight_var(
                                 w_diff, y_dat[:, o_idx], None, gen_dic, p_dic,
                                 norm=False, weights=w_dat,
-                                bootstrap=se_boot_iate, se_yes=iate_se_flag)
+                                bootstrap=se_boot_iate, se_yes=iate_se_flag,
+                                keep_all=int_dic['keep_w0'])
                     if iate_m_ate_flag:
                         pot_y_m_ate_i[ti_idx, o_idx] = ret[0]
                     if iate_se_flag and iate_m_ate_flag:
@@ -732,7 +735,8 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
             else:  # discrete treatment
                 ret = mcf_est.weight_var(
                     w_i, y_dat[w_index, o_idx], cl_i, gen_dic, p_dic,
-                    weights=w_t, se_yes=iate_se_flag, bootstrap=se_boot_iate)
+                    weights=w_t, se_yes=iate_se_flag, bootstrap=se_boot_iate,
+                    keep_all=int_dic['keep_w0'])
                 pot_y_i[t_idx, o_idx] = ret[0]
                 if iate_se_flag:
                     pot_y_var_i[t_idx, o_idx] = ret[1]
@@ -749,7 +753,7 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         ret = mcf_est.weight_var(
                             w_diff, y_dat[:, o_idx], cl_dat, gen_dic, p_dic,
                             norm=False, weights=w_dat, bootstrap=se_boot_iate,
-                            se_yes=iate_se_flag)
+                            se_yes=iate_se_flag, keep_all=int_dic['keep_w0'])
                 else:
                     if o_idx == 0:
                         w_add[t_idx, w_index] = ret[2]
@@ -766,7 +770,7 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         ret = mcf_est.weight_var(
                             w_diff, y_dat[:, o_idx], None, gen_dic, p_dic,
                             norm=False, weights=w_dat, bootstrap=se_boot_iate,
-                            se_yes=iate_se_flag)
+                            se_yes=iate_se_flag, keep_all=int_dic['keep_w0'])
                 if iate_m_ate_flag:
                     pot_y_m_ate_i[t_idx, o_idx] = ret[0]
                 if iate_m_ate_flag and iate_se_flag:

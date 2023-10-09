@@ -1,4 +1,4 @@
-"""Created on Wed Apr  1 15:58:30 2020.
+"""Created on Wed Apr  1 15:58:30 2020. -*- coding: utf-8 -*- .
 
 Modified Causal Forest - Python implementation
 
@@ -9,9 +9,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.4.1
-
--*- coding: utf-8 -*- .
+Version: 0.4.2
 
 This is an example to show how a minimal specification of the mcf can be
 implemented that uses the same data from training and prediction.
@@ -19,7 +17,8 @@ implemented that uses the same data from training and prediction.
 """
 import pandas as pd
 
-from mcf import ModifiedCausalForest
+from mcf.mcf_functions import ModifiedCausalForest
+# from mcf import ModifiedCausalForest
 
 # ------------------ NOT parameters of the ModifiedCausalForest ---------------
 #  Define data to be used in this example
@@ -32,14 +31,16 @@ TRAINDATA = 'data_y_d_x_1000.csv'
 
 VAR_D_NAME = 'D0_1_12'   # Name of treatment variable
 VAR_Y_NAME = 'y'         # Name of outcome variable
-VAR_X_NAME_ORD = ('cont0',)  # Using VAR_X_NAME_UNORD is fine as well
-
+VAR_X_NAME_ORD = ('cont0',)
+VAR_X_NAME_UNORD = ('cat0',)
+# Using VAR_X_NAME_UNORD or VAR_X_NAME_ORD only is sufficient
 # -----------------------------------------------------------------------------
 train_df = pd.read_csv(DATPATH + '/' + TRAINDATA)
 # -----------------------------------------------------------------------------
 mymcf = ModifiedCausalForest(var_d_name=VAR_D_NAME,
                              var_y_name=VAR_Y_NAME,
-                             var_x_name_ord=VAR_X_NAME_ORD)
+                             var_x_name_ord=VAR_X_NAME_ORD,
+                             var_x_name_unord=VAR_X_NAME_UNORD)
 
 tree_df, fill_y_df = mymcf.train(train_df)  # Returns not used here
 

@@ -1,4 +1,4 @@
-"""Created on Wed Apr  1 15:58:30 2020.
+"""Created on Wed Apr  1 15:58:30 2020. -*- coding: utf-8 -*- .
 
 Optimal Policy - Python implementation
 
@@ -12,9 +12,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.4.1
-
--*- coding: utf-8 -*- .
+Version: 0.4.2
 
 This is an example to show how to use the OptimalPolicy class of the mcf
 module with full specification of all its keywords. It may be seen as an add on
@@ -26,7 +24,8 @@ import pickle
 
 import pandas as pd
 
-from mcf import OptimalPolicy
+from mcf.optpolicy_functions import OptimalPolicy
+# from mcf import OptimalPolicy
 
 # ------------- NOT passed to OptimalPolicy -----------------------------------
 #  Define data to be used in this example
@@ -45,8 +44,10 @@ SOLVE = True               # Train allocation algorithm with train method
 ALLOCATE = True            # Use allocate method to allocate data
 EVALUATE = True            # Evaluate allocation
 
-METHODS = ('best_policy_score', 'policy tree',)  # Tuple used to set GEN_METHOD
-#  Currently valid methods are: 'best_policy_score', 'policy tree'
+METHODS = ('best_policy_score', 'policy tree', 'policy tree eff')
+#  Tuple used to set GEN_METHOD
+#  Currently valid methods are: 'best_policy_score', 'policy tree',
+#  'policy tree eff'
 
 # -------- All what follows are parameters of the ModifiedCausalForest --------
 #   Whenever, None is specified, parameter will set to default values.
@@ -55,7 +56,7 @@ GEN_OUTPATH = APPLIC_PATH + '/outputOPT'     # Directory for the output.
 #   If it does not exist, it will be created. Default is an *.out directory
 #   just below to the directory where the programme is run.
 
-GEN_OUTFILETEXT = TRAINDATA + "OptPolicy.0.4.1"  # File for text output
+GEN_OUTFILETEXT = TRAINDATA + "OptPolicy.0.4.2"  # File for text output
 #   Default is 'txtFileWithOutput'.
 #   *.txt file extension will be added by the programme
 
@@ -67,6 +68,8 @@ GEN_METHOD = None     # Available methods: 'best_policy_score', 'policy tree'
 #   Default is 'best_policy_score'.
 #   Note fo this example only: This variable will be overwritten inside the
 #   loop at the end of the programme.
+GEN_VARIABLE_IMPORTANCE = None    # Compute variable importance statistics
+#   based on random forest  classifiers. Default is False.
 
 # ---------------- Names of variables used ------------------------------------
 VAR_ID_NAME = 'ID'   # Name of identifier in data. Default is None.
@@ -104,6 +107,13 @@ VAR_X_UNORD_NAME = ['CAT0PR', 'CAT1PR']
 #   Unordered variables used to build policy tree.They are also used to
 #   characterise the allocation.
 
+VAR_VI_X_NAME = ('CONT0', 'CONT1', 'CONT2', 'CONT3')
+#   Names of variables for which variable importance is computed.
+#   Default is None.
+VAR_VI_TO_DUMMY_NAME = ('CAT0PR',)
+#   Names of variables for which variable importance is computed.
+#   These variables will be broken up into dummies. Default is None.
+
 # ---------------------- Method specific parameters ---------------------------
 # - - - - - - - - - - - -  Black-Box allocations - - - - - - - - - - - - - - -
 #   The method 'best_policy_score' conducts Black-Box allocations.
@@ -127,6 +137,9 @@ VAR_BB_RESTRICT_NAME = 'Cont0'   # Variable name related to a restriction.
 #   provided policy score fulfils their conditions (i.e., they use a doubly
 #   robust double machine learning like score), then they also provide
 #   attractive theoretical properties.
+#   'policy tree' and 'policy tree eff' are very similar policy trees. They
+#   uses different approximation rules and slightly different coding. In many
+#   cases 'policy tree eff' should be faster than 'policy tree'.
 
 PT_DEPTH = 2         # Depth of tree. Defined such that PT_DEPTH == 1 implies 2
 #   splits, PT_DEPTH = 2 implies 4 leafs, PT_DEPTH = 3 implies 8 leafs, etc.
@@ -139,10 +152,34 @@ PT_NO_OF_EVALUPOINTS = None  # No of evaluation points for continous variables.
 #   approximation parameter of Zhou, Athey, Wager (2022)(A) with
 #   A =  # of observation / PT_NO_OF_EVALUPOINTS. Default is 100.
 
+PT_EVA_CAT_MULT = None      # Changes the number of the evaluation points
+#   (pt_no_of_evalupoints) for the unordered (categorical) variables to:
+#   pt_eva_cat_mult * pt_no_of_evalupoints (available only for the method
+#   'policy tree eff').  Default is 1.
+
+PT_SELECT_VALUES_CAT = None   # Approximation method for larger categorical
+#   variables. Since we search among optimal trees, for catorgical variables
+#   variables we need to check for all possible combinations of the different
+#   values that lead to binary splits. Thus number could indeed be huge. There-
+#   fore, we compare only PT_NO_OF_EVALUPOINTS * 2 different combinations.
+#   Method 1 (PT_SELECT_VALUES_CAT == True) does this by randomly drawing
+#   values from the particular categorical variable and forming groups only
+#   using those values. Method 2 (PT_SELECT_VALUES_CAT==False) sorts the
+#   values of the categorical variables according to a values of the policy
+#   score as one would do for a standard random forest. If this set is still
+#   too large, a random sample of the entailed combinations is drawn.
+#   Method 1 is only available for the method 'policy tree eff'. The default is
+#   False.
+
 PT_MIN_LEAF_SIZE = None    # Minimum leaf size. Leaves that are smaller than
 #   PT_MIN_LEAF_SIZE in the training data will not be considered. A larger
 #   number reduces computation time and avoids some overfitting. Default is
 #   0.1 x # of training observations / # of leaves.
+
+PT_ENFORCE_RESTRICTION = None
+#   Enforces the imposed restriction (to some extent) during the
+#   computation of the policy tree. This can be very time consuming.
+#   Default is True.
 
 # --------------------------  Data cleaning  ----------------------------------
 DC_SCREEN_COVARIATES = None  # Check covariates. Default is True.
@@ -189,14 +226,14 @@ OTHER_COSTS_OF_TREAT_MULT = None   # Multiplier of automatically determined
 #    decrease (<1) the share of treated in particular treatment.
 
 # -----------Internal parameters. Change only if good reason to do so. --------
-INT_WITH_OUTPUT = None   # Print output on file and screen. Default is True.
-
-INT_PARALLEL_PROCESSING = None  # False: No parallel computations
+_INT_WITH_OUTPUT = None   # Print output on file and screen. Default is True.
+_INT_OUTPUT_NO_NEW_DIR = None   # Do not create a new directory when the path
+#                                already exists. Default is False.
+_INT_PARALLEL_PROCESSING = None  # False: No parallel computations
 #                             True: Multiprocessing (def)
-INT_HOW_MANY_PARALLEL = None  # Number of parallel process. Default is 80% of
+_INT_HOW_MANY_PARALLEL = None  # Number of parallel process. Default is 80% of
 #   cores, if this can be effectively implemented.
-
-INT_WITH_NUMBA = None    # Use Numba to speed up computations: Default is True.
+_INT_WITH_NUMBA = None   # Use Numba to speed up computations: Default is True.
 # ------------------------------------------------------------------------
 
 # The following is an example on how the methods of the OptimalPolicy object
@@ -211,27 +248,36 @@ params = {
     'dc_screen_covariates': DC_SCREEN_COVARIATES,
     'gen_method': GEN_METHOD, 'gen_outfiletext': GEN_OUTFILETEXT,
     'gen_outpath': GEN_OUTPATH, 'gen_output_type': GEN_OUTPUT_TYPE,
-    'int_how_many_parallel': INT_HOW_MANY_PARALLEL,
-    'int_parallel_processing': INT_PARALLEL_PROCESSING,
-    'int_with_numba': INT_WITH_NUMBA, 'int_with_output': INT_WITH_OUTPUT,
+    'gen_variable_importance': GEN_VARIABLE_IMPORTANCE,
+    '_int_how_many_parallel': _INT_HOW_MANY_PARALLEL,
+    '_int_parallel_processing': _INT_PARALLEL_PROCESSING,
+    '_int_with_numba': _INT_WITH_NUMBA, '_int_with_output': _INT_WITH_OUTPUT,
+    '_int_output_no_new_dir': _INT_OUTPUT_NO_NEW_DIR,
     'other_costs_of_treat': OTHER_COSTS_OF_TREAT,
     'other_costs_of_treat_mult': OTHER_COSTS_OF_TREAT_MULT,
     'other_max_shares': OTHER_MAX_SHARES,
-    'pt_depth': PT_DEPTH, 'pt_no_of_evalupoints': PT_NO_OF_EVALUPOINTS,
+    'pt_depth': PT_DEPTH, 'pt_enforce_restriction': PT_ENFORCE_RESTRICTION,
+    'pt_eva_cat_mult': PT_EVA_CAT_MULT,
+    'pt_no_of_evalupoints': PT_NO_OF_EVALUPOINTS,
     'pt_min_leaf_size': PT_MIN_LEAF_SIZE,
+    'pt_select_values_cat': PT_SELECT_VALUES_CAT,
     'rnd_shares': RND_SHARES,
     'var_bb_restrict_name': VAR_BB_RESTRICT_NAME,
     'var_d_name': VAR_D_NAME, 'var_effect_vs_0': VAR_EFFECT_VS_0,
     'var_effect_vs_0_se': VAR_EFFECT_VS_0_SE, 'var_id_name': VAR_ID_NAME,
     'var_polscore_desc_name': VAR_POLSCORE_DESC_NAME,
     'var_polscore_name': VAR_POLSCORE_NAME,
+    'var_vi_x_name': VAR_VI_X_NAME,
+    'var_vi_to_dummy_name': VAR_VI_TO_DUMMY_NAME,
     'var_x_ord_name': VAR_X_ORD_NAME, 'var_x_unord_name': VAR_X_UNORD_NAME
     }
 
 PICKLE_FILE_BB = DATPATH + '/myoptptrain_BB.pickle'  # Storing results on disc
 PICKLE_FILE_PT = DATPATH + '/myoptppredict_PT.pickle'
+PICKLE_FILE_PT2 = DATPATH + '/myoptppredict_PT2ff.pickle'
 CSV_FILE_BB = DATPATH + '/myoptptrain_BB.csv'  # Storing results on disc
 CSV_FILE_PT = DATPATH + '/myoptppredict_PT.csv'
+CSV_FILE_PT2 = DATPATH + '/myoptppredict_PTeff.csv'
 
 train_df = pd.read_csv(DATPATH + '/' + TRAINDATA)
 pred_df = pd.read_csv(DATPATH + '/' + PREDDATA)
@@ -260,6 +306,8 @@ for method in METHODS:
         pickle_file, alloc_file = PICKLE_FILE_BB, CSV_FILE_BB
     elif method == 'policy tree':
         pickle_file, alloc_file = PICKLE_FILE_PT, CSV_FILE_PT
+    elif method == 'policy tree eff':
+        pickle_file, alloc_file = PICKLE_FILE_PT2, CSV_FILE_PT2
     else:
         raise ValueError('Invalid method specified')
 

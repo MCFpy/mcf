@@ -1,4 +1,4 @@
-"""Created on Wed Apr  1 15:58:30 2020.
+"""Created on Wed Apr  1 15:58:30 2020.  -*- coding: utf-8 -*- .
 
 Modified Causal Forest - Python implementation
 
@@ -9,9 +9,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.4.1
-
--*- coding: utf-8 -*- .
+Version: 0.4.2
 
 This is an example to show how the mcf can be implemented relying completely on
 defaults. Note that usually in application it is very likely to be appropriate
@@ -20,7 +18,8 @@ to deviate from some of the default specifications.
 """
 import pandas as pd
 
-from mcf import ModifiedCausalForest
+from mcf.mcf_functions import ModifiedCausalForest
+# from mcf import ModifiedCausalForest
 
 # ------------------ NOT parameters of the ModifiedCausalForest ---------------
 #  Define data to be used in this example

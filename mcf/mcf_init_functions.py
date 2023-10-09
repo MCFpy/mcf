@@ -1,4 +1,5 @@
-"""Created on Thu Mai 11 11:05:15 2023.
+"""
+Created on Thu Mai 11 11:05:15 2023.
 
 Contains the functions needed for initialising the parameters of the programme.
 @author: MLechner
@@ -14,17 +15,62 @@ from mcf import mcf_print_stats_functions as ps
 from mcf import mcf_general_sys as mcf_sys
 
 
-def int_init(descriptive_stats=None, dpi=None, fontsize=None,
-             no_filled_plot=None, max_save_values=None,
+def blind_init(var_x_protected_name=None, var_x_policy_name=None,
+               var_x_unrestricted_name=None, weights_of_blind=None,
+               obs_ref_data=None, seed=None):
+    """Initialise dictionary with parameters for blind_iate methods."""
+    dic = {}
+    dic['var_x_protected_name'] = var_x_protected_name
+    dic['var_x_policy_name'] = var_x_policy_name
+    dic['var_x_unrestricted_name'] = var_x_unrestricted_name
+
+    if (obs_ref_data is None or not isinstance(obs_ref_data, (float, int))
+            or obs_ref_data < 1):
+        dic['obs_ref_data'] = 100
+    else:
+        dic['obs_ref_data'] = int(obs_ref_data)
+
+    if weights_of_blind is None or not isinstance(weights_of_blind,
+                                                  (tuple, list, float, int)):
+        dic['weights_of_blind'] = (0, 1,)
+    else:
+        if isinstance(weights_of_blind, (float, int)):
+            if 0 > weights_of_blind > 1:
+                dic['weights_of_blind'] = (0, weights_of_blind, 1)
+            else:
+                dic['weights_of_blind'] = (weights_of_blind,)
+        else:
+            if isinstance(weights_of_blind, tuple):
+                weights_of_blind = list(weights_of_blind)
+            dic['weights_of_blind'] = weights_of_blind
+            if min(dic['weights_of_blind']) > 0:
+                dic['weights_of_blind'] = [0] + dic['weights_of_blind']
+            if max(dic['weights_of_blind']) < 1:
+                dic['weights_of_blind'] = dic['weights_of_blind'] + [1]
+        if not all(0 <= elem <= 1 for elem in dic['weights_of_blind']):
+            raise ValueError(f'{dic["weights_of_blind"]} must be nonnegative'
+                             ' and not larger than 1')
+    if seed is None or not isinstance(seed, (float, int)) or seed < 1:
+        dic['seed'] = 123456
+    else:
+        dic['seed'] = int(seed)
+    return dic
+
+
+def int_init(del_forest=None, descriptive_stats=None, dpi=None, fontsize=None,
+             keep_w0=None, no_filled_plot=None, max_save_values=None,
              max_cats_cont_vars=None, mp_ray_del=None,
              mp_ray_objstore_multiplier=None, mp_ray_shutdown=None,
-             mp_vim_type=None, mp_weights_tree_batch=None,
-             mp_weights_type=None, return_iate_sp=None,
-             seed_sample_split=None, share_forest_sample=None,
-             show_plots=None, verbose=None, weight_as_sparse=None,
-             weight_as_sparse_splits=None, with_output=None):
+             mp_vim_type=None, output_no_new_dir=None,
+             mp_weights_tree_batch=None, mp_weights_type=None,
+             return_iate_sp=None, seed_sample_split=None,
+             share_forest_sample=None, show_plots=None, verbose=None,
+             weight_as_sparse=None, weight_as_sparse_splits=None,
+             with_output=None, p_ate_no_se_only=None):
     """Initialise dictionary of parameters of internal variables."""
     dic = {}
+    dic['del_forest'] = del_forest is True
+    dic['keep_w0'] = keep_w0 is True
     dic['descriptive_stats'] = descriptive_stats is not False
     dic['dpi'] = 500 if (dpi is None or dpi < 10) else round(dpi)
     if fontsize is not None and 0.5 < fontsize < 7.5:
@@ -83,6 +129,9 @@ def int_init(descriptive_stats=None, dpi=None, fontsize=None,
     dic['mp_ray_shutdown'] = mp_ray_shutdown
     dic['mp_vim_type'] = mp_vim_type
     dic['max_cats_cont_vars'] = max_cats_cont_vars
+    if p_ate_no_se_only is not None and p_ate_no_se_only:
+        dic['return_iate_sp'] = False
+    dic['output_no_new_dir'] = output_no_new_dir is True
     return dic
 
 
@@ -167,7 +216,8 @@ def gen_init(int_dic, d_type=None, iate_eff=None, mp_parallel=None,
     dic['sys_share'] = 0.7 * getattr(psutil.virtual_memory(), 'percent') / 100
     # Define or create directory for output and avoid overwritting
     if int_dic['with_output']:
-        dic['outpath'] = mcf_sys.define_outpath(outpath)
+        dic['outpath'] = mcf_sys.define_outpath(
+            outpath, not int_dic['output_no_new_dir'])
         # Files to write output to
         dic['outfiletext'] = ('txtFileWithOutput'
                               if outfiletext is None else outfiletext)
@@ -238,6 +288,9 @@ def var_init(gen_dic, fs_dic, p_dic, bgate_name=None, cluster_name=None,
         cluster_name = gp.cleaned_var_names(cluster_name)
     else:
         cluster_name = []
+    if p_dic['ate_no_se_only'] is True:
+        x_balance_name_ord = x_balance_name_unord = None
+        z_name_list = z_name_ord = z_name_unord = bgate_name = None
     # Clean variable names ... set all to capital letters
     d_name = gp.cleaned_var_names(gp.to_list_if_needed(d_name))
     y_tree_name = gp.cleaned_var_names(gp.to_list_if_needed(y_tree_name))
@@ -255,7 +308,11 @@ def var_init(gen_dic, fs_dic, p_dic, bgate_name=None, cluster_name=None,
     z_name_unord = gp.cleaned_var_names(z_name_unord)
     bgate_name = gp.cleaned_var_names(bgate_name) if p_dic['bgate'] else []
     x_name_ord = gp.cleaned_var_names(x_name_ord)
+    if z_name_list or z_name_ord:
+        x_name_ord += z_name_list + z_name_ord
     x_name_unord = gp.cleaned_var_names(x_name_unord)
+    if z_name_list or z_name_ord:
+        x_name_unord += z_name_unord
     if gen_dic['weighted']:      # Former w_yes
         if w_name is None or w_name == []:
             raise ValueError('No name for sample weights specified.')
@@ -362,9 +419,9 @@ def var_init(gen_dic, fs_dic, p_dic, bgate_name=None, cluster_name=None,
 def name_unique(all_names):
     """Remove any duplicates."""
     seen = set()
-    name_unique = [
+    name_unique_ = [
         item for item in all_names if item not in seen and not seen.add(item)]
-    return name_unique
+    return name_unique_
 
 
 def var_update_train(mcf_, data_df):
@@ -481,7 +538,7 @@ def cs_init(gen_dic, max_del_train=None, min_p=None, quantil=None, type_=None,
     dic['adjust_limits'] = adjust_limits
     if gen_dic['outpath'] is not None:
         dic = mcf_sys.get_fig_path(dic, gen_dic['outpath'], 'common_support',
-                                   gen_dic['with_output'], no_csv=True)
+                                   gen_dic['with_output'], no_csv=False)
     dic['cut_offs'], dic['forests'] = None, None
     return dic
 
@@ -689,7 +746,7 @@ def cf_update_train(mcf_, data_df):
     mcf_.gen_dict = gen_dic
 
 
-def p_init(gen_dic, amgate=None, atet=None, bgate=None,
+def p_init(gen_dic, ate_no_se_only=None, amgate=None, atet=None, bgate=None,
            bt_yes=None, choice_based_sampling=None, choice_based_probs=None,
            ci_level=None, cluster_std=None, cond_var=None,
            gates_minus_previous=None, gates_smooth=None,
@@ -701,6 +758,11 @@ def p_init(gen_dic, amgate=None, atet=None, bgate=None,
            se_boot_iate=None):
     """Initialise dictionary with parameters of parameter prediction."""
     atet, gatet = atet is True, gatet is True
+    ate_no_se_only = ate_no_se_only is True
+    if ate_no_se_only:
+        atet = gatet = amgate = bgate = bt_yes = cluster_std = False
+        gates_smooth = iate = iate_se = iate_m_ate = se_boot_ate = False
+        se_boot_gate = se_boot_iate = False
     if gatet:
         atet = True
     amgate, bgate, bt_yes = amgate is True,  bgate is True, bt_yes is True
@@ -751,8 +813,9 @@ def p_init(gen_dic, amgate=None, atet=None, bgate=None,
     q_w = [0.5, 0.25, 0.1, 0.05, 0.04, 0.03, 0.02, 0.01]
     # Assign variables to dictionary
     dic = {
-        'amgate': amgate, 'atet': atet, 'bgate': bgate, 'bt_yes': bt_yes,
-        'ci_level': ci_level, 'choice_based_sampling': choice_based_sampling,
+        'ate_no_se_only': ate_no_se_only, 'amgate': amgate, 'atet': atet,
+        'bgate': bgate, 'bt_yes': bt_yes, 'ci_level': ci_level,
+        'choice_based_sampling': choice_based_sampling,
         'choice_based_probs': choice_based_probs, 'cluster_std': cluster_std,
         'cond_var': cond_var, 'gmate_sample_share': gmate_sample_share,
         'gates_minus_previous': gates_minus_previous,

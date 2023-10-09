@@ -25,7 +25,8 @@ def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, cf_dic, mmm, rng):
     Parameters
     ----------
     x_ind_pos : List. Indices of all x-variables.
-    x_ai_ind : List. Indices of all x-variables always used for splitting.
+    x_ai_ind : Numpy 1D array or empty list.
+         Indices of all x-variables always used for splitting.
     c_dict : Dict. Parameters
     mmm : Number of variables to draw.
     rng : default random number generator.
@@ -44,7 +45,7 @@ def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, cf_dic, mmm, rng):
             m_l = qqq
     else:
         m_l = mmm
-    if x_ai_ind_pos == []:
+    if len(x_ai_ind_pos) == 0:
         x_i_for_split = rng.choice(x_ind_pos, m_l, replace=False)
         x_i_for_split_list = x_i_for_split.tolist()
     else:

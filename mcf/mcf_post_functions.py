@@ -7,6 +7,8 @@ Created on Thu Jun 29 17:28:31 2023.
 # -*- coding: utf-8 -*-
 @author: MLechner
 """
+from copy import deepcopy
+
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -284,8 +286,9 @@ def post_estimation_iate(mcf_, results):
     ps.print_mcf(gen_dic, txt, summary=True)
 
 
-def k_means_of_x_iate(mcf_, results):
+def k_means_of_x_iate(mcf_, results_prev):
     """Compute kmeans."""
+    results = deepcopy(results_prev)
     gen_dic, post_dic = mcf_.gen_dict, mcf_.post_dict
     var_dic, var_x_type = mcf_.var_dict, mcf_.var_x_type
     if (mcf_.post_dict['relative_to_first_group_only']
@@ -365,7 +368,7 @@ def k_means_of_x_iate(mcf_, results):
     pd.set_option('display.max_rows', None, 'display.max_columns', None)
     txt = '\nSaving cluster indicator from k-means clustering.\n'
     ps.print_mcf(gen_dic, txt, summary=False)
-    results['iate_df'] = data_df
+    results['iate_data_df'] = data_df
     return results
 
 

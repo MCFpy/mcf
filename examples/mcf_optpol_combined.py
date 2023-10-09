@@ -1,4 +1,4 @@
-"""Created on Wed Apr  1 15:58:30 2020.
+"""Created on Wed Apr  1 15:58:30 2020. -*- coding: utf-8 -*- .
 
 Modified Causal Forest - Python implementation
 
@@ -9,9 +9,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.4.1
-
--*- coding: utf-8 -*- .
+Version: 0.4.2
 
 This is an example to show how to combine the ModifiedCausalForest class and
 the OptimalPolicy class for joint estimation. Please note that there could be
@@ -21,9 +19,11 @@ may be superior to the simple split used here.
 """
 import pandas as pd
 
+from mcf.mcf_functions import ModifiedCausalForest
+from mcf.optpolicy_functions import OptimalPolicy
 
-from mcf import ModifiedCausalForest
-from mcf import OptimalPolicy
+# from mcf import ModifiedCausalForest
+# from mcf import OptimalPolicy
 
 #  In this example we combine mcf estimation and an optimal policy tree in a
 #  simple split sample approach.
@@ -67,6 +67,7 @@ evaluate_pt_df.reset_index(drop=True, inplace=True)
 mymcf = ModifiedCausalForest(var_d_name=VAR_D_NAME,
                              var_y_name=VAR_Y_NAME,
                              var_x_name_ord=VAR_X_NAME_ORD,
+                             gen_iate_eff=True,
                              gen_outpath=APPLIC_PATH)
 mymcf.train(train_mcf_df)
 results = mymcf.predict(pred_mcf_train_pt_df)

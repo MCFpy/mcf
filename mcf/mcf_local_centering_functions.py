@@ -23,7 +23,9 @@ def local_centering(mcf_, tree_df, fill_y_df, train=True):
     lc_dic, gen_dic, var_dic = mcf_.lc_dict, mcf_.gen_dict, mcf_.var_dict
     var_x_type, data_train_dict = mcf_.var_x_type, mcf_.data_train_dict
     cf_dic = mcf_.cf_dict
-    ps.print_mcf(gen_dic, '=' * 100 + '\nLocal Centering' + '\n', summary=True)
+    if gen_dic['with_output']:
+        ps.print_mcf(gen_dic, '=' * 100 + '\nLocal Centering' + '\n',
+                     summary=True)
     seed = 9324561
     if gen_dic['with_output'] and gen_dic['verbose']:
         txt = '\nLocal centering with Random Forests estimated '
@@ -96,12 +98,12 @@ def local_centering(mcf_, tree_df, fill_y_df, train=True):
                     y_x_tree[index_pred, idx] = y_rf_obj.predict(x_pred)
                     y_x_fy[:, idx] += y_rf_obj.predict(x_fy_np)
                     forests_y.append(deepcopy(y_rf_obj))
+                forests_all.append(deepcopy(forests_y))
             if gen_dic['with_output']:
                 for idx, y_name in enumerate(var_dic['y_name']):
                     print_lc_info(y_name, y_as_classifier, gen_dic,
                                   y_x_tree[:, idx].ravel(),
                                   y_tree_np[:, idx].ravel())
-                forests_all.append(deepcopy(forests_y))
             y_x_fy /= lc_dic['cs_cv_k']
         else:
             forests_y = []
@@ -148,6 +150,8 @@ def local_centering(mcf_, tree_df, fill_y_df, train=True):
         y_x_df = None
     else:  # Predict Ey|X
         y_x_np = np.zeros((len(x_tree_np), len(var_dic['y_name'])))
+        if lc_dic['forests'] == []:
+            raise ValueError('Center forests are not saved for prediction.')
         for forest in lc_dic['forests']:
             for idx, forest_y in enumerate(forest):
                 y_x_np[:, idx] += forest_y.predict(x_tree_np)

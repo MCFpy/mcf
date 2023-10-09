@@ -100,7 +100,10 @@ def print_dic(dic, dic_name, gen_dic, summary=False):
     print_mcf(gen_dic, '\n' + dic_name, '\n' + '- ' * 50, summary=summary)
     for keys, values in dic.items():
         if isinstance(values, (list, tuple)):
-            sss = [str(x) for x in values]
+            if len(values) < 20:
+                sss = [str(x) for x in values]
+            else:
+                sss = [str(values[0]), ' ... ', str(values[-1])]
             print_mcf(gen_dic, keys, ':  ', ' '.join(sss), summary=summary)
         else:
             print_mcf(gen_dic, keys, ':  ', values, summary=summary)
@@ -189,8 +192,8 @@ def balancing_tests(gen_dic, mean, std, count, only_next=False, summary=False,
                 for jdx, val in enumerate(mean_diff):
                     txt += (
                         f'\n{mean_diff.index[jdx]:30} {val:10.5f}'
-                        f'{std_diff[jdx]:10.5f} {t_diff[jdx]:9.2f}'
-                        f'{p_diff[jdx]:9.2f} {stand_diff[jdx]:9.2f}')
+                        f'{std_diff.iloc[jdx]:10.5f} {t_diff.iloc[jdx]:9.2f}'
+                        f'{p_diff[jdx]:9.2f} {stand_diff.iloc[jdx]:9.2f}')
                 print_mcf(gen_dic, txt, summary=summary)
                 if only_next:
                     break
@@ -256,11 +259,13 @@ def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
     """
     print_str = ''
     if add_title is None:
-        print_str += ('\nComparison                Estimate   Standard error'
-                      ' t-value   p-value')
+        print_str += '\nComparison                Estimate'
+        if stderr is not None:
+            print_str += '   Standard error t-value   p-value'
     else:
-        print_str += (f'Comparison {add_title}              Estimate'
-                      '   Standard error t-value   p-value')
+        print_str += f'Comparison {add_title}              Estimate'
+        if stderr is not None:
+            print_str += '   Standard error t-value   p-value'
     print_str += '\n' + '- ' * 50 + '\n' + ''
     for j in range(np.size(est)):
         if continuous:
@@ -270,16 +275,18 @@ def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
         print_str += compf + ' '
         if add_title is not None:
             print_str += 'f{add_info:6.2f} '
-        print_str += f'{est[j]:12.6f}  {stderr[j]:12.6f} '
-        print_str += f'{t_val[j]:8.2f}  {p_val[j]:8.3%} '
-        if p_val[j] < 0.001:
-            print_str += '****'
-        elif p_val[j] < 0.01:
-            print_str += ' ***'
-        elif p_val[j] < 0.05:
-            print_str += '  **'
-        elif p_val[j] < 0.1:
-            print_str += '   *'
+        print_str += f'{est[j]:12.6f}'
+        if stderr is not None:
+            print_str += f'  {stderr[j]:12.6f} '
+            print_str += f'{t_val[j]:8.2f}  {p_val[j]:8.3%} '
+            if p_val[j] < 0.001:
+                print_str += '****'
+            elif p_val[j] < 0.01:
+                print_str += ' ***'
+            elif p_val[j] < 0.05:
+                print_str += '  **'
+            elif p_val[j] < 0.1:
+                print_str += '   *'
         print_str += '\n'
     print_str += '- ' * 50
     return print_str
@@ -313,19 +320,31 @@ def effect_to_csv(est, stderr, t_val, p_val, effect_list, path=None,
         else:
             effect_name = str(effect_list[j][0]) + str(effect_list[j][1])
         names_est.append('ATE_' + effect_name)
-        names_se.append('ATE_SE_' + effect_name)
-        names_tval.append('ATE_t_' + effect_name)
-        names_pval.append('ATE_p_' + effect_name)
-    names = names_est + names_se + names_tval + names_pval
-    if isinstance(est, (list, tuple)):
-        data = est + stderr + t_val + p_val
-    elif isinstance(est, (float, int)):
-        data = [est, stderr, t_val, p_val]
-    elif isinstance(est, np.ndarray):
-        data = np.concatenate((est, stderr, t_val, p_val))
-        data = np.reshape(data, (1, -1))
+        if stderr is not None:
+            names_se.append('ATE_SE_' + effect_name)
+            names_tval.append('ATE_t_' + effect_name)
+            names_pval.append('ATE_p_' + effect_name)
+    if stderr is None:
+        names = names_est
+        if isinstance(est, (list, tuple)):
+            data = est
+        elif isinstance(est, (float, int)):
+            data = [est]
+        elif isinstance(est, np.ndarray):
+            data = np.reshape(est, (1, -1))
+        else:
+            raise TypeError('Unknown data type for saving effects to file.')
     else:
-        raise TypeError('Unknown data type for saving effects to file.')
+        names = names_est + names_se + names_tval + names_pval
+        if isinstance(est, (list, tuple)):
+            data = est + stderr + t_val + p_val
+        elif isinstance(est, (float, int)):
+            data = [est, stderr, t_val, p_val]
+        elif isinstance(est, np.ndarray):
+            data = np.concatenate((est, stderr, t_val, p_val))
+            data = np.reshape(data, (1, -1))
+        else:
+            raise TypeError('Unknown data type for saving effects to file.')
     data_df = pd.DataFrame(data, columns=names)
     data_df.to_csv(file, index=False)
 

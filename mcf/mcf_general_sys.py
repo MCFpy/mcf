@@ -23,27 +23,35 @@ def delete_file_if_exists(file_name):
         os.remove(file_name)
 
 
-def define_outpath(outpath):
+def define_outpath(outpath, new_outpath=True):
     """Verify outpath and create new one if needed."""
     path_programme_run = str(Path(__file__).parent.absolute())
     if outpath is None:
         outpath = path_programme_run + '/out'
-    out_temp = outpath
-    for i in range(1000):
-        if os.path.isdir(out_temp):
-            print(f'Directory for output {out_temp} already exists',
-                  'A new directory is created for the output.')
-            out_temp = outpath + str(i)
-        else:
+    if new_outpath:
+        out_temp = outpath
+        for i in range(1000):
+            if os.path.isdir(out_temp):
+                print(f'Directory for output {out_temp} already exists',
+                      'A new directory is created for the output.')
+                out_temp = outpath + str(i)
+            else:
+                try:
+                    os.mkdir(out_temp)
+                except OSError as oserr:
+                    raise OSError(f'Creation of the directory {out_temp}'
+                                  ' failed') from oserr
+                print(f'Successfully created the directory {out_temp}')
+                if out_temp != outpath:
+                    outpath = out_temp
+                break
+    else:
+        if not os.path.isdir(outpath):
             try:
-                os.mkdir(out_temp)
+                os.mkdir(outpath)
             except OSError as oserr:
                 raise OSError(
                     f'Creation of the directory {out_temp} failed') from oserr
-            print(f'Successfully created the directory {out_temp}')
-            if out_temp != outpath:
-                outpath = out_temp
-            break
     return outpath
 
 

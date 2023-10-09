@@ -29,8 +29,9 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
     d_name, _, no_of_treat = mcf_data.get_treat_info(mcf_)
     x_name, x_type = gp.get_key_values_in_list(var_x_type)
     names_unordered = [x_name[j] for j, val in enumerate(x_type) if val > 0]
-    ps.print_mcf(gen_dic, '\n' + '=' * 100 + '\nCommon support analysis',
-                 summary=True)
+    if gen_dic['with_output'] and gen_dic['verbose']:
+        ps.print_mcf(gen_dic, '\n' + '=' * 100 + '\nCommon support analysis',
+                     summary=True)
     if train:
         if lc_dic['cs_cv']:   # Crossvalidate ... only tree data is used
             tree_mcf_df, fill_y_mcf_df = tree_df.copy(), fill_y_df.copy()
@@ -293,10 +294,14 @@ def plot_support(mcf_, probs_np, d_np):
         treat_prob = probs_np[:, idx_p]
         titel = f'Probability of treatment {ival_p} in different subsamples'
         f_titel = f'common_support_pr_treat{ival_p}'
+        file_name_csv = (cs_dic['common_support_fig_pfad_csv']
+                         + '/' + f_titel + '.csv')
         file_name_jpeg = (cs_dic['common_support_fig_pfad_jpeg']
                           + '/' + f_titel + '.jpeg')
         file_name_pdf = (cs_dic['common_support_fig_pfad_pdf']
                          + '/' + f_titel + '.pdf')
+        file_name_csv_d = (cs_dic['common_support_fig_pfad_csv']
+                           + '/' + f_titel + '_d.csv')
         file_name_jpeg_d = (cs_dic['common_support_fig_pfad_jpeg']
                             + '/' + f_titel + '_d.jpeg')
         file_name_pdf_d = (cs_dic['common_support_fig_pfad_pdf']
@@ -305,18 +310,21 @@ def plot_support(mcf_, probs_np, d_np):
         fig, axs = plt.subplots()
         fig_d, axs_d = plt.subplots()
         labels = ['Treat ' + str(d) for d in d_values]
+        fit_line_all, bins_all = [], []
         for idx, dat in enumerate(data_hist):
             axs.hist(dat, bins='auto', histtype='bar', label=labels[idx],
                      color=color_list[idx], alpha=0.5, density=False)
             _, bins, _ = axs_d.hist(dat, bins='auto', histtype='bar',
                                     label=labels[idx], color=color_list[idx],
                                     alpha=0.5, density=True)
+            bins_all.append(bins)
             sigma = np.std(dat)
             fit_line = ((1 / (np.sqrt(2 * np.pi) * sigma))
                         * np.exp(-0.5 * (1 / sigma
                                          * (bins - np.mean(dat)))**2))
             axs_d.plot(bins, fit_line, '--', color=color_list[idx],
                        label='Smoothed ' + labels[idx])
+            fit_line_all.append(fit_line)
         axs.set_title(titel)
         axs.set_xlabel('Treatment probability')
         axs.set_ylabel('Observations')
@@ -329,8 +337,13 @@ def plot_support(mcf_, probs_np, d_np):
                    fontsize=int_dic['fontsize'])
         mcf_sys.delete_file_if_exists(file_name_jpeg)
         mcf_sys.delete_file_if_exists(file_name_pdf)
+        mcf_sys.delete_file_if_exists(file_name_csv)
         fig.savefig(file_name_jpeg, dpi=int_dic['dpi'])
         fig.savefig(file_name_pdf, dpi=int_dic['dpi'])
+        save_list = [data_hist, labels]
+        save_df = pd.DataFrame(save_list)
+        save_df = save_df.fillna(value='NaN')
+        save_df.to_csv(file_name_csv, index=False)
         axs_d.set_title(titel)
         axs_d.set_xlabel('Treatment probability')
         axs_d.set_ylabel('Density')
@@ -343,6 +356,11 @@ def plot_support(mcf_, probs_np, d_np):
                      fontsize=int_dic['fontsize'])
         mcf_sys.delete_file_if_exists(file_name_jpeg_d)
         mcf_sys.delete_file_if_exists(file_name_pdf_d)
+        mcf_sys.delete_file_if_exists(file_name_csv_d)
+        save_list = [fit_line_all, bins_all, labels]
+        save_df = pd.DataFrame(save_list)
+        save_df = save_df.fillna(value='NaN')
+        save_df.to_csv(file_name_csv_d, index=False)
         fig_d.savefig(file_name_jpeg_d, dpi=int_dic['dpi'])
         fig_d.savefig(file_name_pdf_d, dpi=int_dic['dpi'])
         if int_dic['show_plots']:

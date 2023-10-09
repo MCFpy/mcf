@@ -118,7 +118,7 @@ def add_with_list(pot_all, pot_add):
 
 def weight_var(w0_dat, y0_dat, cl_dat, gen_dic, p_dic, norm=True,
                w_for_diff=None, weights=None, bootstrap=0, keep_some_0=False,
-               se_yes=True):
+               se_yes=True, keep_all=False):
     """Generate the weight-based variance.
 
     Parameters
@@ -133,6 +133,7 @@ def weight_var(w0_dat, y0_dat, cl_dat, gen_dic, p_dic, norm=True,
     weights : Numpy array. Sampling weights. Clustering only. Default is None.
     no_agg :   Boolean. No aggregation of weights. Default is False.
     bootstrap: Int. If > 1: Use bootstrap instead for SE estimation.
+    keep_some_0, se_yes, keep_all: Booleans.
 
     Returns
     -------
@@ -154,7 +155,10 @@ def weight_var(w0_dat, y0_dat, cl_dat, gen_dic, p_dic, norm=True,
                 or (1-1e-10 < sum_w_dat < 1+1e-10)):
             w_dat = w_dat / sum_w_dat
     w_ret = np.copy(w_dat)
-    w_pos = np.abs(w_dat) > 1e-15  # use non-zero only to speed up
+    if keep_all:
+        w_pos = np.ones_like(w_dat, dtype=bool)
+    else:
+        w_pos = np.abs(w_dat) > 1e-15  # use non-zero only to speed up
     only_copy = np.all(w_pos)
     if keep_some_0 and not only_copy:  # to improve variance estimate
         sum_pos = np.sum(w_pos)
@@ -994,7 +998,7 @@ def print_vi(x_to_check, var_im_groups, loss_in_r2_single, loss_in_r2_dummy,
     txt = ''
     if with_output:
         txt += '\n' * 2 + '-' * 100
-        txt += ('\nVariable importance statistics in %-point of R2 lost'
+        txt += ('\nVariable importance statistics in %-point of R2 lost '
                 'when omitting particular variable')
         txt += '\n' + '- ' * 50
         txt += ('\nUnordered variables are included (in RF and VI) as dummies'
@@ -1003,7 +1007,8 @@ def print_vi(x_to_check, var_im_groups, loss_in_r2_single, loss_in_r2_dummy,
             txt += ('\nHere, all elements of these variables are jointly '
                     'tested (in Table under heading of unordered variable).')
         for idx, vim in enumerate(vim_sorted):
-            txt += f'\n{x_names_sorted[idx]:<50}: {vim:>7.2%}'
+            name_ = ps.del_added_chars(x_names_sorted[idx], prime=True)
+            txt += f'\n{name_:<50}: {vim:>7.2%}'
         txt += '\n' + '-' * 100
     return x_names_sorted, vim_sorted, txt
 

@@ -523,8 +523,8 @@ def print_variable_importance(clas_obj, x_df, d_df, x_name, names_uo,
     d_test_np = d_test_df.to_numpy().ravel()
     score_d_full = accuracy_score(d_test_np, clas_obj.predict(x_test_np),
                                   normalize=True)
-    vi_information = pd.DataFrame(columns=x_name, index=['score_w/o_x_d',
-                                                         'rel_diff_d_%'])
+    vi_information = pd.DataFrame(0, columns=x_name, index=['score_w/o_x_d',
+                                                            'rel_diff_d_%'])
     for name in x_name:
         if name in names_uo:
             names_to_shuffle = unordered_dummy_names[name]

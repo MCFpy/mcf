@@ -12,8 +12,10 @@ from copy import deepcopy
 
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
 
 from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_variable_importance_functions as vi
 
 
 def evaluate(optp_, data_df, allocation_df, d_ok, polscore_desc_ok, desc_var):
@@ -110,7 +112,7 @@ def evaluation_of_alloc(optp_, results_dic, pop, alloc_name, score_sel_new_df,
     txt = ''
     if titel:
         scorevar = score_sel_new_df.columns
-        txt += ('\n' + '=' * 100 + '\n' + 'Mean of variables /'
+        txt += ('\n' + '-' * 100 + '\n' + 'Mean of variables /'
                 ' treatment shares' + ' ' * 6 + f'{scorevar[0]:10}')
         if desc_new_var_df is not None:
             for var in desc_var:
@@ -126,20 +128,111 @@ def evaluation_of_alloc(optp_, results_dic, pop, alloc_name, score_sel_new_df,
             mean = desc_new_var_df[var].mean()
             txt += f' {mean:10.2f}'
             local_dic[var] = mean
-    values_, treat_counts = np.unique(allocation, return_counts=True)
-    treat_shares_ = treat_counts / len(allocation)
-    treat_shares, jdx = [0] * len(optp_.gen_dict['d_values']), 0
-    if list(values_):
-        for idx, vals in enumerate(optp_.gen_dict['d_values']):
-            if values_[jdx] == vals:
-                treat_shares[idx] = treat_shares_[jdx]
-                jdx += 1
+    treat_shares = get_treat_shares(allocation, optp_.gen_dict['d_values'])
     treat_shares_s = [f'{s:>8.2%}' for s in treat_shares]
     txt += ' ' * 6 + ''.join(treat_shares_s)
     if optp_.gen_dict['with_output']:
         ps.print_mcf(optp_.gen_dict, txt, summary=True)
     results_new_dic[alloc_name] = local_dic.copy()
     return results_new_dic
+
+
+def get_treat_shares(allocation, d_values):
+    """Get treatment shares."""
+    values_, treat_counts = np.unique(allocation, return_counts=True)
+    treat_shares_ = treat_counts / len(allocation)
+    treat_shares, jdx = [0] * len(d_values), 0
+    if list(values_):
+        for idx, vals in enumerate(d_values):
+            if values_[jdx] == vals:
+                treat_shares[idx] = treat_shares_[jdx]
+                jdx += 1
+    return treat_shares
+
+
+def evaluate_multiple(optp_, allocations_dic, scores_df):
+    """Compute and print results for multiple allocation."""
+    txt = ('\n' * 2 + '-' * 100 + '\n' + f'{"Allocation":12s}'
+           + 'Shares:  '
+           + ' '.join([f'{s:7d}' for s in optp_.gen_dict['d_values']])
+           + '     Sum / Mean / Variance of Potential Outcomes')
+    scores_np = scores_df.to_numpy()
+    for alloc in allocations_dic:
+        allocation = np.int16(np.round(allocations_dic[alloc].to_numpy()))
+        if allocation.shape[1] > 1:
+            allocation = allocation[:, 0]
+        if (np.min(allocation) < min(optp_.gen_dict['d_values'])
+                or np.max(allocation) < max(optp_.gen_dict['d_values'])):
+            raise ValueError('Inconistent definition of treatment values')
+        treat_shares = get_treat_shares(allocation, optp_.gen_dict['d_values'])
+        index = np.int16(np.arange(len(optp_.gen_dict['d_values'])))
+        indices_ = allocation.copy()
+        idx_row = np.arange(len(scores_np))
+        for idx, val in enumerate(np.int16(optp_.gen_dict['d_values'])):
+            indices_ = np.where(allocation == val, index[idx], indices_)
+        score_sel = scores_np[idx_row, indices_]
+        mean, variance = np.mean(score_sel), np.var(score_sel)
+        summ = np.sum(score_sel)
+        txt += f'\n{alloc:20s}: '
+        treat_shares_s = [f'{s:>8.2%}' for s in treat_shares]
+        txt += ' ' + ''.join(treat_shares_s)
+        txt += f'  {summ:12.2f}  {mean:8.4f}  {variance:8.4f}'
+    txt += '\n' + '-' * 100
+    ps.print_mcf(optp_.gen_dict, txt, summary=True)
+
+
+def variable_importance(optp_, data_df, allocation_df, seed=1234567):
+    """Compute variable importance measures for various allocations."""
+    names_unordered = optp_.var_dict['vi_to_dummy_name']
+    for alloc_name in allocation_df.columns:
+        if alloc_name in ('random', 'RANDOM'):
+            continue
+        txt = ('\n' * 2 + '-' * 100 + '\n'
+               + f'Variable importance statistic for {alloc_name}\n'
+               + '- ' * 50)
+        ps.print_mcf(optp_.gen_dict, txt, summary=True)
+        if (optp_.var_dict['vi_to_dummy_name'] is None
+                or optp_.var_dict['vi_to_dummy_name'] == []):
+            x_name = optp_.var_dict['vi_x_name']
+        elif (optp_.var_dict['vi_x_name'] is None
+                or optp_.var_dict['vi_x_name'] == []):
+            x_name = optp_.var_dict['vi_to_dummy_name']
+        else:
+            x_name = (optp_.var_dict['vi_to_dummy_name']
+                      + optp_.var_dict['vi_x_name'])
+        if x_name is None or len(x_name) == 1:
+            continue
+        x_df = data_df[x_name].copy()
+        d_df = allocation_df[alloc_name]
+        dummy_names = {}
+        if names_unordered:
+            for idx, name in enumerate(names_unordered):
+                x_dummies = pd.get_dummies(x_df[name], columns=[name],
+                                           dtype=int)
+                x_dummies_names = [name + str(dummy)
+                                   for dummy in x_dummies.columns]
+                dummy_names[name] = x_dummies.columns = x_dummies_names
+                x_dummies_s = x_dummies.reindex(sorted(x_dummies.columns),
+                                                axis=1)
+                if idx == 0:
+                    x_all_dummies = x_dummies_s
+                else:
+                    x_all_dummies = pd.concat([x_all_dummies, x_dummies_s],
+                                              axis=1, copy=True)
+            names_wo = [name for name in x_df.columns
+                        if name not in names_unordered]
+            x_new_df = pd.concat((x_df[names_wo], x_all_dummies), axis=1,
+                                 copy=True)
+        else:
+            x_new_df = x_df
+        classif = RandomForestClassifier(
+            n_estimators=1000, max_features='sqrt', bootstrap=True,
+            oob_score=False, n_jobs=optp_.int_dict['mp_parallel'],
+            random_state=seed, verbose=False, min_samples_split=5)
+#        classif.fit(x_train, d_train)
+        vi.print_variable_importance(
+            classif, x_new_df, d_df, x_name, names_unordered, dummy_names,
+            optp_.gen_dict, summary=True)
 
 
 def value_to_index_dic_fct(values_np):

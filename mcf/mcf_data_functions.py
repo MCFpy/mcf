@@ -372,8 +372,10 @@ def create_xz_variables(mcf_, data_df, train=True):
                     else:
                         q_inv = q_inv_dict[z_name]
                         std = data_df[z_name].std()
-                        q_inv[0] = data_df[z_name].min() - 0.001 * std
-                        q_inv[-1] = data_df[z_name].max() + 0.001 * std
+                        q_inv[0] = min(q_inv[0],
+                                       data_df[z_name].min() - 0.001 * std)
+                        q_inv[-1] = max(q_inv[-1],
+                                        data_df[z_name].max() + 0.001 * std)
                     data_s = pd.cut(data_df[z_name], q_inv, right=True,
                                     labels=False)
                     if train:

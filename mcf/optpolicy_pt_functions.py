@@ -9,7 +9,6 @@ from copy import deepcopy
 from math import inf
 import random
 
-from numba import njit
 import numpy as np
 import pandas as pd
 import ray
@@ -17,6 +16,7 @@ import ray
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_print_stats_functions as ps
 from mcf import optpolicy_pt_add_functions as opt_pt_add
+from mcf import optpolicy_pt_eff_functions as opt_pt_eff
 
 
 def policy_tree_allocation(optp_, data_df):
@@ -40,7 +40,21 @@ def policy_tree_allocation(optp_, data_df):
         costs_of_treat_update = ot_dic['costs_of_treat']
     # Do not update cost information in attribute but keep it separate
     optp_.pt_dict['cost_of_treat_restrict'] = np.array(costs_of_treat_update)
-    best_tree, _, _ = optimal_tree_proc(optp_, data_df, seed=12345)
+    best_tree = None
+    while best_tree is None:
+        if optp_.gen_dict['method'] == 'policy tree':
+            best_tree, _, _ = optimal_tree_proc(optp_, data_df, seed=12345)
+        elif optp_.gen_dict['method'] == 'policy tree eff':
+            best_tree, _, _ = opt_pt_eff.optimal_tree_eff_proc(optp_, data_df,
+                                                               seed=12345)
+        if best_tree is None:
+            if optp_.gen_dict['with_output']:
+                txt = (f'No tree obtained for depth {optp_.pt_dict["depth"]}.'
+                       ' Depth is reduced. If results are desired for original'
+                       ' depth level, try reducing the minimum leaf size or'
+                       ' in increase the number of evaluation points.')
+                optp_.pt_dict['depth'] -= 1
+                ps.print_mcf(optp_.gen_dict, txt, summary=True)
     optp_.pt_dict['policy_tree'] = best_tree
     pt_alloc_np = pred_policy_allocation(optp_, data_df)
     allocation_df = pd.DataFrame(data=pt_alloc_np, columns=('Policy Tree',))
@@ -244,7 +258,7 @@ def optimal_tree_proc(optp_, data_df, seed=12345):
     if gen_dic['with_output']:
         print('\nBuilding optimal policy / decision tree')
     (data_x, data_ps, data_ps_diff, name_x, type_x, values_x
-     ) = prepare_data_for_tree_building(optp_, data_df, seed=seed)
+     ) = opt_pt_add.prepare_data_for_tree_building(optp_, data_df, seed=seed)
     optimal_tree, x_trees = None, []
     if int_dic['parallel_processing']:
         if not ray.is_initialized():
@@ -280,33 +294,6 @@ def optimal_tree_proc(optp_, data_df, seed=12345):
     return optimal_tree, optimal_reward, obs_total
 
 
-def prepare_data_for_tree_building(optp_, data_df, seed=123456):
-    """Prepare data for tree building."""
-    int_dic, var_dic = optp_.int_dict, optp_.var_dict
-    x_type, x_values = optp_.var_x_type, optp_.var_x_values
-    gen_dic, pt_dic = optp_.gen_dict, optp_.pt_dict
-    data_ps = data_df[var_dic['polscore_name']].to_numpy()
-    data_ps_diff = data_ps[:, 1:] - data_ps[:, 0, np.newaxis]
-    no_of_x = len(x_type)
-    name_x = [None] * no_of_x
-    type_x, values_x = [None] * no_of_x, [None] * no_of_x
-    for j, key in enumerate(x_type.keys()):
-        name_x[j], type_x[j] = key, x_type[key]
-        values_x[j] = (sorted(x_values[key])
-                       if x_values[key] is not None else None)
-    data_x = data_df[name_x].to_numpy()
-    del data_df
-    if gen_dic['x_unord_flag']:
-        for m_i in range(no_of_x):
-            if type_x[m_i] == 'unord':
-                data_x[:, m_i] = np.round(data_x[:, m_i])
-                values_x[m_i] = opt_pt_add.combinations_categorical(
-                    data_x[:, m_i], data_ps_diff,
-                    pt_dic['no_of_evalupoints'], int_dic['with_numba'],
-                    seed=seed)
-    return data_x, data_ps, data_ps_diff, name_x, type_x, values_x
-
-
 def tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
                 pt_dic, gen_dic, ot_dic, treedepth, no_further_splits=False,
                 with_numba=True, seed=12345):
@@ -336,24 +323,23 @@ def tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
 
     """
     if treedepth == 1:  # Evaluate tree
-        tree, reward, no_by_treat = evaluate_leaf(
+        tree, reward, no_by_treat = opt_pt_add.evaluate_leaf(
             data_ps, gen_dic, ot_dic, pt_dic, with_numba=with_numba)
     else:
         if not no_further_splits and (treedepth < pt_dic['depth']):
-            no_further_splits = only_1st_tree_fct3(
+            no_further_splits = opt_pt_add.only_1st_tree_fct3(
                 data_ps, pt_dic['cost_of_treat_restrict'])
         min_leaf_size = pt_dic['min_leaf_size'] * 2**(treedepth - 2)
         no_of_x, reward = len(type_x), -inf
         tree = no_by_treat = None
-        txt = ''
         for m_i in range(no_of_x):
             if gen_dic['with_output']:
                 if treedepth == pt_dic['depth']:
-                    txt += (f'{name_x[m_i]:20s}  {m_i / no_of_x * 100:4.1f}%'
-                            ' of variables completed')
+                    txt = (f'{name_x[m_i]:20s}  {m_i / no_of_x * 100:4.1f}%'
+                           ' of variables completed')
                     ps.print_mcf(gen_dic, txt, summary=False)
             if type_x[m_i] == 'cont':
-                values_x_to_check = get_values_cont_x(
+                values_x_to_check = opt_pt_add.get_values_cont_x(
                     data_x[:, m_i], pt_dic['no_of_evalupoints'],
                     with_numba=with_numba)
             elif type_x[m_i] == 'disc':
@@ -386,8 +372,8 @@ def tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
                     data_x[right, :], name_x, type_x, values_x, pt_dic,
                     gen_dic, ot_dic, treedepth - 1, no_further_splits,
                     with_numba=with_numba, seed=seed+1)
-                if ot_dic['restricted']:
-                    reward_l, reward_r = adjust_reward(
+                if ot_dic['restricted'] and pt_dic['enforce_restriction']:
+                    reward_l, reward_r = opt_pt_add.adjust_reward(
                         no_by_treat_l, no_by_treat_r, reward_l, reward_r,
                         with_numba, ot_dic['max_by_treat'])
                 if reward_l + reward_r > reward:
@@ -451,213 +437,6 @@ def merge_trees(tree_l, tree_r, name_x_m, type_x_m, val_x, treedepth):
     return new_tree
 
 
-def adjust_reward(no_by_treat_l, no_by_treat_r, reward_l, reward_r,
-                  with_numba, max_by_treat):
-    """Adjust rewards if restrictions are violated.
-
-    Parameters
-    ----------
-    no_by_treat_l : Numpy array.
-    no_by_treat_r : Numpy array.
-    reward_l : Float.
-    reward_r : Float.
-    with_numba : Boolean.
-    max_by_treat : Int.
-
-    Returns
-    -------
-    reward_l : Numpy array.
-    reward_r : Numpy array.
-
-    """
-    if with_numba:
-        reward_l, reward_r = adjust_reward_numba(
-            no_by_treat_l, no_by_treat_r, reward_l, reward_r, max_by_treat)
-    else:
-        reward_l, reward_r = adjust_reward_no_numba(
-            no_by_treat_l, no_by_treat_r, reward_l, reward_r, max_by_treat)
-    return reward_l, reward_r
-
-
-@njit
-def adjust_reward_numba(no_by_treat_l, no_by_treat_r, reward_l, reward_r,
-                        max_by_treat):
-    """Adjust rewards if restrictions are violated.
-
-    Parameters
-    ----------
-    no_by_treat_l : Numpy array.
-    no_by_treat_r : Numpy array.
-    reward_l : Float.
-    reward_r : Float.
-    max_by_treat : Dict. Parameter.
-
-    Returns
-    -------
-    reward_l : Numpy array.
-    reward_r : Numpy array.
-
-    """
-    if not ((no_by_treat_l is None) or (no_by_treat_r is None)):
-        no_by_treat = no_by_treat_l + no_by_treat_r
-        violations = no_by_treat > max_by_treat
-        if np.any(violations):
-            diff_max = ((no_by_treat - max_by_treat) / max_by_treat).max()
-            diff = min(diff_max, 1)
-            reward_l = reward_l - diff * np.abs(reward_l)
-            reward_r = reward_r - diff * np.abs(reward_r)
-    return reward_l, reward_r
-
-
-def adjust_reward_no_numba(no_by_treat_l, no_by_treat_r, reward_l, reward_r,
-                           max_by_treat):
-    """Adjust rewards if restrictions are violated.
-
-    Parameters
-    ----------
-    no_by_treat_l : Numpy array.
-    no_by_treat_r : Numpy array.
-    reward_l : Float.
-    reward_r : Float.
-    max_by_treat : List of Int.
-
-    Returns
-    -------
-    reward_l : Numpy array.
-    reward_r : Numpy array.
-
-    """
-    if (no_by_treat_l is None) or (no_by_treat_r is None):
-        return reward_l, reward_r
-    no_by_treat = no_by_treat_l + no_by_treat_r
-    if np.any(no_by_treat > max_by_treat):
-        diff_max = ((no_by_treat - max_by_treat) / max_by_treat).max()
-        diff = min(diff_max, 1)
-        reward_l = reward_l - diff * np.abs(reward_l)
-        reward_r = reward_r - diff * np.abs(reward_r)
-    return reward_l, reward_r
-
-
-def only_1st_tree_fct3(data_ps, costs_of_treat):
-    """Find out if further splits make any sense."""
-    data = data_ps-costs_of_treat
-    no_further_splitting = all_same_max_numba(data)
-    return no_further_splitting
-
-
-@njit
-def all_same_max_numba(data):
-    """Check same categies have max."""
-    no_further_splitting = True
-    for i in range(len(data)):
-        if i == 0:
-            ref_val = np.argmax(data[i, :])
-        else:
-            opt_treat = np.argmax(data[i, :])
-            if ref_val != opt_treat:
-                no_further_splitting = False
-                break
-    return no_further_splitting
-
-
-def evaluate_leaf(data_ps, gen_dic, ot_dic, pt_dic, with_numba=True):
-    """Evaluate final value of leaf taking restriction into account.
-
-    Parameters
-    ----------
-    data_ps : Numpy array. Policy scores.
-    gen_dic : Dict. Controls.
-    ot_dic : Dict. Controls.
-
-    Returns
-    -------
-    treat_ind: Int. Index of treatment.
-    reward: Int. Value of leaf.
-    no_per_treat: Numpy 1D-array of int.
-
-    """
-    if with_numba:
-        indi, reward_by_treat, obs_all = evaluate_leaf_numba(
-            data_ps, gen_dic['no_of_treat'], ot_dic['max_by_treat'],
-            ot_dic['restricted'], pt_dic['cost_of_treat_restrict'])
-    else:
-        indi, reward_by_treat, obs_all = evaluate_leaf_no_numba(
-            data_ps, gen_dic['no_of_treat'], ot_dic,
-            pt_dic['cost_of_treat_restrict'])
-    return indi, reward_by_treat, obs_all
-
-
-@njit
-def evaluate_leaf_numba(data_ps, no_of_treatments, max_by_treat, restricted,
-                        costs_of_treat):
-    """Evaluate final value of leaf taking restriction into account.
-
-    Parameters
-    ----------
-    data_ps : Numpy array. Policy scores.
-    ...
-
-    Returns
-    -------
-    treat_ind: Int. Index of treatment.
-    reward: Int. Value of leaf.
-    no_per_treat: Numpy 1D-array of int.
-
-    """
-    obs_all, obs = np.zeros(no_of_treatments), len(data_ps)
-    indi = np.arange(no_of_treatments)
-    if restricted:
-        diff_obs = obs - max_by_treat
-        treat_not_ok = diff_obs > 0.999
-        if np.any(treat_not_ok):
-            treat_ok = np.invert(treat_not_ok)
-            data_ps_tmp = data_ps[:, treat_ok]
-            if data_ps_tmp.size == 0:
-                idx = np.argmin(diff_obs)
-                treat_ok[idx] = True
-                data_ps = data_ps[:, treat_ok]
-            else:
-                data_ps = data_ps_tmp
-            indi = indi[treat_ok]      # Remove obs that violate restriction
-            costs_of_treat = costs_of_treat[indi]
-    reward_by_treat = data_ps.sum(axis=0) - costs_of_treat * obs
-    max_i = np.argmax(reward_by_treat)
-    obs_all[indi[max_i]] = obs
-    return indi[max_i], reward_by_treat[max_i], obs_all
-
-
-def evaluate_leaf_no_numba(data_ps, no_of_treat, ot_dic, cost_of_treat):
-    """Evaluate final value of leaf taking restriction into account.
-
-    Returns
-    -------
-    treat_ind: Int. Index of treatment.
-    reward: Int. Value of leaf.
-    no_per_treat: Numpy 1D-array of int.
-
-    """
-    obs_all, obs = np.zeros(no_of_treat), len(data_ps)
-    indi = np.arange(no_of_treat)
-    if ot_dic['restricted']:
-        diff_obs = obs - ot_dic['max_by_treat']
-        treat_not_ok = diff_obs > 0.999
-        if np.any(treat_not_ok):
-            treat_ok = np.invert(treat_not_ok)
-            data_ps_tmp = data_ps[:, treat_ok]
-            if data_ps_tmp.size == 0:
-                idx = np.argmin(diff_obs)
-                treat_ok[idx] = True
-                data_ps = data_ps[:, treat_ok]
-            else:
-                data_ps = data_ps_tmp
-            indi = indi[treat_ok]      # Remove obs that violate restriction
-            costs_of_treat = cost_of_treat[indi]
-    reward_by_treat = data_ps.sum(axis=0) - costs_of_treat * obs
-    max_i = np.argmax(reward_by_treat)
-    obs_all[indi[max_i]] = obs
-    return indi[max_i], reward_by_treat[max_i], obs_all
-
-
 @ray.remote
 def ray_tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x,
                                   type_x, values_x, gen_dic, pt_dic, ot_dic,
@@ -700,9 +479,8 @@ def tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x, type_x,
     assert treedepth != 1, 'This should not happen in Multiprocessing.'
     reward, tree, no_by_treat = -inf, None, None
     if type_x[m_i] == 'cont':
-        values_x_to_check = get_values_cont_x(
-            data_x[:, m_i], pt_dic['no_of_evalupoints'],
-            with_numba=with_numba)
+        values_x_to_check = opt_pt_add.get_values_cont_x(
+            data_x[:, m_i], pt_dic['no_of_evalupoints'], with_numba=with_numba)
     elif type_x[m_i] == 'disc':
         values_x_to_check = values_x[m_i][:]
     else:
@@ -730,8 +508,8 @@ def tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x, type_x,
             data_ps[right, :], data_ps_diff[right, :], data_x[right, :],
             name_x, type_x, values_x, pt_dic, gen_dic, ot_dic, treedepth - 1,
             with_numba=with_numba, seed=seed+1)
-        if ot_dic['restricted']:
-            reward_l, reward_r = adjust_reward(
+        if ot_dic['restricted'] and pt_dic['enforce_restriction']:
+            reward_l, reward_r = opt_pt_add.adjust_reward(
                 no_by_treat_l, no_by_treat_r, reward_l, reward_r,
                 with_numba, ot_dic['max_by_treat'])
         if reward_l + reward_r > reward:
@@ -740,81 +518,6 @@ def tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x, type_x,
             tree = merge_trees(tree_l, tree_r, name_x[m_i],
                                type_x[m_i], val_x, treedepth)
     return tree, reward, no_by_treat
-
-
-def get_values_cont_x(data_vector, no_of_evalupoints, with_numba=True):
-    """Get cut-off points for tree splitting for continuous variables.
-
-    Parameters
-    ----------
-    data_vector : Numpy-1D array. Sorted vector
-    no_of_evalupoints : Int.
-    with_numba : Boolean. Use numba module. Default is True.
-
-    Returns
-    -------
-    Numpy 1D-array. Sorted cut-off-points
-
-    """
-    if with_numba:
-        data_vector_new = get_values_cont_x_numba(data_vector,
-                                                  no_of_evalupoints)
-    else:
-        data_vector_new = get_values_cont_x_no_numba(data_vector,
-                                                     no_of_evalupoints)
-    return data_vector_new
-
-
-@njit
-def get_values_cont_x_numba(data_vector, no_of_evalupoints):
-    """Get cut-off points for tree splitting for continuous variables.
-
-    Parameters
-    ----------
-    data_vector : Numpy-1D array. Sorted vector
-    no_of_evalupoints : Int.
-
-    Returns
-    -------
-    Numpy 1D-array. Sorted cut-off-points
-
-    """
-    data_vector = np.unique(data_vector)
-    obs = len(data_vector)
-    if no_of_evalupoints > (obs - 10):
-        data_vector_new = data_vector
-    else:
-        indices = np.linspace(obs / no_of_evalupoints, obs,
-                              no_of_evalupoints+1)
-        data_vector_new = np.empty(no_of_evalupoints)
-        for i in range(no_of_evalupoints):
-            indices_i = np.uint32(indices[i])
-            data_vector_new[i] = data_vector[indices_i]
-    return data_vector_new
-
-
-def get_values_cont_x_no_numba(data_vector, no_of_evalupoints):
-    """Get cut-off points for tree splitting for continuous variables.
-
-       No longer used; only kept if no_numba version would be needed
-
-    Parameters
-    ----------
-    sorted_data : Numpy-1D array. Sorted vector
-    no_of_evalupoints : Int.
-
-    Returns
-    -------
-    Numpy 1D-array. Sorted cut-off-points
-
-    """
-    data_vector = np.unique(data_vector)
-    obs = len(data_vector)
-    if no_of_evalupoints > (obs - 10):
-        return data_vector
-    indices = np.uint32(np.linspace(obs / no_of_evalupoints, obs,
-                                    no_of_evalupoints, endpoint=False))
-    return data_vector[indices]
 
 
 def final_leaf_dict(leaf, left_right):

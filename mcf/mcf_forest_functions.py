@@ -800,7 +800,8 @@ def get_split_values(y_dat, w_dat, x_dat, x_type, x_values, leaf_size,
     """
     if rng is None:
         rng = np.random.default_rng()
-        raise Warning('unseeded random number generator used')
+        print(Warning('WARNING: Unseeded random number generator used.'
+                      'WARNING:'))
     if x_type == 0:
         if bool(x_values):  # Limited number of values in x_value
             min_x, max_x = np.amin(x_dat), np.amax(x_dat)

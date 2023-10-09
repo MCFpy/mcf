@@ -405,7 +405,7 @@ def check_if_not_number(data_df, variable):
     None.
 
     """
-    is_number_mask = np.array(data_df[variable].applymap(np.isreal))
+    is_number_mask = np.array(data_df[variable].map(np.isreal))
     var_not_a_number = []
     for idx, var in enumerate(variable):
         if not np.all(is_number_mask[:, idx]):

@@ -1,4 +1,4 @@
-"""Created on Wed Apr  1 15:58:30 2020.
+"""Created on Wed Apr  1 15:58:30 2020. -*- coding: utf-8 -*- .
 
 Modified Causal Forest - Python implementation
 
@@ -9,9 +9,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.4.1
-
--*- coding: utf-8 -*- .
+Version: 0.4.2
 
 This is an example to show how to use the mcf with full specification of all
 its keywords. It may be seen as an add on to the published mcf documentation.
@@ -22,7 +20,8 @@ import pickle
 
 import pandas as pd
 
-from mcf import ModifiedCausalForest
+from mcf.mcf_functions import ModifiedCausalForest
+# from mcf import ModifiedCausalForest
 
 # ------------------ NOT parameters of the ModifiedCausalForest ---------------
 #  Define data to be used in this example
@@ -52,7 +51,7 @@ GEN_OUTPATH = APPLIC_PATH + '/output'
 #   If specified directory does not exist, it will be created.
 #   OUTPATH is passed to ModifiedCausalForest.
 
-GEN_OUTFILETEXT = 'mcf.py.0.4.1'
+GEN_OUTFILETEXT = 'mcf.py.0.4.2'
 #   File for text output. If gen_outfiletext is None, 'txtFileWithOutput' is
 #   used. *.txt file extension will be added by the programme.
 
@@ -469,7 +468,8 @@ P_IATE_SE = None      # True: SE(IATE) will be estimated. Default is False.
 P_IATE_M_ATE = None      # True: IATE(x) - ATE is estimated, including
 #   inference if p_iate_se == True. Increaes computation time.
 #   Default is False.
-
+P_ATE_NO_SE_ONLY = None  # True: Computes only the ATE without standard errors.
+#   Default is False.
 #   ------------- Analysis of effects -------------------------------
 POST_EST_STATS = None   # Analyses the predictions by binary correlations
 #   or some regression type methods. Default is True. False if p_iate == False.
@@ -492,6 +492,9 @@ POST_KMEANS_MAX_TRIES = None     # post_kmeans_yes is True: maximum number
 #   of iterations in each replication to achive convergence. Default is 1000.
 POST_RANDOM_FOREST_VI = None     # Variable importance measure of predictive
 #   random forest used to learn factors influencing IATEs. Default is True.
+
+P_ATE_NO_SE_ONLY = None
+#     Computes only the ATE without standard errors. Default is False.
 
 # ----- Internal variable: Change these variables only if you knwo what you do
 GEN_REPLICATION = None    # True does not allow multiprocessing in
@@ -516,6 +519,8 @@ _INT_MAX_CATS_CONT_VARS = None  # Discretising of continuous variables: maximum
 #   programme, def: not used.
 _INT_WITH_OUTPUT = None         # Print output on txt file and/or console.
 #                                 Default is True.
+_INT_OUTPUT_NO_NEW_DIR = None   # Do not create a new directory when the path
+#                                 already exists. Default is False.
 _INT_MAX_SAVE_VALUES = None       # Save value of x only if < 50 (cont. vars).
 #                                 Default is 50.
 _INT_SEED_SAMPLE_SPLIT = None   # Seeding is redone when building forest
@@ -548,8 +553,40 @@ _INT_MP_RAY_OBJSTORE_MULTIPLIER = None  # Increase internal default values for
 _INT_RETURN_IATE_SP = None   # Return all data with predictions
 #   despite with_output = False (useful for cross-validation and simulations.
 #   Default is False.
+_INT_DEL_FOREST = None     # Delete forests.
+#   Delete forests from instance. If True, less memory is needed, but the
+#   trained instance of the class cannot be reused when calling predict with
+#   the same instance again, i.e. the forest has to be retrained.
+#   Default is False.
+_INT_KEEP_W0 = None             # Keep all zeros weights when computing
+#   standard errors (slows down computation). Default is False.
 
+#  --- Very experimental blinding method (not yet integrated in this example
+#                                         programme)
+#         blinder_iates : Compute 'standard' IATEs as well as those that are to
+#                       to a certain extent blinder than the original ones.
+#       New keywords of blinder_iates() menthod:
+#           blind_var_x_protected_name : List of strings (or None)
+#              Names of protected variables. Names that are
+#              explicitly denote as blind_var_x_unrestricted_name or as
+#              blind_var_x_policy_name and used to compute IATEs will be
+#              automatically added to this list. Default is None.
+#           blind_var_x_policy_name : List of strings (or None)
+#              Names of decision variables. Default is None.
+#           blind_var_x_unrestricted_name : List of strings (or None)
+#              Names of unrestricted variables. Default is None.
+#           blind_weights_of_blind : Tuple of float (or None)
+#              Weights to compute weighted means of blinded and unblinded
+#              IATEs. Between 0 and 1. 1 implies all weight goes to fully
+#                     blinded IATE. Default is None.
+#           blind_obs_ref_data : Integer (or None), optional
+#              Number of observations to be used for blinding. Runtime of
+#              programme is almost linear in this parameter. Default is 50.
+#           blind_seed : Integer, optional.
+#              Seed for the random selection of the reference data.
+#              Default is 123456.
 # ---------------------------------------------------------------------------
+
 # For convenience the mcf parameters are collected and passed as a dictionary.
 # Of course, they can also be passed as single parameters (or not at all, in
 # which case default values are used).
@@ -596,8 +633,8 @@ params = {
     'post_random_forest_vi': POST_RANDOM_FOREST_VI,
     'post_relative_to_first_group_only': POST_RELATIVE_TO_FIRST_GROUP_ONLY,
     'post_plots': POST_PLOTS,
-    'p_amgate': P_AMGATE, 'p_atet': P_ATET, 'p_bgate': P_BGATE,
-    'p_bt_yes': P_BT_YES,
+    'p_ate_no_se_only': P_ATE_NO_SE_ONLY, 'p_amgate': P_AMGATE,
+    'p_atet': P_ATET, 'p_bgate': P_BGATE, 'p_bt_yes': P_BT_YES,
     'p_choice_based_sampling': P_CHOICE_BASED_SAMPLING,
     'p_choice_based_probs': P_CHOICE_BASED_PROBS, 'p_ci_level': P_CI_LEVEL,
     'p_cluster_std': P_CLUSTER_STD, 'p_cond_var': P_COND_VAR,
@@ -614,7 +651,7 @@ params = {
     'p_max_cats_z_vars': P_MAX_CATS_Z_VARS,
     'p_max_weight_share': P_MAX_WEIGHT_SHARE,
     'p_se_boot_ate': P_SE_BOOT_ATE, 'p_se_boot_gate': P_SE_BOOT_GATE,
-    'p_se_boot_iate': P_SE_BOOT_IATE,
+    'p_se_boot_iate': P_SE_BOOT_IATE, 'p_ate_no_se_only': P_ATE_NO_SE_ONLY,
     'var_bgate_name': VAR_BGATE_NAME,
     'var_cluster_name': VAR_CLUSTER_NAME, 'var_d_name': VAR_D_NAME,
     'var_id_name': VAR_ID_NAME,
@@ -628,8 +665,10 @@ params = {
     'var_y_name': VAR_Y_NAME, 'var_y_tree_name': VAR_Y_TREE_NAME,
     'var_z_name_list': VAR_Z_NAME_LIST, 'var_z_name_ord': VAR_Z_NAME_ORD,
     'var_z_name_unord': VAR_Z_NAME_UNORD,
+    '_int_del_forest': _INT_DEL_FOREST,
     '_int_descriptive_stats': _INT_DESCRIPTIVE_STATS, '_int_dpi': _INT_DPI,
-    '_int_fontsize': _INT_FONTSIZE, '_int_no_filled_plot': _INT_NO_FILLED_PLOT,
+    '_int_fontsize': _INT_FONTSIZE, '_int_keep_w0': _INT_KEEP_W0,
+    '_int_no_filled_plot': _INT_NO_FILLED_PLOT,
     '_int_max_cats_cont_vars': _INT_MAX_CATS_CONT_VARS,
     '_int_max_save_values': _INT_MAX_SAVE_VALUES,
     '_int_mp_ray_del': _INT_MP_RAY_DEL,
@@ -638,6 +677,7 @@ params = {
     '_int_mp_vim_type': _INT_MP_VIM_TYPE,
     '_int_mp_weights_tree_batch': _INT_MP_WEIGHTS_TREE_BATCH,
     '_int_mp_weights_type': _INT_MP_WEIGHTS_TYPE,
+    '_int_output_no_new_dir': _INT_OUTPUT_NO_NEW_DIR,
     '_int_return_iate_sp': _INT_RETURN_IATE_SP,
     '_int_seed_sample_split': _INT_SEED_SAMPLE_SPLIT,
     '_int_share_forest_sample': _INT_SHARE_FOREST_SAMPLE,

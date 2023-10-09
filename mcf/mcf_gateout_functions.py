@@ -31,7 +31,8 @@ def make_gate_figures_discr(
     Parameters
     ----------
     titel : String. (Messy) title of plot and basis for files.
-    z_values : List. Values of z-variables.
+    z_name : String. Name of variable.
+    z_vals : List. Values of z-variables.
     z_type : Int. Type of variable (ordered or unordered)
     effects : 1D Numpy array. Effects for all z-values.
     stderr : 1D Numpy array. Standard errors for all effects.
@@ -41,6 +42,7 @@ def make_gate_figures_discr(
     z_values = z_vals.copy()
     if ps.find_precision(z_values) == 0:  # usually adjusted
         z_values, z_name = mcf_gp.recode_if_all_prime(z_values.copy(), z_name)
+    z_name_ = ps.del_added_chars(z_name, prime=True)
     titel_f = titel.replace(' ', '')
     titel_f = titel_f.replace('-', 'M')
     titel_f = titel_f.replace('.', '')
@@ -127,7 +129,7 @@ def make_gate_figures_discr(
             titel_tmp = titel[:-4] + ' ' + titel[-4:]
             titel_tmp = titel_tmp.replace('vs', ' vs ')
             axs.set_title(titel_tmp)
-            axs.set_xlabel(z_name)
+            axs.set_xlabel(z_name_)
             mcf_sys.delete_file_if_exists(file_name_f_jpeg)
             mcf_sys.delete_file_if_exists(file_name_f_pdf)
             figs.savefig(file_name_f_jpeg, dpi=int_dic['dpi'])
@@ -160,7 +162,7 @@ def make_gate_figures_discr(
     titel_tmp = titel[:-4] + ' ' + titel[-4:]
     titel_tmp = titel_tmp.replace('vs', ' vs ')
     axe.set_title(titel_tmp)
-    axe.set_xlabel(z_name)
+    axe.set_xlabel(z_name_)
     mcf_sys.delete_file_if_exists(file_name_jpeg)
     mcf_sys.delete_file_if_exists(file_name_pdf)
     fig.savefig(file_name_jpeg, dpi=int_dic['dpi'])
@@ -189,7 +191,7 @@ def make_gate_figures_discr(
     datasave.to_csv(file_name_csv, index=False)
 
 
-def make_gate_figures_cont(titel, z_name, z_values, effects, int_dic, p_dic,
+def make_gate_figures_cont(titel, z_name, z_vals, effects, int_dic, p_dic,
                            ate=None, gate_type='GATE', d_values=None):
     """Generate the figures for GATE results.
 
@@ -201,6 +203,10 @@ def make_gate_figures_cont(titel, z_name, z_values, effects, int_dic, p_dic,
     int_dic, p_dic : Dict. Parameters.
     Additional keyword parameters.
     """
+    z_values = z_vals.copy()
+    if ps.find_precision(z_values) == 0:  # usually adjusted
+        z_values, z_name = mcf_gp.recode_if_all_prime(z_values.copy(), z_name)
+    z_name_ = ps.del_added_chars(z_name, prime=True)
     titel = 'Dose response ' + titel
     titel_f = titel.replace(' ', '')
     titel_f = titel_f.replace('-', 'M')
@@ -227,7 +233,7 @@ def make_gate_figures_cont(titel, z_name, z_values, effects, int_dic, p_dic,
     plt.title(titel)
     axe.set_ylabel('Treatment levels')
     axe.set_zlabel(gate_str)
-    axe.set_xlabel(z_name)
+    axe.set_xlabel(z_name_)
     fig.colorbar(surf, shrink=0.5, aspect=5)
     mcf_sys.delete_file_if_exists(file_name_jpeg)
     mcf_sys.delete_file_if_exists(file_name_pdf)
@@ -402,7 +408,7 @@ def generate_gate_table(p_dict, label_row=False):
             dat['d'] = i_co
             data = pd.concat((data, dat))
 
-    data.drop_duplicates(subset=['z_values'])
+    # data.drop_duplicates(subset=['z_values'], inplace=True)
 
     data_0 = np.array(data.pivot(index='z_values', columns="d",
                                  values="effects"))
@@ -417,7 +423,7 @@ def generate_gate_table(p_dict, label_row=False):
     df_new.columns = p_dict['number_of_stats'] * p_dict['treatment_names']
     if not label_row:
         if len(p_dict['combi']) > 1:
-            dat.drop_duplicates(subset=['z_values'])
+            # dat.drop_duplicates(subset=['z_values'])
             df_new.index = dat.z_values
         else:
             df_new.index = data.z_values
@@ -449,7 +455,7 @@ def create_dataframe_for_results(data, n_1=2, n_2=3):
     nrows = n_1 * data.shape[0]  # Number of rows for new dataframe.
     ncols = int(data.shape[1] / n_2)  # Number of cols for new dataframe.
     matrix = np.empty([nrows, ncols])
-    df_empty = pd.DataFrame(matrix)
+    df_empty = pd.DataFrame(matrix, dtype=object)
     df_empty.columns = data.columns[:ncols]
     df_empty['idx'] = ''
     for i in range(0, len(df_empty), n_1):
@@ -519,11 +525,11 @@ def tables(params):
                                  l_int + params['number_of_combi']],
                 stats_table.iloc[int(k_int / params['multiplier_rows']),
                                  l_int + 2 * params['number_of_combi']])
-            d_f.iloc[k_int + 1, l_int] = c_int
+            d_f.iloc[int(k_int) + 1, l_int] = c_int
         if d_f.index[k_int] == int(d_f.index[k_int]):  # No decimal if int.
             idx_list = d_f.index.tolist()
             d_f.index = idx_list[:k_int] + [int(d_f.index[k_int])] + \
-                idx_list[k_int + 1:]
+                idx_list[int(k_int) + 1:]
     directory_table = \
         params['path'] + '/' + '_' + params['effect_name'] + '_table.csv'
     d_f.to_csv(directory_table)
@@ -567,6 +573,7 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
         if gate_est_dic['smooth_yes']:
             z_smooth_l[zj_idx] = z_name in gate_est_dic['z_name_smooth']
     for z_name_j, z_name in enumerate(var_dic['z_name']):
+        z_name_ = ps.del_added_chars(z_name, prime=True)
         y_pot = deepcopy(y_pot_all[z_name_j])
         y_pot_var = deepcopy(y_pot_var_all[z_name_j])
         if gate_type == 'GATE':
@@ -576,7 +583,7 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
             y_pot_m_ate = deepcopy(y_pot_m_ate_all[z_name_j])
             y_pot_m_ate_var = deepcopy(y_pot_m_ate_var_all[z_name_j])
         if int_dic['with_output'] and int_dic['verbose']:
-            print(z_name_j+1, '(', len(var_dic['z_name']), ')', z_name,
+            print(z_name_j+1, '(', len(var_dic['z_name']), ')', z_name_,
                   flush=True)
         z_values, z_smooth = z_values_l[z_name_j], z_smooth_l[z_name_j]
         if z_smooth:
@@ -621,7 +628,7 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
                 if int_dic['with_output']:
                     txt += ('\nGroup Average Treatment Effects '
                             + f'({gate_type})' + '\n' + '- ' * 50)
-                    txt += (f'\nHeterogeneity: {z_name} Outcome: '
+                    txt += (f'\nHeterogeneity: {z_name_} Outcome: '
                             + f'{var_dic["y_name"][o_idx]} Ref. pop.: '
                             + f'{ref_pop_lab[a_idx]}\n')
                     txt += ps.print_effect_z(
@@ -663,7 +670,7 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
                                             z_values_f[zjj] = jdx
                             if not continuous and effects is not None:
                                 make_gate_figures_discr(
-                                    e_lab + ' ' + z_name + ' ' + a_lab +
+                                    e_lab + ' ' + z_name_ + ' ' + a_lab +
                                     ' ' + o_lab + ' ' + t_lab, z_name,
                                     z_values_f, z_type_l, effects, ste,
                                     int_dic, p_dic, ate_f, ate_f_se,
@@ -676,7 +683,7 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
                                     ate_f = None
                                     effects = gate_z_mate[:, o_idx, a_idx, :]
                                 make_gate_figures_cont(
-                                    e_lab + ' ' + z_name + ' ' + a_lab +
+                                    e_lab + ' ' + z_name_ + ' ' + a_lab +
                                     ' ' + o_lab, z_name, z_values_f,
                                     effects, int_dic, p_dic, ate_f,
                                     gate_type, d_values=d_values_dr)

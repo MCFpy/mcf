@@ -12,11 +12,9 @@
 
 - Mild improvements of output when categorical variables are involved.
 - Data used for common support are saved in csv files.
-- New keyword [_int_del_forest](https://mcfpy.github.io/mcf/#//mcf_api/_int_del_forest): Boolean. Delete forests from instance. If True, less memory is needed, but the trained instance of the class cannot be reused when calling predict with the same instance again, i.e. the forest has to be retrained. Default is False.
-- New keyword [_int_keep_w0](https://mcfpy.github.io/mcf/#//mcf_api/_int_keep_w0): Boolean. Keep all zero weights when computing standard errors (slows down computation). Default is False.
-- New default value for [gen_iate_eff](https://mcfpy.github.io/mcf/#//mcf_api/gen_iate_eff): The second round IATE estimation is no longer performed by default (i.e. the new default is False).
-
-<!-- #### Changes concerning the class ``OptimalPolicy`` -->
+- New keyword [_int_del_forest](./mcf_api.md#_int_del_forest): Boolean. Delete forests from instance. If True, less memory is needed, but the trained instance of the class cannot be reused when calling predict with the same instance again, i.e. the forest has to be retrained. Default is False.
+- New keyword [_int_keep_w0](./mcf_api.md#_int_keep_w0): Boolean. Keep all zero weights when computing standard errors (slows down computation). Default is False.
+- New default value for [gen_iate_eff](./mcf_api.md#gen_iate_eff): The second round IATE estimation is no longer performed by default (i.e. the new default is False).
 
 ## Version 0.4.1
 

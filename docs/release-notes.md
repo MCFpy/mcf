@@ -8,13 +8,28 @@
 
 ### New
 
+#### General
+
+- Output files for text, data and figures: So far, whenever a directory existed that has already been used for output, a new directory is created to avoid accidentally overwriting results. However, there is a new keyword for both the ``ModifiedCausalForest`` and the ``OptimalPolicy`` class:
+  - [_int_output_no_new_dir](./mcf_api.md#_int_output_no_new_dir): Boolean. Do not create a new directory for outputs when the path already exists. Default is False.
+
 #### Changes concerning the class ``ModifiedCausalForest``
 
 - Mild improvements of output when categorical variables are involved.
 - Data used for common support are saved in csv files.
 - New keyword [_int_del_forest](./mcf_api.md#_int_del_forest): Boolean. Delete forests from instance. If True, less memory is needed, but the trained instance of the class cannot be reused when calling predict with the same instance again, i.e. the forest has to be retrained. Default is False.
 - New keyword [_int_keep_w0](./mcf_api.md#_int_keep_w0): Boolean. Keep all zero weights when computing standard errors (slows down computation). Default is False.
+- New keyword [p_ate_no_se_only](./mcf_api.md#p_ate_no_se_only): Boolean (or None). Computes only the ATE without standard errors. Default is False.
 - New default value for [gen_iate_eff](./mcf_api.md#gen_iate_eff): The second round IATE estimation is no longer performed by default (i.e. the new default is False).
+- New method ``blinder_iates``: Compute 'standard' IATEs as well as IATEs that are to a certain extent blinder than the standard ones. Available keywords:
+  - blind_var_x_protected_name : List of strings (or None). Names of protected variables. Names that are explicitly denote as blind_var_x_unrestricted_name or as blind_var_x_policy_name and used to compute IATEs will be automatically added to this list. Default is None.
+  - blind_var_x_policy_name : List of strings (or None). Names of decision variables. Default is None.
+  - blind_var_x_unrestricted_name : List of strings (or None). Names of unrestricted variables. Default is None.
+  - blind_weights_of_blind : Tuple of float (or None). Weights to compute weighted means of blinded and unblinded IATEs. Between 0 and 1. 1 implies all weight goes to fully blinded IATE. Default is None.
+  - blind_obs_ref_data : Integer (or None), optional. Number of observations to be used for blinding. Runtime of programme is almost linear in this parameter. Default is 50.
+  - blind_seed : Integer, optional. Seed for the random selection of the reference data. Default is 123456.
+
+
 
 ## Version 0.4.1
 

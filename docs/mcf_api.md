@@ -109,11 +109,12 @@ var_y_tree_name=VAR_Y_TREE_NAME,
 var_z_name_list=VAR_Z_NAME_LIST,
 var_z_name_ord=VAR_Z_NAME_ORD,
 var_z_name_unord=VAR_Z_NAME_UNORD,
+_int_del_forest=_INT_DEL_FOREST,
 _int_descriptive_stats=_INT_DESCRIPTIVE_STATS,
 _int_dpi=_INT_DPI,
 _int_fontsize=_INT_FONTSIZE,
-_int_del_forest=_INT_DEL_FOREST,
 _int_keep_w0=_INT_KEEP_W0,
+_int_output_no_new_dir=_INT_OUTPUT_NO_NEW_DIR,
 _int_max_cats_cont_vars=_INT_MAX_CATS_CONT_VARS,
 _int_max_save_values=_INT_MAX_SAVE_VALUES,
 _int_mp_ray_del=_INT_MP_RAY_DEL,
@@ -379,6 +380,9 @@ _int_with_output=_INT_WITH_OUTPUT)
 - <a id="p_cond_var"><strong>p_cond_var</strong></a>
 	* If False, variance estimation uses $var(wy)$. If True, conditonal mean and variances are used. The default is True.
 
+- <a id="p_ate_no_se_only"><strong>p_ate_no_se_only</strong></a>
+	* Boolean (or None). Computes only the ATE without standard errors. Default is False.
+
 - <a id="p_gates_minus_previous"><strong>p_gates_minus_previous</strong></a>
 	* If set to True, GATES will be compared to GATEs computed at the previous evaluation point. GATE estimation is a bit slower as it is not optimized for multiprocessing. No plots are shown. Default is False.
 
@@ -476,17 +480,20 @@ _int_with_output=_INT_WITH_OUTPUT)
 - <a id="_int_del_forest"><strong>_int_del_forest</strong></a>
 	* Boolean. Delete forests from instance. If True, less memory is needed, but the trained instance of the class cannot be reused when calling predict with the same instance again, i.e. the forest has to be retrained. Default is False.
 
-- <a id="_int_keep_w0"><strong>_int_keep_w0</strong></a>
-	* Boolean. Keep all zero weights when computing standard errors (slows down computation). Default is False.
-
 - <a id="_int_dpi"><strong>_int_dpi</strong></a>
 	* Specifies dpi for plots. Default is 500.
 
 - <a id="_int_fontsize"><strong>_int_fontsize</strong></a>
 	* Regulates font size for legends varying from 1 (very small) to 7 (very large). The default is 2.
 
+- <a id="_int_keep_w0"><strong>_int_keep_w0</strong></a>
+	* Boolean. Keep all zero weights when computing standard errors (slows down computation). Default is False.
+
 - <a id="_int_max_cats_cont_vars"><strong>_int_max_cats_cont_vars</strong></a>
 	* Regulates if continuous variables are discretized. The smaller the admissible cardenality, the faster the computation. By default the functionality is not used. The default is 50.
+
+- <a id="_int_output_no_new_dir"><strong>_int_output_no_new_dir</strong></a> 
+  * Boolean. Do not create a new directory for outputs when the path already exists. Default is False.
 
 - <a id="_int_max_save_values"><strong>_int_max_save_values</strong></a>
 	* Save value of x only if it is smaller than 50 (continuous variables).

@@ -21,15 +21,41 @@
 - New keyword [_int_keep_w0](./mcf_api.md#_int_keep_w0): Boolean. Keep all zero weights when computing standard errors (slows down computation). Default is False.
 - New keyword [p_ate_no_se_only](./mcf_api.md#p_ate_no_se_only): Boolean (or None). Computes only the ATE without standard errors. Default is False.
 - New default value for [gen_iate_eff](./mcf_api.md#gen_iate_eff): The second round IATE estimation is no longer performed by default (i.e. the new default is False).
-- New method ``blinder_iates``: Compute 'standard' IATEs as well as IATEs that are to a certain extent blinder than the standard ones. Available keywords:
-  - blind_var_x_protected_name : List of strings (or None). Names of protected variables. Names that are explicitly denote as blind_var_x_unrestricted_name or as blind_var_x_policy_name and used to compute IATEs will be automatically added to this list. Default is None.
-  - blind_var_x_policy_name : List of strings (or None). Names of decision variables. Default is None.
-  - blind_var_x_unrestricted_name : List of strings (or None). Names of unrestricted variables. Default is None.
-  - blind_weights_of_blind : Tuple of float (or None). Weights to compute weighted means of blinded and unblinded IATEs. Between 0 and 1. 1 implies all weight goes to fully blinded IATE. Default is None.
-  - blind_obs_ref_data : Integer (or None), optional. Number of observations to be used for blinding. Runtime of programme is almost linear in this parameter. Default is 50.
-  - blind_seed : Integer, optional. Seed for the random selection of the reference data. Default is 123456.
+- There is a new experimental features to both the mcf estimation (of IATEs)
+  as well as the optimal policy module. It allows to partially blind the
+  decision with respect to certain variables. The accompanying discussion
+  paper by Nora Bearth, Fabian Muny, Michael Lechner, and Jana Marackova
+  ('Partially Blind Optimal Policy Analysis') is currently written. If you
+  desire more information, please email one of the authors.
+  - New method ``blinder_iates``: Compute 'standard' IATEs as well as IATEs that are to a certain extent blinder than the standard ones. Available keywords:
+    - blind_var_x_protected_name : List of strings (or None). Names of protected variables. Names that are explicitly denote as blind_var_x_unrestricted_name or as blind_var_x_policy_name and used to compute IATEs will be automatically added to this list. Default is None.
+    - blind_var_x_policy_name : List of strings (or None). Names of decision variables. Default is None.
+    - blind_var_x_unrestricted_name : List of strings (or None). Names of unrestricted variables. Default is None.
+    - blind_weights_of_blind : Tuple of float (or None). Weights to compute weighted means of blinded and unblinded IATEs. Between 0 and 1. 1 implies all weight goes to fully blinded IATE. Default is None.
+    - blind_obs_ref_data : Integer (or None), optional. Number of observations to be used for blinding. Runtime of programme is almost linear in this parameter. Default is 50.
+    - blind_seed : Integer, optional. Seed for the random selection of the reference data. Default is 123456.
 
+#### Changes concerning the class ``OptimalPolicy``
 
+- General keyword change in the `OptimalPolicy` class. All keywords that started with `int_` now start with `_int_` (in order to use the same conventions as in the `ModifiedCausalForest` class).
+
+- New keywords:
+  - [pt_select_values_cat](./mcf_api.md#pt_select_values_cat): Approximation method for larger categorical variables. Since we search among optimal trees, for categorical variables variables we need to check for all possible combinations of the different values that lead to binary splits. This number could indeed be huge. Therefore, we compare only pt_no_of_evalupoints * 2 different combinations. Method 1 (pt_select_values_cat == True) does this by randomly drawing values from the particular categorical variable and forming groups only using those values. Method 2 (pt_select_values_cat==False) sorts the values of the categorical variables according to a values of the policy score as one would do for a standard random forest. If this set is still too large, a random sample of the entailed combinations is drawn.  Method 1 is only available for the method 'policy tree eff'. The default is False.
+  - [pt_enforce_restriction](./mcf_api.md#pt_enforce_restriction): Boolean (or None). Enforces the imposed restriction (to some extent) during the computation of the policy tree. This can be very time consuming. Default is True.
+  - [pt_eva_cat_mult](./mcf_api.md#pt_eva_cat_mult): Integer (or None). Changes the number of the evaluation points (pt_no_of_evalupoints) for the unordered (categorical) variables to: pt_eva_cat_mult * pt_no_of_evalupoints (available only for the method 'policy tree eff'). Default is 1.
+  - [gen_variable_importance](./mcf_api.md#gen_variable_importance): Boolean. Compute variable importance statistics based on random forest classifiers. Default is False.
+  - [var_vi_x_name](./mcf_api.md#var_vi_x_name): List of strings or None, optional. Names of variables for which variable importance is computed. Default is None.
+  - [var_vi_to_dummy_name](./mcf_api.md#var_vi_to_dummy_name) : List of strings or None, optional. Names of variables for which variable importance is computed. These variables will be broken up into dummies. Default is None.
+
+The optimal policy module currently has three methods ('best_policy_score', 'policy tree', 'policy tree eff'):
+
+- `policy tree eff` (NEW in 0.4.2) is very similar to 'policy tree'. It uses different approximation rules and uses slightly different coding.  In many cases it should be faster than 'policy tree'.  Default (or None) is 'best_policy_score'.
+- `best_policy_score` conducts Black-Box allocations, which are obtained by using the scores directly (potentially subject to restrictions). When the Black-Box allocations are used for allocation of data not used for training, the respective scores must be available.
+- The implemented `policy tree`'s are optimal trees, i.e. all possible trees are checked if they lead to a better performance. If restrictions are specified, then this is incorporated into treatment specific cost parameters. Many ideas of the implementation follow Zhou, Athey, Wager (2022). If the provided policy scores fulfil their conditions (i.e., they use a doubly robust double machine learning like score), then they also provide attractive theoretical properties.
+
+- New method `evaluate_multiple`: Evaluate several allocations simultaneously.  Parameters:
+  - allocations_dic : Dictionary. Contains DataFrame's with specific allocations.
+  - data_df : DataFrame. Data with the relevant information about potential outcomes which will be used to evaluate the allocations.
 
 ## Version 0.4.1
 

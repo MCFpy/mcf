@@ -87,12 +87,12 @@ The ``optpoltree``comes with options:
 
 1. Specify the number of evaluation points via [pt_no_of_evalupoints](./opt-pol_api.md#pt_no_of_evalupoints). This regulates when performing the tree search how many of the possible splits in the covariate space are considered. If the [pt_no_of_evalupoints](./opt-pol_api.md#pt_no_of_evalupoints)  is smaller than the number of distinct values of a certain feature, the algorithm visits fewer splits, thus increasing computational efficiency.
 2. Specify the admissible depth of the tree via the keyword argument [pt_depth](./opt-pol_api.md#pt_depth).
-2. Run the program in parallel. You can set the the number of processes via the keyword argument [int_how_many_parallel](./opt-pol_api.md#int_how_many_parallel). By default, the number is set equal to the 80 percent of the number of logical cores on your machine.
- 2. A further speed up is accomplished through Numba. Numba is a Python library, which translates Python functions to optimized machine code at runtime. By default, the program uses Numba. To disable Numba, set [int_with_numba](./opt-pol_api.md#int_with_numba) to False.
+2. Run the program in parallel. You can set the the number of processes via the keyword argument [_int_how_many_parallel](./opt-pol_api.md#_int_how_many_parallel). By default, the number is set equal to the 80 percent of the number of logical cores on your machine.
+ 2. A further speed up is accomplished through Numba. Numba is a Python library, which translates Python functions to optimized machine code at runtime. By default, the program uses Numba. To disable Numba, set [_int_with_numba](./opt-pol_api.md#_int_with_numba) to False.
 
 
 |**Keyword** |**Details**|
 | -- | -- |
-| [int_parallel_processing](./opt-pol_api.md#int_parallel_processing) |If True, the program is run in parallel with the number of processes equal to [int_how_many_parallel](./opt-pol_api.md#int_how_many_parallel). If False, the program is run on one core; the default is True. |  
-| [int_how_many_parallel](./opt-pol_api.md#int_how_many_parallel) |Specifies the number of parallel processes; the default number of processes is set equal to the logical number of cores of the machine.|
-| [int_with_numba](./opt-pol_api.md#int_with_numba) |Specifies if Numba is deployed to speed up computation time; the default is True.|
+| [_int_parallel_processing](./opt-pol_api.md#_int_parallel_processing) |If True, the program is run in parallel with the number of processes equal to [_int_how_many_parallel](./opt-pol_api.md#_int_how_many_parallel). If False, the program is run on one core; the default is True. |  
+| [_int_how_many_parallel](./opt-pol_api.md#_int_how_many_parallel) |Specifies the number of parallel processes; the default number of processes is set equal to the logical number of cores of the machine.|
+| [_int_with_numba](./opt-pol_api.md#_int_with_numba) |Specifies if Numba is deployed to speed up computation time; the default is True.|

@@ -112,6 +112,8 @@ var_z_name_unord=VAR_Z_NAME_UNORD,
 _int_descriptive_stats=_INT_DESCRIPTIVE_STATS,
 _int_dpi=_INT_DPI,
 _int_fontsize=_INT_FONTSIZE,
+_int_del_forest=_INT_DEL_FOREST,
+_int_keep_w0=_INT_KEEP_W0,
 _int_max_cats_cont_vars=_INT_MAX_CATS_CONT_VARS,
 _int_max_save_values=_INT_MAX_SAVE_VALUES,
 _int_mp_ray_del=_INT_MP_RAY_DEL,
@@ -130,7 +132,6 @@ _int_weight_as_sparse=_INT_WEIGHT_AS_SPARSE,
 _int_weight_as_sparse_splits=_INT_WEIGHT_AS_SPARSE_SPLITS,
 _int_with_output=_INT_WITH_OUTPUT)
 ```
-
 
 ## Variable Names
 
@@ -472,9 +473,14 @@ _int_with_output=_INT_WITH_OUTPUT)
 - <a id="_int_descriptive_stats"><strong>_int_descriptive_stats</strong></a>
 	* If True, descriptive stats of input and output files are printed. The default is True.
 
+- <a id="_int_del_forest"><strong>_int_del_forest</strong></a>
+	* Boolean. Delete forests from instance. If True, less memory is needed, but the trained instance of the class cannot be reused when calling predict with the same instance again, i.e. the forest has to be retrained. Default is False.
+
+- <a id="_int_keep_w0"><strong>_int_keep_w0</strong></a>
+	* Boolean. Keep all zero weights when computing standard errors (slows down computation). Default is False.
+
 - <a id="_int_dpi"><strong>_int_dpi</strong></a>
 	* Specifies dpi for plots. Default is 500.
-
 
 - <a id="_int_fontsize"><strong>_int_fontsize</strong></a>
 	* Regulates font size for legends varying from 1 (very small) to 7 (very large). The default is 2.

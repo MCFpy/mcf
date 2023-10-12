@@ -6,6 +6,8 @@
   + [Walkthrough](mcf_walkthrough.md)
   + [Python API](mcf_api_short.md)
   + [Python API Extended](mcf_api.md)
+  + [Experimental Walkthrough](example_walkthrough.md)
+  + [Experimental API](example_api.md)
 + [Optimal Policy Tree](opt-pol_quickstart.md)
   + [Walkthrough](opt-pol_walkthrough.md)
   + [Python API](opt-pol_api.md)

@@ -19,8 +19,8 @@ Admissible methods of the class ``OptimalPolicy`` are ``solve``, ``allocate``, a
 In line with the updated mcf workflow, the data is passed over in form of a pandas DataFrame. Hence, in a first step we read in the training and prediction data.
 
 ```python
-training_data = pd.read_csv("here/are/my/train_data.csv")
-prediction_data = pd.read_csv("here/are/my/pred_data.csv")
+train_df = pd.read_csv("here/are/my/train_data.csv")
+pred_df = pd.read_csv("here/are/my/pred_data.csv")
 ```
 Now, we are ready for the normative analysis. First, to derive the policy rule, type
 
@@ -37,11 +37,9 @@ results_eva_pred = myoptp.evaluate(alloc_pred_df, pred_df)
 Should you wish to deploy the results from the ``mcf`` estimation, follow the routine
 
 ```python
-training_data = results["iate_pred_df"]
-prediction_data = results["iate_pred_df"]
+train_df = results["iate_pred_df"]
+pred_df = results["iate_pred_df"]
 ```
 Of course, you may specify a different dataset for the prediction task. Note that the results object is the results object from calling the ``predict`` method.
 
-Note that the program automatically generates pickles in the application path, which contain information on the instantiated object of the class.
-
-In addition to the output mentioned above, the program generates two text files (a long and short version) with further details.
+Note that the program generates two text files (a long and short version) with details on the optimal policy results.

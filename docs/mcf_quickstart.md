@@ -32,7 +32,7 @@ The ``results`` object is a dictionary, storing all estimated effects and their 
 ```python
 print(results.keys())
 ```
-Variables without the *_df* suffix are lists or numpy arrays. Variables with the *_df* suffix are pandas DataFrames. The *iate_pred_df* contains the the IATEs, and the estimated potential outcomes, which you can use later on for an optimal policy analysis.
+Variables without the *_df* suffix are lists or numpy arrays. Variables with the *_df* suffix are pandas DataFrames. The *iate_pred_df* contains the IATEs, and the estimated potential outcomes, which you can use later on for an optimal policy analysis.
 
 For the analysis of the IATEs from prediction, such as information on cluster membership as implied by the k-means analysis, type
 
@@ -42,6 +42,4 @@ results_with_cluster = my_mcf.analyse(results)
 
 The resulting object *results_with_cluster* differs from the predict method only through the ``iate_pred_df`` object, which contains the cluster indicator for each observation.  Note that potential outcomes are named ``OUTCOME_(LC)TREATMENT_pot``. The ``LC`` is optional and only included should you have enabled local centering. The IATEs are referred to as ``OUTCOME_LC(TREATMENT)vs(TREATMENT)_iate``. Clusters are assigned to individuals based on their features.
 
-Note that the program automatically generates two pickles, ``mymcfpredict.pickle`` and ``mymcftrain.pickle`` . In the first pickle, there are two objects - the ``ModifiedCausalForest`` object, which contains information on the instantiated object of the class. The second object is a dictionary of the kind of ``results`` discussed above. Note, the ``mymcftrain.pickle`` contains only information on the initiated class.
-
-In addition to the output mentioned above, the program generates two text files (a long and short version) with further details on the estimation.
+Note that the program generates two text files (a long and short version) with details on the estimation.

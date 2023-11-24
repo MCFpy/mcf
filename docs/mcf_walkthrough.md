@@ -80,7 +80,7 @@ Estimation methods adjusting for differences in features require common support 
 
 ### Implementation
 
-Common support checks and corrections are done before any estimation. The estimated probabilities are based on the random forest classifier. If common support is based on cross-validation, all training data will be used.
+Common support checks and corrections are done before any estimation. The estimated probabilities are based on the random forest classifier. If common support (together with local centering) is based on cross-validation, all training data will be used.
 
 The support checks are based on the estimated propensity scores discussed above. You may specify a quantile in [cs_quantil](./mcf_api.md#cs_quantil). Denoting by $q$ the quantile chosen, the program drops observations with propensities scores smaller than the largest $q$ or larger than the smallest ($1-q$) quantile of the treatment groups. Alternatively, you may specify the support threshold of the propensity scores in [cs_min_p](./mcf_api.md#cs_min_p). If a support check is conducted, the program removes all observations with at least one treatment state off support.
 

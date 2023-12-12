@@ -8,6 +8,9 @@ Contains the functions needed for computing the weights.
 @author: MLechner
 -*- coding: utf-8 -*-
 """
+import os
+from pathlib import Path
+
 import numpy as np
 from scipy import sparse
 import ray
@@ -53,7 +56,10 @@ def get_weights_mp(mcf_, data_df, forest_dic, reg_round, with_output=True):
             forest_dic, x_dat_all, cf_dic.copy(), ct_dic, gen_dic, int_dic,
             p_dic, with_output=with_output)
     else:
-        base_file = gen_dic['outpath'] + '/' + 'temp_weights'
+        if gen_dic['outpath'] is None or not os.path.isdir(gen_dic['outpath']):
+            base_file = str(Path(__file__).parent.absolute()) + '/temp_weights'
+        else:
+            base_file = gen_dic['outpath'] + '/' + 'temp_weights'
         x_dat_list = np.array_split(x_dat_all,
                                     int_dic['weight_as_sparse_splits'], axis=0)
         no_x_bala_return = True
@@ -467,7 +473,8 @@ def weights_obs_i_inside_boot(forest_b, x_dat_i, n_y, no_of_treat,
             x_dat_i_t = np.append(x_dat_i, treat)
             leaf_id = mcf_fo_add.get_terminal_leaf_no(forest_b, x_dat_i_t)
             leaf_id_list.append(leaf_id)
-            if forest_b[leaf_id][14] is None:  # Leave will be ignored
+            if (forest_b['fill_y_empty_leave'][leaf_id] == 1
+                    or forest_b['fill_y_indices_list'][leaf_id] is None):
                 empty_leaf, weights_ij_np = True, 0
                 # If any of the subleaves is None, then stop ...
                 break
@@ -475,16 +482,17 @@ def weights_obs_i_inside_boot(forest_b, x_dat_i, n_y, no_of_treat,
 
     else:
         leaf_id = mcf_fo_add.get_terminal_leaf_no(forest_b, x_dat_i)
-        if forest_b[leaf_id][14] is None:  # Leave will be ignored
+        if (forest_b['fill_y_empty_leave'][leaf_id] == 1
+                or forest_b['fill_y_indices_list'][leaf_id] is None):
             empty_leaf, weights_ij_np = True, 0
         else:
             empty_leaf = False
     if not empty_leaf:
         if continuous:
-            fb_lid_14_list = [forest_b[leaf_id][14]
+            fb_lid_14_list = [forest_b['fill_y_indices_list'][leaf_id]
                               for leaf_id in leaf_id_list]
         else:
-            fb_lid_14 = forest_b[leaf_id][14]
+            fb_lid_14 = forest_b['fill_y_indices_list'][leaf_id]
         weights_ij_np = np.zeros((n_y, no_of_treat))
         if continuous:
             # We need to collect information over various leafs for the 0

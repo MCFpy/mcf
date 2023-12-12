@@ -182,6 +182,7 @@ def merge_trees_eff(tree_l, tree_r, name_x_m, type_x_m, val_x, treedepth):
     leaf = [None] * 9
     leaf[0], leaf[1] = random.randrange(100000), None
     leaf[5], leaf[6], leaf[7] = name_x_m, type_x_m, val_x
+
     if treedepth == 2:  # Final split (defines 2 final leaves)
         leaf[2], leaf[3], leaf[4] = None, None, 1
         leaf[8] = [tree_l, tree_r]  # For 1st tree --> treatment states
@@ -476,12 +477,19 @@ def sorted_values_into_combinations_eff(values_sorted, no_of_ps, no_of_values):
     unique_combinations : Unique Tuples to be used for sample splitting.
 
     """
-    value_idx = np.arange(no_of_values-1)
-    unique_combinations = {
-        tuple(values_sorted[value_idx[:i+1], j])
-        for j in range(no_of_ps)
-        for i in value_idx
-        }
+    # value_idx = np.arange(no_of_values-1)
+    # unique_combinations = {
+    #     tuple(values_sorted[value_idx[:i+1], j])
+    #     for j in range(no_of_ps)
+    #     for i in value_idx
+    #     }
+    # Chat-GPT 3.5 optimized version
+    unique_combinations = set()
+
+    for j in range(no_of_ps):
+        for i in range(no_of_values - 1):
+            unique_combinations.add(tuple(values_sorted[:i + 1, j]))
+
     return list(unique_combinations)
 
 
@@ -531,7 +539,7 @@ def get_values_cont_ord_x_eff(data_vector, x_values):
     Parameters
     ----------
     data_vector : Numpy-1D array. Sorted vector
-    no_of_evalupoints : Int.
+    x_values : Numpy array. Potential cut-off points.
 
     Returns
     -------
@@ -540,12 +548,17 @@ def get_values_cont_ord_x_eff(data_vector, x_values):
     """
     if len(data_vector) < len(x_values) / 2:
         return np.unique(data_vector)
+
     min_x = np.min(data_vector)
     max_x = np.max(data_vector)
+
     split_values = (x_values >= min_x) & (x_values < max_x)
+
     no_vals = np.sum(split_values)
     if no_vals < 2:
         return [min_x + (max_x - min_x) / 2]
+
     if len(data_vector) < no_vals / 2:
         return np.unique(data_vector)
+
     return x_values[split_values]

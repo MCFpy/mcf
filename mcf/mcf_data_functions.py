@@ -196,6 +196,8 @@ def clean_reduce_data(data_df, names_to_inc, gen_dic, id_name,
                         f'{" ".join(missing_vars)}')
     data_new_df = data_df[names_to_inc].copy()
     data_new_df.dropna(inplace=True, axis=0, how='any')
+    nan_mask = (data_new_df.astype(str) == 'nan').any(axis=1)
+    data_new_df = data_new_df.loc[~nan_mask]
     stop_if_df_contains_nan(data_new_df)
     shapenew = data_new_df.shape
     if gen_dic['with_output']:
@@ -283,17 +285,23 @@ def create_xz_variables(mcf_, data_df, train=True):
         Updated data.
 
     """
-    def check_for_nan(data, gen_dic, summary=False):
-        vars_with_nans = []
-        for name in data.columns:
-            temp_pd = data[name].squeeze()
-            if temp_pd.dtype == 'object':
-                vars_with_nans.append(name)
+
+    def check_for_nan(data_df, gen_dic, summary=False):
+        vars_with_nans_mask = data_df.isna().any()
+        vars_with_nans = vars_with_nans_mask[vars_with_nans_mask
+                                             ].index.tolist()
+        # vars_with_nans = []
+        # for name in data_df.columns:
+        #     temp_pd = data_df[name].squeeze()
+        #     if temp_pd.dtype == 'object':
+        #         vars_with_nans.append(name)
         if vars_with_nans:
-            txt = ('-' * 100 + '\nWARNING: The following variables are not'
-                   f'numeric: {vars_with_nans} \nWARNING: They have to be'
-                   ' recoded as numerical if used in estimation.\n'
-                   + '-' * 100)
+            txt = ('-' * 100 + '\nWARNING: The following variables are not '
+                   'numeric or may contain missing values:\n'
+                   f' {vars_with_nans} '
+                   '\nWARNING: Rows with missing values will be deleted.\n'
+                   ' Other non-numeric values have to be recoded as numerical'
+                   ' if variable is used in the mcf.\n' + '-' * 100)
             ps.print_mcf(gen_dic, txt, summary=summary)
 
     var_dic, gen_dic, ct_dic = mcf_.var_dict, mcf_.gen_dict, mcf_.ct_dict
@@ -500,10 +508,17 @@ def create_xz_variables(mcf_, data_df, train=True):
                 unique_val_pred = data_df[variable].unique()
                 bad_vals = list(np.setdiff1d(unique_val_pred, unique_val))
                 if bad_vals:    # List is not empty
-                    raise RuntimeError(
-                        'Too many values in unordered variable. Prediction'
-                        ' file contains values that were not used for'
-                        ' training: {variable} : {bad_vals}')
+                    data_df.drop(
+                        data_df[data_df[variable].isin(bad_vals)].index,
+                        inplace=True)
+                    if gen_dic['with_output'] and gen_dic['verbose']:
+                        # raise RuntimeError
+                        txt = ('Too many values in unordered variable.'
+                               ' Prediction file contains values that were not'
+                               f' used for training: {variable} : {bad_vals}. '
+                               'These obervations will be removed from '
+                               'prediction data.')
+                        ps.print_mcf(gen_dic, txt, summary=True)
             prime_variable = data_df[variable].name + '_PRIME'
             data_df[prime_variable] = data_df[variable].replace(
                     unique_val, prime_values)

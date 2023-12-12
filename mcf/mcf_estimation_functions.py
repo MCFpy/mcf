@@ -52,7 +52,7 @@ def effect_from_potential(pot_y, pot_y_var, d_values, se_yes=True,
             est[j] = pot_y[jnd] - pot_y[idx]
             if se_yes:
                 var = pot_y_var[jnd] + pot_y_var[idx]
-                stderr[j] = np.sqrt(var) if var > 0.0000001 else 0.0000001
+                stderr[j] = np.sqrt(var) if var > 0.000001 else 0.000001
             comparison[j] = [treat2, treat1]
             j += 1
         if continuous:
@@ -96,8 +96,8 @@ def aggregate_pots(mcf_, y_pot_f, y_pot_var_f, txt, effect_dic, fold,
             effect_dic['y_pot'] = [x / (fold + 1) for x in y_pot]
             if y_pot_var_f is not None:
                 y_pot_var = deepcopy(effect_dic['y_pot_var'])
-                effect_dic['y_pot_var'] = [x / ((fold + 1) ** 2)
-                                           for x in y_pot_var]
+                effect_dic['y_pot_var'] = [
+                    x / ((fold + 1) ** 2) for x in y_pot_var]
         else:
             effect_dic['y_pot'] /= (fold + 1)
             if y_pot_var_f is not None:

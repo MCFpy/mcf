@@ -45,12 +45,10 @@ def prepare_data_for_forest(mcf_, data_df, no_y_nn=False):
     cl_i : INT.
 
     """
-    cf_dic, var_dic, gen_dic = mcf_.cf_dict, mcf_.var_dict, mcf_.gen_dict
-    var_x_type, var_x_values = mcf_.var_x_type, mcf_.var_x_values
-    x_name, x_type = gp.get_key_values_in_list(var_x_type)
+    cf_dic, var_dic = mcf_.cf_dict, mcf_.var_dict
+    x_name, x_type = gp.get_key_values_in_list(mcf_.var_x_type)
     x_type = np.array(x_type)
-    x_name2, x_values = gp.get_key_values_in_list(var_x_values)
-    pen_mult = 0
+    x_name2, x_values = gp.get_key_values_in_list(mcf_.var_x_values)
     if x_name != x_name2:
         raise RuntimeError('Wrong order of names', x_name, x_name2)
     p_x = len(x_name)     # Number of variables
@@ -69,7 +67,8 @@ def prepare_data_for_forest(mcf_, data_df, no_y_nn=False):
     y_dat = data_df[var_dic['y_tree_name']].to_numpy()
     if cf_dic['mtot'] in (1, 4):
         pen_mult = cf_dic['p_diff_penalty'] * np.var(y_dat)
-    y_i = [0]
+    else:
+        pen_mult = 0
     d_dat, d_i = data_df[var_dic['d_name']].to_numpy(), [1]
     y_nn = (np.zeros((len(d_dat), len(var_dic['y_match_name'])))
             if no_y_nn else data_df[var_dic['y_match_name']].to_numpy())
@@ -82,24 +81,25 @@ def prepare_data_for_forest(mcf_, data_df, no_y_nn=False):
         2 + len(var_dic['y_match_name']),
         2 + len(var_dic['y_match_name']) + len(var_dic['x_name']))
     data_np = np.concatenate((y_dat, d_dat, y_nn, x_dat), axis=1)
-    if gen_dic['weighted']:
+    if mcf_.gen_dict['weighted']:
         w_dat = data_df[var_dic['w_name']].to_numpy()
         data_np = np.concatenate((data_np, w_dat), axis=1)
         w_i = data_np.shape[1] - 1
     else:
         w_i = None
-    if gen_dic['panel_in_rf']:
+    if mcf_.gen_dict['panel_in_rf']:
         cl_dat = data_df[var_dic['cluster_name']].to_numpy()
         data_np = np.concatenate((data_np, cl_dat), axis=1)
         cl_i = data_np.shape[1] - 1
     else:
         cl_i = None
-    if gen_dic['d_type'] == 'continuous':
+    if mcf_.gen_dict['d_type'] == 'continuous':
         d_grid_dat = data_df[var_dic['grid_nn_name']].to_numpy()
         data_np = np.concatenate((data_np, d_grid_dat), axis=1)
         d_grid_i = data_np.shape[1] - 1
     else:
         d_grid_i = None
+    y_i = [0]
     return (x_name, x_type, x_values, cf_dic, pen_mult, data_np,
             y_i, y_nn_i, x_i, x_ind, x_ai_ind, d_i, w_i, cl_i, d_grid_i)
 

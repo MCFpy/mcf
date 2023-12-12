@@ -12,7 +12,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.4.2
+Version: 0.4.3
 
 This is an example to show how to use the OptimalPolicy class of the mcf
 module with full specification of all its keywords. It may be seen as an add on
@@ -29,7 +29,7 @@ from mcf.optpolicy_functions import OptimalPolicy
 
 # ------------- NOT passed to OptimalPolicy -----------------------------------
 #  Define data to be used in this example
-APPLIC_PATH = 'c:/mlechner/py_neu/example'
+APPLIC_PATH = os.getcwd() + '/example'
 DATPATH = APPLIC_PATH + '/data'
 TRAINDATA = 'data_x_ps_1_1000.csv'
 #  'best_policy_score': Training data must contain policy scores.
@@ -56,7 +56,7 @@ GEN_OUTPATH = APPLIC_PATH + '/outputOPT'     # Directory for the output.
 #   If it does not exist, it will be created. Default is an *.out directory
 #   just below to the directory where the programme is run.
 
-GEN_OUTFILETEXT = TRAINDATA + "OptPolicy.0.4.2"  # File for text output
+GEN_OUTFILETEXT = TRAINDATA + "OptPolicy.0.4.3"  # File for text output
 #   Default is 'txtFileWithOutput'.
 #   *.txt file extension will be added by the programme
 
@@ -64,7 +64,8 @@ GEN_OUTFILETEXT = TRAINDATA + "OptPolicy.0.4.2"  # File for text output
 GEN_OUTPUT_TYPE = None      # 0: Output goes to terminal
 #                             1: output goes to file
 #                             2: Output goes to file and terminal (default)
-GEN_METHOD = None     # Available methods: 'best_policy_score', 'policy tree'
+GEN_METHOD = None
+#   Available methods: 'best_policy_score', 'policy tree', 'policy tree eff'
 #   Default is 'best_policy_score'.
 #   Note fo this example only: This variable will be overwritten inside the
 #   loop at the end of the programme.

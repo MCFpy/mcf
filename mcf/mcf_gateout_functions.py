@@ -704,3 +704,26 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
     if int_dic['with_output']:
         gate_tables_nice(p_dic, gate_est_dic['d_values'], gate_type=gate_type)
     return gate, gate_se, gate_diff, gate_se_diff
+
+
+def get_names_values(mcf_, gate_est_dic, bgate_est_dic, amgate_est_dic):
+    """Collect information about Gates for the final results dictionary."""
+    if gate_est_dic is not None:
+        est_dic = gate_est_dic
+    elif bgate_est_dic is not None:
+        est_dic = bgate_est_dic
+    elif amgate_est_dic is not None:
+        est_dic = amgate_est_dic
+    gate_names_values = {'z_names_list': est_dic['var_dic']['z_name']}
+    for idx, z_name in enumerate(est_dic['var_dic']['z_name']):
+        if mcf_.var_x_type[z_name] > 0:
+            values, _ = mcf_gp.recode_if_all_prime(
+                est_dic['var_x_values'][z_name].copy(), z_name)
+            var = ps.del_added_chars(z_name, prime=True)
+            index_to_replace = gate_names_values['z_names_list'].index(z_name)
+            gate_names_values['z_names_list'][index_to_replace] = var
+        else:
+            var = z_name
+            values = est_dic['var_x_values'][z_name]
+        gate_names_values[var] = values
+    return gate_names_values

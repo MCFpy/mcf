@@ -26,7 +26,7 @@ def delete_file_if_exists(file_name):
 def define_outpath(outpath, new_outpath=True):
     """Verify outpath and create new one if needed."""
     path_programme_run = str(Path(__file__).parent.absolute())
-    if outpath is None:
+    if outpath in (None, [], ''):
         outpath = path_programme_run + '/out'
     if new_outpath:
         out_temp = outpath

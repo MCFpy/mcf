@@ -10,7 +10,7 @@ from copy import deepcopy
 import psutil
 import numpy as np
 
-from mcf import mcf_general as gp
+from mcf import mcf_general as mcf_gp
 from mcf import mcf_print_stats_functions as ps
 from mcf import mcf_general_sys as mcf_sys
 
@@ -135,28 +135,31 @@ def int_init(del_forest=None, descriptive_stats=None, dpi=None, fontsize=None,
     return dic
 
 
-def int_update_train(mcf_, n_train):
+def int_update_train(mcf_):
     """Update internal parameters before training."""
     dic, cf_dic = mcf_.int_dict, mcf_.cf_dict
-    dic['mp_ray_shutdown'] = ray_shut_down(dic['mp_ray_shutdown'], n_train)
+
+    dic['mp_ray_shutdown'] = ray_shut_down(dic['mp_ray_shutdown'],
+                                           cf_dic['n_train_eff'])
     if dic['max_cats_cont_vars'] is None or dic['max_cats_cont_vars'] < 1:
-        dic['max_cats_cont_vars'] = n_train + 100000000
+        dic['max_cats_cont_vars'] = cf_dic['n_train_eff'] + 100000000
     else:
         dic['max_cats_cont_vars'] = round(dic['max_cats_cont_vars'])
     if dic['mp_vim_type'] != 1 and dic['mp_vim_type'] != 2:
-        dic['mp_vim_type'] = 1 if n_train < 20000 else 2
+        dic['mp_vim_type'] = 1 if cf_dic['n_train_eff'] < 20000 else 2
     # 1: MP over var's, fast, lots RAM; 2: MP over bootstraps.
-    if n_train < 20000:
+    if cf_dic['n_train_eff'] < 20000:
         dic['mem_object_store_1'] = dic['mem_object_store_2'] = None
     else:
         memory = psutil.virtual_memory()
         # Obs. & number of trees as determinants of obj.store when forest build
         min_obj_str_n_1 = (
-            (n_train / 60000) * (cf_dic['boot'] / 1000)
+            (cf_dic['n_train_eff'] / 60000) * (cf_dic['boot'] / 1000)
             * (cf_dic['m_grid'] * cf_dic['n_min_grid']
                * cf_dic['alpha_reg_grid'] / 12)
             * (120 * 1024 * 1024 * 1024) * 5)
-        min_obj_str_n_2 = ((n_train / 60000) * (cf_dic['boot'] / 1000)
+        min_obj_str_n_2 = ((cf_dic['n_train_eff'] / 60000)
+                           * (cf_dic['boot'] / 1000)
                            * (120 * 1024 * 1024 * 1024))
         dic['mem_object_store_1'] = min(memory.available*0.5, min_obj_str_n_1)
         dic['mem_object_store_2'] = min(memory.available*0.5, min_obj_str_n_2)
@@ -172,19 +175,24 @@ def int_update_train(mcf_, n_train):
 
 def int_update_pred(mcf_, n_pred):
     """Update internal parameters before prediction."""
-    dic = mcf_.int_dict
-    dic['mp_ray_shutdown'] = ray_shut_down(dic['mp_ray_shutdown'], n_pred)
+    int_dic = mcf_.int_dict
+    # Adjusted for effective training sample size
+    n_pred_adj = n_pred * (mcf_.cf_dict['n_train_eff'] / n_pred)**0.5
+    int_dic['mp_ray_shutdown'] = ray_shut_down(int_dic['mp_ray_shutdown'],
+                                               n_pred_adj)
     memory = psutil.virtual_memory()
-    if n_pred < 20000:
-        dic['mem_object_store_3'] = None
+    if n_pred_adj < 20000:
+        int_dic['mem_object_store_3'] = None
     else:
-        min_obj_str_n_3 = (n_pred / 60000) * (120 * 1024 * 1024 * 1024)
-        dic['mem_object_store_3'] = min(memory.available*0.5, min_obj_str_n_3)
-        if dic['mp_ray_objstore_multiplier'] > 0:
-            dic['mem_object_store_3'] *= dic['mp_ray_objstore_multiplier']
-        if dic['mem_object_store_3'] > 0.5 * memory.available:
-            dic['mem_object_store_3'] = 0.5 * memory.available
-    mcf_.int_dict = dic
+        min_obj_str_n_3 = (n_pred_adj / 60000) * (120 * 1024 * 1024 * 1024)
+        int_dic['mem_object_store_3'] = min(memory.available*0.5,
+                                            min_obj_str_n_3)
+        if int_dic['mp_ray_objstore_multiplier'] > 0:
+            int_dic['mem_object_store_3'] *= int_dic[
+                'mp_ray_objstore_multiplier']
+        if int_dic['mem_object_store_3'] > 0.5 * memory.available:
+            int_dic['mem_object_store_3'] = 0.5 * memory.available
+    mcf_.int_dict = int_dic
 
 
 def gen_init(int_dic, d_type=None, iate_eff=None, mp_parallel=None,
@@ -285,66 +293,71 @@ def var_init(gen_dic, fs_dic, p_dic, bgate_name=None, cluster_name=None,
             x_name_unord is None or x_name_unord == []):
         raise ValueError('x_name_ord or x_name_unord must be specified.')
     if p_dic['cluster_std'] or gen_dic['panel_data']:
-        cluster_name = gp.cleaned_var_names(cluster_name)
+        cluster_name = mcf_gp.cleaned_var_names(cluster_name)
     else:
         cluster_name = []
     if p_dic['ate_no_se_only'] is True:
         x_balance_name_ord = x_balance_name_unord = None
         z_name_list = z_name_ord = z_name_unord = bgate_name = None
     # Clean variable names ... set all to capital letters
-    d_name = gp.cleaned_var_names(gp.to_list_if_needed(d_name))
-    y_tree_name = gp.cleaned_var_names(gp.to_list_if_needed(y_tree_name))
-    y_name = gp.to_list_if_needed(y_name)
+    d_name = mcf_gp.cleaned_var_names(mcf_gp.to_list_if_needed(d_name))
+    y_tree_name = mcf_gp.cleaned_var_names(
+        mcf_gp.to_list_if_needed(y_tree_name))
+    y_name = mcf_gp.to_list_if_needed(y_name)
     y_name.extend(y_tree_name)
-    y_name = gp.cleaned_var_names(y_name)
-    x_name_always_in_ord = gp.cleaned_var_names(x_name_always_in_ord)
-    x_name_always_in_unord = gp.cleaned_var_names(x_name_always_in_unord)
-    x_name_remain_ord = gp.cleaned_var_names(x_name_remain_ord)
-    x_name_remain_unord = gp.cleaned_var_names(x_name_remain_unord)
-    x_balance_name_ord = gp.cleaned_var_names(x_balance_name_ord)
-    x_balance_name_unord = gp.cleaned_var_names(x_balance_name_unord)
-    z_name_list = gp.cleaned_var_names(z_name_list)
-    z_name_ord = gp.cleaned_var_names(z_name_ord)
-    z_name_unord = gp.cleaned_var_names(z_name_unord)
-    bgate_name = gp.cleaned_var_names(bgate_name) if p_dic['bgate'] else []
-    x_name_ord = gp.cleaned_var_names(x_name_ord)
+    y_name = mcf_gp.cleaned_var_names(y_name)
+    x_name_always_in_ord = mcf_gp.cleaned_var_names(x_name_always_in_ord)
+    x_name_always_in_unord = mcf_gp.cleaned_var_names(x_name_always_in_unord)
+    x_name_remain_ord = mcf_gp.cleaned_var_names(x_name_remain_ord)
+    x_name_remain_unord = mcf_gp.cleaned_var_names(x_name_remain_unord)
+    x_balance_name_ord = mcf_gp.cleaned_var_names(x_balance_name_ord)
+    x_balance_name_unord = mcf_gp.cleaned_var_names(x_balance_name_unord)
+    z_name_list = mcf_gp.cleaned_var_names(z_name_list)
+    z_name_ord = mcf_gp.cleaned_var_names(z_name_ord)
+    z_name_unord = mcf_gp.cleaned_var_names(z_name_unord)
+    bgate_name = mcf_gp.cleaned_var_names(bgate_name) if p_dic['bgate'] else []
+    x_name_ord = mcf_gp.cleaned_var_names(x_name_ord)
     if z_name_list or z_name_ord:
         x_name_ord += z_name_list + z_name_ord
-    x_name_unord = gp.cleaned_var_names(x_name_unord)
+    x_name_unord = mcf_gp.cleaned_var_names(x_name_unord)
     if z_name_list or z_name_ord:
         x_name_unord += z_name_unord
     if gen_dic['weighted']:      # Former w_yes
         if w_name is None or w_name == []:
             raise ValueError('No name for sample weights specified.')
-        w_name = gp.cleaned_var_names(w_name)
+        w_name = mcf_gp.cleaned_var_names(w_name)
     else:
         w_name = []
-    id_name = gp.cleaned_var_names(id_name)
+    if not isinstance(id_name, (list, tuple)):
+        id_name = [id_name]
+    if not isinstance(id_name[0], str):
+        id_name[0] = 'ID'
+    id_name = mcf_gp.cleaned_var_names(id_name)
     x_name = deepcopy(x_name_ord + x_name_unord)
-    x_name = gp.cleaned_var_names(x_name)
+    x_name = mcf_gp.cleaned_var_names(x_name)
     x_name_in_tree = deepcopy(x_name_always_in_ord + x_name_always_in_unord)
-    x_name_in_tree = gp.cleaned_var_names(x_name_in_tree)
-    x_balance_name = gp.cleaned_var_names(deepcopy(x_balance_name_ord
-                                                   + x_balance_name_unord))
+    x_name_in_tree = mcf_gp.cleaned_var_names(x_name_in_tree)
+    x_balance_name = mcf_gp.cleaned_var_names(deepcopy(x_balance_name_ord
+                                                       + x_balance_name_unord))
     if not x_balance_name:
         p_dic['bt_yes'] = False
-    x_name_remain = gp.cleaned_var_names(
+    x_name_remain = mcf_gp.cleaned_var_names(
         deepcopy(x_name_remain_ord + x_name_remain_unord + x_name_in_tree
                  + x_balance_name))
-    x_name_always_in = gp.cleaned_var_names(deepcopy(x_name_always_in_ord
-                                                     + x_name_always_in_unord))
-    name_ordered = gp.cleaned_var_names(
+    x_name_always_in = mcf_gp.cleaned_var_names(
+        deepcopy(x_name_always_in_ord + x_name_always_in_unord))
+    name_ordered = mcf_gp.cleaned_var_names(
         deepcopy(x_name_ord + x_name_always_in_ord + x_name_remain_ord))
-    name_unordered = gp.cleaned_var_names(
+    name_unordered = mcf_gp.cleaned_var_names(
         deepcopy(x_name_unord + x_name_always_in_unord + x_name_remain_unord))
     if fs_dic['yes']:
         if p_dic['bt_yes']:
-            x_name_remain = gp.cleaned_var_names(deepcopy(x_balance_name
-                                                          + x_name_remain))
+            x_name_remain = mcf_gp.cleaned_var_names(
+                deepcopy(x_balance_name + x_name_remain))
     if x_name_in_tree:
-        x_name_remain = gp.cleaned_var_names(deepcopy(x_name_in_tree
-                                                      + x_name_remain))
-        x_name = gp.cleaned_var_names(deepcopy(x_name_in_tree + x_name))
+        x_name_remain = mcf_gp.cleaned_var_names(
+            deepcopy(x_name_in_tree + x_name_remain))
+        x_name = mcf_gp.cleaned_var_names(deepcopy(x_name_in_tree + x_name))
     if not ((not name_ordered) or (not name_unordered)):
         if any(value for value in name_ordered if value in name_unordered):
             raise ValueError('Remove overlap in ordered + unordered variables')
@@ -427,8 +440,8 @@ def name_unique(all_names):
 def var_update_train(mcf_, data_df):
     """Update var_dict with training data if needed."""
     var_dic = mcf_.var_dict
-    var_dic['d_name'][0] = gp.adjust_var_name(var_dic['d_name'][0],
-                                              data_df.columns.tolist())
+    var_dic['d_name'][0] = mcf_gp.adjust_var_name(var_dic['d_name'][0],
+                                                  data_df.columns.tolist())
     mcf_.var_dict = var_dic
 
 
@@ -615,6 +628,7 @@ def cf_init(alpha_reg_grid=None, alpha_reg_max=None, alpha_reg_min=None,
         estimator_str = 'MSE,MCE or penalty (random)'
     else:
         raise ValueError('Inconsistent MTOT definition of  MCE_VarT.')
+    # These values will be updated later
     dic['mtot'], dic['mtot_no_mce'] = mtot, mtot_no_mce
     dic['estimator_str'] = estimator_str
     dic['chunks_maxsize'] = chunks_maxsize
@@ -635,15 +649,35 @@ def cf_update_train(mcf_, data_df):
     n_train = len(data_df)
     # Number of obs in treatments before any selection
     vcount = data_df.groupby(var_dic['d_name']).size()  # pylint:disable=E1101
-    gen_dic['obs_by_treat'] = vcount.to_numpy()
-    if n_train != gen_dic['obs_by_treat'].sum():
+    obs_by_treat = vcount.to_numpy()
+    if abs(n_train - obs_by_treat.sum()) > len(obs_by_treat):
         raise RuntimeError(
             f'Counting treatments does not work. n_d_sum:'
-            f' {gen_dic["obs_by_treat"].sum()}, n_train: {n_train}. Difference'
+            f' {obs_by_treat.sum()}, n_train: {n_train}. Difference'
             ' could be due to missing values in treatment.')
+
+    # Adjust for smaller effective training samples due to feature selection
+    # and possibly local centering and common support
+    cf_dic['n_train'] = reduce_effective_n_train(mcf_, n_train)
+    if fs_dic['yes'] and fs_dic['other_sample']:
+        obs_by_treat = obs_by_treat * (1 - fs_dic['other_sample_share'])
+
+    # Determine chunck size when doing many smaller forests instead of only one
+    if not isinstance(cf_dic['chunks_maxsize'], int):
+        base_level = 60000
+        cf_dic['chunks_maxsize'] = round(max(
+            base_level + np.sqrt(max(cf_dic['n_train'] - base_level, 0)),
+            base_level))
+    # Effective sample sizes per chuck
+    no_of_chucks = np.ceil(cf_dic['n_train'] / cf_dic['chunks_maxsize'])
+    # Actual number of chucks could be smaller if lot's of data is deleted in
+    # common support adjustment
+    cf_dic['n_train_eff'] = cf_dic['n_train'] / no_of_chucks
+    obs_by_treat_eff = obs_by_treat / cf_dic['chunks_maxsize']
+
     # size of subsampling samples         n/2: size of forest sample
     cf_dic['subsample_share_forest'] = sub_size(
-        n_train, cf_dic['subsample_factor_forest'], 0.67)
+        cf_dic['n_train_eff'], cf_dic['subsample_factor_forest'], 0.67)
     if cf_dic['subsample_factor_eval'] is None:
         cf_dic['subsample_factor_eval'] = 2      # Default
     elif cf_dic['subsample_factor_eval'] is False:
@@ -654,16 +688,19 @@ def cf_update_train(mcf_, data_df):
         cf_dic['subsample_factor_eval'] = 1000000000
     cf_dic['subsample_share_eval'] = min(
         cf_dic['subsample_share_forest'] * cf_dic['subsample_factor_eval'], 1)
-    n_d_subsam = (gen_dic['obs_by_treat'].min()
+    n_d_subsam = (obs_by_treat_eff.min()
                   * int_dic['share_forest_sample']
                   * cf_dic['subsample_share_forest'])
-    if fs_dic['yes'] and lc_dic['cs_cv']:
+
+    # Further adjustments when data is used for other purposes
+    if mcf_.cs_dict['type'] > 0 and not lc_dic['cs_cv']:
         n_d_subsam *= (1 - lc_dic['cs_share'])
-    if lc_dic['yes'] and lc_dic['cs_cv']:
+    if lc_dic['yes'] and not lc_dic['cs_cv']:
         n_d_subsam *= (1 - lc_dic['cs_share'])
+
     # Check only random thresholds to save computation time when building CF
     if cf_dic['random_thresholds'] is None or cf_dic['random_thresholds'] < 0:
-        cf_dic['random_thresholds'] = round(4 + n_train**0.2)
+        cf_dic['random_thresholds'] = round(4 + cf_dic['n_train_eff']**0.2)
     # Penalty multiplier in CF building
     if (cf_dic['p_diff_penalty'] is None
             or cf_dic['p_diff_penalty'] < 0):  # Default
@@ -671,8 +708,9 @@ def cf_update_train(mcf_, data_df):
             cf_dic['p_diff_penalty'] = 0.5
         else:                                   # Approx 1 for N = 1000
             cf_dic['p_diff_penalty'] = (
-                2 * ((n_train * cf_dic['subsample_share_forest'])**0.9)
-                / (n_train * cf_dic['subsample_share_forest']))
+                2 * ((cf_dic['n_train_eff']
+                      * cf_dic['subsample_share_forest'])**0.9)
+                / (cf_dic['n_train_eff'] * cf_dic['subsample_share_forest']))
             if cf_dic['mtot'] == 2:
                 cf_dic['p_diff_penalty'] = 100 * cf_dic['p_diff_penalty']
             if gen_dic['d_type'] == 'discrete':
@@ -692,21 +730,21 @@ def cf_update_train(mcf_, data_df):
         cf_dic['estimator_str'] += ' penalty fct'
     # Minimum leaf size
     if cf_dic['n_min_min'] is None or cf_dic['n_min_min'] < 1:
-        cf_dic['n_min_min'] = (max(round((n_d_subsam**0.4) / 6), 2)
-                               * gen_dic['no_of_treat'])
+        cf_dic['n_min_min'] = round(max((n_d_subsam**0.4) / 10, 1.5)
+                                    * gen_dic['no_of_treat'])
     else:
         cf_dic['n_min_min'] = round(cf_dic['n_min_min'])
     if cf_dic['n_min_max'] is None or cf_dic['n_min_max'] < 1:
-        cf_dic['n_min_max'] = (max(round(n_d_subsam**0.5 / 6), 3)
-                               * gen_dic['no_of_treat'])
+        cf_dic['n_min_max'] = round(max(n_d_subsam**0.5 / 10, 2)
+                                    * gen_dic['no_of_treat'])
     else:
         cf_dic['n_min_max'] = round(cf_dic['n_min_max'])
     cf_dic['n_min_max'] = max(cf_dic['n_min_min'], cf_dic['n_min_max'])
     if gen_dic['d_type'] == 'discrete':
         if cf_dic['n_min_treat'] is None or cf_dic['n_min_treat'] < 1:
-            cf_dic['n_min_treat'] = max(
-                round((cf_dic['n_min_min'] + cf_dic['n_min_max']) / 2
-                      / gen_dic['no_of_treat'] / 4), 2)
+            cf_dic['n_min_treat'] = round(
+                max((cf_dic['n_min_min'] + cf_dic['n_min_max']) / 2
+                    / gen_dic['no_of_treat'] / 10, 1))
         else:
             cf_dic['n_min_treat'] = round(cf_dic['n_min_treat'])
         min_leaf_size = cf_dic['n_min_treat'] * gen_dic['no_of_treat']
@@ -737,13 +775,8 @@ def cf_update_train(mcf_, data_df):
         cf_dic['n_min_min'], cf_dic['n_min_max'] = n_min[0], n_min[-1]
         cf_dic['n_min_grid'] = len(n_min)
         cf_dic['n_min_values'] = n_min
-    if not isinstance(cf_dic['chunks_maxsize'], int):
-        base_level = 60000
-        cf_dic['chunks_maxsize'] = round(max(
-            base_level + np.sqrt(max(n_train - base_level, 0)), base_level))
     cf_dic['forests'] = None              # To be filled at the end of training
     mcf_.cf_dict = cf_dic
-    mcf_.gen_dict = gen_dic
 
 
 def p_init(gen_dic, ate_no_se_only=None, amgate=None, atet=None, bgate=None,
@@ -844,13 +877,12 @@ def p_init(gen_dic, ate_no_se_only=None, amgate=None, atet=None, bgate=None,
     return dic
 
 
-def p_update_train(mcf_, data_df):
-    """Update parameters with data."""
+def p_update_train(mcf_):
+    """Update parameters with sample size information."""
     p_dic = mcf_.p_dict
-    n_train = len(data_df)
     # Categorise continuous gate variables
     if p_dic['max_cats_z_vars'] is None or p_dic['max_cats_z_vars'] < 1:
-        p_dic['max_cats_z_vars'] = round(n_train ** 0.3)
+        p_dic['max_cats_z_vars'] = round(mcf_.cf_dict['n_train_eff'] ** 0.3)
     else:
         p_dic['max_cats_z_vars'] = round(p_dic['max_cats_z_vars'])
     mcf_.p_dict = p_dic
@@ -992,13 +1024,13 @@ def get_ray_del_defaults(_mp_ray_del_user):
     return _mp_ray_del
 
 
-def ray_shut_down(_mp_ray_shutdown, len_data):
+def ray_shut_down(ray_shutdown, len_data):
     """Define mimimum sample size for ray_shut_down."""
-    if _mp_ray_shutdown is None:
-        _mp_ray_shutdown = not len_data < 100000
-    if not isinstance(_mp_ray_shutdown, bool):
+    if ray_shutdown is None:
+        ray_shutdown = not len_data < 150000
+    if not isinstance(ray_shutdown, bool):
         raise ValueError('mp_ray_shutdown must be either None or Boolean')
-    return _mp_ray_shutdown
+    return ray_shutdown
 
 
 def get_alpha(alpha_reg_grid, alpha_reg_max, alpha_reg_min):
@@ -1090,3 +1122,82 @@ def bootstrap(se_boot, cut_off, bnr, cluster_std):
     if se_boot >= cut_off:
         return round(se_boot)
     return False
+
+
+def sens_init(p_dict, amgate=None, bgate=None, gate=None, iate=None,
+              iate_se=None, scenarios=None, cv_k=None,
+              replications=2, reference_population=None):
+    """Initialise parameters of post-estimation analysis."""
+    dic = {}
+    # Check if types of inputs are ok
+    if cv_k is not None and not isinstance(cv_k, (int, float)):
+        raise TypeError('Number of folds for cross-validation must be integer,'
+                        'float or None')
+    if replications is not None and not isinstance(replications, (int, float)):
+        raise TypeError('Number of replication must be integer, float or None')
+    if scenarios is not None and not isinstance(scenarios, (list, tuple, str)):
+        raise TypeError('Names of scenarios must be string or None')
+    if amgate is not None and not isinstance(amgate, bool):
+        raise TypeError('amgate must be boolean or None')
+    if bgate is not None and not isinstance(bgate, bool):
+        raise TypeError('bgate must be boolean or None')
+    if gate is not None and not isinstance(gate, bool):
+        raise TypeError('gate must be boolean or None')
+    if iate is not None and not isinstance(iate, bool):
+        raise TypeError('iate must be boolean or None')
+    if iate_se is not None and not isinstance(iate_se, bool):
+        raise TypeError('iate_se must be boolean or None')
+    if reference_population is not None and not isinstance(
+            reference_population, (int, float)):
+        raise TypeError('reference_population must be boolean or None')
+
+    # Assign default values
+    dic['amgate'] = amgate is True
+    dic['bgate'] = bgate is True
+    dic['gate'] = gate is True or dic['amgate'] or dic['bgate']
+    dic['iate'] = iate is True
+    dic['iate_se'] = iate_se is True
+    if dic['amgate'] and not p_dict['amgate']:
+        raise ValueError('p_amgate must be set to True if sens_amgate is True')
+    if dic['gate'] and not p_dict['bgate']:
+        raise ValueError('p_bgate must be set to True if sens_bgate is True')
+
+    if reference_population is None:
+        dic['reference_population'] = None
+    else:
+        dic['reference_population'] = reference_population
+    if cv_k is None or cv_k < 0.5:
+        dic['cv_k'] = 5
+    else:
+        dic['cv_k'] = round(cv_k)
+
+    if replications is None or replications < 0.5:
+        dic['replications'] = 2
+    else:
+        dic['replications'] = round(replications)
+
+    if scenarios is None:
+        dic['scenarios'] = ('basic',)
+    elif isinstance(scenarios, str):
+        dic['scenarios'] = (scenarios,)
+    else:
+        raise ValueError(f'Senitivity Scenario {scenarios} not implemented')
+    eligible_scenarios = ('basic',)
+    wrong_scenarios = [scen for scen in dic['scenarios']
+                       if scen not in eligible_scenarios]
+    if wrong_scenarios:
+        raise ValueError(f'{wrong_scenarios}'
+                         f' {"are" if len(wrong_scenarios) > 1 else "is"}'
+                         ' ineligable for sensitivity analysis')
+    return dic
+
+
+def reduce_effective_n_train(mcf_, n_train):
+    """Compute effective training sample size."""
+    if mcf_.fs_dict['yes'] and mcf_.fs_dict['other_sample']:
+        n_train *= 1 - mcf_.fs_dict['other_sample_share']
+    if mcf_.cs_dict['type'] > 0 and not mcf_.lc_dict['cs_cv']:
+        n_train *= (1 - mcf_.lc_dict['cs_share'])
+    if mcf_.lc_dict['yes'] and not mcf_.lc_dict['cs_cv']:
+        n_train *= (1 - mcf_.lc_dict['cs_share'])
+    return n_train

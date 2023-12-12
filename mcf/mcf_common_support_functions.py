@@ -15,10 +15,10 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
 from mcf import mcf_data_functions as mcf_data
-from mcf import mcf_general as gp
+from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
 from mcf import mcf_print_stats_functions as ps
-from mcf import mcf_variable_importance_functions as vi
+from mcf import mcf_variable_importance_functions as mcf_vi
 
 
 def common_support(mcf_, tree_df, fill_y_df, train=True):
@@ -27,7 +27,7 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
     lc_dic, var_x_type, cs_dic = mcf_.lc_dict, mcf_.var_x_type, mcf_.cs_dict
     data_train_dic = mcf_.data_train_dict
     d_name, _, no_of_treat = mcf_data.get_treat_info(mcf_)
-    x_name, x_type = gp.get_key_values_in_list(var_x_type)
+    x_name, x_type = mcf_gp.get_key_values_in_list(var_x_type)
     names_unordered = [x_name[j] for j, val in enumerate(x_type) if val > 0]
     if gen_dic['with_output'] and gen_dic['verbose']:
         ps.print_mcf(gen_dic, '\n' + '=' * 100 + '\nCommon support analysis',
@@ -105,7 +105,7 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
             forests = [classif]
         cs_dic['forests'] = forests
         if gen_dic['with_output']:
-            vi.print_variable_importance(
+            mcf_vi.print_variable_importance(
                 deepcopy(classif), x_mcf_df, tree_mcf_df[d_name], x_name,
                 names_unordered, dummy_names, gen_dic, summary=False)
         # Normalize estimated probabilities to add up to 1
@@ -162,21 +162,20 @@ def descriptive_stats_on_off_support(mcf_, probs_np, data_df, titel=''):
     """Compute descriptive stats for deleted and retained observations."""
     keep_df, delete_df = on_off_support_df(mcf_, probs_np, data_df)
     gen_dic, var_dic = mcf_.gen_dict, mcf_.var_dict
+    titel = ('\n' + '-' * 100 + '\nData investigated for common support: '
+             f'{titel}\n' + '-' * 100)
     if delete_df.empty:
-        txt = (f'\n\nData investigated for common support: {titel}\n'
-               + '-' * 100)
-        ps.print_mcf(gen_dic, '\nNo observations deleted in common support '
-                     'check', summary=True)
+        ps.print_mcf(gen_dic,
+                     titel + '\nNo observations deleted in common support'
+                     ' check', summary=True)
     else:
         d_name, _, _ = mcf_data.get_treat_info(mcf_)
         x_name = var_dic['x_name']
         obs_del, obs_keep = len(delete_df), len(keep_df)
         obs = obs_del + obs_keep
-        txt = '\n' + '-' * 100
-        txt += f'\nData investigated for common support: {titel}\n' + '-' * 100
-        txt += f'\nObservations deleted: {obs_del:4} ({obs_del/obs:.2%})'
+        txt = f'\nObservations deleted: {obs_del:4} ({obs_del/obs:.2%})'
         txt += '\n' + '-' * 100
-        ps.print_mcf(gen_dic, txt, summary=True)
+        ps.print_mcf(gen_dic, titel + txt, summary=True)
         txt = ''
         with pd.option_context(
                 'display.max_rows', 500, 'display.max_columns', 500,

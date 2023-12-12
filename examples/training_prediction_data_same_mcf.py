@@ -9,12 +9,14 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.4.2
+Version: 0.4.3
 
 This is an example to show how a minimal specification of the mcf can be
 implemented that uses the same data from training and prediction.
 
 """
+import os
+
 import pandas as pd
 
 from mcf.mcf_functions import ModifiedCausalForest
@@ -22,7 +24,7 @@ from mcf.mcf_functions import ModifiedCausalForest
 
 # ------------------ NOT parameters of the ModifiedCausalForest ---------------
 #  Define data to be used in this example
-APPLIC_PATH = 'c:/mlechner/py_neu/example'
+APPLIC_PATH = os.getcwd() + '/example'
 DATPATH = APPLIC_PATH + '/data'
 TRAINDATA = 'data_y_d_x_1000.csv'
 #  Training data must contain outcome, treatment and features.

@@ -13,6 +13,35 @@ import numpy as np
 from sympy.ntheory import primefactors
 
 
+def memoize(func):
+    """Save in for storing computed results."""
+    cache = {}  # Cache for storing computed results
+
+    def wrapper(*args):
+        if args in cache:
+            return cache[args]
+        result = func(*args)
+        cache[args] = result
+        return result
+
+    return wrapper
+
+
+def memoize_list(func):
+    """Save in for storing computed results."""
+    cache = {}  # Cache for storing computed results
+
+    def wrapper(args):
+        arg_tuple = tuple(args)
+        if arg_tuple in cache:
+            return cache[arg_tuple]
+        result = func(args)
+        cache[arg_tuple] = result
+        return result
+
+    return wrapper
+
+
 def dic_get_list_of_key_by_item(dic, value):
     """Get list of keys by item of a dictionary.
 
@@ -55,19 +84,20 @@ def get_key_values_in_list(dic):
     return key_list, value_list
 
 
+# @memoize_list  To much overhead, does not save anything relevant
 def list_product(factors):
     """Prodcuce a product of a list keeping python data format.
 
     Parameters
     ----------
-    factors : List.
+    factors : List of Int.
 
     Returns
     -------
-    prod : INT or Float.
+    prod : Int. Product of primes.
 
     """
-    return prod(factors)  # should be faster and keep python format
+    return prod(factors)  # should be fast and keep python format
 
 
 def substitute_variable_name(var_dic, old_name, new_name):
@@ -220,7 +250,7 @@ def check_if_iterable(variable):
 
 def recode_if_all_prime(values, name):
     """
-    Recode array-like to of prime to list of integers.
+    Recode array-like of prime to list of integers.
 
     Parameters
     ----------
@@ -366,6 +396,7 @@ def primes_list(number=1000):
     return primes[0:number]
 
 
+@memoize
 def primes_reverse(number, int_type=True):
     """Give the prime factors of integers.
 

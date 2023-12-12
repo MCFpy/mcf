@@ -7,6 +7,7 @@ Created on Thu May 11 16:30:11 2023
 # -*- coding: utf-8 -*-
 """
 from datetime import datetime, timedelta
+from io import StringIO
 
 import scipy.stats as sct
 import pandas as pd
@@ -125,14 +126,20 @@ def print_descriptive_df(gen_dic, data_df, varnames='all', summary=False):
     data_sel = data_df[varnames] if varnames != 'all' else data_df
     desc_stat = data_sel.describe()
     if (varnames == 'all') or len(varnames) > 10:
-        to_print = desc_stat.transpose()
+        to_print_2 = desc_stat.transpose()
     else:
-        to_print = desc_stat
+        to_print_2 = desc_stat
     with pd.option_context(
             'display.max_rows', 500, 'display.max_columns', 500,
             'display.expand_frame_repr', True, 'display.width', 150,
             'chop_threshold', 1e-13):
-        print_mcf(gen_dic, to_print, summary=summary)
+        print_mcf(gen_dic, '\nShort info on data used:\n' + '- ' * 50,
+                  summary=summary)
+        to_print_1 = StringIO()
+        data_sel.info(verbose=True, memory_usage='deep', buf=to_print_1,
+                      show_counts=True)
+        print_mcf(gen_dic,  to_print_1.getvalue(), summary=summary)
+        print_mcf(gen_dic, to_print_2, summary=summary)
 
 
 def statistics_by_treatment(gen_dic, data_df, treat_name, var_name,
@@ -239,7 +246,8 @@ def variable_features(mcf_, summary=False):
 
 
 def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
-                 continuous=False):
+                 continuous=False, print_first_line=True, print_last_line=True,
+                 small_p_val_only=False):
     """Print treatment effects.
 
     Parameters
@@ -252,22 +260,30 @@ def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
     add_title : None or string. Additional title.
     add_info : None or Int. Additional information about parameter.
     continuous : Boolean. True if treatment is continuous.
+    print_first_line : Boolean. If False, do not print first line.
+                                Default is True.
+    small_p_val_only :Boolean. If True, print effects only if p_value is less
+                               than 10%. Default is False.
 
     Returns
     -------
     print_str : String. String version of output.
     """
     print_str = ''
-    if add_title is None:
-        print_str += '\nComparison                Estimate'
-        if stderr is not None:
-            print_str += '   Standard error t-value   p-value'
-    else:
-        print_str += f'Comparison {add_title}              Estimate'
-        if stderr is not None:
-            print_str += '   Standard error t-value   p-value'
-    print_str += '\n' + '- ' * 50 + '\n' + ''
+    if print_first_line:
+        if add_title is None:
+            print_str += '\nComparison                Estimate'
+            if stderr is not None:
+                print_str += '   Standard error t-value   p-value'
+        else:
+            print_str += f'Comparison {add_title}              Estimate'
+            if stderr is not None:
+                print_str += '   Standard error t-value   p-value'
+        print_str += '\n' + '- ' * 50
+    print_str += '\n' + ''
     for j in range(np.size(est)):
+        if small_p_val_only and p_val[j] > 0.1:
+            continue
         if continuous:
             compf = f'{effect_list[j][0]:<9.5f} vs {effect_list[j][1]:>9.5f}'
         else:
@@ -288,7 +304,8 @@ def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
             elif p_val[j] < 0.1:
                 print_str += '   *'
         print_str += '\n'
-    print_str += '- ' * 50
+    if print_last_line:
+        print_str += '- ' * 50
     return print_str
 
 
@@ -471,12 +488,12 @@ def print_iate(iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic):
                 if p_dic['iate_se']:
                     stderr = iate_se[:, o_idx, jdx, types].reshape(-1)
                     p_val = iate_p[:, o_idx, jdx, types].reshape(-1)
-                print_str += (f'{np.mean(est):10.5f} {np.median(est):10.5f}'
-                              f' {np.std(est):10.5f} '
+                print_str += (f'{np.mean(est):12.5f} {np.median(est):12.5f}'
+                              f' {np.std(est):12.5f} '
                               f'{np.count_nonzero(est > 1e-15) / n_obs:7.2%}')
                 if p_dic['iate_se']:
                     print_str += (
-                        f' {np.mean(stderr):10.5f}'
+                        f' {np.mean(stderr):12.5f}'
                         f' {np.count_nonzero(p_val < 0.1)/n_obs:8.2%}'
                         f' {np.count_nonzero(p_val < 0.05)/n_obs:8.2%}'
                         f' {np.count_nonzero(p_val < 0.01)/n_obs:8.2%}')
@@ -514,7 +531,7 @@ def print_effect_z(g_r, gm_r, z_values, gate_str, print_output=True,
         print_str = ('- ' * 50 + f'\n                   {gate_str}'
                      + f'                                {gate_str} - ATE')
     print_str += ('\nComparison      Z      Est         SE  t-val   p-val'
-                  + '         Est        SE  t-val  p-val\n' + '- ' * 50
+                  + '         Est        SE  t-val   p-val\n' + '- ' * 50
                   + '\n')
     prec = find_precision(z_values)
     if prec == 0:
@@ -522,7 +539,7 @@ def print_effect_z(g_r, gm_r, z_values, gate_str, print_output=True,
     for j in range(no_of_effect_per_z):
         for zind, z_val in enumerate(z_values):
             treat_s = f'{g_r[zind][4][j][0]:<3} vs {g_r[zind][4][j][1]:>3}'
-            val_s = f'{z_val:>7.{prec}f}'
+            val_s = f'{z_val:>7.{prec}f} '
             estse_s = f'{g_r[zind][0][j]:>9.5f}  {g_r[zind][1][j]:>9.5f}'
             t_p_s = f'{g_r[zind][2][j]:>6.2f}  {g_r[zind][3][j]:>6.2%}'
             s_s = stars(g_r[zind][3][j])

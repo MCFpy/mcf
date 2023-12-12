@@ -16,9 +16,9 @@ import ray
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 
+from mcf import mcf_forest_add_functions as mcf_fo_add
 from mcf import mcf_forest_data_functions as mcf_data
 from mcf import mcf_forest_functions as mcf_fo
-from mcf import mcf_forest_add_functions as mcf_fo_add
 from mcf import mcf_general as gp
 from mcf import mcf_general_sys as mcf_sys
 from mcf import mcf_print_stats_functions as ps
@@ -90,8 +90,8 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
                 txt = '\nSize of Ray Object Store: '
                 txt += f'{round(int_dic["mem_object_store_2"]/(1024*1024))} MB'
                 ps.print_mcf(gen_dic, txt, summary=False)
-        data_np_ref = ray.put(data_np)
-        forest_ref = ray.put(forest)
+        data_np_ref, forest_ref = ray.put(data_np), ray.put(forest)
+
     if (int_dic['mp_vim_type'] == 2 and int_dic['ray_or_dask'] != 'ray') or (
             maxworkers == 1):
         for jdx in range(number_of_oobs):
@@ -318,18 +318,20 @@ def vim_print(mse_ref, mse_values, x_name, ind_list=0, with_output=True,
     txt = ''
     if with_output:
         txt += '\n' * 2 + '-' * 100 + f'\nOut of bag MSE: {mse_ref:8.3f}'
-        txt += '\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - -'
+        txt += '\n' + '- ' * 50
         txt += '\nVariable importance statistics in %-lost of base value'
         for idx, vim in enumerate(vim_sorted):
             if single:
                 txt += f'\n{x_names_sorted[idx]:<50}: {vim-100:>7.4f}%'
             else:
-                txt += '\n' + ' '.join(x_names_sorted[idx])
-                txt += f'\n{" ":<50}: {vim-100:>7.4f}%'
-        txt += '\n' + '-' * 100
-        txt += ('\nComputed as share of OOB MSE of estimated forest relative'
-                '\nto OOB MSE of variable (or group of variables)'
-                '\nwith randomized covariate values in %.')
+                var_str = ' '.join(x_names_sorted[idx])
+                txt += f'\n{var_str:<80s}: {vim-100:>7.4f}%'
+        txt += '\n' + '- ' * 50
+        txt += (
+            '\nComputed as share of OOB MSE of estimated forest relative to'
+            ' OOB MSE of'
+            '\nvariable (or group of variables) with randomized covariate '
+            'values in %.')
     ind_sorted.reverse()
     vim_sorted = np.flip(vim_sorted)
     vim = (vim_sorted, ind_sorted)
@@ -375,7 +377,7 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
     k: INT. Number of groups/variables.
     single : Bool. Single variable.
     group_ind_list : List of Lists of Int.
-    forest : List of lists. Estimated forest in table form.
+    forest : List of Dicts. Estimated Trees in dictionary form.
     no_mp : Bool. No multiprocessing.  Default is False.
     partner_k : For single variables only: Allows to jointly randomize another
                 single variables that strongly covaries with variable k.
@@ -400,10 +402,10 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
                      summary=False)
     if (maxworkers == 1) or no_mp:
         for idx in range(cf_dic['boot']):
+            data_np_oob = data_np[forest[idx]['oob_indices']]
             oob_tree = get_oob_mcf_b(
-                data_np[forest[idx][0][16]], y_i, y_nn_i, x_i, d_i, w_i,
-                gen_dic, cf_dic, k, single, group_ind_list, forest[idx],
-                partner_k=partner_k)
+                data_np_oob, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k,
+                single, group_ind_list, forest[idx], partner_k=partner_k)
             oob_value += oob_tree
     else:
         if int_dic['mp_weights_tree_batch'] > 1:  # User defined # of batches
@@ -442,19 +444,20 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
 
 
 def get_oob_mcf_chuncks(data, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k,
-                        single, group_ind_list, node_table, index_list,
+                        single, group_ind_list, tree_dics, index_list,
                         partner_k=None):
     """Compute OOB value in chuncks."""
     oob_value = 0
     for idx, _ in enumerate(index_list):
+        data_np_oob = data[tree_dics[idx]['oob_indices']]
         oob_value += get_oob_mcf_b(
-            data[node_table[idx][0][16]], y_i, y_nn_i, x_i, d_i, w_i, gen_dic,
-            cf_dic, k, single, group_ind_list, node_table[idx], partner_k)
+            data_np_oob, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k,
+            single, group_ind_list, tree_dics[idx], partner_k)
     return oob_value
 
 
 def get_oob_mcf_b(data, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k, single,
-                  group_ind_list, node_table, partner_k=None):
+                  group_ind_list, tree_dict, partner_k=None):
     """Generate OOB contribution for single bootstrap."""
     x_dat, y_dat = data[:, x_i], data[:, y_i]
     y_nn = data[:, y_nn_i]
@@ -474,7 +477,7 @@ def get_oob_mcf_b(data, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k, single,
                 x_dat[:, i] = x_dat[rand_ind, i]
     obs_in_leaf = np.empty((obs, 2), dtype=np.uint32)
     for idx in range(obs):
-        leaf_no = mcf_fo_add.get_terminal_leaf_no(node_table, x_dat[idx, :])
+        leaf_no = mcf_fo_add.get_terminal_leaf_no(tree_dict, x_dat[idx, :])
         obs_in_leaf[idx, 0], obs_in_leaf[idx, 1] = idx, leaf_no
     oob_tree = mcf_fo.oob_in_tree(
         obs_in_leaf, y_dat, y_nn, d_dat, w_dat, cf_dic['mtot'],

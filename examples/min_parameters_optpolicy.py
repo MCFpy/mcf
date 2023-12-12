@@ -12,7 +12,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.4.2
+Version: 0.4.3
 
 This is an example to show the optimal policy package can be implemented with
 a minimum number of specification (it could be even more further simplified
@@ -21,6 +21,8 @@ allocations; or when only one solving method is used which makes some more
 method-specific parameters redundant).
 
 """
+import os
+
 import pandas as pd
 
 from mcf.optpolicy_functions import OptimalPolicy
@@ -28,7 +30,7 @@ from mcf.optpolicy_functions import OptimalPolicy
 
 # ------------- NOT passed to OptimalPolicy -----------------------------------
 #  Define data to be used in this example
-APPLIC_PATH = 'c:/mlechner/py_neu/example'
+APPLIC_PATH = os.getcwd() + '/example'
 DATPATH = APPLIC_PATH + '/data'
 TRAINDATA = 'data_x_ps_1_1000.csv'
 #  'best_policy_score': Training data must contain policy scores.

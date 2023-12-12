@@ -25,7 +25,8 @@ def iate_est_mp(mcf_, weights_dic, w_ate, reg_round=True):
     Parameters
     ----------
     mcf_ : mcf object.
-    data_df : DataFrame. Prediction data.
+    data_df : DataFrame.
+               Prediction data.
     weights_dic : Dict.
               Contains weights and numpy data.
     balancing_test: Boolean.
@@ -125,50 +126,47 @@ def iate_est_mp(mcf_, weights_dic, w_ate, reg_round=True):
                   f'{n_x / no_of_splits:5.2f}.',
                   ' Number of splits: ', no_of_splits)
         obs_idx_list = np.array_split(np.arange(n_x), no_of_splits)
-        if int_dic['ray_or_dask'] == 'ray':
-            if int_dic['mem_object_store_3'] is None:
-                if not ray.is_initialized():
-                    ray.init(num_cpus=maxworkers, include_dashboard=False)
-            else:
-                if not ray.is_initialized():
-                    ray.init(
-                        num_cpus=maxworkers, include_dashboard=False,
-                        object_store_memory=int_dic['mem_object_store_3'])
+        if int_dic['mem_object_store_3'] is None:
+            if not ray.is_initialized():
+                ray.init(num_cpus=maxworkers, include_dashboard=False)
+        else:
+            if not ray.is_initialized():
+                ray.init(num_cpus=maxworkers, include_dashboard=False,
+                         object_store_memory=int_dic['mem_object_store_3'])
+            if int_dic['with_output'] and int_dic['verbose']:
+                print("Size of Ray Object Store: ", round(
+                    int_dic['mem_object_store_3']/(1024*1024)), ' MB')
+        if int_dic['weight_as_sparse']:
+            still_running = [ray_iate_func1_for_mp_many_obs.remote(
+                idx, [weights[t_idx][idx, :] for t_idx in range(iterator)],
+                cl_dat, no_of_cluster, w_dat, w_ate, y_dat, no_of_out, n_y,
+                ct_dic, int_dic, gen_dic, p_dic, iate_se_flag, se_boot_iate,
+                iate_m_ate_flag) for idx in obs_idx_list]
+            if int_dic['with_output'] and int_dic['verbose']:
+                warn_text_to_console()
+        else:
+            still_running = [ray_iate_func1_for_mp_many_obs.remote(
+                idx, [weights[idxx] for idxx in idx], cl_dat,
+                no_of_cluster, w_dat, w_ate, y_dat, no_of_out, n_y,
+                ct_dic, int_dic, gen_dic, p_dic, iate_se_flag,
+                se_boot_iate, iate_m_ate_flag) for idx in obs_idx_list]
+        jdx = 0
+        while len(still_running) > 0:
+            finished, still_running = ray.wait(still_running)
+            finished_res = ray.get(finished)
+            for ret_all_i_list in finished_res:
+                for ret_all_i in ret_all_i_list:
+                    (pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var,
+                     l1_to_9, share_censored) = assign_ret_all_i(
+                     pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var,
+                     l1_to_9, share_censored, ret_all_i, n_x)
                 if int_dic['with_output'] and int_dic['verbose']:
-                    print("Size of Ray Object Store: ", round(
-                        int_dic['mem_object_store_3']/(1024*1024)), ' MB')
-            if int_dic['weight_as_sparse']:
-                still_running = [ray_iate_func1_for_mp_many_obs.remote(
-                    idx, [weights[t_idx][idx, :] for t_idx in
-                          range(iterator)], cl_dat, no_of_cluster,
-                    w_dat, w_ate, y_dat, no_of_out, n_y, ct_dic, int_dic,
-                    gen_dic, p_dic, iate_se_flag, se_boot_iate,
-                    iate_m_ate_flag) for idx in obs_idx_list]
-                if int_dic['with_output'] and int_dic['verbose']:
-                    warn_text_to_console()
-            else:
-                still_running = [ray_iate_func1_for_mp_many_obs.remote(
-                    idx, [weights[idxx] for idxx in idx], cl_dat,
-                    no_of_cluster, w_dat, w_ate, y_dat, no_of_out, n_y,
-                    ct_dic, int_dic, gen_dic, p_dic, iate_se_flag,
-                    se_boot_iate, iate_m_ate_flag) for idx in obs_idx_list]
-            jdx = 0
-            while len(still_running) > 0:
-                finished, still_running = ray.wait(still_running)
-                finished_res = ray.get(finished)
-                for ret_all_i_list in finished_res:
-                    for ret_all_i in ret_all_i_list:
-                        (pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var,
-                         l1_to_9, share_censored) = assign_ret_all_i(
-                         pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var,
-                         l1_to_9, share_censored, ret_all_i, n_x)
-                    if int_dic['with_output'] and int_dic['verbose']:
-                        mcf_gp.share_completed(jdx+1, no_of_splits)
-                    jdx += 1
-            if 'rest' in int_dic['mp_ray_del']:
-                del finished_res, finished
-            if int_dic['mp_ray_shutdown']:
-                ray.shutdown()
+                    mcf_gp.share_completed(jdx+1, no_of_splits)
+                jdx += 1
+        if 'rest' in int_dic['mp_ray_del']:
+            del finished_res, finished
+        if int_dic['mp_ray_shutdown']:
+            ray.shutdown()
     if reg_round:
         for idx in range(n_x):
             larger_0 += l1_to_9[idx][0]
@@ -572,8 +570,7 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
     if gen_dic['d_type'] == 'continuous':
         continuous, d_values_dr = True, ct_dic['d_values_dr_np']
         no_of_treat = ct_dic['grid_w']
-        i_w01 = ct_dic['w_to_dr_int_w01']
-        i_w10 = ct_dic['w_to_dr_int_w10']
+        i_w01, i_w10 = ct_dic['w_to_dr_int_w01'], ct_dic['w_to_dr_int_w10']
         index_full = ct_dic['w_to_dr_index_full']
         no_of_treat_dr = len(d_values_dr)
     else:

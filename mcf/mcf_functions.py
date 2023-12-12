@@ -23,6 +23,7 @@ from mcf import mcf_init_functions as mcf_init
 from mcf import mcf_local_centering_functions as mcf_lc
 from mcf import mcf_post_functions as mcf_post
 from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_sensitivity_functions as mcf_sens
 from mcf import mcf_weight_functions as mcf_w
 
 
@@ -56,6 +57,8 @@ class ModifiedCausalForest:
             Parameters used by prediction method.
         post_dict : Dictionary
             Parameters used in analyse method.
+        sens_dict : Dictionary
+            Parameters used in sensitivity method.
         time_strings : String.
             Detailed information on how the long the different methods needed.
         var_dict : Dictionary
@@ -68,10 +71,14 @@ class ModifiedCausalForest:
     Methods
     -------
         train : Building the forest with training data.
-        predict : Predicting the effects with prediction data.
-        analyse : Descriptively analyse the estimated IATEs.
+        predict : Predicting the effects with prediction data. This does
+                  require to run the train methods first.
+        analyse : Descriptively analyse the estimated IATEs. This requires to
+                  run the predict methods first.
         blinder_iates : Compute 'standard' IATEs as well as IATEs that are to
                         to a certain extent blinder than the standard ones.
+                        This requires to run the train method first.
+        sensitivity : Analyse the sensitivity of the algorithm.
     """
 
     def __init__(
@@ -154,7 +161,7 @@ class ModifiedCausalForest:
             estimated parameters to improve scalability (increases speed and
             reduces demand on memory, but may increase finite sample bias
             somewhat).
-            If cf_chunks_maxsize is larger than sample size, ther is no random
+            If cf_chunks_maxsize is larger than sample size, there is no random
             splitting.
             If None:  cf_chunks_maxsize = round(60000 + sqrt(number of
                                           observations - 60000))
@@ -166,14 +173,14 @@ class ModifiedCausalForest:
         cf_n_min_max : Integer (or None), optional
             Minimum leaf size: Largest minimum leaf size.
             If None: A = sqrt(number of observations in smallest
-                              treatment group) / 6, at least 3
-                     cf_n_min_max = A * number of treatments.
+                              treatment group) ** 0.5 / 10, at least 2
+                     cf_n_min_max = round(A * number of treatments).
             Default is None.
         cf_n_min_min : Integer (or None), optional
             Minimum leaf size: Smallest minimum leaf size.
             If None: A = (number of observations
-                          in smallest treatment group) ** 0.4, at least 2
-                     cf_n_min_min = A * number of treatments.
+                          in smallest treatment group) ** 0.4 / 10,at least 1.5
+                     cf_n_min_min = round(A * number of treatments).
             Default is None.
         cf_n_min_treat : Integer (or None), optional
             Minimum number of observations per treatment in leaf.
@@ -182,7 +189,7 @@ class ModifiedCausalForest:
             There is no grid based tuning for this parameter.
             This parameter impacts the minimum leaf size which will be at least
             to n_min_treat * number of treatments.
-            None: (n_min_min+n_min_max)/2 / number of treatments /4,at least 2.
+            None:  (n_min_min+n_min_max)/2 / # of treatments / 10, at least 1.
             Default is None.
         cf_match_nn_prog_score : Boolean (or None), optional
             Choice of method of nearest neighbour matching.
@@ -832,7 +839,7 @@ class ModifiedCausalForest:
             y_name=var_y_name, y_tree_name=var_y_tree_name,
             z_name_list=var_z_name_list, z_name_ord=var_z_name_ord,
             z_name_unord=var_z_name_unord)
-        self.blind_dict = None
+        self.blind_dict = self.sens_dict = None
         self.data_train_dict = self.var_x_type = self.var_x_values = None
         self.forest, self.time_strings = None, {}
 
@@ -858,14 +865,15 @@ class ModifiedCausalForest:
         # Check treatment data
         data_df, _ = mcf_data.data_frame_vars_upper(data_df)
         data_df = mcf_data.check_recode_treat_variable(self, data_df)
-        # Initialise again with data information
+        # Initialise again with data information. Order of the following
+        # init functions important. Change only if you know what you do.
         mcf_init.var_update_train(self, data_df)
-        mcf_init.p_update_train(self, data_df)
         mcf_init.gen_update_train(self, data_df)
         mcf_init.ct_update_train(self, data_df)
-        mcf_init.cs_update_train(self)
+        mcf_init.cs_update_train(self)            # Used updated gen_dict info
         mcf_init.cf_update_train(self, data_df)
-        mcf_init.int_update_train(self, len(data_df))
+        mcf_init.int_update_train(self)
+        mcf_init.p_update_train(self)
 
         if self.int_dict['with_output']:
             ps.print_dic_values_all(self, summary_top=True, summary_dic=False)
@@ -912,6 +920,8 @@ class ModifiedCausalForest:
             (tree_df, fill_y_df, _) = mcf_lc.local_centering(self, tree_df,
                                                              fill_y_df)
         time_4 = time()
+
+        # Train forest
         if self.int_dict['with_output']:
             ps.variable_features(self, summary=False)
         self.cf_dict, self.forest, time_vi = mcf_fo.train_forest(
@@ -963,6 +973,8 @@ class ModifiedCausalForest:
             'bgate_se': Standard error of BGATE,
             'bgate_diff': BGATE minus ATE,
             'bgate_diff_se': Standard errror of BGATE minus ATE,
+            'gate_names_values': Dictionary: Order of gates parameters and
+                        name and values of GATE effects.
             'iate': IATE, 'iate_se': Standard error of IATE,
             'iate_eff': (More) Efficient IATE (IATE estimated twice and
                         averaged where role of tree_building and tree_filling
@@ -986,6 +998,7 @@ class ModifiedCausalForest:
         if self.int_dict['with_output']:
             ps.print_dic_values_all(self, summary_top=True, summary_dic=False,
                                     train=False)
+
         # Prepare data: Add and recode variables for GATES (Z)
         #             Recode categorical variables to prime numbers, cont. vars
         data_df = mcf_data.create_xz_variables(self, data_df, train=False)
@@ -1000,7 +1013,8 @@ class ModifiedCausalForest:
                 and self.int_dict['with_output']):
             ps.desc_by_treatment(self, data_df, summary=False, stage=3)
         time_1 = time()
-        # Check if on common support
+
+        # Common support
         if self.cs_dict['type']:
             data_df, _ = mcf_cs.common_support(self, data_df, None,
                                                train=False)
@@ -1009,6 +1023,7 @@ class ModifiedCausalForest:
                 and self.int_dict['with_output']):
             ps.desc_by_treatment(self, data_df, summary=True, stage=3)
         time_2 = time()
+
         # Local centering for IATE
         if self.lc_dict['yes'] and self.lc_dict['uncenter_po']:
             (_, _, y_pred_x_df) = mcf_lc.local_centering(self, data_df, None,
@@ -1163,7 +1178,7 @@ class ModifiedCausalForest:
                                                 gate_est_dic, ate, ate_se,
                                                 gate_type='GATE')
         else:
-            gate = gate_se = gate_diff = gate_diff_se = None
+            gate = gate_se = gate_diff = gate_diff_se = gate_est_dic = None
         time_delta_gate += time() - time_g_start
 
         # BGATE
@@ -1175,6 +1190,7 @@ class ModifiedCausalForest:
                  ate_se, gate_type='BGATE', special_txt=txt_b)
         else:
             bgate = bgate_se = bgate_diff = bgate_diff_se = None
+            bgate_est_dic = None
         time_delta_bgate += time() - time_bgate_start
 
         # AMGATE
@@ -1186,8 +1202,15 @@ class ModifiedCausalForest:
                  ate_se, gate_type='AMGATE', special_txt=txt_am)
         else:
             amgate = amgate_se = amgate_diff = amgate_diff_se = None
+            amgate_est_dic = None
         time_delta_amgate += time() - time_amg_start
-
+        # Collect some information for results_dic
+        if (self.p_dict['gate'] or self.p_dict['bgate']
+                or self.p_dict['amgate']):
+            gate_names_values = mcf_gateout.get_names_values(
+                self, gate_est_dic, bgate_est_dic, amgate_est_dic)
+        else:
+            gate_names_values = None
         # IATE
         time_i_start = time()
         if self.p_dict['iate']:
@@ -1215,6 +1238,7 @@ class ModifiedCausalForest:
             'ate': ate, 'ate_se': ate_se, 'ate effect_list': ate_effect_list,
             'gate': gate, 'gate_se': gate_se,
             'gate_diff': gate_diff, 'gate_diff_se': gate_diff_se,
+            'gate_names_values': gate_names_values,
             'amgate': amgate, 'amgate_se': amgate_se,
             'amgate_diff': amgate_diff, 'amgate_diff_se': amgate_diff_se,
             'bgate': bgate, 'bgate_se': bgate_se,
@@ -1379,3 +1403,72 @@ class ModifiedCausalForest:
         return (blinded_dic, data_on_support_df, var_x_policy_ord_name,
                 var_x_policy_unord_name, var_x_blind_ord_name,
                 var_x_blind_unord_name)
+
+    def sensitivity(self, train_df, predict_df=None, sens_amgate=None,
+                    sens_bgate=None, sens_gate=None, sens_iate=None,
+                    sens_iate_se=None, sens_scenarios=None, sens_cv_k=None,
+                    sens_replications=2, sens_reference_population=None):
+        """
+        Compute simulation based sensitivity indicators.
+
+        Parameters
+        ----------
+        train_df : DataFrame.
+            Data with real outcomes, treatments, and covariates. Data will be
+            transformed to compute sensitivity indicators.
+        predict_df : DataFrame (or None), optinal.
+            Prediction data to compute all effects for. This data will not be
+            changed in the computation process. Only covariate information is
+            used from this dataset. If predict_df is not a DataFrame,
+            train_df will be used instead.
+        sens_amgate : Boolean (or None), optional
+            Compute AMGATEs for sensitivity analysis. Default is False.
+        sens_bgate : Boolean (or None), optional
+            Compute BGATEs for sensitivity analysis. Default is False.
+        sens_gate : Boolean (or None), optional
+            Compute GATEs for sensitivity analysis. Default is False.
+        sens_iate : Boolean (or None), optional
+            Compute IATEs for sensitivity analysis. Default is False.
+        sens_iate_se : Boolean (or None), optional
+            Compute Standard errors of IATEs for sensitivity analysis. Default
+            is False.
+        sens_scenarios : List or tuple of strings, optional.
+            Different scenarios considered. Default is ('basic',).
+            'basic' : Use estimated treatment probabilities for simulations.
+                      No confounding.
+        sens_cv_k : Integer (or None), optional
+            Data to be used for any cross-validation: Number of folds in
+            cross-validation. Default (or None) is 5.
+        sens_replications : Integer (or None), optional.
+            Number of replications for simulating placebo treatments. Default
+            is 2.
+        sens_reference_population: integer or float (or None)
+            Defines the treatment status of the reference population used by
+            the sensitivity analysis. Default is to use the treatment with most
+            observed observations.
+
+        Returns
+        -------
+        results_avg : Dictionary
+            Same content as for the predict method but (if applicable) averaged
+            over replications.
+
+        """
+        if not isinstance(predict_df, pd.DataFrame):
+            predict_df = train_df.copy()
+        self.sens_dict = mcf_init.sens_init(
+            self.p_dict, amgate=sens_amgate, bgate=sens_bgate, gate=sens_gate,
+            iate=sens_iate, iate_se=sens_iate_se, scenarios=sens_scenarios,
+            cv_k=sens_cv_k, replications=sens_replications,
+            reference_population=sens_reference_population)
+        if self.int_dict['with_output']:
+            time_start = time()
+        results_avg = mcf_sens.sensitivity_analysis(
+            self, train_df, predict_df, self.int_dict['with_output'],
+            seed=9345467)
+        if self.int_dict['with_output']:
+            time_difference = [time() - time_start]
+            time_string = ['Total time for sensitivity analysis:            ']
+            ps.print_timing(self.gen_dict, 'Sensitiviy analysis', time_string,
+                            time_difference, summary=True)
+        return results_avg

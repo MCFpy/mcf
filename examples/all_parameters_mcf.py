@@ -9,7 +9,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.4.2
+Version: 0.4.3
 
 This is an example to show how to use the mcf with full specification of all
 its keywords. It may be seen as an add on to the published mcf documentation.
@@ -25,7 +25,7 @@ from mcf.mcf_functions import ModifiedCausalForest
 
 # ------------------ NOT parameters of the ModifiedCausalForest ---------------
 #  Define data to be used in this example
-APPLIC_PATH = 'c:/mlechner/py_neu/example'
+APPLIC_PATH = os.getcwd() + '/example'
 DATPATH = APPLIC_PATH + '/data'
 TRAINDATA = 'data_y_d_x_1000.csv'
 #  Training data must contain outcome, treatment and features.
@@ -38,8 +38,10 @@ PREDDATA = 'data_x_1000.csv'
 TRAIN = True                  # Train the mcf
 PREDICT = True                # Predict effects using trained mcf
 ANALYSE = True                # Analyse estimated IATES from predictions
+SENSITIVITY = True             # Perform sensitivity analysis
 
-VAR_FLAG1 = False             # Related to specification used in this example.
+# --- Many or few variables?
+VAR_MANY = False             # Related to specification used in this example.
 #                               False: Few features. True: Many features.
 
 # ------------------ Parameters of the ModifiedCausalForest -------------------
@@ -51,7 +53,7 @@ GEN_OUTPATH = APPLIC_PATH + '/output'
 #   If specified directory does not exist, it will be created.
 #   OUTPATH is passed to ModifiedCausalForest.
 
-GEN_OUTFILETEXT = 'mcf.py.0.4.2'
+GEN_OUTFILETEXT = 'mcf.py.0.4.3'
 #   File for text output. If gen_outfiletext is None, 'txtFileWithOutput' is
 #   used. *.txt file extension will be added by the programme.
 
@@ -80,7 +82,7 @@ VAR_Y_TREE_NAME = 'y'     # Variable to build trees (not needed for pred)
 #   if None or [], the first variable in y_name is used to build trees.
 
 #   Features, predictors, independent variables, confounders: ordered
-if VAR_FLAG1:
+if VAR_MANY:
     VAR_X_NAME_ORD = ['cont' + str(i) for i in range(120)]
     for i in range(10):
         VAR_X_NAME_ORD.append('dum' + str(i))
@@ -94,13 +96,13 @@ else:
         VAR_X_NAME_ORD.append('ord' + str(i))
 
 #   Features, predictors, independent variables: unordered, categorial
-if VAR_FLAG1:
+if VAR_MANY:
     VAR_X_NAME_UNORD = ['cat' + str(i) for i in range(10)]
 else:
     VAR_X_NAME_UNORD = ['cat' + str(i) for i in range(2)]
 
 #   Identifier
-VAR_ID_NAME = ['ID']
+VAR_ID_NAME = 'ID'
 #   If None (default) or []: Identifier will be added the data.
 
 #   Cluster and panel identifiers (default is no variable)
@@ -120,7 +122,7 @@ VAR_X_NAME_ALWAYS_IN_UNORD = []
 #   values in categories below). They are discretized as well as treated as
 #   continuous for GATE estimation.
 
-if VAR_FLAG1:
+if VAR_MANY:
     VAR_Z_NAME_LIST = ['cont0', 'cont2']
 else:
     VAR_Z_NAME_LIST = ['cont0']
@@ -128,13 +130,13 @@ else:
 #   Discrete Variables with few values (each value defines a unique stratum)
 
 #   Ordered variables
-if VAR_FLAG1:
+if VAR_MANY:
     VAR_Z_NAME_ORD = ['dum0', 'dum2', 'ord0', 'ord2']
 else:
     VAR_Z_NAME_ORD = ['ord0', 'dum0']
 
 #   Unordered variables
-if VAR_FLAG1:
+if VAR_MANY:
     VAR_Z_NAME_UNORD = ['cat0', 'cat2']
 else:
     VAR_Z_NAME_UNORD = ['cat0']
@@ -153,7 +155,7 @@ VAR_X_NAME_REMAIN_UNORD = []
 #   Variables for balancing tests (cannot be removed by feature selection).
 #   Treatment specific descriptive statistics will only be printed for those
 #   variables.
-if VAR_FLAG1:
+if VAR_MANY:
     VAR_X_BALANCE_NAME_ORD = ['cont0', 'cont1', 'cont2', 'cont3', 'cont4',
                               'cont5', 'cont6', 'cont7', 'cont8', 'cont9',
                               'dum0', 'dum1', 'ord0', 'ord1']
@@ -170,7 +172,7 @@ GEN_OUTPUT_TYPE = None      # 0: Output goes to terminal
 #                             2: Output goes to file and terminal (default)
 
 #   ------------- Multiprocessing ------------------------------------------
-GEN_MP_PARALLEL = None        # number of parallel processes  (>0)
+GEN_MP_PARALLEL = None       # number of parallel processes  (>0)
 #   Default is to use 80% of logical cores (reduce if memory problems!)
 #   0, 1: no parallel computations
 
@@ -184,7 +186,7 @@ DC_CLEAN_DATA = None         # if True (default), remove all rows with missing
 #      observations & unnecessary variables from DataFrame.
 
 #   ------------- Training the causal forest -------------------------------
-CF_BOOT = None   # Number of Causal Trees. Default is 1000.
+CF_BOOT = None               # Number of Causal Trees. Default is 1000.
 
 #   Estimation methods
 CF_MCE_VART = None  # Splitting rule
@@ -237,18 +239,21 @@ CF_NN_MAIN_DIAG_ONLY = None    # Only if match_nn_prog_score = False
 #                                False (default): inverse of covariance matrix.
 
 CF_RANDOM_THRESHOLDS = None     # If > 0: Do not check all possible split
-#   points of ordered variables, but only RANDOM_THRESHOLDS (new randomisation
-#    for each split)
+#   values of ordered variables, but only RANDOM_THRESHOLDS (new randomisation
+#   for each split)
 #   0: no random thresholds
 #   > 0: number of random thresholds used for ordered var's
-#   Default: 4+N_train**0.2 (fewer thresholds speeds up programme but may lead
-#   to less accurate results.)
+#   Default: 4+N_train**0.2 (fewer thresholds speeds up programme but may (!)
+#   lead to less accurate results.)
 
 #   Minimum leaf size (use of a grid is possible)
-CF_N_MIN_MIN = None      # Smallest minimum leaf size, def: n_d**0.4/6; >= 2
-CF_N_MIN_MAX = None      # Largest minimum leaf size. def: max(sqrt(n_d) / 6,3)
+CF_N_MIN_MIN = None      # Smallest minimum leaf size
+CF_N_MIN_MAX = None      # Largest minimum leaf size.
+#   Defaults are: n_min_min = round(max((n_d_subsam**0.4) / 10, 1.5)
+#                                   * number of treatments
+#   Defaults are: n_min_max = round(max((n_d_subsam**0.5) / 10, 2)
+#                                   * number of treatments
 #   (n_d denotes the number of observations in the smallest treatment arm)
-#   All values are multiplied by the number of treatments.
 CF_N_MIN_GRID = None     # Number of grid values (def: 1)
 #   If n_min_grid == 1: n_min=(N_MIN_MIN+N_MIN_MAX)/2
 #   If grid is used, optimal value is determined by out-of-bag estimation of
@@ -309,7 +314,7 @@ FS_OTHER_SAMPLE_SHARE = None  # If FS_OTHER_SAMPLE: share of sample (def: 0.33)
 FS_RF_THRESHOLD = None   # Threshold in terms of relative loss of variable
 #                          importanance in % (default is 1).
 
-#   - Which data to use for compute local centering & common support adjustment
+#   - Which data to use to compute local centering & common support adjustment
 LC_CS_CV = None     # True: Use crossvalidation (default).
 #                     False: Use random sample that will not be used for CF.
 LC_CS_SHARE = None  # Share of data used for estimating E(y|x).
@@ -317,7 +322,7 @@ LC_CS_SHARE = None  # Share of data used for estimating E(y|x).
 LC_CS_CV_K = None   # if LC_CS_CV: # of folds used in crossvalidation (def: 5).
 
 #   ------------- Local centering -----------------------------------------
-LC_YES = None               # False: No local centering. Default is True.
+LC_YES = None               # Local centering. Default is True.
 LC_UNCENTER_PO = None       # Predicted potential outcomes for individual data
 #   points (IATEs) re-adjusted for local centering are added to data output.
 #   Default is True.
@@ -379,7 +384,7 @@ P_BT_YES = None  # True: ATE based balancing test based on weights.
 #   ---- Choice based sampling to speed up programme if treatment groups have
 #   ---- very different sizes
 P_CHOICE_BASED_SAMPLING = None  # True: Choice based sampling.Default is False.
-P_CHOICE_BASED_PROBS = [0.9, 0.8, 0.9, 0.95]   # Sampling probabilities to be
+P_CHOICE_BASED_PROBS = None     # Sampling probabilities to be
 #   specified. These weights are used for (g,b)ates only. Treatment information
 #   must therefore be available in the prediction data.
 
@@ -434,10 +439,10 @@ P_ATET = None      # True: Average effects computed for subpopulations by
 P_GATET = None     # True: Gate's for subpopulations by treatments. Default
 #   is False. If there no variables specified for gate estimation, p_bgate is
 #   set to False.
-P_AMGATE = None     # True: AMGATEs will be computed. Default is False.
+P_AMGATE = None    # True: AMGATEs will be computed. Default is False.
 #   If there are no variables specified for gate estimation, p_amgate is set to
 #   False.
-P_BGATE = None      # True: BGATEs will be computed. Default is False.
+P_BGATE = None     # True: BGATEs will be computed. Default is False.
 #   True requires to specify the variable names to balance on in VAR_BGATE_NAME
 #   If no variables are specified for gate estimation, p_bgate is set to
 #   False.
@@ -470,6 +475,7 @@ P_IATE_M_ATE = None      # True: IATE(x) - ATE is estimated, including
 #   Default is False.
 P_ATE_NO_SE_ONLY = None  # True: Computes only the ATE without standard errors.
 #   Default is False.
+
 #   ------------- Analysis of effects -------------------------------
 POST_EST_STATS = None   # Analyses the predictions by binary correlations
 #   or some regression type methods. Default is True. False if p_iate == False.
@@ -493,10 +499,39 @@ POST_KMEANS_MAX_TRIES = None     # post_kmeans_yes is True: maximum number
 POST_RANDOM_FOREST_VI = None     # Variable importance measure of predictive
 #   random forest used to learn factors influencing IATEs. Default is True.
 
-P_ATE_NO_SE_ONLY = None
-#     Computes only the ATE without standard errors. Default is False.
+#   ----------------- Sensitivity method (experimental) --------------
+SENS_AMGATE = None
+#   Boolean (or None), optional. Compute AMGATEs for sensitivity analysis.
+#   Default is False.
+SENS_BGATE = None
+#   Boolean (or None), optional.  Compute BGATEs for sensitivity analysis.
+#   Default is False.
+SENS_GATE = None
+#   Boolean (or None), optional. Compute GATEs for sensitivity analysis.
+#   Default is False.
+SENS_IATE = None
+#   Boolean (or None), optional. Compute IATEs for sensitivity analysis.
+#   Default is False.
+SENS_IATE_SE = None
+#   Boolean (or None), optional. Compute Standard errors of IATEs for
+#   sensitivity analysis. Default is False.
+SENS_SCENARIOS = None
+#  List or tuple of strings, optional. Different scenarios considered.
+#  Default is ('basic',).
+#  'basic' : Use estimated treatment probabilities for simulations.
+#            No confounding.
+SENS_CV_K = None
+#  Integer (or None), optional. Data to be used for any cross-validation:
+#  Number of folds in cross-validation. Default (or None) is 5.
+SENS_REPLICATIONS = None
+#  Integer (or None), optional. Number of replications for simulating placebo
+#  treatments. Default is 2.
+SENS_REFERENCE_POPULATION = None
+#   Integer or float (or None). Defines the treatment status of the reference
+#   population used by the sensitivity analysis. Default is to use the
+#   treatment with most observed observations.
 
-# ----- Internal variable: Change these variables only if you knwo what you do
+# ----- Internal variables: Change these variables only if you know what you do
 GEN_REPLICATION = None    # True does not allow multiprocessing in
 #   local centering, feature selection, and common support. Default is False.
 _INT_VERBOSE = None             # True (def): Output about running of programme
@@ -558,7 +593,7 @@ _INT_DEL_FOREST = None     # Delete forests.
 #   trained instance of the class cannot be reused when calling predict with
 #   the same instance again, i.e. the forest has to be retrained.
 #   Default is False.
-_INT_KEEP_W0 = None             # Keep all zeros weights when computing
+_INT_KEEP_W0 = None            # Keep all zeros weights when computing
 #   standard errors (slows down computation). Default is False.
 
 #  --- Very experimental blinding method (not yet integrated in this example
@@ -624,8 +659,7 @@ params = {
     'lc_cs_cv': LC_CS_CV, 'lc_cs_cv_k': LC_CS_CV_K, 'lc_cs_share': LC_CS_SHARE,
     'lc_uncenter_po': LC_UNCENTER_PO, 'lc_yes': LC_YES,
     'post_bin_corr_threshold': POST_BIN_CORR_THRESHOLD,
-    'post_bin_corr_yes': POST_BIN_CORR_YES,
-    'post_est_stats': POST_EST_STATS,
+    'post_bin_corr_yes': POST_BIN_CORR_YES, 'post_est_stats': POST_EST_STATS,
     'post_kmeans_no_of_groups': POST_KMEANS_NO_OF_GROUPS,
     'post_kmeans_max_tries': POST_KMEANS_MAX_TRIES,
     'post_kmeans_replications': POST_KMEANS_REPLICATIONS,
@@ -642,8 +676,7 @@ params = {
     'p_gates_smooth': P_GATES_SMOOTH,
     'p_gates_smooth_bandwidth': P_GATES_SMOOTH_BANDWIDTH,
     'p_gates_smooth_no_evalu_points': P_GATES_SMOOTH_NO_EVALU_POINTS,
-    'p_gatet': P_GATET,
-    'p_gmate_no_evalu_points': P_GMATE_NO_EVALU_POINTS,
+    'p_gatet': P_GATET, 'p_gmate_no_evalu_points': P_GMATE_NO_EVALU_POINTS,
     'p_gmate_sample_share': P_GMATE_SAMPLE_SHARE,
     'p_iate': P_IATE, 'p_iate_se': P_IATE_SE, 'p_iate_m_ate': P_IATE_M_ATE,
     'p_knn': P_KNN, 'p_knn_const': P_KNN_CONST, 'p_knn_min_k': P_KNN_MIN_K,
@@ -651,8 +684,7 @@ params = {
     'p_max_cats_z_vars': P_MAX_CATS_Z_VARS,
     'p_max_weight_share': P_MAX_WEIGHT_SHARE,
     'p_se_boot_ate': P_SE_BOOT_ATE, 'p_se_boot_gate': P_SE_BOOT_GATE,
-    'p_se_boot_iate': P_SE_BOOT_IATE, 'p_ate_no_se_only': P_ATE_NO_SE_ONLY,
-    'var_bgate_name': VAR_BGATE_NAME,
+    'p_se_boot_iate': P_SE_BOOT_IATE, 'var_bgate_name': VAR_BGATE_NAME,
     'var_cluster_name': VAR_CLUSTER_NAME, 'var_d_name': VAR_D_NAME,
     'var_id_name': VAR_ID_NAME,
     'var_w_name': VAR_W_NAME, 'var_x_balance_name_ord': VAR_X_BALANCE_NAME_ORD,
@@ -686,6 +718,15 @@ params = {
     '_int_weight_as_sparse_splits': _INT_WEIGHT_AS_SPARSE_SPLITS,
     '_int_with_output': _INT_WITH_OUTPUT
     }
+
+params_sensitivity = {
+    'sens_amgate': SENS_AMGATE, 'sens_bgate': SENS_BGATE,
+    'sens_gate': SENS_GATE, 'sens_iate': SENS_IATE,
+    'sens_iate_se': SENS_IATE_SE, 'sens_scenarios': SENS_SCENARIOS,
+    'sens_cv_k': SENS_CV_K, 'sens_replications': SENS_REPLICATIONS,
+    'sens_reference_population': SENS_REFERENCE_POPULATION
+     }
+
 PICKLE_FILE_NAMET = DATPATH + '/mymcftrain.pickle'
 PICKLE_FILE_NAMEP = DATPATH + '/mymcfpredict.pickle'
 
@@ -713,11 +754,15 @@ if TRAIN:
     train_df = pd.read_csv(DATPATH + '/' + TRAINDATA)
     tree_df, fill_y_df = mymcf.train(train_df)  # Returns not used here
     save_load(PICKLE_FILE_NAMET, object_to_save=mymcf, save=True, output=True)
+
 if PREDICT:
     if not TRAIN:
         mymcf = save_load(
             PICKLE_FILE_NAMET, object_to_save=None, save=False, output=True)
-    pred_df = pd.read_csv(DATPATH + '/' + PREDDATA)
+    if TRAINDATA == PREDDATA:
+        pred_df = fill_y_df
+    else:
+        pred_df = pd.read_csv(DATPATH + '/' + PREDDATA)
     results = mymcf.predict(pred_df)
     save_load(PICKLE_FILE_NAMEP, object_to_save=(mymcf, results), save=True,
               output=True)
@@ -726,5 +771,16 @@ if ANALYSE:
         (mymcf, results) = save_load(
             PICKLE_FILE_NAMEP, object_to_save=None, save=False, output=True)
     results_with_cluster_id_df = mymcf.analyse(results)
-print('End of computations.\n\nThanks for using ModifiedCausalForest.'
+
+if SENSITIVITY:
+    params['gen_outpath'] = GEN_OUTPATH + 'sensitivity'
+    mymcf = ModifiedCausalForest(**params)
+    if not TRAIN:
+        train_df = pd.read_csv(DATPATH + '/' + TRAINDATA)
+    if not PREDICT:
+        pred_df = pd.read_csv(DATPATH + '/' + PREDDATA)
+    results_all_dict = mymcf.sensitivity(train_df, pred_df,
+                                         **params_sensitivity)
+
+print('End of computations.\n\nThanks for using the ModifiedCausalForest.'
       ' \n\nYours sincerely\nMCF \U0001F600')

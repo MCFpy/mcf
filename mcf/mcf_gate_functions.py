@@ -130,7 +130,7 @@ def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
             maxworkers = mcf_sys.find_no_of_workers(gen_dic['mp_parallel'],
                                                     gen_dic['sys_share']/2)
         else:
-            maxworkers = gen_dic['no_parallel']
+            maxworkers = gen_dic['mp_parallel']
         if weights_all2 is None:
             maxworkers = round(maxworkers / 2)
         if not maxworkers > 0:
@@ -311,7 +311,8 @@ def bamgate_est(mcf_, data_df, weights_dic, w_ate, forest_dic,
     first_run = True
     text_sim_all = ''
     for v_j, vname in enumerate(var_dic['z_name']):
-        txt = txt_1[:]
+        if int_dic['with_output']:
+            txt = txt_1[:]
         if vname not in x_name_mcf:
             raise ValueError(f'Heterogeneity variable for {gate_type} NOT used'
                              ' for splitting. Perhaps turn off {type_txt}.')

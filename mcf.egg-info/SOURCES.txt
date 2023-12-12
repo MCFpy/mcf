@@ -9,8 +9,10 @@ mcf/mcf_estimation_functions.py
 mcf/mcf_fair_iate_functions.py
 mcf/mcf_feature_selection_functions.py
 mcf/mcf_forest_add_functions.py
+mcf/mcf_forest_asdict_functions.py
 mcf/mcf_forest_data_functions.py
 mcf/mcf_forest_functions.py
+mcf/mcf_forest_objfct_functions.py
 mcf/mcf_functions.py
 mcf/mcf_gate_functions.py
 mcf/mcf_gateout_functions.py
@@ -21,6 +23,7 @@ mcf/mcf_init_functions.py
 mcf/mcf_local_centering_functions.py
 mcf/mcf_post_functions.py
 mcf/mcf_print_stats_functions.py
+mcf/mcf_sensitivity_functions.py
 mcf/mcf_variable_importance_functions.py
 mcf/mcf_weight_functions.py
 mcf/optpolicy_bb_functions.py

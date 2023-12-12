@@ -35,13 +35,18 @@ def feature_selection(mcf_, data_df):
     var_x_type, var_x_values = copy(mcf_.var_x_type), copy(mcf_.var_x_values)
     boot = mcf_.cf_dict['boot']
     if gen_dic['with_output']:
-        ps.print_mcf(gen_dic, 'Feature selection', summary=False)
+        ps.print_mcf(gen_dic, '\nFeature selection', summary=False)
     # 1. Set aside sample for feature selection
     if fs_dic['other_sample']:
-        data_fs_df, data_mcf_df = train_test_split(
+        data_mcf_df, data_fs_df = train_test_split(
             data_df, test_size=fs_dic['other_sample_share'], random_state=42)
     else:
         data_mcf_df, data_fs_df = data_df.copy(), data_df.copy()
+    if gen_dic['with_output']:
+        ps.print_mcf(gen_dic,
+                     f'\nSample used for feature selection {len(data_fs_df)} '
+                     f'\nSample used for mcf estimation {len(data_mcf_df)}',
+                     summary=False)
     # Create dummies
     all_names = var_x_type.keys()
     # Remove all covariates that are discretized for GATE estimation
@@ -118,8 +123,10 @@ def feature_selection(mcf_, data_df):
         if gen_dic['with_output']:
             vi_information[name] = [y_score, d_score,
                                     y_rel_diff*100, d_rel_diff*100]
-    ps.print_mcf(gen_dic, '=' * 100 + '\nFeature selection' + '\n' + '- ' * 50,
-                 summary=True)
+    if gen_dic['with_output']:
+        ps.print_mcf(gen_dic,
+                     '=' * 100 + '\nFeature selection' + '\n' + '- ' * 50,
+                     summary=True)
     if gen_dic['with_output']:
         ps.print_mcf(gen_dic, f'\nFull score y: {score_y_full:6.3f} '
                      f'Full score d: {score_d_full:6.3f} '

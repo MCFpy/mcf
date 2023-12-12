@@ -231,7 +231,7 @@ _int_with_output=_INT_WITH_OUTPUT)
 - <a id="cf_n_min_grid"><strong>cf_n_min_grid</strong></a>
 	* Determines number of grid values. Default is 1. For the default of 1, **cf_n_min**= 0.5(**cf_n_min_min**+**cf_n_min_max**).
 
-- <a id="cf_git puch origin"><strong>cf_n_min_max</strong></a>
+- <a id="cf_n_min_max"><strong>cf_n_min_max</strong></a>
 	* Determines largest minimum leaf size. The default is: round(max((n_d_subsam**0.5) / 10, 2) * # of treatments), where n_d_subsam denotes the number of observations in the smallest treatment arm. All values are multiplied by the number of treatments.
 
 - <a id="cf_n_min_min"><strong>cf_n_min_min</strong></a>

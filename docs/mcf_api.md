@@ -232,13 +232,13 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Determines number of grid values. Default is 1. For the default of 1, **cf_n_min**= 0.5(**cf_n_min_min**+**cf_n_min_max**).
 
 - <a id="cf_n_min_max"><strong>cf_n_min_max</strong></a>
-	* Determines largest minimum leaf size. The default is $\max(\sqrt{n_d} / 6,3)$, where $n_d$ denotes the number of observations in the smallest treatment arm. All values are multiplied by the number of treatments.
+	* Determines largest minimum leaf size. The default is: round(max((n_d_subsam**0.5) / 10, 2) * # of treatments), where n_d_subsam denotes the number of observations in the smallest treatment arm. All values are multiplied by the number of treatments.
 
 - <a id="cf_n_min_min"><strong>cf_n_min_min</strong></a>
-	* Determines smallest minimum leaf size; specify an integer larger than 2. The default is $n_d^{0.4}/6$.
+	* Determines smallest minimum leaf size; specify an integer larger than 2. The default is: round(max((n_d_subsam**0.4) / 10, 1.5) * # of treatments).
 
 - <a id="cf_n_min_treat"><strong>cf_n_min_treat</strong></a>
-	* Specifies minimum number of observations per treatment in leaf. The default is 0.5(**cf_n_min_min** + **cf_n_min_max**) / number of of treatments / 4. The minimum is 2.
+	* Specifies minimum number of observations per treatment in leaf. The default is (n_min_min + n_min_max) / 2 / # of treatments / 10. Minimum is 1.
 
 - <a id="cf_nn_main_diag_only"><strong>cf_nn_main_diag_only</strong></a>
 	* Relevant if **cf_match_nn_prog_score** is set to False. If set to True, only the main diagonal is used. If False, the inverse of the covariance matrix is used. Default is False.

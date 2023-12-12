@@ -151,8 +151,9 @@ The program allows for a grid search over tree tuning parameters: (i) the number
 |Argument | Description |
 |---------|-------------|
 |[cf_n_min_grid](./mcf_api.md#cf_n_min_grid) | Determines number of grid values. Default is 1. For the default of 1, **n_min**= 0.5(**n_min_min**+**n_min_max**).|
-|[cf_n_min_min](./mcf_api.md#cf_n_min_min) | Determines smallest minimum leaf size; specify an integer larger than 2. The default is $n_d^{0.4}/6$.|
-|[cf_n_min_max](./mcf_api.md#cf_n_min_max)| Determines largest minimum leaf size. The default is $\max(\sqrt{n_d} / 6,3)$, where $n_d$ denotes the number of observations in the smallest treatment arm. All values are multiplied by the number of treatments.|
+|[cf_n_min_min](./mcf_api.md#cf_n_min_min) | Determines smallest minimum leaf size; specify an integer larger than 2. The default is round(max((n_d_subsam**0.4) / 10, 1.5) * # of treatments|
+|[cf_n_min_max](./mcf_api.md#cf_n_min_max)| Determines largest minimum leaf size. The default is round(max((n_d_subsam**0.5) / 10, 2) * # of treatments, where n_d_subsam denotes the number of observations in the smallest treatment arm. All values are multiplied by the number of treatments.|
+|[cf_n_min_treat](./mcf_api.md#cf_n_min_treat) | Determines minimum number of observations per treatment in leaf. The default is (n_min_min + n_min_max) / 2 / # of treatments / 10. Minimum is 1.|
 |[cf_alpha_reg_grid](./mcf_api.md#cf_alpha_reg_grid) | Number of grid values. Default is 1.|
 |[cf_alpha_reg_max](./mcf_api.md#cf_alpha_reg_max)  | Maximum alpha. May take values between 0 and 0.5. Default is 0.15.|
 |[cf_alpha_reg_min](./mcf_api.md#cf_alpha_reg_min)  | Minimum alpha. May take values between 0 and 0.4. Default is 0.05.|

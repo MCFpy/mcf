@@ -15,9 +15,19 @@
 
  - Leaf size adjustments:
 
-      Sometimes, the `mcf` leads to fairly big leaves due to insufficient observations in each treatment arm. The following changes in default settings and minor code corrections have been implemented to somewhat reduce leaf sizes. However, this may lead to more cases where data used to populate leaves will have to ignore more leaves.
-      - If the problem can be solved by redoing the last split (using the parent leaf instead of the final child leaves), then these two leaves are merged.
-      - If merging leaves does not solve the problem, the leave is not used in the computation of weights.
+      Sometimes, the `mcf` leads to fairly big leaves due to insufficient observations in each treatment arm. The following changes in default settings and minor code corrections have been implemented.  They somewhat reduce leaf sizes, but necessarily lead to more
+     cases, where the data used to populate the leaves will have to ignore more
+     leaves as they cannot be populated with outcomes from all treatment arms.
+
+    In this case, if the problem can be solved be redoing the last split
+     (i.e. using the parent leave instead of the final child leaves), then
+     these two leaves are merged. 
+     
+    If this does not solve the problem (either
+     because one of the children is split further, or because there are still
+     treatment arms missing in the merged leave), then this leave is not used
+     in the computation of the weights.
+
       - Default for `cf_n_min_treat` changed to `(n_min_min + n_min_max) / 2 / # of treatments / 10`. Minimum is 1.
       - Defaults for `cf_n_min_min` and `cf_n_min_max` changed to:
         - `n_min_min = round(max((n_d_subsam**0.4) / 10, 1.5) * # of treatments)`
@@ -26,8 +36,12 @@
 
   - Improved computational performance:
 
-      - Speed-up for categorical (unordered) variables due to memoization. This requires some additional memory, but the gains could be substantial.
-      - Improved internal computation and storage of estimated forests for speed and precision gains (using a list of dictionaries of optimized numpy arrays to save the trees). The precision of the new method is higher while needing less RAM, which might lead to small changes in results.
+      - Speed-up for categorical (unordered) variables due to memorization. This requires some additional memory, but the gains could be substantial.
+      - Improved internal computation and storage of estimated forests lead to
+       speed and precision gains (instead of using lists of lists, we now use
+       a list of dictionaries of optimized numpy arrays to save the trees).
+       Since the precision of the new method is higher (by at the same time
+       needing less RAM), this might lead to smallish changes in the results.
 
 
 #### Sensitivity Checks Added (Experimental)
@@ -53,7 +67,9 @@
 
     iii) Use estimated probabilities to simulate treated observations, respecting the original treatment shares (pseudo-treatments).
 
-    iv) Estimate the effects of pseudo-treatments. The true effects are known to be zero, so the deviation from 0 is used as a measure of result sensitivity. Steps iii and iv may be repeated, and results averaged to reduce simulation noise.
+    iv) Estimate the effects of pseudo-treatments. The true effects are known to be zero, so the deviation from 0 is used as a measure of result sensitivity. 
+    
+    Steps iii and iv may be repeated, and results averaged to reduce simulation noise.
 
   - In this experimental version, the method depends on the following new keywords:
   

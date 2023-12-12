@@ -226,12 +226,12 @@ _int_with_output=_INT_WITH_OUTPUT)
 	* Specifies matching procedure in the MCE computation. If set to False, Mahalanobis matching is deployed. If set to True, prognostic scores are deployed. Default is True.
 
 - <a id="cf_mce_vart"><strong>cf_mce_vart</strong></a>
-	* Determines splitting rule in the tree-growing process. When set to 0, only the MSEs are considered. When set to 1, the sum of MSE and MCE are used (MSE-MCE criterion). When set to 2, the effect  heterogeneity maximizing rule of Wager and Athey (2018) is deployed. When set to 3, the rule randomly switches between outcome and MSE-MCE criterion in combination with the penalty function. Default is None, which implies 1.
+	* Determines splitting rule in the tgitree-growing process. When set to 0, only the MSEs are considered. When set to 1, the sum of MSE and MCE are used (MSE-MCE criterion). When set to 2, the effect  heterogeneity maximizing rule of Wager and Athey (2018) is deployed. When set to 3, the rule randomly switches between outcome and MSE-MCE criterion in combination with the penalty function. Default is None, which implies 1.
 
 - <a id="cf_n_min_grid"><strong>cf_n_min_grid</strong></a>
 	* Determines number of grid values. Default is 1. For the default of 1, **cf_n_min**= 0.5(**cf_n_min_min**+**cf_n_min_max**).
 
-- <a id="cf_n_min_max"><strong>cf_n_min_max</strong></a>
+- <a id="cf_git puch origin"><strong>cf_n_min_max</strong></a>
 	* Determines largest minimum leaf size. The default is: round(max((n_d_subsam**0.5) / 10, 2) * # of treatments), where n_d_subsam denotes the number of observations in the smallest treatment arm. All values are multiplied by the number of treatments.
 
 - <a id="cf_n_min_min"><strong>cf_n_min_min</strong></a>

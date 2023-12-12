@@ -1,6 +1,6 @@
 <!-- docs/_coverpage.md -->
 
-# **M**odified **C**ausal **F**orest  <small>0.4.2</small>
+# **M**odified **C**ausal **F**orest  <small>0.4.3</small>
 
 [Demonstration Paper](https://www.mdpi.com/1099-4300/24/8/1039)
 [Method Paper](https://arxiv.org/abs/1812.09487)

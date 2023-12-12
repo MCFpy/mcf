@@ -1,5 +1,76 @@
 # Release Notes
 
+## Version 0.4.3
+
+### New
+
+  #### Changes concerning the class `ModifiedCausalForest`
+
+  #### Bug fixes
+
+ - Minor bug fixes:
+      - Weight computation (turned off and sparse weight matrix)
+      - KeyError in Gate estimation
+      - Corrected sample split when using feature selection
+
+ - Leaf size adjustments:
+
+      Sometimes, the `mcf` leads to fairly big leaves due to insufficient observations in each treatment arm. The following changes in default settings and minor code corrections have been implemented to somewhat reduce leaf sizes. However, this may lead to more cases where data used to populate leaves will have to ignore more leaves.
+      - If the problem can be solved by redoing the last split (using the parent leaf instead of the final child leaves), then these two leaves are merged.
+      - If merging leaves does not solve the problem, the leave is not used in the computation of weights.
+      - Default for `cf_n_min_treat` changed to `(n_min_min + n_min_max) / 2 / # of treatments / 10`. Minimum is 1.
+      - Defaults for `cf_n_min_min` and `cf_n_min_max` changed to:
+        - `n_min_min = round(max((n_d_subsam**0.4) / 10, 1.5) * # of treatments)`
+        - `n_min_max = round(max((n_d_subsam**0.5) / 10, 2) * # of treatments)`
+      - Default values for tuning parameters of `mcf` are taken into account when observations are used only for feature selection, common support, or local centering.
+
+  - Improved computational performance:
+
+      - Speed-up for categorical (unordered) variables due to memoization. This requires some additional memory, but the gains could be substantial.
+      - Improved internal computation and storage of estimated forests for speed and precision gains (using a list of dictionaries of optimized numpy arrays to save the trees). The precision of the new method is higher while needing less RAM, which might lead to small changes in results.
+
+
+#### Sensitivity Checks Added (Experimental)
+
+
+- The method `sensitivity` has been added. It contains some simulation-based
+     tools to check how well the mcf works in removing selection bias and
+     how sensitive the results are with respect to potentially missing
+     confounding covariates (i.e., those related to treatment and potential
+     outcome)  added in the future).
+
+  - **Note:** This section is currently experimental and thus not yet fully
+     documentated and tested. A paper by Armendariz-Pacheco, Frischknecht,
+     Lechner, and Mareckova (2024) will discuss and investigate the different
+     methods in detail. So far, please note that all methods are simulation
+     based. 
+
+  - The sensitivity checks consist of the following steps:
+
+    i) Estimate all treatment probabilities.
+
+    ii) Remove all observations from treatment states other than one (largest treatment or user-determined).
+
+    iii) Use estimated probabilities to simulate treated observations, respecting the original treatment shares (pseudo-treatments).
+
+    iv) Estimate the effects of pseudo-treatments. The true effects are known to be zero, so the deviation from 0 is used as a measure of result sensitivity. Steps iii and iv may be repeated, and results averaged to reduce simulation noise.
+
+  - In this experimental version, the method depends on the following new keywords:
+  
+    - `sens_amgate`: Boolean (or None), optional. Compute AMGATEs for sensitivity analysis. Default is False.
+    - `sens_bgate`: Boolean (or None), optional. Compute BGATEs for sensitivity analysis. Default is False.
+    - `sens_gate`: Boolean (or None), optional. Compute GATEs for sensitivity analysis. Default is False.
+    - `sens_iate`: Boolean (or None), optional. Compute IATEs for sensitivity analysis. Default is False.
+    - `sens_iate_se`: Boolean (or None), optional. Compute standard errors of IATEs for sensitivity analysis. Default is False.
+    - `sens_scenarios`: List or tuple of strings, optional. Different scenarios considered. Default is ('basic',). 'basic': Use estimated treatment probabilities for simulations. No confounding.
+    - `sens_cv_k`: Integer (or None), optional. Data to be used for any cross-validation: Number of folds in cross-validation. Default (or None) is 5.
+    - `sens_replications`: Integer (or None), optional. Number of replications for simulating placebo treatments. Default is 2.
+    - `sens_reference_population`: Integer or float (or None). Defines the treatment status of the reference population used by the sensitivity analysis. Default is to use the treatment with most observed observations.
+
+
+   #### Changes concerning the class ``OptimalPolicy``: 
+- No changes.
+
 ## Version 0.4.2
 
 ### Bug fixes

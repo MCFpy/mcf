@@ -16,22 +16,26 @@ For those seeking more detailed information:
 
 ## Installation Guide
 
-The current version of `mcf` runs with Python **3.11**. You can install `mcf` from PyPI using
+The current version of `mcf` is compatible with Python **3.11**. You can install `mcf` from PyPI using
 
 ```bash
 pip install mcf
 ```
 
-For a smoother experience and to avoid conflicts with other packages, we strongly recommend using a virtual environment based on `conda`. Follow the steps below:
+For a smoother experience and to avoid conflicts with other packages, we strongly recommend using a virtual environment based on `conda`. Follow the steps below
+in your Anaconda Prompt (Windows) or terminal (macOS and Linux):
 
 1. Install `conda` as described [here](https://docs.conda.io/projects/conda/en/latest/user-guide/install/).
 
 2. Set up and activate a conda environment named *mcf-env*:
 
-      ```bash
-      conda create -n mcf-env
-      conda activate mcf-env
-      ```
+    ```bash
+    conda create -n mcf-env
+    ```
+
+    ```bash
+    conda activate mcf-env
+    ```
 
 3. Install Python **3.11**:
 

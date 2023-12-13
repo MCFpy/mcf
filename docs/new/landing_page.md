@@ -63,9 +63,8 @@ from mcf import ModifiedCausalForest
 
 def simulate_data(n):
     """
-    Simulate data with three treatment states captured by 'd', outcome 'y',
-    unordered control variable 'female' and three ordered controls 'x1', 'x2',
-    'x3'.
+    Simulate data with a binary treatment 'd', outcome 'y', unordered control
+    variable 'female' and three ordered controls 'x1', 'x2', 'x3'.
 
     Parameters:
     - n (int): Number of observations in the simulated data.
@@ -74,7 +73,7 @@ def simulate_data(n):
     pd.DataFrame: Simulated data in a Pandas DataFrame.
 
     """
-    d = np.random.choice([0, 1, 2], n, replace = True)
+    d = np.random.choice([0, 1], n, replace = True)
     female = np.random.choice([0, 1], n, replace = True)
     x_ordered = np.random.normal(size = (n, 3))
     y = (x_ordered[:, 0] +
@@ -90,6 +89,7 @@ def simulate_data(n):
 
     return pd.DataFrame(data)
 
+np.random.seed(123)
 df = simulate_data(n = 500)
 
 # Create an instance of class ModifiedCausalForest:
@@ -109,9 +109,8 @@ results = modified_causal_forest_model.predict(df)
 # The 'results' dictionary contains the estimated treatment effects:
 print(results.keys())
 
-print(results["ate effect_list"]) # List of the treatment contrasts
-print(results["ate"]) # Average Treatment Effects (ATE's)
-print(results["ate_se"]) # Standard Errors (SE) for ATE's
+print(results["ate"]) # Average Treatment Effect (ATE)
+print(results["ate_se"]) # Standard Error (SE) of the ATE 
 ```
 
 For a more detailed example, see the **[Getting Started]** section.

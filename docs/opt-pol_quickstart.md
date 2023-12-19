@@ -1,4 +1,4 @@
-# Optimal Policy Tree
+# Optimal Policy
 
 ## Quick Start
 

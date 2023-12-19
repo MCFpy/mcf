@@ -30,7 +30,7 @@ The `optpoltree` function offers several useful data wrangling routines. First, 
 |[dc_screen_covariates](./opt-pol_api.md#dc_screen_covariates)|If [dc_screen_covariates](./opt-pol_api.md#dc_screen_covariates) is True and if there are perfectly correlated variables, as many variables as necessary are excluded to remove the perfect correlation.|
 |[dc_min_dummy_obs](./opt-pol_api.md#dc_min_dummy_obs)|If the program also screens covariates, i.e. when [dc_screen_covariates](./opt-pol_api.md#dc_screen_covariates) is True, the [dc_min_dummy_obs](./opt-pol_api.md#dc_min_dummy_obs) regulates the minimal number of observations in one category of a dummy variable for the dummy variable not to be removed from the data set; the default is set to 10.|
 
-## The Quest for the Optimal Policy Tree
+## The Quest for the Optimal Policy Rule
 
 You may choose between two methods in determining policy allocation: a policy tree following [Zhou, Athey, and Wager (2022)](https://pubsonline.informs.org/doi/10.1287/opre.2022.2271) and a blackbox rule. Use [gen_method](./opt-pol_api.md#gen_method) to opt for the 'best_policy_score' or 'policy tree'. The blackbox rule follows the logic of allocating the treatment, which implies the best potential outcome (potentially taking estimation uncertainty into account if passed over to the program via [var_effect_vs_0_se](./opt-pol_api.md#var_effect_vs_0_se)).
 

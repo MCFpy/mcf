@@ -289,8 +289,7 @@ class ModifiedCausalForest:
         ----------
         data_df : DataFrame
             Data used to compute the predictions. It must contain information
-            about features (and treatment if effects for treatment specific
-                            subpopulations are desired as well).
+            about features (and treatment if effects for treatment specific subpopulations are desired as well).
 
         Returns
         -------

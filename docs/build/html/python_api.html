@@ -1,0 +1,1096 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>Python API &#8212; mcf 0.4.4  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=5b4479735964841361fd" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=5b4479735964841361fd" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=5b4479735964841361fd" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=5b4479735964841361fd" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=5b4479735964841361fd" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=5b4479735964841361fd" />
+  <script src="_static/vendor/fontawesome/6.1.2/js/all.min.js?digest=5b4479735964841361fd"></script>
+
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/clipboard.min.js"></script>
+    <script src="_static/copybutton.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'python_api';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Changelog" href="changelog.html" />
+    <link rel="prev" title="Algorithm Reference" href="algorithm_reference.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">mcf 0.4.4  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="getting_started.html">
+                        Getting started
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="user_guide.html">
+                        User Guide
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="algorithm_reference.html">
+                        Algorithm Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="#">
+                        Python API
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="changelog.html">
+                        Changelog
+                      </a>
+                    </li>
+                
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <label class="sidebar-toggle secondary-toggle" for="__secondary" tabindex="0">
+      <span class="fa-solid fa-outdent"></span>
+    </label>
+  
+</div>
+
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item">
+<nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="getting_started.html">
+                        Getting started
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="user_guide.html">
+                        User Guide
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="algorithm_reference.html">
+                        Algorithm Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="#">
+                        Python API
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="changelog.html">
+                        Changelog
+                      </a>
+                    </li>
+                
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page">Python API</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section id="python-api">
+<h1>Python API<a class="headerlink" href="#python-api" title="Permalink to this heading">#</a></h1>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Permalink to this heading">#</a></h2>
+<table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#double_ml_data.DoubleMLData" title="double_ml_data.DoubleMLData"><code class="xref py py-obj docutils literal notranslate"><span class="pre">double_ml_data.DoubleMLData</span></code></a>(data, y_col, d_cols)</p></td>
+<td><p>Double machine learning data-backend.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#mcf_mini.ModifiedCausalForest" title="mcf_mini.ModifiedCausalForest"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mcf_mini.ModifiedCausalForest</span></code></a>([...])</p></td>
+<td><p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code> contains all methods necessary for a complete mcf estimation.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#optpol_mini.OptimalPolicy" title="optpol_mini.OptimalPolicy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optpol_mini.OptimalPolicy</span></code></a>([...])</p></td>
+<td><p>The <code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code> contains all methods necessary for the Optimal Policy module.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="dml-example-api">
+<h2>dml example API<a class="headerlink" href="#dml-example-api" title="Permalink to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="double_ml_data.DoubleMLData">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">double_ml_data.</span></span><span class="sig-name descname"><span class="pre">DoubleMLData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d_cols</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z_cols</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_other_treat_as_covariate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_all_x_finite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#double_ml_data.DoubleMLData" title="Permalink to this definition">#</a></dt>
+<dd><p>Double machine learning data-backend.</p>
+<p><a class="reference internal" href="#double_ml_data.DoubleMLData" title="double_ml_data.DoubleMLData"><code class="xref py py-class docutils literal notranslate"><span class="pre">DoubleMLData</span></code></a> objects can be initialized from
+<code class="xref py py-class docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code>’s as well as <code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code>’s.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code>) – The data.</p></li>
+<li><p><strong>y_col</strong> (<em>str</em>) – The outcome variable.</p></li>
+<li><p><strong>d_cols</strong> (<em>str</em><em> or </em><em>list</em>) – The treatment variable(s).</p></li>
+<li><p><strong>x_cols</strong> (<em>None</em><em>, </em><em>str</em><em> or </em><em>list</em>) – The covariates.
+If <code class="docutils literal notranslate"><span class="pre">None</span></code>, all variables (columns of <code class="docutils literal notranslate"><span class="pre">data</span></code>) which are neither specified as outcome variable <code class="docutils literal notranslate"><span class="pre">y_col</span></code>, nor
+treatment variables <code class="docutils literal notranslate"><span class="pre">d_cols</span></code>, nor instrumental variables <code class="docutils literal notranslate"><span class="pre">z_cols</span></code> are used as covariates.
+Default is <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>z_cols</strong> (<em>None</em><em>, </em><em>str</em><em> or </em><em>list</em>) – The instrumental variable(s).
+Default is <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>t_col</strong> (<em>None</em><em> or </em><em>str</em>) – The time variable (only relevant/used for DiD Estimators).
+Default is <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>use_other_treat_as_covariate</strong> (<em>bool</em>) – Indicates whether in the multiple-treatment case the other treatment variables should be added as covariates.
+Default is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><strong>force_all_x_finite</strong> (<em>bool</em><em> or </em><em>str</em>) – Indicates whether to raise an error on infinite values and / or missings in the covariates <code class="docutils literal notranslate"><span class="pre">x</span></code>.
+Possible values are: <code class="docutils literal notranslate"><span class="pre">True</span></code> (neither missings <code class="docutils literal notranslate"><span class="pre">np.nan</span></code>, <code class="docutils literal notranslate"><span class="pre">pd.NA</span></code> nor infinite values <code class="docutils literal notranslate"><span class="pre">np.inf</span></code> are
+allowed), <code class="docutils literal notranslate"><span class="pre">False</span></code> (missings and infinite values are allowed), <code class="docutils literal notranslate"><span class="pre">'allow-nan'</span></code> (only missings are allowed).
+Note that the choice <code class="docutils literal notranslate"><span class="pre">False</span></code> and <code class="docutils literal notranslate"><span class="pre">'allow-nan'</span></code> are only reasonable if the machine learning methods used
+for the nuisance functions are capable to provide valid predictions with missings and / or infinite values
+in the covariates <code class="docutils literal notranslate"><span class="pre">x</span></code>.
+Default is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">doubleml</span> <span class="kn">import</span> <span class="n">DoubleMLData</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">doubleml.datasets</span> <span class="kn">import</span> <span class="n">make_plr_CCDDHNR2018</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># initialization from pandas.DataFrame</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">df</span> <span class="o">=</span> <span class="n">make_plr_CCDDHNR2018</span><span class="p">(</span><span class="n">return_type</span><span class="o">=</span><span class="s1">&#39;DataFrame&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obj_dml_data_from_df</span> <span class="o">=</span> <span class="n">DoubleMLData</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="s1">&#39;d&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># initialization from np.ndarray</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">=</span> <span class="n">make_plr_CCDDHNR2018</span><span class="p">(</span><span class="n">return_type</span><span class="o">=</span><span class="s1">&#39;array&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obj_dml_data_from_array</span> <span class="o">=</span> <span class="n">DoubleMLData</span><span class="o">.</span><span class="n">from_arrays</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+</pre></div>
+</div>
+<p class="rubric">Methods</p>
+<table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#double_ml_data.DoubleMLData.from_arrays" title="double_ml_data.DoubleMLData.from_arrays"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_arrays</span></code></a>(x, y, d[, z, t, ...])</p></td>
+<td><p>Initialize <a class="reference internal" href="#double_ml_data.DoubleMLData" title="double_ml_data.DoubleMLData"><code class="xref py py-class docutils literal notranslate"><span class="pre">DoubleMLData</span></code></a> from <code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code>'s.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#double_ml_data.DoubleMLData.set_x_d" title="double_ml_data.DoubleMLData.set_x_d"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_x_d</span></code></a>(treatment_var)</p></td>
+<td><p>Function that assigns the role for the treatment variables in the multiple-treatment case.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes</p>
+<table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">all_variables</span></code></p></td>
+<td><p>All variables available in the dataset.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">binary_outcome</span></code></p></td>
+<td><p>Logical indicating whether the outcome variable is binary with values 0 and 1.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">binary_treats</span></code></p></td>
+<td><p>Series with logical(s) indicating whether the treatment variable(s) are binary with values 0 and 1.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">d</span></code></p></td>
+<td><p>Array of treatment variable; Dynamic! Depends on the currently set treatment variable; To get an array of all treatment variables (independent of the currently set treatment variable) call <code class="docutils literal notranslate"><span class="pre">obj.data[obj.d_cols].values</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">d_cols</span></code></p></td>
+<td><p>The treatment variable(s).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">data</span></code></p></td>
+<td><p>The data.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">force_all_x_finite</span></code></p></td>
+<td><p>Indicates whether to raise an error on infinite values and / or missings in the covariates <code class="docutils literal notranslate"><span class="pre">x</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">n_coefs</span></code></p></td>
+<td><p>The number of coefficients to be estimated.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">n_instr</span></code></p></td>
+<td><p>The number of instruments.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">n_obs</span></code></p></td>
+<td><p>The number of observations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">n_treat</span></code></p></td>
+<td><p>The number of treatment variables.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">t</span></code></p></td>
+<td><p>Array of time variable.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">t_col</span></code></p></td>
+<td><p>The time variable.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">use_other_treat_as_covariate</span></code></p></td>
+<td><p>Indicates whether in the multiple-treatment case the other treatment variables should be added as covariates.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">x</span></code></p></td>
+<td><p>Array of covariates; Dynamic! May depend on the currently set treatment variable; To get an array of all covariates (independent of the currently set treatment variable) call <code class="docutils literal notranslate"><span class="pre">obj.data[obj.x_cols].values</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">x_cols</span></code></p></td>
+<td><p>The covariates.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">y</span></code></p></td>
+<td><p>Array of outcome variable.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">y_col</span></code></p></td>
+<td><p>The outcome variable.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">z</span></code></p></td>
+<td><p>Array of instrumental variables.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">z_cols</span></code></p></td>
+<td><p>The instrumental variable(s).</p></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="double_ml_data.DoubleMLData.from_arrays">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">DoubleMLData.</span></span><span class="sig-name descname"><span class="pre">from_arrays</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">z</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_other_treat_as_covariate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_all_x_finite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#double_ml_data.DoubleMLData.from_arrays" title="Permalink to this definition">#</a></dt>
+<dd><p>Initialize <a class="reference internal" href="#double_ml_data.DoubleMLData" title="double_ml_data.DoubleMLData"><code class="xref py py-class docutils literal notranslate"><span class="pre">DoubleMLData</span></code></a> from <code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code>’s.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code>) – Array of covariates.</p></li>
+<li><p><strong>y</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code>) – Array of the outcome variable.</p></li>
+<li><p><strong>d</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code>) – Array of treatment variables.</p></li>
+<li><p><strong>z</strong> (None or <code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code>) – Array of instrumental variables.
+Default is <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>t</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">numpy.ndarray</span></code>) – Array of the time variable (only relevant/used for DiD models).
+Default is <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>use_other_treat_as_covariate</strong> (<em>bool</em>) – Indicates whether in the multiple-treatment case the other treatment variables should be added as covariates.
+Default is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+<li><p><strong>force_all_x_finite</strong> (<em>bool</em><em> or </em><em>str</em>) – Indicates whether to raise an error on infinite values and / or missings in the covariates <code class="docutils literal notranslate"><span class="pre">x</span></code>.
+Possible values are: <code class="docutils literal notranslate"><span class="pre">True</span></code> (neither missings <code class="docutils literal notranslate"><span class="pre">np.nan</span></code>, <code class="docutils literal notranslate"><span class="pre">pd.NA</span></code> nor infinite values <code class="docutils literal notranslate"><span class="pre">np.inf</span></code> are
+allowed), <code class="docutils literal notranslate"><span class="pre">False</span></code> (missings and infinite values are allowed), <code class="docutils literal notranslate"><span class="pre">'allow-nan'</span></code> (only missings are allowed).
+Note that the choice <code class="docutils literal notranslate"><span class="pre">False</span></code> and <code class="docutils literal notranslate"><span class="pre">'allow-nan'</span></code> are only reasonable if the machine learning methods used
+for the nuisance functions are capable to provide valid predictions with missings and / or infinite values
+in the covariates <code class="docutils literal notranslate"><span class="pre">x</span></code>.
+Default is <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">doubleml</span> <span class="kn">import</span> <span class="n">DoubleMLData</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">doubleml.datasets</span> <span class="kn">import</span> <span class="n">make_plr_CCDDHNR2018</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span> <span class="o">=</span> <span class="n">make_plr_CCDDHNR2018</span><span class="p">(</span><span class="n">return_type</span><span class="o">=</span><span class="s1">&#39;array&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obj_dml_data_from_array</span> <span class="o">=</span> <span class="n">DoubleMLData</span><span class="o">.</span><span class="n">from_arrays</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="double_ml_data.DoubleMLData.set_x_d">
+<span class="sig-prename descclassname"><span class="pre">DoubleMLData.</span></span><span class="sig-name descname"><span class="pre">set_x_d</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">treatment_var</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#double_ml_data.DoubleMLData.set_x_d" title="Permalink to this definition">#</a></dt>
+<dd><p>Function that assigns the role for the treatment variables in the multiple-treatment case.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>treatment_var</strong> (<em>str</em>) – Active treatment variable that will be set to d.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="mcf-mini-api">
+<h2>mcf mini API<a class="headerlink" href="#mcf-mini-api" title="Permalink to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="mcf_mini.ModifiedCausalForest">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">mcf_mini.</span></span><span class="sig-name descname"><span class="pre">ModifiedCausalForest</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cf_alpha_reg_grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cf_alpha_reg_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.15</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cf_alpha_reg_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mcf_mini.ModifiedCausalForest" title="Permalink to this definition">#</a></dt>
+<dd><p>The <a class="reference internal" href="#mcf_mini.ModifiedCausalForest" title="mcf_mini.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> contains all methods necessary for a complete mcf estimation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>cf_alpha_reg_grid</strong> (<em>Integer</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – <p>Minimum remaining share when splitting leaf: Number of grid values.
+If grid is used, optimal value is determined by out-of-bag
+estimation of objective function.
+Default (or <code class="docutils literal notranslate"><span class="pre">None</span></code>) is <code class="docutils literal notranslate"><span class="pre">1</span></code>.</p>
+<div class="versionadded">
+<p><span class="versionmodified added">New in version 0.4.4.</span></p>
+</div>
+</p>
+</dd>
+</dl>
+<dl>
+<dt>cf_alpha_reg_max<span class="classifier">Float (or None), optional</span></dt><dd><p>Minimum remaining share when splitting leaf: Largest value of
+grid (keep it below <code class="docutils literal notranslate"><span class="pre">0.2</span></code>).
+Example of inline mathematics <span class="math notranslate nohighlight">\(a^2 + b^2 = c^2\)</span>.</p>
+<div class="math notranslate nohighlight">
+\[\text{cf_chunks_maxsize} = \text{round}(60000 + \sqrt{\text{number of observations} - 60000})\]</div>
+<p>Default (or <code class="docutils literal notranslate"><span class="pre">None</span></code>) is <code class="docutils literal notranslate"><span class="pre">0.15</span></code>.</p>
+</dd>
+<dt>cf_alpha_reg_min<span class="classifier">Integer (or None), optional</span></dt><dd><p>Minimum leaf size: Largest minimum leaf size.
+If None:</p>
+<div class="math notranslate nohighlight">
+\[ \begin{align}\begin{aligned}\text{A} = \frac{\sqrt{\text{{number of observations in the smallest treatment group}}^{0.5}}}{10},\\\text{cf_n_min_max} = \text{round}(A * \text{number of treatments})\end{aligned}\end{align} \]</div>
+<p>Default is <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+</dd>
+</dl>
+<p class="rubric">Methods</p>
+<table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#mcf_mini.ModifiedCausalForest.train" title="mcf_mini.ModifiedCausalForest.train"><code class="xref py py-obj docutils literal notranslate"><span class="pre">train</span></code></a>(data_df)</p></td>
+<td><p>Build the modified causal forest on the training data.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#mcf_mini.ModifiedCausalForest.predict" title="mcf_mini.ModifiedCausalForest.predict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">predict</span></code></a>(data_df)</p></td>
+<td><p>Compute all effects given a causal forest estimated with train method.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#mcf_mini.ModifiedCausalForest.analyse" title="mcf_mini.ModifiedCausalForest.analyse"><code class="xref py py-obj docutils literal notranslate"><span class="pre">analyse</span></code></a>(results)</p></td>
+<td><p>Analyse estimated IATE with various descriptive tools.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#mcf_mini.ModifiedCausalForest.blinder_iates" title="mcf_mini.ModifiedCausalForest.blinder_iates"><code class="xref py py-obj docutils literal notranslate"><span class="pre">blinder_iates</span></code></a>(data_df[, ...])</p></td>
+<td><p>Compute IATEs that causally depend less on protected variables.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#mcf_mini.ModifiedCausalForest.sensitivity" title="mcf_mini.ModifiedCausalForest.sensitivity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sensitivity</span></code></a>(train_df[, predict_df, ...])</p></td>
+<td><p>Compute simulation based sensitivity indicators.</p></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<section id="attributes">
+<h3>Attributes<a class="headerlink" href="#attributes" title="Permalink to this heading">#</a></h3>
+<table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ModifiedCausalForest.blind_dict</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Dictionary</span></code>, parameters to compute (partially) blinded IATEs.</p></td>
+</tr>
+</tbody>
+</table>
+<table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ModifiedCausalForest.cf_dict</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Dictionary</span></code>, parameters used in training the forest (directly).</p></td>
+</tr>
+</tbody>
+</table>
+<table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ModifiedCausalForest.cs_dict</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Dictionary</span></code>, parameters used in common support adjustments</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="methods">
+<h3>Methods<a class="headerlink" href="#methods" title="Permalink to this heading">#</a></h3>
+<dl class="py method">
+<dt class="sig sig-object py" id="mcf_mini.ModifiedCausalForest.train">
+<span class="sig-prename descclassname"><span class="pre">ModifiedCausalForest.</span></span><span class="sig-name descname"><span class="pre">train</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_df</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mcf_mini.ModifiedCausalForest.train" title="Permalink to this definition">#</a></dt>
+<dd><p>Build the modified causal forest on the training data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data_df</strong> (<em>DataFrame</em>) – Data used to compute the causal forest. It must contain information
+about outcomes, treatment, and features.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>tree_df</strong> (<em>DataFrame</em>) – Dataset used to build the forest.</p></li>
+<li><p><strong>fill_y_df</strong> (<em>DataFrame</em>) – Dataset used to populate the forest with outcomes.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mcf_mini.ModifiedCausalForest.predict">
+<span class="sig-prename descclassname"><span class="pre">ModifiedCausalForest.</span></span><span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_df</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mcf_mini.ModifiedCausalForest.predict" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute all effects given a causal forest estimated with train method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data_df</strong> (<em>DataFrame</em>) – <p>Data used to compute the predictions. It must contain information
+about features (and treatment if effects for treatment specific</p>
+<blockquote>
+<div><p>subpopulations are desired as well).</p>
+</div></blockquote>
+</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p><strong>results</strong> – Results. This dictionary has the following structure:
+‘ate’: ATE, ‘ate_se’: Standard error of ATE,
+‘ate effect_list’: List of names of estimated effects,
+‘gate’: GATE, ‘gate_se’: SE of GATE,
+‘gate_diff’: GATE minus ATE,
+‘gate_diff_se’: Standard error of GATE minus ATE,
+‘amgate’: AMGATE (all covariates balanced),
+‘amgate_se’: Standard error of AMGATE,
+‘amgate_diff’: AMGATE minus ATE,
+‘amgate_diff_se’: Standard error of AMGATE minus ATE,
+‘bgate’: BGATE (only prespecified covariates balanced),
+‘bgate_se’: Standard error of BGATE,
+‘bgate_diff’: BGATE minus ATE,
+‘bgate_diff_se’: Standard errror of BGATE minus ATE,
+‘gate_names_values’: Dictionary: Order of gates parameters and</p>
+<blockquote>
+<div><p>name and values of GATE effects.</p>
+</div></blockquote>
+<p>’iate’: IATE, ‘iate_se’: Standard error of IATE,
+‘iate_eff’: (More) Efficient IATE (IATE estimated twice and</p>
+<blockquote>
+<div><p>averaged where role of tree_building and tree_filling
+sample is exchanged),</p>
+</div></blockquote>
+<p>’iate_data_df’: DataFrame with IATEs,
+‘iate_names_dic’: Dictionary containing names of IATEs,
+‘bala’: Effects of balancing tests,
+‘bala_se’: Standard error of effects of balancing tests,
+‘bala_effect_list’: Names of effects of balancing tests</p>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dictionary.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mcf_mini.ModifiedCausalForest.analyse">
+<span class="sig-prename descclassname"><span class="pre">ModifiedCausalForest.</span></span><span class="sig-name descname"><span class="pre">analyse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mcf_mini.ModifiedCausalForest.analyse" title="Permalink to this definition">#</a></dt>
+<dd><p>Analyse estimated IATE with various descriptive tools.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>results</strong> (<em>Dictionary</em>) – Contains estimation results. This dictionary must have the same
+structure as the one returned from the predict method.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – Some of the attribute are not compatible with running this method.</p>
+</dd>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>results_plus_cluster</strong> – Same as the results dictionary, but the DataFrame with estimated
+IATEs contains an additional integer with a group label that comes
+from k-means clustering.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dictionary</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mcf_mini.ModifiedCausalForest.blinder_iates">
+<span class="sig-prename descclassname"><span class="pre">ModifiedCausalForest.</span></span><span class="sig-name descname"><span class="pre">blinder_iates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blind_var_x_protected_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blind_var_x_policy_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blind_var_x_unrestricted_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blind_weights_of_blind</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blind_obs_ref_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blind_seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">123456</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mcf_mini.ModifiedCausalForest.blinder_iates" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute IATEs that causally depend less on protected variables.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_df</strong> (<em>DataFrame.</em>) – Contains data needed to predict the various adjusted IATES.</p></li>
+<li><p><strong>blind_var_x_protected_name</strong> (<em>List of strings</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Names of protected variables. Names that are
+explicitly denoted as blind_var_x_unrestricted_name or as
+blind_var_x_policy_name and used to compute IATEs will be
+automatically added to this list. Default is None.</p></li>
+<li><p><strong>blind_var_x_policy_name</strong> (<em>List of strings</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Names of decision variables. Default is None.</p></li>
+<li><p><strong>blind_var_x_unrestricted_name</strong> (<em>List of strings</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Names of unrestricted variables. Default is None.</p></li>
+<li><p><strong>blind_weights_of_blind</strong> (<em>Tuple of float</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Weights to compute weighted means of blinded and unblinded IATEs.
+Between 0 and 1. 1 implies all weight goes to fully blinded IATEs.</p></li>
+<li><p><strong>blind_obs_ref_data</strong> (<em>Integer</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Number of observations to be used for blinding. Runtime of
+programme is almost linear in this parameter. Default is 50.</p></li>
+<li><p><strong>blind_seed</strong> (<em>Integer</em><em>, </em><em>optional.</em>) – Seed for the random selection of the reference data.
+Default is 123456.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>blinded_dic</strong> (<em>Dictionary.</em>) – Contains potential outcomes that do not fully
+depend on some protected attributes (and non-modified IATE).</p></li>
+<li><p><strong>data_on_support_df</strong> (<em>DataFrame.</em>) – Features that are on the common support.</p></li>
+<li><p><strong>var_x_policy_ord_name</strong> (<em>List of strings, optional</em>) – Ordered variables to be used to build the decision rules.</p></li>
+<li><p><strong>var_x_policy_unord_name</strong> (<em>List of strings.</em>) – Unordered variables to be used to build the decision rules.</p></li>
+<li><p><strong>var_x_blind_ord_name</strong> (<em>List of strings, optional</em>) – Ordered variables to be used to blind potential outcomes.</p></li>
+<li><p><strong>var_x_blind_unord_name</strong> (<em>List of strings.</em>) – Unordered variables to be used to blind potential outcomes.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="mcf_mini.ModifiedCausalForest.sensitivity">
+<span class="sig-prename descclassname"><span class="pre">ModifiedCausalForest.</span></span><span class="sig-name descname"><span class="pre">sensitivity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">train_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">predict_df</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sens_amgate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sens_bgate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sens_gate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sens_iate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sens_iate_se</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sens_scenarios</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sens_cv_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sens_replications</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sens_reference_population</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#mcf_mini.ModifiedCausalForest.sensitivity" title="Permalink to this definition">#</a></dt>
+<dd><p>Compute simulation based sensitivity indicators.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>train_df</strong> (<em>DataFrame.</em>) – Data with real outcomes, treatments, and covariates. Data will be
+transformed to compute sensitivity indicators.</p></li>
+<li><p><strong>predict_df</strong> (<em>DataFrame</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optinal.</em>) – Prediction data to compute all effects for. This data will not be
+changed in the computation process. Only covariate information is
+used from this dataset. If predict_df is not a DataFrame,
+train_df will be used instead.</p></li>
+<li><p><strong>sens_amgate</strong> (<em>Boolean</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Compute AMGATEs for sensitivity analysis. Default is False.</p></li>
+<li><p><strong>sens_bgate</strong> (<em>Boolean</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Compute BGATEs for sensitivity analysis. Default is False.</p></li>
+<li><p><strong>sens_gate</strong> (<em>Boolean</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Compute GATEs for sensitivity analysis. Default is False.</p></li>
+<li><p><strong>sens_iate</strong> (<em>Boolean</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Compute IATEs for sensitivity analysis. Default is False.</p></li>
+<li><p><strong>sens_iate_se</strong> (<em>Boolean</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Compute Standard errors of IATEs for sensitivity analysis. Default
+is False.</p></li>
+<li><p><strong>sens_scenarios</strong> (<em>List</em><em> or </em><em>tuple of strings</em><em>, </em><em>optional.</em>) – <p>Different scenarios considered. Default is (‘basic’,).
+‘basic’ : Use estimated treatment probabilities for simulations.</p>
+<blockquote>
+<div><p>No confounding.</p>
+</div></blockquote>
+</p></li>
+<li><p><strong>sens_cv_k</strong> (<em>Integer</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Data to be used for any cross-validation: Number of folds in
+cross-validation. Default (or None) is 5.</p></li>
+<li><p><strong>sens_replications</strong> (<em>Integer</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional.</em>) – Number of replications for simulating placebo treatments. Default
+is 2.</p></li>
+<li><p><strong>sens_reference_population</strong> (<em>integer</em><em> or </em><em>float</em><em> (or </em><em>None</em><em>)</em>) – Defines the treatment status of the reference population used by
+the sensitivity analysis. Default is to use the treatment with most
+observed observations.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>results_avg</strong> – Same content as for the predict method but (if applicable) averaged
+over replications.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dictionary</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+<section id="optimal-policy-mini-api">
+<h2>optimal policy mini API<a class="headerlink" href="#optimal-policy-mini-api" title="Permalink to this heading">#</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="optpol_mini.OptimalPolicy">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">optpol_mini.</span></span><span class="sig-name descname"><span class="pre">OptimalPolicy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dc_check_perfectcorr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dc_clean_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dc_min_dummy_obs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dc_screen_covariates</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gen_method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'best_policy_score'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gen_outfiletext</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'txtFileWithOutput'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gen_outpath</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gen_output_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gen_variable_importance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">other_costs_of_treat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">other_costs_of_treat_mult</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">other_max_shares</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pt_depth</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pt_enforce_restriction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pt_eva_cat_mult</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pt_no_of_evalupoints</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pt_min_leaf_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pt_select_values_cat</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rnd_shares</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_bb_restrict_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_d_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_effect_vs_0</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_effect_vs_0_se</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_id_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_polscore_desc_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_polscore_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_vi_x_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_vi_to_dummy_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_x_ord_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_x_unord_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_int_how_many_parallel</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_int_output_no_new_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_int_parallel_processing</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_int_with_numba</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_int_with_output</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#optpol_mini.OptimalPolicy" title="Permalink to this definition">#</a></dt>
+<dd><p>The <a class="reference internal" href="#optpol_mini.OptimalPolicy" title="optpol_mini.OptimalPolicy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a> contains all methods necessary for the Optimal Policy module.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>dc_screen_covariates</strong> (<em>Boolean</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Check features.
+Default (or None) is True.</p></li>
+<li><p><strong>dc_check_perfectcorr</strong> (<em>Boolean</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Features that are perfectly correlated are deleted (1 of them).
+Only relevant if dc_screen_covariates is True.
+Default (or None) is True.</p></li>
+<li><p><strong>dc_min_dummy_obs</strong> (<em>Integer</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Delete dummmy variables that have less than dc_min_dummy_obs in one
+of their categories. Only relevant if dc_screen_covariates is True.
+Default (or None) is 10.</p></li>
+<li><p><strong>dc_clean_data</strong> (<em>Boolean</em><em> (or </em><em>None</em><em>)</em><em>, </em><em>optional</em>) – Remove all missing &amp; unnecessary variables.
+Default (or None) is True.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Methods</p>
+<table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#optpol_mini.OptimalPolicy.solve" title="optpol_mini.OptimalPolicy.solve"><code class="xref py py-obj docutils literal notranslate"><span class="pre">solve</span></code></a>(data_df[, data_title])</p></td>
+<td><p>Solve for optimal allocation rule.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#optpol_mini.OptimalPolicy.allocate" title="optpol_mini.OptimalPolicy.allocate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">allocate</span></code></a>(data_df[, data_title])</p></td>
+<td><p>Allocate observations to treatment state.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#optpol_mini.OptimalPolicy.evaluate" title="optpol_mini.OptimalPolicy.evaluate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">evaluate</span></code></a>(allocation_df, data_df[, ...])</p></td>
+<td><p>Evaluate allocation with potential outcome data.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#optpol_mini.OptimalPolicy.evaluate_multiple" title="optpol_mini.OptimalPolicy.evaluate_multiple"><code class="xref py py-obj docutils literal notranslate"><span class="pre">evaluate_multiple</span></code></a>(allocations_dic, data_df)</p></td>
+<td><p>Evaluate several allocations simultanously.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#optpol_mini.OptimalPolicy.print_time_strings_all_steps" title="optpol_mini.OptimalPolicy.print_time_strings_all_steps"><code class="xref py py-obj docutils literal notranslate"><span class="pre">print_time_strings_all_steps</span></code></a>()</p></td>
+<td><p>Print an overview over the time needed in all steps of programme.</p></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<section id="id1">
+<h3>Attributes<a class="headerlink" href="#id1" title="Permalink to this heading">#</a></h3>
+<table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">OptimalPolicy.int_dict</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Dictionary</span></code>, parameters used in many parts of the class.</p></td>
+</tr>
+</tbody>
+</table>
+<table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">OptimalPolicy.dc_dict</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Dictionary</span></code>, parameters used in data cleaning.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="id2">
+<h3>Methods<a class="headerlink" href="#id2" title="Permalink to this heading">#</a></h3>
+<dl class="py method">
+<dt class="sig sig-object py" id="optpol_mini.OptimalPolicy.solve">
+<span class="sig-prename descclassname"><span class="pre">OptimalPolicy.</span></span><span class="sig-name descname"><span class="pre">solve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#optpol_mini.OptimalPolicy.solve" title="Permalink to this definition">#</a></dt>
+<dd><p>Solve for optimal allocation rule.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_df</strong> (<em>DataFrame</em>) – Input data to train particular allocation algorithm.</p></li>
+<li><p><strong>data_title</strong> (<em>String</em><em>, </em><em>optional</em>) – This string is used as title in outputs. The default is ‘’.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>allocation_df</strong> – data_df with optimal allocation appended.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="optpol_mini.OptimalPolicy.allocate">
+<span class="sig-prename descclassname"><span class="pre">OptimalPolicy.</span></span><span class="sig-name descname"><span class="pre">allocate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#optpol_mini.OptimalPolicy.allocate" title="Permalink to this definition">#</a></dt>
+<dd><p>Allocate observations to treatment state.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_df</strong> (<em>DataFrame</em>) – Input data with at least features or policy scores
+(depending on algorithm).</p></li>
+<li><p><strong>data_title</strong> (<em>String</em><em>, </em><em>optional</em>) – This string is used as title in outputs. The default is ‘’.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>allocation_df</strong> – data_df with optimal allocation appended.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>DataFrame</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="optpol_mini.OptimalPolicy.evaluate">
+<span class="sig-prename descclassname"><span class="pre">OptimalPolicy.</span></span><span class="sig-name descname"><span class="pre">evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">allocation_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_title</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">''</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">12434</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#optpol_mini.OptimalPolicy.evaluate" title="Permalink to this definition">#</a></dt>
+<dd><p>Evaluate allocation with potential outcome data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>allocation_df</strong> (<em>DataFrame</em>) – Optimal allocation as outputed by the solve and allocate methods.</p></li>
+<li><p><strong>data_df</strong> (<em>DataFrame</em>) – Additional information that can be linked to allocation_df.</p></li>
+<li><p><strong>data_title</strong> (<em>String</em><em>, </em><em>optional</em>) – This string is used as title in outputs. The default is ‘’.</p></li>
+<li><p><strong>seed</strong> (<em>Integer</em><em>, </em><em>optional</em>) – Seed for random number generators. The default is 12434.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>results_dic</strong> – Collected results of evaluation with self-explanatory keys.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Dictory</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="optpol_mini.OptimalPolicy.evaluate_multiple">
+<span class="sig-prename descclassname"><span class="pre">OptimalPolicy.</span></span><span class="sig-name descname"><span class="pre">evaluate_multiple</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">allocations_dic</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_df</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#optpol_mini.OptimalPolicy.evaluate_multiple" title="Permalink to this definition">#</a></dt>
+<dd><p>Evaluate several allocations simultanously.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>allocations_dic</strong> (<em>Dictionary.</em>) – Contains dataframes with specific allocations.</p></li>
+<li><p><strong>data_df</strong> (<em>DataFrame.</em>) – Data with the relevant information about potential outcomes which
+will be used to evaluate the allocations.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="optpol_mini.OptimalPolicy.print_time_strings_all_steps">
+<span class="sig-prename descclassname"><span class="pre">OptimalPolicy.</span></span><span class="sig-name descname"><span class="pre">print_time_strings_all_steps</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#optpol_mini.OptimalPolicy.print_time_strings_all_steps" title="Permalink to this definition">#</a></dt>
+<dd><p>Print an overview over the time needed in all steps of programme.</p>
+</dd></dl>
+
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="algorithm_reference.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Algorithm Reference</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="changelog.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Changelog</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#classes">Classes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#dml-example-api">dml example API</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mcf-mini-api">mcf mini API</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#attributes">Attributes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#methods">Methods</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#optimal-policy-mini-api">optimal policy mini API</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Attributes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Methods</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="_sources/python_api.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=5b4479735964841361fd"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=5b4479735964841361fd"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2023, ML.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.0.2.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.14.4.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

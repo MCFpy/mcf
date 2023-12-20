@@ -1,0 +1,10 @@
+sphinx==5.0.2
+pydata-sphinx-theme==0.14.4
+sphinx-copybutton
+numpy
+pandas
+scipy
+scikit-learn
+statsmodels
+plotly
+matplotlib

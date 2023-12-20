@@ -58,8 +58,6 @@ For a smoother experience and to avoid conflicts with other packages, we strongl
 
 Note: It is recommended to prioritize ``conda install`` for package installations before using ``pip install``. On a Windows machine, if you plan to use Spyder as your IDE, make sure to execute ``conda install spyder`` before proceeding with ``pip install mcf`` to reduce the risk of errors during installation.
 
-.. _usage-example:
-
 Usage Example
 -------------
 

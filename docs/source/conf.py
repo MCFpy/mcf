@@ -35,6 +35,13 @@ author = 'ML'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
+    'sphinx.ext.coverage',
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.mathjax',
+    'sphinx.ext.napoleon',
+    'sphinx_copybutton',
+    'sphinx.ext.githubpages',
+    'sphinx.ext.doctest',
 ]
 
 napoleon_use_ivar = False

@@ -35,9 +35,6 @@ author = 'ML'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.napoleon',
-    'sphinx_copybutton',
 ]
 
 napoleon_use_ivar = False

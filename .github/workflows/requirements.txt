@@ -1,5 +1,6 @@
 sphinx==5.0.2
 pydata-sphinx-theme==0.14.4
+pygments>2.7.0
 sphinx-copybutton
 numpy
 pandas

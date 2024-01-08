@@ -9,3 +9,4 @@ scikit-learn
 statsmodels
 plotly
 matplotlib
+sphinx-collapse[doc]

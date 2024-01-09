@@ -71,8 +71,6 @@ mcf mini API
     ~ModifiedCausalForest.blinder_iates
     ~ModifiedCausalForest.sensitivity
 
-   .. rubric:: Attributes
-
 Attributes
 ^^^^^^^^^^
 
@@ -82,16 +80,11 @@ Attributes
 
         ~ModifiedCausalForest.blind_dict
         ~ModifiedCausalForest.cf_dict
+        ~ModifiedCausalForest.cs_dict
 
 .. autosummary:: ~ModifiedCausalForest.blind_dict
-.. autosummary:: ModifiedCausalForest.cf_dict
-
-.. Does this abbreviation below work? -> No, since the entry is double this way
-.. Does the commented out version work? -> even hackier??
-    .. autosummary:: 
-        :toctree:
-        ModifiedCausalForest.cs_dict
-
+.. autosummary:: ~ModifiedCausalForest.cf_dict
+.. autosummary:: ~ModifiedCausalForest.cs_dict
 
 Methods
 ^^^^^^^^^^

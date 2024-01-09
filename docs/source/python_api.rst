@@ -2,7 +2,7 @@ Python API
 ===========
 
 
-Classes 
+Overview of classes 
 --------
 
 ..  
@@ -20,14 +20,6 @@ Modified Causal Forest
 
 .. autoclass:: ModifiedCausalForest
 
-   .. rubric:: Methods overview
-
-   .. autosummary::
-    ~ModifiedCausalForest.train
-    ~ModifiedCausalForest.predict
-    ~ModifiedCausalForest.analyse
-    ~ModifiedCausalForest.blinder_iates
-    ~ModifiedCausalForest.sensitivity
 
 Attributes
 ^^^^^^^^^^
@@ -35,8 +27,8 @@ Attributes
 ..
    HACK -- Also list the attributes in the "commented out" paragraph below. The
    point here is that we don't want this to appear in the output, but the
-   autosummary below will still even when commented out, generate the separate
-   page that can be cross-referenced.
+   autosummary below will, even when commented out, generate the separate
+   documentation page that can be cross-referenced.
 
    .. autosummary::
       :toctree:
@@ -49,15 +41,29 @@ Attributes
 .. autosummary:: ~ModifiedCausalForest.cf_dict
 .. autosummary:: ~ModifiedCausalForest.cs_dict
 
+
 Methods
 ^^^^^^^^^^
 
-.. autosummary:: ModifiedCausalForest.train
+..
+   HACK -- Also list the methods in the "commented out" paragraph below. The
+   point here is that we don't want this to appear in the output, but the
+   autosummary below will, even when commented out, generate the separate
+   documentation page that can be cross-referenced.
 
-.. automethod:: ModifiedCausalForest.predict
-.. automethod:: ModifiedCausalForest.analyse
-.. automethod:: ModifiedCausalForest.blinder_iates
-.. automethod:: ModifiedCausalForest.sensitivity
+   .. autosummary:: 
+      :toctree:
+      ModifiedCausalForest.train
+      ModifiedCausalForest.predict
+      ModifiedCausalForest.analyse
+      ModifiedCausalForest.blinder_iates
+      ModifiedCausalForest.sensitivity
+
+.. autosummary:: ~ModifiedCausalForest.train
+.. autosummary:: ~ModifiedCausalForest.predict
+.. autosummary:: ~ModifiedCausalForest.analyse
+.. autosummary:: ~ModifiedCausalForest.blinder_iates
+.. autosummary:: ~ModifiedCausalForest.sensitivity
 
 
 Optimal Policy
@@ -67,27 +73,20 @@ Optimal Policy
 
 .. autoclass:: OptimalPolicy
 
-   .. rubric:: Methods overview
 
-   .. autosummary::
-    ~OptimalPolicy.evaluate
-    ~OptimalPolicy.evaluate_multiple
-    ~OptimalPolicy.print_time_strings_all_steps
-    
-    
 Attributes
 ^^^^^^^^^^
 
 ..
    HACK -- Also list the attributes in the "commented out" paragraph below. The
    point here is that we don't want this to appear in the output, but the
-   autosummary below will still even when commented out, generate the separate
-   page that can be cross-referenced.
+   autosummary below will, even when commented out, generate the separate
+   documentation page that can be cross-referenced.
 
    .. autosummary::
       :toctree:
-      ~OptimalPolicy.int_dict
-      ~OptimalPolicy.dc_dict
+      OptimalPolicy.int_dict
+      OptimalPolicy.dc_dict
 
 .. autosummary:: ~OptimalPolicy.int_dict
 .. autosummary:: ~OptimalPolicy.dc_dict
@@ -95,15 +94,22 @@ Attributes
 Methods
 ^^^^^^^^^^
 
-.. Hack to have solve and allocate on separate page?
-    .. autosummary:: 
-        :toctree:
-        OptimalPolicy.solve
-        OptimalPolicy.allocate
+..
+   HACK -- Also list the methods in the "commented out" paragraph below. The
+   point here is that we don't want this to appear in the output, but the
+   autosummary below will, even when commented out, generate the separate
+   documentation page that can be cross-referenced.
+
+   .. autosummary:: 
+      :toctree:
+      ~OptimalPolicy.solve
+      ~OptimalPolicy.allocate
+      ~OptimalPolicy.evaluate
+      ~OptimalPolicy.evaluate_multiple
+      ~OptimalPolicy.print_time_strings_all_steps
 
 .. autosummary:: ~OptimalPolicy.solve
 .. autosummary:: ~OptimalPolicy.allocate
-
-.. automethod:: OptimalPolicy.evaluate
-.. automethod:: OptimalPolicy.evaluate_multiple
-.. automethod:: OptimalPolicy.print_time_strings_all_steps
+.. autosummary:: ~OptimalPolicy.evaluate
+.. autosummary:: ~OptimalPolicy.evaluate_multiple
+.. autosummary:: ~OptimalPolicy.print_time_strings_all_steps

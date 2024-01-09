@@ -14,7 +14,7 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath('../..'))
-#sys.path.insert(0, os.path.abspath('../../mcf'))
+# sys.path.insert(0, os.path.abspath('../../mcf'))
 
 
 # -- Project information -----------------------------------------------------
@@ -22,10 +22,6 @@ sys.path.insert(0, os.path.abspath('../..'))
 project = 'mcf 0.4.4'
 copyright = '2023, ML'
 author = 'ML'
-
-# The full version, including alpha/beta/rc tags
-#release = '0.4.4'
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -47,17 +43,11 @@ extensions = [
 
 napoleon_use_ivar = False
 
-#This will allow your docs to import the example code without requiring those modules be installed
+# This will allow your docs to import the example code without requiring those modules be installed
 autodoc_mock_imports = ['bs4', 'requests']
 
 autoclass_content = 'class'
 autosummary_generate = True
-
-# Custom sidebar templates, maps page names to templates.
-# html_sidebars = {
-#    "index": [
-#        "sidebar_versions.html",
-#        ]}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -76,12 +66,18 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-#
 html_theme = 'pydata_sphinx_theme'
 
+# This removes the primary (left) sidebar from all pages of the documentation:
 html_sidebars = {
-    "index": ["page-toc"],
+  "**": []
 }
+
+# Custom sidebar templates, maps page names to templates.
+# html_sidebars = {
+#    "index": [
+#        "sidebar_versions.html",
+#        ]}
 
 html_theme_options = {
   "show_nav_level": 2, 
@@ -89,7 +85,6 @@ html_theme_options = {
   "show_toc_level": 5, 
   "show_version_warning_banner": True
 }
-
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

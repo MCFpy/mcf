@@ -126,3 +126,5 @@ Methods
 .. automethod:: OptimalPolicy.evaluate
 .. automethod:: OptimalPolicy.evaluate_multiple
 .. automethod:: OptimalPolicy.print_time_strings_all_steps
+
+.. automethod:: OptimalPolicy.int_dict

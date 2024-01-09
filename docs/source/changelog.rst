@@ -3,7 +3,9 @@ Changelog
 .. 
     Conventions:
 
-    - Add a horizontal rule before a new version
+    - Add a horizontal rule ----- before adding a new entry
+    - Refer to classes using :py:class:`module.ClassName`, e.g. :py:class:`mcf_functions.ModifiedCausalForest`
+    - Refer to methods using :py:meth:`module.ClassName.method_name`, e.g. :py:meth:`mcf_functions.ModifiedCausalForest.train` 
     - Nest parameters of functions/methods in single backticks: `foo`
     - Nested list: You need to separate the lists with a blank line. Otherwise, the parent will be displayed as bold. 
 
@@ -20,11 +22,11 @@ Changelog
 
 :py:class:`optpol_mini.OptimalPolicy` 
 
-:py:meth:`ModifiedCausalForest.train`
+:py:meth:`mcf_mini.ModifiedCausalForest.train`
 
-:py:meth:`ModifiedCausalForest.__init__`
+:py:meth:`mcf_mini.ModifiedCausalForest.__init__`
 
-:py:property:`ModifiedCausalForest.blind_dict`
+:py:property:`mcf_mini.ModifiedCausalForest.blind_dict`
 
 
 Version 0.4.3

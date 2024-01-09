@@ -70,6 +70,13 @@ mcf mini API
     ~ModifiedCausalForest.blinder_iates
     ~ModifiedCausalForest.sensitivity
 
+   .. rubric:: Attributes
+
+    .. autosummary::
+        ~ModifiedCausalForest.blind_dict
+        ~ModifiedCausalForest.cf_dict
+        ~ModifiedCausalForest.cs_dict
+
 Attributes
 ^^^^^^^^^^
 

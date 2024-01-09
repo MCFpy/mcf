@@ -19,15 +19,15 @@ Changelog
             - B
 
 :py:class:`~mcf_mini.ModifiedCausalForest` 
-
 :py:class:`optpol_mini.OptimalPolicy` 
-
 :py:meth:`mcf_mini.ModifiedCausalForest.train`
-
-:py:meth:`mcf_mini.ModifiedCausalForest.__init__`
+:py:meth:`optpol_mini.OptimalPolicy.solve`
 
 :py:property:`mcf_mini.ModifiedCausalForest.blind_dict`
+:py:property:`optpol_mini.OptimalPolicy.int_dict`
 
+:py:attribute:`mcf_mini.ModifiedCausalForest.blind_dict`
+:py:attribute:`optpol_mini.OptimalPolicy.int_dict`
 
 Version 0.4.3
 -------------

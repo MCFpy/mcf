@@ -8,54 +8,12 @@ Classes
     If you add a '~' before a reference like `mymodule.MyClass.mymethod`, the
     link text will then only show 'mymethod' which is often desirable.
 .. autosummary::
-    ~double_ml_data.DoubleMLData
     ~mcf_mini.ModifiedCausalForest
     ~optpol_mini.OptimalPolicy
 
 -----
 
-dml example API
------------------
-
-.. currentmodule:: double_ml_data
-
-.. autoclass:: DoubleMLData
-   
-   .. rubric:: Methods overview
-
-   .. autosummary::
-    ~DoubleMLData.from_arrays
-    ~DoubleMLData.set_x_d
-   
-   .. rubric:: Attributes
-
-   .. autosummary::
-      ~DoubleMLData.all_variables
-      ~DoubleMLData.binary_outcome
-      ~DoubleMLData.binary_treats
-      ~DoubleMLData.d
-      ~DoubleMLData.d_cols
-      ~DoubleMLData.data
-      ~DoubleMLData.force_all_x_finite
-      ~DoubleMLData.n_coefs
-      ~DoubleMLData.n_instr
-      ~DoubleMLData.n_obs
-      ~DoubleMLData.n_treat
-      ~DoubleMLData.t
-      ~DoubleMLData.t_col
-      ~DoubleMLData.use_other_treat_as_covariate
-      ~DoubleMLData.x
-      ~DoubleMLData.x_cols
-      ~DoubleMLData.y
-      ~DoubleMLData.y_col
-      ~DoubleMLData.z
-      ~DoubleMLData.z_cols
-   
-.. automethod:: DoubleMLData.from_arrays
-.. automethod:: DoubleMLData.set_x_d
-
-
-mcf mini API
+Modified Causal Forest
 --------------
 
 .. currentmodule:: mcf_mini
@@ -74,13 +32,18 @@ mcf mini API
 Attributes
 ^^^^^^^^^^
 
-.. Hack that seems to work
-    .. autosummary::
-        :toctree:
+..
+   HACK -- Also list the attributes in the "commented out" paragraph below. The
+   point here is that we don't want this to appear in the output, but the
+   autosummary below will still even when commented out, generate the separate
+   page that can be cross-referenced.
 
-        ~ModifiedCausalForest.blind_dict
-        ~ModifiedCausalForest.cf_dict
-        ~ModifiedCausalForest.cs_dict
+   .. autosummary::
+      :toctree:
+
+      ~ModifiedCausalForest.blind_dict
+      ~ModifiedCausalForest.cf_dict
+      ~ModifiedCausalForest.cs_dict
 
 .. autosummary:: ~ModifiedCausalForest.blind_dict
 .. autosummary:: ~ModifiedCausalForest.cf_dict
@@ -97,7 +60,7 @@ Methods
 .. automethod:: ModifiedCausalForest.sensitivity
 
 
-optimal policy mini API
+Optimal Policy
 ---------------------------
 
 .. currentmodule:: optpol_mini
@@ -117,18 +80,19 @@ optimal policy mini API
 Attributes
 ^^^^^^^^^^
 
-.. autosummary:: OptimalPolicy.int_dict
-.. autosummary:: OptimalPolicy.dc_dict
-
 ..
-   HACK -- the point here is that we don't want this to appear in the output,
-   but the autosummary below will still generate the separate page that can be
-   cross-referenced.
+   HACK -- Also list the attributes in the "commented out" paragraph below. The
+   point here is that we don't want this to appear in the output, but the
+   autosummary below will still even when commented out, generate the separate
+   page that can be cross-referenced.
 
    .. autosummary::
       :toctree:
-      OptimalPolicy.int_dict
-      OptimalPolicy.dc_dict
+      ~OptimalPolicy.int_dict
+      ~OptimalPolicy.dc_dict
+
+.. autosummary:: ~OptimalPolicy.int_dict
+.. autosummary:: ~OptimalPolicy.dc_dict
 
 Methods
 ^^^^^^^^^^

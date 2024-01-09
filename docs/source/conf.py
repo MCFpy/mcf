@@ -83,8 +83,22 @@ html_theme_options = {
   "show_nav_level": 2, 
   "navigation_depth": 4,
   "show_toc_level": 5, 
-  "show_version_warning_banner": True
+  "show_version_warning_banner": True, 
+    "icon_links": [
+        {
+            # Label for this link
+            "name": "GitHub",
+            # URL where the link will redirect
+            "url": "https://aparmendariz.github.io/mcf_docs/",  # required
+            # Icon class (if "type": "fontawesome"), or path to local image (if "type": "local")
+            "icon": "fa-brands fa-square-github",
+            # The type of image to be used (see below for details)
+            "type": "fontawesome",
+        }
+   ]
 }
+
+
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

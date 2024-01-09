@@ -100,6 +100,7 @@ html_theme_options = {
             "name": "PyPI",
             "url": "https://pypi.org/project/mcf",
             "icon": "fa-custom fa-pypi",
+            "type": "fontawesome",
         }
    ]
 }

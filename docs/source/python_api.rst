@@ -122,7 +122,7 @@ Methods
 ^^^^^^^^^^
 
 .. Hack to have solve and allocate on separate page?
-    .. automethod:: 
+    .. autsummary:: 
         :toctree:
         OptimalPolicy.solve
         OptimalPolicy.allocate

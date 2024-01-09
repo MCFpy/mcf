@@ -308,11 +308,9 @@ class ModifiedCausalForest:
             'bgate_se': Standard error of BGATE,
             'bgate_diff': BGATE minus ATE,
             'bgate_diff_se': Standard errror of BGATE minus ATE,
-            'gate_names_values': Dictionary: Order of gates parameters and
-                        name and values of GATE effects.
+            'gate_names_values': Dictionary: Order of gates parameters and name and values of GATE effects.
             'iate': IATE, 'iate_se': Standard error of IATE,
-            'iate_eff': (More) Efficient IATE (IATE estimated twice and
-                        averaged where role of tree_building and tree_filling
+            'iate_eff': (More) Efficient IATE (IATE estimated twice and averaged where role of tree_building and tree_filling
                         sample is exchanged),
             'iate_data_df': DataFrame with IATEs,
             'iate_names_dic': Dictionary containing names of IATEs,

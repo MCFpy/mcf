@@ -76,21 +76,22 @@ mcf mini API
 Attributes
 ^^^^^^^^^^
 
-.. can this below be commented out?, or can the second even be entirely removed?
-.. what happens if we add a tilde before the reference?
+.. Hack that seems to work
+    .. autosummary::
+        :toctree:
 
-.. it seems that toctree is necessary for the separate file to be generated.
+        ~ModifiedCausalForest.blind_dict
+        ~ModifiedCausalForest.cf_dict
 
-.. autosummary::
-    :toctree:
-
-    ~ModifiedCausalForest.blind_dict
-    ~ModifiedCausalForest.cf_dict
-    ~ModifiedCausalForest.cs_dict
-
-.. autosummary:: ModifiedCausalForest.blind_dict
+.. autosummary:: ~ModifiedCausalForest.blind_dict
 .. autosummary:: ModifiedCausalForest.cf_dict
-.. autosummary:: ModifiedCausalForest.cs_dict
+
+.. Does this abbreviation below work?
+
+.. autosummary:: 
+    :toctree:
+    ModifiedCausalForest.cs_dict
+
 
 Methods
 ^^^^^^^^^^
@@ -128,7 +129,7 @@ Attributes
 
 ..
    HACK -- the point here is that we don't want this to appear in the output,
-   but the autosummary below will still generate the page that can be
+   but the autosummary below will still generate the separate page that can be
    cross-referenced.
 
    .. autosummary::

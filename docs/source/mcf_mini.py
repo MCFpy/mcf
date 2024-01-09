@@ -310,8 +310,7 @@ class ModifiedCausalForest:
             'bgate_diff_se': Standard errror of BGATE minus ATE,
             'gate_names_values': Dictionary: Order of gates parameters and name and values of GATE effects.
             'iate': IATE, 'iate_se': Standard error of IATE,
-            'iate_eff': (More) Efficient IATE (IATE estimated twice and averaged where role of tree_building and tree_filling
-                        sample is exchanged),
+            'iate_eff': (More) Efficient IATE (IATE estimated twice and averaged where role of tree_building and tree_filling sample is exchanged),
             'iate_data_df': DataFrame with IATEs,
             'iate_names_dic': Dictionary containing names of IATEs,
             'bala': Effects of balancing tests,
@@ -767,8 +766,7 @@ class ModifiedCausalForest:
             is False.
         sens_scenarios : List or tuple of strings, optional.
             Different scenarios considered. Default is ('basic',).
-            'basic' : Use estimated treatment probabilities for simulations.
-                      No confounding.
+            'basic' : Use estimated treatment probabilities for simulations. No confounding.
         sens_cv_k : Integer (or None), optional
             Data to be used for any cross-validation: Number of folds in
             cross-validation. Default (or None) is 5.

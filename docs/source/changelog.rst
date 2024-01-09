@@ -1,9 +1,9 @@
 Changelog
 =======================
 
-:py:class:`ModifiedCausalForest` 
+:py:class:`mcf_mini.ModifiedCausalForest` 
 
-:py:class:`OptimalPolicy` 
+:py:class:`optpol_mini.OptimalPolicy` 
 
 :py:meth:`ModifiedCausalForest.train`
 
@@ -40,10 +40,9 @@ Bug fixes
 +++++++++
 
 - Minor bug fixes:
-
-    - Weight computation (turned off and sparse weight matrix)
-    - KeyError in Gate estimation
-    - Corrected sample split when using feature selection
+  - Weight computation (turned off and sparse weight matrix)
+  - KeyError in Gate estimation
+  - Corrected sample split when using feature selection
 
 New
 +++

@@ -1,6 +1,29 @@
 Changelog
 =======================
 
+
+Test1
+-----
+
+Test2
+~~~~~
+
+Test3
++++++
+
+Test4
+^^^^^
+
+- test wrong:
+    - test
+    - test
+
+- test right:
+
+    - test
+    - test
+
+
 Version 0.4.3
 -------------
 
@@ -37,9 +60,9 @@ New
   - Speed-up for categorical (unordered) variables due to memorization. This requires some additional memory, but the gains could be substantial.
   - Improved internal computation and storage of estimated forests lead to speed and precision gains (instead of using lists of lists, we now use a list of dictionaries of optimized numpy arrays to save the trees). Since the precision of the new method is higher (by at the same time needing less RAM), this might lead to smallish changes in the results.
 
-- (Experimental) The method ``sensitivity`` has been added. It contains some simulation-based tools to check how well the mcf works in removing selection bias and how sensitive the results are with respect to potentially missing confounding covariates (i.e., those related to treatment and potential outcome) added in the future.
+- **Experimental**: The method ``sensitivity`` has been added. It contains some simulation-based tools to check how well the mcf works in removing selection bias and how sensitive the results are with respect to potentially missing confounding covariates (i.e., those related to treatment and potential outcome) added in the future.
 
-  - **Note:** This section is currently experimental and thus not yet fully documented and tested. A paper by Armendariz-Pacheco, Frischknecht, Lechner, and Mareckova (2024) will discuss and investigate the different methods in detail. So far, please note that all methods are simulation based.
+  - Note: This section is currently experimental and thus not yet fully documented and tested. A paper by Armendariz-Pacheco, Frischknecht, Lechner, and Mareckova (2024) will discuss and investigate the different methods in detail. So far, please note that all methods are simulation based.
 
   - The sensitivity checks consist of the following steps:
 

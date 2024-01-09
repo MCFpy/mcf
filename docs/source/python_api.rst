@@ -86,11 +86,11 @@ Attributes
 .. autosummary:: ~ModifiedCausalForest.blind_dict
 .. autosummary:: ModifiedCausalForest.cf_dict
 
-.. Does this abbreviation below work?
-
-.. autosummary:: 
-    :toctree:
-    ModifiedCausalForest.cs_dict
+.. Does this abbreviation below work? -> No, since the entry is double this way
+.. Does the commented out version work? -> even hackier??
+    .. autosummary:: 
+        :toctree:
+        ModifiedCausalForest.cs_dict
 
 
 Methods

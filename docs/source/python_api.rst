@@ -131,7 +131,6 @@ Methods
 .. automethod:: OptimalPolicy.evaluate_multiple
 .. automethod:: OptimalPolicy.print_time_strings_all_steps
 
-.. autoproperty:: OptimalPolicy.int_dict
 .. autoproperty:: OptimalPolicy.dc_dict
 
 ..

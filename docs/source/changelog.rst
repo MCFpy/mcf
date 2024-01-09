@@ -46,9 +46,10 @@ Bug fixes
 +++++++++
 
 - Minor bug fixes:
-  - Weight computation (turned off and sparse weight matrix)
-  - KeyError in Gate estimation
-  - Corrected sample split when using feature selection
+
+    - Weight computation (turned off and sparse weight matrix)
+    - KeyError in Gate estimation
+    - Corrected sample split when using feature selection
 
 New
 +++

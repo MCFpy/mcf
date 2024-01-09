@@ -95,12 +95,6 @@ html_theme_options = {
             "icon": "fa-brands fa-square-github",
             # The type of image to be used (see below for details)
             "type": "fontawesome",
-        },
-        {
-            "name": "PyPI",
-            "url": "https://pypi.org/project/mcf",
-            "icon": "fa-custom fa-pypi",
-            "type": "fontawesome",
         }
    ]
 }

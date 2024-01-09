@@ -117,12 +117,21 @@ Attributes
 .. autosummary:: OptimalPolicy.int_dict
 .. autosummary:: OptimalPolicy.dc_dict
 
+..
+   HACK -- the point here is that we don't want this to appear in the output,
+   but the autosummary below will still generate the page that can be
+   cross-referenced.
+
+   .. autosummary::
+      :toctree:
+      OptimalPolicy.int_dict
+      OptimalPolicy.dc_dict
 
 Methods
 ^^^^^^^^^^
 
 .. Hack to have solve and allocate on separate page?
-    .. autsummary:: 
+    .. autosummary:: 
         :toctree:
         OptimalPolicy.solve
         OptimalPolicy.allocate
@@ -130,11 +139,3 @@ Methods
 .. automethod:: OptimalPolicy.evaluate
 .. automethod:: OptimalPolicy.evaluate_multiple
 .. automethod:: OptimalPolicy.print_time_strings_all_steps
-
-.. autoproperty:: OptimalPolicy.dc_dict
-
-..
-   HACK -- the point here is that we don't want this to appear in the output, but the autosummary should still generate the pages.
-   .. autosummary::
-      :toctree:
-      OptimalPolicy.int_dict

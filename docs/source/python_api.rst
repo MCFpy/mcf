@@ -73,17 +73,20 @@ mcf mini API
 
    .. rubric:: Attributes
 
-    .. autosummary::
-        ~ModifiedCausalForest.cs_dict
-
 Attributes
 ^^^^^^^^^^
 
+.. can this below be commented out?
 .. autosummary::
     :toctree:
     ModifiedCausalForest.blind_dict
+    ModifiedCausalForest.cf_dict
+    ModifiedCausalForest.cs_dict
 
+.. cf_dict appears visually in the api, but not cross-referencable
+.. autosummary:: ModifiedCausalForest.blind_dict
 .. autosummary:: ModifiedCausalForest.cf_dict
+.. autosummary:: ModifiedCausalForest.cs_dict
 
 Methods
 ^^^^^^^^^^

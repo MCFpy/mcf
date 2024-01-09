@@ -1,6 +1,7 @@
 Python API
 ===========
 
+
 Classes 
 --------
 
@@ -11,7 +12,6 @@ Classes
     ~mcf_mini.ModifiedCausalForest
     ~optpol_mini.OptimalPolicy
 
------
 
 Modified Causal Forest
 --------------
@@ -102,6 +102,9 @@ Methods
         :toctree:
         OptimalPolicy.solve
         OptimalPolicy.allocate
+
+.. autosummary:: ~OptimalPolicy.solve
+.. autosummary:: ~OptimalPolicy.allocate
 
 .. automethod:: OptimalPolicy.evaluate
 .. automethod:: OptimalPolicy.evaluate_multiple

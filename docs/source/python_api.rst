@@ -76,14 +76,18 @@ mcf mini API
 Attributes
 ^^^^^^^^^^
 
-.. can this below be commented out?
+.. can this below be commented out?, or can the second even be entirely removed?
+.. what happens if we add a tilde before the reference?
+
+.. it seems that toctree is necessary for the separate file to be generated.
+
 .. autosummary::
     :toctree:
-    ModifiedCausalForest.blind_dict
-    ModifiedCausalForest.cf_dict
-    ModifiedCausalForest.cs_dict
 
-.. cf_dict appears visually in the api, but not cross-referencable
+    ~ModifiedCausalForest.blind_dict
+    ~ModifiedCausalForest.cf_dict
+    ~ModifiedCausalForest.cs_dict
+
 .. autosummary:: ModifiedCausalForest.blind_dict
 .. autosummary:: ModifiedCausalForest.cf_dict
 .. autosummary:: ModifiedCausalForest.cs_dict

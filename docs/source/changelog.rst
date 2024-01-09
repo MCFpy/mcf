@@ -30,6 +30,7 @@ Changelog
 :py:attr:`~mcf_mini.ModifiedCausalForest.cf_dict`
 
 :py:attr:`~optpol_mini.OptimalPolicy.int_dict`
+:py:attr:`~optpol_mini.OptimalPolicy.dc_dict`
 :py:attr:`~double_ml_data.DoubleMLData.all_variables`
 
 Version 0.4.3

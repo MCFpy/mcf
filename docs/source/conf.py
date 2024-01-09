@@ -84,10 +84,10 @@ html_sidebars = {
 }
 
 html_theme_options = {
-  "show_nav_level": 3, 
+  "show_nav_level": 2, 
   "navigation_depth": 4,
-  "show_toc_level": 4, 
-   "show_version_warning_banner": True
+  "show_toc_level": 5, 
+  "show_version_warning_banner": True
 }
 
 

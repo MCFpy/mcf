@@ -85,15 +85,21 @@ html_theme_options = {
   "show_toc_level": 5, 
   "show_version_warning_banner": True, 
     "icon_links": [
+        
         {
             # Label for this link
             "name": "GitHub",
             # URL where the link will redirect
-            "url": "https://aparmendariz.github.io/mcf_docs/",  # required
+            "url": "https://github.com/MCFpy/mcf",  # required
             # Icon class (if "type": "fontawesome"), or path to local image (if "type": "local")
             "icon": "fa-brands fa-square-github",
             # The type of image to be used (see below for details)
             "type": "fontawesome",
+        },
+        {
+            "name": "PyPI",
+            "url": "https://pypi.org/project/mcf",
+            "icon": "fa-custom fa-pypi",
         }
    ]
 }

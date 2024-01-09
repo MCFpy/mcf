@@ -20,7 +20,7 @@ dml example API
 
 .. autoclass:: DoubleMLData
    
-   .. rubric:: Methods
+   .. rubric:: Methods overview
 
    .. autosummary::
     ~DoubleMLData.from_arrays
@@ -61,7 +61,7 @@ mcf mini API
 
 .. autoclass:: ModifiedCausalForest
 
-   .. rubric:: Methods
+   .. rubric:: Methods overview
 
    .. autosummary::
     ~ModifiedCausalForest.train
@@ -101,7 +101,7 @@ optimal policy mini API
 
 .. autoclass:: OptimalPolicy
 
-   .. rubric:: Methods
+   .. rubric:: Methods overview
 
    .. autosummary::
     ~OptimalPolicy.solve

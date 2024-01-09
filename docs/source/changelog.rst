@@ -4,10 +4,10 @@ Changelog
     Conventions:
 
     - Add a horizontal rule ----- before adding a new entry
-    - Refer to classes using :py:class:`module.ClassName`, e.g. :py:class:`mcf_functions.ModifiedCausalForest`
-    - Refer to methods using :py:meth:`module.ClassName.method_name`, e.g. :py:meth:`mcf_functions.ModifiedCausalForest.train` 
+    - Refer to classes using :py:class:`~module.ClassName`, e.g. :py:class:`~mcf_functions.ModifiedCausalForest`
+    - Refer to methods using :py:meth:`~module.ClassName.method_name`, e.g. :py:meth:`~mcf_functions.ModifiedCausalForest.train` 
     - Nest parameters of functions/methods in single backticks: `foo`
-    - Nested list: You need to separate the lists with a blank line. Otherwise, the parent will be displayed as bold. 
+    - Nested lists: You need to separate the lists with a blank line. Otherwise, the parent will be displayed as bold.
 
         - Wrong (will be bold):
             - A
@@ -19,15 +19,21 @@ Changelog
             - B
 
 :py:class:`~mcf_mini.ModifiedCausalForest` 
-:py:class:`optpol_mini.OptimalPolicy` 
-:py:meth:`mcf_mini.ModifiedCausalForest.train`
+:py:class:`~optpol_mini.OptimalPolicy` 
+:py:meth:`~mcf_mini.ModifiedCausalForest.train`
 :py:meth:`optpol_mini.OptimalPolicy.solve`
 
-:py:property:`mcf_mini.ModifiedCausalForest.blind_dict`
-:py:property:`optpol_mini.OptimalPolicy.int_dict`
+:py:property:`~mcf_mini.ModifiedCausalForest.blind_dict`
+:py:property:`~optpol_mini.OptimalPolicy.int_dict`
+:py:property:`~double_ml_data.DoubleMLData.all_variables`
 
-:py:attribute:`mcf_mini.ModifiedCausalForest.blind_dict`
-:py:attribute:`optpol_mini.OptimalPolicy.int_dict`
+:py:attribute:`~mcf_mini.ModifiedCausalForest.blind_dict`
+:py:attribute:`~optpol_mini.OptimalPolicy.int_dict`
+:py:attribute:`~double_ml_data.DoubleMLData.all_variables`
+
+:py:attr:`~mcf_mini.ModifiedCausalForest.blind_dict`
+:py:attr:`~optpol_mini.OptimalPolicy.int_dict`
+:py:attr:`~double_ml_data.DoubleMLData.all_variables`
 
 Version 0.4.3
 -------------

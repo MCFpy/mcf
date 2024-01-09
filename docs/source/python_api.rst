@@ -92,7 +92,7 @@ optimal policy mini API
 
 .. currentmodule:: optpol_mini
 
-.. autoclass:: OptimalPolicy
+.. autoclass:: ~optpol_mini.OptimalPolicy
 
    .. rubric:: Methods
 

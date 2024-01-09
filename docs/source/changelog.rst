@@ -1,40 +1,33 @@
 Changelog
 =======================
 
-Test1
------
+:py:class:`ModifiedCausalForest` 
 
-Test2
-~~~~~
+:py:class:`OptimalPolicy` 
 
-Test3
-+++++
+:py:meth:`ModifiedCausalForest.train`
 
-Test4
-^^^^^
+:py:meth:`ModifiedCausalForest.__init__`
 
-Test5
-"""""
+:py:property:`ModifiedCausalForest.blind_dict`
 
-aöksdlfjaösdf
+.. 
+    Conventions:
+    - Add a horizontal rule before a new version
 
-- test a:
-    - test
-    - test
+    - Nest parameters of functions in single backticks: `param`
+    - Nest functions or classes in double backticks: ``function``
 
-aöksdlfjaösdf
+    Note that if you want to use nested lists, you need to separate the lists with a blank line. Otherwise, the the parent entry will be displayed as bold. 
 
-- test b:
+    - Wrong (will be bold):
+      - A
+      - B 
 
-  - test
-  - test
+    - Right:
 
-aöldkfaösdf
-
-- test c:
-
-  - test
-  - test
+      - A
+      - B
 
 
 Version 0.4.3
@@ -47,6 +40,7 @@ Bug fixes
 +++++++++
 
 - Minor bug fixes:
+
     - Weight computation (turned off and sparse weight matrix)
     - KeyError in Gate estimation
     - Corrected sample split when using feature selection
@@ -123,6 +117,7 @@ General
 +++++++
 
 - Output files for text, data and figures: So far, whenever a directory existed that has already been used for output, a new directory is created to avoid accidentally overwriting results. However, there is a new keyword for both the ``ModifiedCausalForest`` and the ``OptimalPolicy`` class:
+
     - `_int_output_no_new_dir`: Boolean. Do not create a new directory for outputs when the path already exists. Default is False.
 
 Changes concerning the class ``ModifiedCausalForest``
@@ -135,7 +130,9 @@ Changes concerning the class ``ModifiedCausalForest``
 - New keyword `p_ate_no_se_only`: Boolean (or None). Computes only the ATE without standard errors. Default is False.
 - New default value for `gen_iate_eff`: The second round IATE estimation is no longer performed by default (i.e. the new default is False).
 - There is a new experimental features to both the mcf estimation (of IATEs) as well as the optimal policy module. It allows to partially blind the decision with respect to certain variables. The accompanying discussion paper by Nora Bearth, Fabian Muny, Michael Lechner, and Jana Marackova ('Partially Blind Optimal Policy Analysis') is currently written. If you desire more information, please email one of the authors. 
+
         - New method ``blinder_iates``: Compute 'standard' IATEs as well as IATEs that are to a certain extent blinder than the standard ones. Available keywords:
+
             - `blind_var_x_protected_name` : List of strings (or None). Names of protected variables. Names that are explicitly denote as blind_var_x_unrestricted_name or as blind_var_x_policy_name and used to compute IATEs will be automatically added to this list. Default is None.
             - `blind_var_x_policy_name` : List of strings (or None). Names of decision variables. Default is None.
             - `blind_var_x_unrestricted_name` : List of strings (or None). Names of unrestricted variables. Default is None.
@@ -149,6 +146,7 @@ Changes concerning the class ``OptimalPolicy``
 - General keyword change in the ``OptimalPolicy`` class. All keywords that started with `int_` now start with `_int_` (in order to use the same conventions as in the ``ModifiedCausalForest`` class).
 
 - New keywords:
+
     - `_pt_select_values_cat`: Approximation method for larger categorical variables. Since we search among optimal trees, for categorical variables variables we need to check for all possible combinations of the different values that lead to binary splits. This number could indeed be huge. Therefore, we compare only pt_no_of_evalupoints * 2 different combinations. Method 1 (pt_select_values_cat == True) does this by randomly drawing values from the particular categorical variable and forming groups only using those values. Method 2 (pt_select_values_cat==False) sorts the values of the categorical variables according to a values of the policy score as one would do for a standard random forest. If this set is still too large, a random sample of the entailed combinations is drawn.  Method 1 is only available for the method 'policy tree eff'. The default is False.
     - `_pt_enforce_restriction`: Boolean (or None). Enforces the imposed restriction (to some extent) during the computation of the policy tree. This can be very time consuming. Default is True.
     - `_pt_eva_cat_mult`: Integer (or None). Changes the number of the evaluation points (pt_no_of_evalupoints) for the unordered (categorical) variables to: pt_eva_cat_mult * pt_no_of_evalupoints (available only for the method 'policy tree eff'). Default is 1.
@@ -163,6 +161,7 @@ The optimal policy module currently has three methods (``best_policy_score``, ``
 - The implemented ``policy tree``'s are optimal trees, i.e. all possible trees are checked if they lead to a better performance. If restrictions are specified, then this is incorporated into treatment specific cost parameters. Many ideas of the implementation follow Zhou, Athey, Wager (2022). If the provided policy scores fulfil their conditions (i.e., they use a doubly robust double machine learning like score), then they also provide attractive theoretical properties.
 
 - New method ``evaluate_multiple``: Evaluate several allocations simultaneously.  Parameters:
+
     - `allocations_dic` : Dictionary. Contains DataFrame's with specific allocations.
     - `data_df` : DataFrame. Data with the relevant information about potential outcomes which will be used to evaluate the allocations.
 
@@ -182,6 +181,7 @@ New
 
 - We provide the change_log.py script, which provides extensive information on past changes and upcoming changes.
 - We provide example data and example files on how to use ``ModifiedCausalForest`` and ``OptimalPolicy`` in various ways.
+
     - The following data files are provided. The names are self-explanatory. The number denotes the sample size, x are features, y is outcome, d is treatment, and ps denotes policy scores.:
         - data_x_1000.csv
         - data_x_4000.csv
@@ -190,6 +190,7 @@ New
         - data_y_d_x_1000.csv
         - data_y_d_x_4000.csv
     - The following example programmes are provided:
+
         - all_parameters_mcf.py, all_parameters_optpolicy.py: Contains an explanation of all available parameters / keywords for the ``ModifiedCausalForest`` and ``OptimalPolicy`` classes.
         - min_parameters_mcf.py, min_parameters_optpolicy.py: Contains the minimum specifications to run the methods of the ``ModifiedCausalForest`` and ``OptimalPolicy`` classes.
         - training_prediction_data_same_mcf.py: One suggestion on how to proceed when data to train and fill the forest are the same as those used to compute the effects.
@@ -218,6 +219,7 @@ Changes concerning the class ``ModifiedCausalForest``:
 - New parameter `p_iate_eff`.
 - Introduction of the BGATEs.
 - Sample reductions for computational speed ups, need to be user-defined. Related options are removed from the mcf:
+
     - `_int_red_split_sample`
     - `_int_red_split_sample_pred_share`
     - `_int_smaller_sample`
@@ -227,6 +229,7 @@ Changes concerning the class ``ModifiedCausalForest``:
     - `_int_red_prediction_share`
     - `_int_red_largest_group_train`
     - `_int_red_largest_group_train_share`
+
 - Improved scalability by splitting training data into chunks and taking averages.
 - Unified data concept to deal with common support and local centering.
 
@@ -246,6 +249,7 @@ What's New
 - Now runs also on Python 3.10.x.
 - Renaming of output: Marginal effects became Moderated effects.
 - Speed and memory improvements:
+
     - Weight matrix computed in smaller chunks for large data
     - There is also a parameter that comes along this change (which should usually not be changed by the user)
     - `_weight_as_sparse_splits`  Default value is round(Rows of prediction data * rows of Fill_y data / (20'000 * 20'000))
@@ -261,6 +265,7 @@ Name Changes and Default Updates
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Name changes:
+
     - `m_share_min` --> `m_min_share`
     - `m_share_max` --> `m_max_share`
     - `nw_kern_flag` --> `nw_kern`
@@ -275,6 +280,7 @@ Name Changes and Default Updates
     - `clean_data_flag` --> `clean_data`
 
 - Default values
+
     - `alpha_reg_min` = 0.05
     - `alpha_reg_max` = 0.15
     - If `alpha_reg_grid` = 1 (default): `alpha` = (`alpha_reg_min` + `alpha_reg_ax`)/2
@@ -456,6 +462,7 @@ What's New
 - Main function changed from ``ModifiedCausalForest()`` to ``modified_causal_forest()``.
 - Complete seeding of random number generator.
 - Keyword modifications:
+
     - `stop_empty` removed as parameter,
     - `descriptive_stats` becomes `_descriptive_stats`,
     - `dpi` becomes `_dpi`,
@@ -469,14 +476,18 @@ What's New
     - `verbose` becomes `_verbose`,
     - `weight_as_sparse` becomes `_weight_as_sparse`,
     - `support_adjust_limits` new keyword for common support.
+
 - Experimental version of continuous treatment. Newly introduced keywords here
+
     - `d_type`
     - `ct_grid_nn`
     - `ct_grid_w`
     - `ct_grid_dr`
+
 - The optimal policy function contains new rules based on 'black box' approaches, i.e., using the potential outcomes directly to obtain optimal allocations.
 - The optimal policy function allows to describe allocations with respect to other policy variables than the ones used for determining the allocation.
 - Plots:
+
     - improved plots
     - new overlapping plots for common support analysis
 
@@ -512,12 +523,15 @@ What's New
 - `subsample_factor` is split into `subsample_factor_eval` and `subsample_factor_forest`.
 - New default value for `stop_empty`.
 - Optimal policy module computes the policy tree also sequentially. For this purpose, the ``optpoltree`` API has changed slightly. Renamed input arguments are
+
     - `ft_yes`
     - `ft_depth`
     - `ft_min_leaf_size`
     - `ft_no_of_evalupoints`
     - `ft_yes`
+
 - the new input arguments for the sequential tree are:
+
     - `st_yes`
     - `st_depth`
     - `st_min_leaf_size`
@@ -537,6 +551,7 @@ What's New
 ~~~~~~~~~~
 
 - New default values for  
+
     - `alpha_reg_grid`
     - `alpha_reg_max`
     - `alpha_reg_min`
@@ -549,17 +564,22 @@ What's New
     - `se_boot_gate`
     - `se_boot_iate`
     - `stop_empty`
+
 - Consistent use of a new random number generator.
 - Ray is initialized once.
 - Ray can be fine-tuned via
+
     - `_mp_ray_del`
     - `_mp_ray_shutdown`,
     - `mp_ray_objstore_multiplier` becomes `_mp_ray_objstore_multiplier`
+
 - New options to deal with larger data sets:
+
     - `reduce_split_sample`: split sample in a part used for estimation and predicting the effects for given x; large prediction sample may increase running time.
     - `reduce_training`: take a random sample from training data.
     - `reduce_prediction`: take a random sample from prediction data.
     - `reduce_largest_group_train`: reduce the largest group in the training data; this should be less costly in terms of precision than taking random samples.
+
 - Optional IATEs via `iate_flag` and optional standard errors via `iate_se_flag`.
 - ``ModifiedCausalForest()`` now also returns potential outcomes and their variances.
 - `mp_with_ray` is a new input argument to ``‌optpoltree()``;  Ray can be used for multiprocessing when calling ``‌optpoltree()``.

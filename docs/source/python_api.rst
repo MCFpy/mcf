@@ -12,6 +12,7 @@ Classes
     ~mcf_mini.ModifiedCausalForest
     ~optpol_mini.OptimalPolicy
 
+-----
 
 dml example API
 -----------------
@@ -80,6 +81,11 @@ mcf mini API
 Attributes
 ^^^^^^^^^^
 
+.. autosummary::
+    :toctree:
+    ModifiedCausalForest.blind_dict
+    ModifiedCausalForest.cf_dict
+
 .. autosummary:: ModifiedCausalForest.blind_dict
 .. autosummary:: ModifiedCausalForest.cf_dict
 .. autosummary:: ModifiedCausalForest.cs_dict
@@ -87,7 +93,8 @@ Attributes
 Methods
 ^^^^^^^^^^
 
-.. automethod:: ModifiedCausalForest.train
+.. autosummary:: ModifiedCausalForest.train
+
 .. automethod:: ModifiedCausalForest.predict
 .. automethod:: ModifiedCausalForest.analyse
 .. automethod:: ModifiedCausalForest.blinder_iates

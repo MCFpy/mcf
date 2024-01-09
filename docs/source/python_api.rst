@@ -50,8 +50,8 @@ dml example API
       ~DoubleMLData.z
       ~DoubleMLData.z_cols
    
-.. automethod::DoubleMLData.from_arrays
-.. automethod::DoubleMLData.set_x_d
+.. automethod:: DoubleMLData.from_arrays
+.. automethod:: DoubleMLData.set_x_d
 
 
 mcf mini API
@@ -73,19 +73,18 @@ mcf mini API
 Attributes
 ^^^^^^^^^^
 
-.. autosummary:: 
-    ~ModifiedCausalForest.blind_dict
-    ~ModifiedCausalForest.cf_dict
-    ~ModifiedCausalForest.cs_dict
+.. autosummary:: ModifiedCausalForest.blind_dict
+.. autosummary:: ModifiedCausalForest.cf_dict
+.. autosummary:: ModifiedCausalForest.cs_dict
 
 Methods
 ^^^^^^^^^^
 
-.. automethod::ModifiedCausalForest.train
-.. automethod::ModifiedCausalForest.predict
-.. automethod::ModifiedCausalForest.analyse
-.. automethod::ModifiedCausalForest.blinder_iates
-.. automethod::ModifiedCausalForest.sensitivity
+.. automethod:: ModifiedCausalForest.train
+.. automethod:: ModifiedCausalForest.predict
+.. automethod:: ModifiedCausalForest.analyse
+.. automethod:: ModifiedCausalForest.blinder_iates
+.. automethod:: ModifiedCausalForest.sensitivity
 
 
 optimal policy mini API
@@ -108,15 +107,15 @@ optimal policy mini API
 Attributes
 ^^^^^^^^^^
 
-.. autosummary::OptimalPolicy.int_dict
-.. autosummary::OptimalPolicy.dc_dict
+.. autosummary:: OptimalPolicy.int_dict
+.. autosummary:: OptimalPolicy.dc_dict
 
 
 Methods
 ^^^^^^^^^^
 
-.. automethod::OptimalPolicy.solve
-.. automethod::OptimalPolicy.allocate
-.. automethod::OptimalPolicy.evaluate
-.. automethod::OptimalPolicy.evaluate_multiple
-.. automethod::OptimalPolicy.print_time_strings_all_steps
+.. automethod:: OptimalPolicy.solve
+.. automethod:: OptimalPolicy.allocate
+.. automethod:: OptimalPolicy.evaluate
+.. automethod:: OptimalPolicy.evaluate_multiple
+.. automethod:: OptimalPolicy.print_time_strings_all_steps

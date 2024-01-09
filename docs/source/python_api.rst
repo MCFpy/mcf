@@ -70,8 +70,6 @@ Optimal Policy
    .. rubric:: Methods overview
 
    .. autosummary::
-    ~OptimalPolicy.solve
-    ~OptimalPolicy.allocate
     ~OptimalPolicy.evaluate
     ~OptimalPolicy.evaluate_multiple
     ~OptimalPolicy.print_time_strings_all_steps

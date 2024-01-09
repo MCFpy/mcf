@@ -22,16 +22,12 @@ Changelog
 
 :py:class:`~mcf_mini.ModifiedCausalForest` 
 :py:class:`~optpol_mini.OptimalPolicy` 
+
 :py:meth:`~mcf_mini.ModifiedCausalForest.train`
 :py:meth:`~optpol_mini.OptimalPolicy.solve`
 
 :py:attr:`~mcf_mini.ModifiedCausalForest.blind_dict`
-:py:attr:`~mcf_mini.ModifiedCausalForest.cs_dict`
-:py:attr:`~mcf_mini.ModifiedCausalForest.cf_dict`
-
-:py:attr:`~optpol_mini.OptimalPolicy.int_dict`
 :py:attr:`~optpol_mini.OptimalPolicy.dc_dict`
-:py:attr:`~double_ml_data.DoubleMLData.all_variables`
 
 Version 0.4.3
 -------------

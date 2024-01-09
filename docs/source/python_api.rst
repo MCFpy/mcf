@@ -128,6 +128,7 @@ Methods
 .. automethod:: OptimalPolicy.print_time_strings_all_steps
 
 .. autoproperty:: OptimalPolicy.int_dict
+.. autoproperty:: OptimalPolicy.dc_dict
 
 ..
    HACK -- the point here is that we don't want this to appear in the output, but the autosummary should still generate the pages.

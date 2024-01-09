@@ -121,8 +121,12 @@ Attributes
 Methods
 ^^^^^^^^^^
 
-.. automethod:: OptimalPolicy.solve
-.. automethod:: OptimalPolicy.allocate
+.. Hack to have solve and allocate on separate page?
+    .. automethod:: 
+        :toctree:
+        OptimalPolicy.solve
+        OptimalPolicy.allocate
+
 .. automethod:: OptimalPolicy.evaluate
 .. automethod:: OptimalPolicy.evaluate_multiple
 .. automethod:: OptimalPolicy.print_time_strings_all_steps

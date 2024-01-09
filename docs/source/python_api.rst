@@ -74,8 +74,6 @@ mcf mini API
    .. rubric:: Attributes
 
     .. autosummary::
-        ~ModifiedCausalForest.blind_dict
-        ~ModifiedCausalForest.cf_dict
         ~ModifiedCausalForest.cs_dict
 
 Attributes
@@ -84,11 +82,8 @@ Attributes
 .. autosummary::
     :toctree:
     ModifiedCausalForest.blind_dict
-    ModifiedCausalForest.cf_dict
 
-.. autosummary:: ModifiedCausalForest.blind_dict
 .. autosummary:: ModifiedCausalForest.cf_dict
-.. autosummary:: ModifiedCausalForest.cs_dict
 
 Methods
 ^^^^^^^^^^

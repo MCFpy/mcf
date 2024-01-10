@@ -3,3 +3,6 @@ __pycache__/
 
 # OS generated files
 .DS_Store
+
+# vscode settings
+.vscode/

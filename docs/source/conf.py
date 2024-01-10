@@ -93,15 +93,12 @@ html_theme_options = {
         },
         {
             "name": "PyPI",
-            "url": "https://github.com/MCFpy/mcf",
-            "icon": "fa-brands fa-square-github",
+            "url": "https://pypi.org/project/mcf/",
+            "icon": "fa-brands fa-python",
             "type": "fontawesome",
         },
-
     ]
 }
-
-
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

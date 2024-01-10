@@ -95,7 +95,9 @@ class OptimalPolicy:
     @property
     def int_dict(self):
         """
-        ``Dictionary``, parameters used in many parts of the class.
+        ``Dictionary``, parameters used in many parts of the class. Another sentence here.
+        Test how a new line works here.
+        Another new line.
         """
         return self._blind_dict    
     
@@ -103,7 +105,7 @@ class OptimalPolicy:
     @property
     def dc_dict(self):
         """
-        ``Dictionary``, parameters used in data cleaning.
+        ``Dictionary``, parameters used in data cleaning. Test here another sentence. Another one.
         """
         return self._dc_dict  
     

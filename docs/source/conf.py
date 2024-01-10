@@ -80,23 +80,25 @@ html_sidebars = {
 #        ]}
 
 html_theme_options = {
-  "show_nav_level": 2, 
-  "navigation_depth": 4,
-  "show_toc_level": 5, 
-  "show_version_warning_banner": True, 
+    "show_nav_level": 2,
+    "navigation_depth": 4,
+    "show_toc_level": 5,
+    "show_version_warning_banner": True,
     "icon_links": [
-        
         {
-            # Label for this link
             "name": "GitHub",
-            # URL where the link will redirect
-            "url": "https://github.com/MCFpy/mcf",  # required
-            # Icon class (if "type": "fontawesome"), or path to local image (if "type": "local")
+            "url": "https://github.com/MCFpy/mcf",
             "icon": "fa-brands fa-square-github",
-            # The type of image to be used (see below for details)
             "type": "fontawesome",
-        }
-   ]
+        },
+        {
+            "name": "PyPI",
+            "url": "https://github.com/MCFpy/mcf",
+            "icon": "fa-brands fa-square-github",
+            "type": "fontawesome",
+        },
+
+    ]
 }
 
 

@@ -8,7 +8,7 @@ Changelog
     3. Cross-references are possible for classes, and their methods and properties:
         - Refer to classes using :py:class:`~module.ClassName`, e.g. :py:class:`~mcf_functions.ModifiedCausalForest`
         - Refer to methods using :py:meth:`~module.ClassName.method_name`, e.g. :py:meth:`~mcf_functions.ModifiedCausalForest.train` 
-        - Refer class properties using :py:attr:`~module.ClassName.property_name`, e.g. :py:attr:`~mcf_functions.ModifiedCausalForest.blind_dict`
+        - Refer to class properties using :py:attr:`~module.ClassName.property_name`, e.g. :py:attr:`~mcf_functions.ModifiedCausalForest.blind_dict`
     - Nested lists: You need to separate the lists with a blank line. Otherwise, the parent will be displayed as bold.
 
         - Wrong (will be bold):

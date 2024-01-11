@@ -62,7 +62,7 @@ To estimate both the Modified Causal Forest and the Optimal Policy Tree, we will
 Estimating heterogeneous treatment effects
 ------------------------------------------
 
-To estimate a Modified Causal Forest, we use the :py:class:`~mcf_mini.ModifiedCausalForest` class of the **mcf** package. To create an instance of the :py:class:`~mcf_mini.ModifiedCausalForest` class, we need to specify the name of:
+To estimate a Modified Causal Forest, we use the :py:class:`~mcf_mini.ModifiedCausalForest` class of the **mcf** package. To create an instance of the :py:class:`~mcf_mini.ModifiedCausalForest` class, we need to specify the name of
 
 - at least one outcome variable through the ``var_y_name`` parameter
 - the treatment variable through the ``var_d_name`` parameter
@@ -86,28 +86,27 @@ The **mcf** package generates a number of standard outputs for your convenience.
 
     Below you find a selected list of optional parameters that are often used to initialize a Modified Causal Forest. For a more detailed description of these parameters, please refer to the documentation of :py:class:`~mcf_mini.ModifiedCausalForest`.
 
-    +---------------------------+------------------------------------------------------------------------------------------------------------------+
-    | Parameter                 | Description                                                                                                      |
-    +===========================+==================================================================================================================+
-    | ``var_id_name``           | Individual identifier.                                                                                           |
-    +---------------------------+------------------------------------------------------------------------------------------------------------------+
-    | ``var_cluster_name``      | Cluster identifier.                                                                                              |
-    +---------------------------+------------------------------------------------------------------------------------------------------------------+
-    | ``var_w_name``            | Weights assigned to each observation.                                                                            |
-    +---------------------------+------------------------------------------------------------------------------------------------------------------+
-    | ``var_y_tree_name``       | Outcome used to build trees. If not specified, the first outcome in ``y_name`` is selected for building trees.   |
-    +---------------------------+------------------------------------------------------------------------------------------------------------------+
-    | ``var_x_name_always_in_ord`` | Ordered feature(s) always used in splitting decision.                                                         |
-    +---------------------------+------------------------------------------------------------------------------------------------------------------+
-    | ``var_x_name_always_in_unord`` | Unordered feature(s) always used in splitting decision.                                                     |
-    +---------------------------+------------------------------------------------------------------------------------------------------------------+
-    | ``var_z_name_list``       | Ordered features with many values used for GATE estimation.                                                      |
-    +---------------------------+------------------------------------------------------------------------------------------------------------------+
-    | ``var_z_name_ord``        | Ordered features with few values used for GATE estimation.                                                       |
-    +---------------------------+------------------------------------------------------------------------------------------------------------------+
-    | ``var_z_name_unord``      | Unordered features used for GATE estimation.                                                                     |
-    +---------------------------+------------------------------------------------------------------------------------------------------------------+
-
+    +----------------------------------+------------------------------------------------------------------------------------------------------------------+
+    | Parameter                        | Description                                                                                                      |
+    +==================================+==================================================================================================================+
+    | ``var_id_name``                  | Individual identifier.                                                                                           |
+    +----------------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_cluster_name``             | Cluster identifier.                                                                                              |
+    +----------------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_w_name``                   | Weights assigned to each observation.                                                                            |
+    +----------------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_y_tree_name``              | Outcome used to build trees. If not specified, the first outcome in ``y_name`` is selected for building trees.   |
+    +----------------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_x_name_always_in_ord``     | Ordered feature(s) always used in splitting decision.                                                            |
+    +----------------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_x_name_always_in_unord``   | Unordered feature(s) always used in splitting decision.                                                          |
+    +----------------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_z_name_list``              | Ordered features with many values used for GATE estimation.                                                      |
+    +----------------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_z_name_ord``               | Ordered features with few values used for GATE estimation.                                                       |
+    +----------------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_z_name_unord``             | Unordered features used for GATE estimation.                                                                     |
+    +----------------------------------+------------------------------------------------------------------------------------------------------------------+
 
 
 Training a Modified Causal Forest
@@ -119,17 +118,16 @@ Next we will train the Modified Causal Forest on the *train_mcf_df* data using t
 
     my_mcf.train(train_mcf_df)
 
-Now we are ready to estimate the heterogeneous treatment effects on the *pred_mcf_train_pt_df* data using the :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method.
+Now we are ready to estimate heterogeneous treatment effects on the *pred_mcf_train_pt_df* data using the :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method.
 
 .. code-block:: python
 
     results = my_mcf.predict(pred_mcf_train_pt_df)
 
-The :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method returns a dictionary containing the estimation results. To gain an overview, have a look at the keys of the dictionary:
-
-
 Results
 ~~~~~~~
+
+The :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method returns a dictionary containing the estimation results. To gain an overview, have a look at the keys of the dictionary:
 
 .. code-block:: python
 

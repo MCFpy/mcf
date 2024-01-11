@@ -82,6 +82,33 @@ as follows:
 
 The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder - as indicated in the console output - where these results will subsequently be stored. You can also manually specify this folder using the ``gen_outpath`` parameter.
 
+.. dropdown:: Commonly used optional parameters 
+
+    Below you find a selected list of optional parameters that are often used to initialize a Modified Causal Forest. For a more detailed description of these parameters, please refer to the documentation of :py:class:`~mcf_mini.ModifiedCausalForest`.
+
+    +---------------------------+------------------------------------------------------------------------------------------------------------------+
+    | Parameter                 | Description                                                                                                      |
+    +===========================+==================================================================================================================+
+    | ``var_id_name``           | Individual identifier.                                                                                           |
+    +---------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_cluster_name``      | Cluster identifier.                                                                                              |
+    +---------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_w_name``            | Weights assigned to each observation.                                                                            |
+    +---------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_y_tree_name``       | Outcome used to build trees. If not specified, the first outcome in ``y_name`` is selected for building trees.   |
+    +---------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_x_name_always_in_ord`` | Ordered feature(s) always used in splitting decision.                                                         |
+    +---------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_x_name_always_in_unord`` | Unordered feature(s) always used in splitting decision.                                                     |
+    +---------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_z_name_list``       | Ordered features with many values used for GATE estimation.                                                      |
+    +---------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_z_name_ord``        | Ordered features with few values used for GATE estimation.                                                       |
+    +---------------------------+------------------------------------------------------------------------------------------------------------------+
+    | ``var_z_name_unord``      | Unordered features used for GATE estimation.                                                                     |
+    +---------------------------+------------------------------------------------------------------------------------------------------------------+
+
+
 
 Training a Modified Causal Forest
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -146,48 +173,6 @@ Finally, for out-of-sample evaluation, simply apply the :py:meth:`~mcf_mini.Modi
 .. code-block:: python
 
     oos_results = my_mcf.predict(evaluate_pt_df)
-
-
-Other commonly used parameters 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Below you find a selected list of optional parameters that are often used to initialize a Modified Causal Forest. For a more detailed description of these parameters, please refer to the documentation of :py:class:`~mcf_mini.ModifiedCausalForest`.
-
-.. dropdown:: Commonly used optional parameters 
-
-    test text here
-
-    +-----------------+-----------------+
-    | Column 1        | Column 2        |
-    +=================+=================+
-    | Row 1, Column 1 | Row 1, Column 2 |
-    +-----------------+-----------------+
-    | Row 2, Column 1 | Row 2, Column 2 |
-    +-----------------+-----------------+
-
-    .. list-table::
-        :header-rows: 1
-
-        * - Parameter
-        - Description
-        * - ``var_id_name``
-        - Individual identifier.
-        * - ``var_cluster_name``
-        - Cluster identifier.
-        * - ``var_w_name``
-        - Weights assigned to each observation.
-        * - ``var_y_tree_name``
-        - Outcome used to build trees. If not specified, the first outcome in ``y_name`` is selected for building trees.
-        * - ``var_x_name_always_in_ord``
-        - Ordered feature(s) always used in splitting decision.
-        * - ``var_x_name_always_in_unord``
-        - Unordered feature(s) always used in splitting decision.
-        * - ``var_z_name_list``
-        - Ordered features with many values used for GATE estimation.
-        * - ``var_z_name_ord``
-        - Ordered features with few values used for GATE estimation.
-        * - ``var_z_name_unord``
-        - Unordered features used for GATE estimation.
 
     
 Learning an optimal policy rule

@@ -29,13 +29,13 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.coverage',
-    'sphinx_collapse',
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
     'sphinx_copybutton',
     'sphinx.ext.githubpages',
     'sphinx.ext.doctest',
+    'sphinx_design'
 ]
 
 # Add any paths that contain templates here, relative to this directory.

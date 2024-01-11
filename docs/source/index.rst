@@ -43,7 +43,7 @@ For a smoother experience and to avoid conflicts with other packages, we strongl
 
       conda install Python="3.11"
 
-3. Finally, install **mcf** in this environment using `pip`:
+3. Finally, install **mcf** in this environment using **pip**:
 
   .. code-block:: bash
 

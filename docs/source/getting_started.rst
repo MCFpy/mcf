@@ -153,8 +153,7 @@ Other commonly used parameters
 
 Below you find a selected list of optional parameters that are often used to initialize a Modified Causal Forest. For a more detailed description of these parameters, please refer to the documentation of :py:class:`~mcf_mini.ModifiedCausalForest`.
 
-.. collapse:: Click here to view the list
-
+:::{dropdown} Dropdown title
     .. list-table::
         :header-rows: 1
 
@@ -178,6 +177,7 @@ Below you find a selected list of optional parameters that are often used to ini
         - Ordered features with few values used for GATE estimation.
         * - ``var_z_name_unord``
         - Unordered features used for GATE estimation.
+:::
 
     
 Learning an optimal policy rule

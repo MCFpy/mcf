@@ -1,7 +1,7 @@
 Getting started
 =======================
 
-In the following we will show how the ``mcf`` package can be used to
+In the following we will show how the **mcf** package can be used to
 
 - estimate heterogeneous treatment effects using the Modified Causal Forest
 - learn an optimal policy rule based on a Policy Tree
@@ -61,11 +61,11 @@ To estimate both the Modified Causal Forest and the Optimal Policy Tree, we will
 Estimating heterogeneous treatment effects
 ------------------------------------------
 
-To estimate a Modified Causal Forest, we use the :py:class:`~mcf_mini.ModifiedCausalForest` class of the ``mcf`` package. To create an instance of the :py:class:`~mcf_mini.ModifiedCausalForest` class, we need to specify the name of:
+To estimate a Modified Causal Forest, we use the :py:class:`~mcf_mini.ModifiedCausalForest` class of the **mcf** package. To create an instance of the :py:class:`~mcf_mini.ModifiedCausalForest` class, we need to specify the name of:
 
-- at least one outcome variable through the `var_y_name` parameter
-- the treatment variable through the `var_d_name` parameter
-- ordered features through `var_x_name_ord` and/or unordered features through `var_x_name_unord`
+- at least one outcome variable through the ``var_y_name`` parameter
+- the treatment variable through the ``var_d_name`` parameter
+- ordered features through ``var_x_name_ord`` and/or unordered features through ``var_x_name_unord``
 
 as follows:
 
@@ -79,7 +79,10 @@ as follows:
         _int_show_plots=False # Suppress the display of diagnostic plots during estimation
     )
 
-The ``mcf`` package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder - as indicated in the console output - where these results will subsequently be stored. You can also manually specify this folder using the `gen_outpath` parameter.
+The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder - as indicated in the console output - where these results will subsequently be stored. You can also manually specify this folder using the ``gen_outpath`` parameter.
+
+Training a Modified Causal Forest
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Next we will train the Modified Causal Forest on the *train_mcf_df* data using the :py:meth:`~mcf_mini.ModifiedCausalForest.train` method:
 
@@ -94,6 +97,9 @@ Now we are ready to estimate the heterogeneous treatment effects on the *pred_mc
     results = my_mcf.predict(pred_mcf_train_pt_df)
 
 The :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method returns a dictionary containing the estimation results. To gain an overview, have a look at the keys of the dictionary:
+
+Post-estimation
+~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -128,43 +134,46 @@ You can also use the :py:meth:`~mcf_mini.ModifiedCausalForest.analyse` method to
 
     my_mcf.analyse(results)
 
-Finally, for out-of-sample evaluation, simply apply the :py:meth:`mcf_mini.ModifiedCausalForest.predict` method to the data held out for evaluation:
+Finally, for out-of-sample evaluation, simply apply the :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method to the data held out for evaluation:
 
 .. code-block:: python
 
     oos_results = my_mcf.predict(evaluate_pt_df)
 
-.. collapse :: Other commonly used parameters in :py:class:`~mcf_mini.ModifiedCausalForest`
 
-    Test for collapse here
+Other commonly used parameters 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. list-table::
-    :header-rows: 1
+Below you find a selected list of optional parameters that are often used to initialize a Modified Causal Forest. 
 
-    * - Parameter
-      - Description
-    * - `var_id_name`
-      - Individual identifier.
-    * - `var_cluster_name`
-      - Cluster identifier.
-    * - `var_w_name`
-      - Weights assigned to each observation.
-    * - `var_y_tree_name`
-      - Outcome used to build trees. If not specified, the first outcome in `y_name` is selected for building trees.
-    * - `var_x_name_always_in_ord`
-      - Ordered feature(s) always used in splitting decision.
-    * - `var_x_name_always_in_unord`
-      - Unordered feature(s) always used in splitting decision.
-    * - `var_z_name_list`
-      - Ordered features with many values used for GATE estimation.
-    * - `var_z_name_ord`
-      - Ordered features with few values used for GATE estimation.
-    * - `var_z_name_unord`
-      - Unordered features used for GATE estimation.
+.. collapse:: Click here to view the list
+
+    .. list-table::
+        :header-rows: 1
+
+        * - Parameter
+        - Description
+        * - `var_id_name`
+        - Individual identifier.
+        * - `var_cluster_name`
+        - Cluster identifier.
+        * - `var_w_name`
+        - Weights assigned to each observation.
+        * - `var_y_tree_name`
+        - Outcome used to build trees. If not specified, the first outcome in `y_name` is selected for building trees.
+        * - `var_x_name_always_in_ord`
+        - Ordered feature(s) always used in splitting decision.
+        * - `var_x_name_always_in_unord`
+        - Unordered feature(s) always used in splitting decision.
+        * - `var_z_name_list`
+        - Ordered features with many values used for GATE estimation.
+        * - `var_z_name_ord`
+        - Ordered features with few values used for GATE estimation.
+        * - `var_z_name_unord`
+        - Unordered features used for GATE estimation.
 
 For a more detailed description of these parameters, please refer to the documentation of :py:class:`~mcf_mini.ModifiedCausalForest`.
     
-
 Learning an optimal policy rule
 -------------------------------
 

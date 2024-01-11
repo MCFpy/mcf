@@ -153,7 +153,18 @@ Other commonly used parameters
 
 Below you find a selected list of optional parameters that are often used to initialize a Modified Causal Forest. For a more detailed description of these parameters, please refer to the documentation of :py:class:`~mcf_mini.ModifiedCausalForest`.
 
-.. dropdown:: Dropdown title
+.. dropdown:: Commonly used optional parameters 
+
+    test text here
+
+    +-----------------+-----------------+
+    | Column 1        | Column 2        |
+    +=================+=================+
+    | Row 1, Column 1 | Row 1, Column 2 |
+    +-----------------+-----------------+
+    | Row 2, Column 1 | Row 2, Column 2 |
+    +-----------------+-----------------+
+
     .. list-table::
         :header-rows: 1
 

@@ -75,7 +75,7 @@ html_sidebars = {
 
 html_theme_options = {
     # Depth of the table of contents shown in the secondary (right) sidebar
-    "show_toc_level": 5,
+    "show_toc_level": 3,
     # Links in the navigation bar to GitHub and PyPI
     "icon_links": [
         {

@@ -61,17 +61,17 @@ To estimate both the Modified Causal Forest and the Optimal Policy Tree, we will
 Estimating heterogeneous treatment effects
 ------------------------------------------
 
-To estimate a Modified Causal Forest, we use the ModifiedCausalForest class of the ``mcf`` package. To create an instance of the ModifiedCausalForest class, we need to specify the name of:
+To estimate a Modified Causal Forest, we use the :py:class:`~mcf_mini.ModifiedCausalForest` class of the ``mcf`` package. To create an instance of the :py:class:`~mcf_mini.ModifiedCausalForest` class, we need to specify the name of:
 
-- at least one outcome variable
-- the treatment variable
-- ordered and/or unordered features
+- at least one outcome variable through the `var_y_name` parameter
+- the treatment variable through the `var_d_name` parameter
+- ordered features through `var_x_name_ord` and/or unordered features through `var_x_name_unord`
 
-using the following parameters:
+as follows:
 
 .. code-block:: python
 
-    modified_causal_forest_model = ModifiedCausalForest(
+    my_mcf = ModifiedCausalForest(
         var_y_name="y",
         var_d_name="d",
         var_x_name_ord=["x1", "x2"],
@@ -81,25 +81,25 @@ using the following parameters:
 
 The ``mcf`` package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder - as indicated in the console output - where these results will subsequently be stored. You can also manually specify this folder using the `gen_outpath` parameter.
 
-Next we will train the Modified Causal Forest using the *train_mcf_df* data:
+Next we will train the Modified Causal Forest on the *train_mcf_df* data using the :py:meth:`~mcf_mini.ModifiedCausalForest.train` method:
 
 .. code-block:: python
 
     my_mcf.train(train_mcf_df)
 
-Now we are ready to estimate the heterogeneous treatment effects on the *pred_mcf_train_pt_df* data:
+Now we are ready to estimate the heterogeneous treatment effects on the *pred_mcf_train_pt_df* data using the :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method.
 
 .. code-block:: python
 
     results = my_mcf.predict(pred_mcf_train_pt_df)
 
-The `predict` method returns a dictionary containing the estimation results. To gain an overview, have a look at the keys of the dictionary:
+The :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method returns a dictionary containing the estimation results. To gain an overview, have a look at the keys of the dictionary:
 
 .. code-block:: python
 
     print(results.keys())
 
-By default the average treatment effects (ATE's) as well as the individualized average treatment effects (IATE's) are estimated. To learn more about the different kinds of heterogeneous treatment effects, see here.
+By default the average treatment effects (ATE's) as well as the individualized average treatment effects (IATE's) are estimated. If these terms do not sound familiar, click here to learn more about the different kinds of heterogeneous treatment effects.
 
 In the multiple treatment setting there is more than one average treatment effect to consider. The following entry of the results dictionary lists the estimated treatment contrasts:
 
@@ -120,23 +120,50 @@ The estimated IATE's, together with the predicted potential outcomes, are stored
 
     results["iate_data_df"]
 
-You can use the `analyse` method to investigate a number of post-estimation plots. These plots are also exported to the previously created output folder:
+Please refer to the documentation of the :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method for a detailed description of the contents of this dictionary.
+
+You can also use the :py:meth:`~mcf_mini.ModifiedCausalForest.analyse` method to investigate a number of post-estimation plots. These plots are also exported to the previously created output folder:
 
 .. code-block:: python
 
     my_mcf.analyse(results)
 
-Finally, for out-of-sample evaluation, simply apply the `predict` method to the data held out for evaluation:
+Finally, for out-of-sample evaluation, simply apply the :py:meth:`mcf_mini.ModifiedCausalForest.predict` method to the data held out for evaluation:
 
 .. code-block:: python
 
     oos_results = my_mcf.predict(evaluate_pt_df)
 
-.. collapse:: For further optional parameters click here
+.. collapse :: Other commonly used parameters in :py:class:`~mcf_mini.ModifiedCausalForest`
 
-    TO-DO: Can we refer to single parameters of the constructor?
-    i.e. at least link them or even better have their description summarised here? (similar to autosummary?)
-    If we cannot do this, we may just list a couple of parameters (e.g. how to set weights, clusters, which variables to use for GATE etc., that we deem important and then generically refer to the API)
+    Test for collapse here
+
+.. list-table::
+    :header-rows: 1
+
+    * - Parameter
+      - Description
+    * - `var_id_name`
+      - Individual identifier.
+    * - `var_cluster_name`
+      - Cluster identifier.
+    * - `var_w_name`
+      - Weights assigned to each observation.
+    * - `var_y_tree_name`
+      - Outcome used to build trees. If not specified, the first outcome in `y_name` is selected for building trees.
+    * - `var_x_name_always_in_ord`
+      - Ordered feature(s) always used in splitting decision.
+    * - `var_x_name_always_in_unord`
+      - Unordered feature(s) always used in splitting decision.
+    * - `var_z_name_list`
+      - Ordered features with many values used for GATE estimation.
+    * - `var_z_name_ord`
+      - Ordered features with few values used for GATE estimation.
+    * - `var_z_name_unord`
+      - Unordered features used for GATE estimation.
+
+For a more detailed description of these parameters, please refer to the documentation of :py:class:`~mcf_mini.ModifiedCausalForest`.
+    
 
 Learning an optimal policy rule
 -------------------------------

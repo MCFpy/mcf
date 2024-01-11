@@ -31,32 +31,28 @@ def simulate_data(n):
 
 df = simulate_data(1000)
 
-# Get the indices for the DataFrame and split them into three parts
 indices = np.array_split(df.index, 3)
-train_mcf_df, pred_mcf_train_pt_df, evaluate_pt_df = [df.iloc[ind] for ind in indices]
+train_mcf_df, pred_mcf_train_pt_df, evaluate_pt_df = (df.iloc[ind] for ind in indices)
 
 from mcf import ModifiedCausalForest
 
 my_mcf = ModifiedCausalForest(
-    var_y_name=["y"], 
+    var_y_name="y",
     var_d_name="d",
     var_x_name_ord=["x1", "x2"],
     var_x_name_unord=["female"],
     _int_show_plots=False # Suppress the display of diagnostic plots during estimation
 )
 
-    # Create an instance of class ModifiedCausalForest:
-    my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
-        var_x_name_unord=["female"],
-        _int_show_plots=False
-    )
-
 my_mcf.train(train_mcf_df)
 results = my_mcf.predict(pred_mcf_train_pt_df)
+print(results.keys())
+results["ate effect_list"]
+results["ate"]
+results["ate_se"]
+results["iate_data_df"]
 my_mcf.analyse(results)
+oos_results = my_mcf.predict(evaluate_pt_df)
 
 # Out of sample
 results_oos = my_mcf.predict(evaluate_pt_df)

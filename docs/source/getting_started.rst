@@ -56,7 +56,7 @@ To estimate both the Modified Causal Forest and the Optimal Policy Tree, we will
 .. code-block:: python
 
     indices = np.array_split(df.index, 3)
-    train_mcf_df, pred_mcf_train_pt_df, evaluate_pt_df = [df.iloc[ind] for ind in indices]
+    train_mcf_df, pred_mcf_train_pt_df, evaluate_pt_df = (df.iloc[ind] for ind in indices)
 
 
 Estimating heterogeneous treatment effects
@@ -71,6 +71,8 @@ To estimate a Modified Causal Forest, we use the :py:class:`~mcf_mini.ModifiedCa
 as follows:
 
 .. code-block:: python
+
+    from mcf import ModifiedCausalForest
 
     my_mcf = ModifiedCausalForest(
         var_y_name="y",

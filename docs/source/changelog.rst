@@ -60,7 +60,7 @@ New
   - Defaults for ``cf_n_min_min`` and ``cf_n_min_max`` changed to:
     - `n_min_min = round(max((n_d_subsam**0.4) / 10, 1.5) * # of treatments)`
     - `n_min_max = round(max((n_d_subsam**0.5) / 10, 2) * # of treatments)`
-  - Default values for tuning parameters of **mcf** are taken into account when observations are used only for feature selection, common support, or local centering.
+  - Default values for tuning parameters are taken into account when observations are used only for feature selection, common support, or local centering.
 
 - Improved computational performance:
 

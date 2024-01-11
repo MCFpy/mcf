@@ -1,31 +1,31 @@
 Modified Causal Forests
 =======================
 
-Welcome to the documentation of ``mcf``, the Python package implementing the Modified Causal Forest introduced by `Lechner (2019) <https://doi.org/10.48550/arXiv.1812.09487>`_. This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, ``mcf`` offers the capability to learn optimal policy allocations based on decision trees.
+Welcome to the documentation of **mcf**, the Python package implementing the Modified Causal Forest introduced by `Lechner (2019) <https://doi.org/10.48550/arXiv.1812.09487>`_. This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, **mcf** offers the capability to learn optimal policy allocations based on decision trees.
 
-If you're new to the ``mcf`` package, we recommend following these steps:
+If you're new to the **mcf** package, we recommend following these steps:
 
-- `Installation Guide`_: Learn how to install ``mcf`` on your system.
-- `Usage Example`_: Explore a simple example to quickly understand how to apply ``mcf`` to your data.
-- :doc:`getting_started`: Dive into a more detailed example to get a better feel for working with ``mcf``.
+- `Installation Guide`_: Learn how to install **mcf** on your system.
+- `Usage Example`_: Explore a simple example to quickly understand how to apply **mcf** to your data.
+- :doc:`getting_started`: Dive into a more detailed example to get a better feel for working with **mcf**.
 
 For those seeking further information:
 
-- The :doc:`user_guide` offers explanations on additional features of the ``mcf`` package.
-- Check out the :doc:`python_api` for details on interacting with the ``mcf`` package.
+- The :doc:`user_guide` offers explanations on additional features of the **mcf** package.
+- Check out the :doc:`python_api` for details on interacting with the **mcf** package.
 - The :doc:`algorithm_reference` provides a technical description of the methods used in the package.
 
 
 Installation Guide
 ------------------
 
-The current version of ``mcf`` is compatible with Python **3.11**. You can install ``mcf`` from PyPI using:
+The current version of **mcf** is compatible with Python **3.11**. You can install **mcf** from PyPI using:
 
 .. code-block:: bash
 
     pip install mcf
 
-For a smoother experience and to avoid conflicts with other packages, we strongly recommend using a virtual environment based on ``conda``. First install ``conda`` as described `here <https://docs.conda.io/projects/conda/en/latest/user-guide/install/>`__. Next follow the steps below in your Anaconda Prompt (Windows) or terminal (macOS and Linux):
+For a smoother experience and to avoid conflicts with other packages, we strongly recommend using a virtual environment based on **conda**. First install **conda** as described `here <https://docs.conda.io/projects/conda/en/latest/user-guide/install/>`__. Next follow the steps below in your Anaconda Prompt (Windows) or terminal (macOS and Linux):
 
 1. Set up and activate a conda environment named *mcf-env*:
 
@@ -43,7 +43,7 @@ For a smoother experience and to avoid conflicts with other packages, we strongl
 
       conda install Python="3.11"
 
-3. Finally, install ``mcf`` in this environment using `pip`:
+3. Finally, install **mcf** in this environment using `pip`:
 
   .. code-block:: bash
 
@@ -56,7 +56,7 @@ Note: It is recommended to prioritize ``conda install`` for package installation
 Usage Example
 -------------
 
-To demonstrate how to use ``mcf``, let's simulate some data and apply the Modified Causal Forest:
+To demonstrate how to use **mcf**, let's simulate some data and apply the Modified Causal Forest:
 
 .. code-block:: python
 
@@ -132,11 +132,9 @@ References
 License
 -------
 
-``mcf`` is distributed under the `MIT License <https://github.com/MCFpy/mcf?tab=MIT-1-ov-file#readme>`__.
+**mcf** is distributed under the `MIT License <https://github.com/MCFpy/mcf?tab=MIT-1-ov-file#readme>`__.
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
    :hidden:
 
    getting_started.rst
@@ -144,6 +142,3 @@ License
    algorithm_reference.rst
    python_api.rst
    changelog.rst
-
-
-

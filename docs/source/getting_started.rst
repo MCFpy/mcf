@@ -6,6 +6,7 @@ In the following we will show how the **mcf** package can be used to
 - estimate heterogeneous treatment effects using the Modified Causal Forest
 - learn an optimal policy rule based on a Policy Tree
 
+
 Simulating data
 ---------------
 
@@ -81,6 +82,7 @@ as follows:
 
 The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder - as indicated in the console output - where these results will subsequently be stored. You can also manually specify this folder using the ``gen_outpath`` parameter.
 
+
 Training a Modified Causal Forest
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -98,8 +100,9 @@ Now we are ready to estimate the heterogeneous treatment effects on the *pred_mc
 
 The :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method returns a dictionary containing the estimation results. To gain an overview, have a look at the keys of the dictionary:
 
-Post-estimation
-~~~~~~~~~~~~~~~
+
+Results
+~~~~~~~
 
 .. code-block:: python
 
@@ -128,6 +131,10 @@ The estimated IATE's, together with the predicted potential outcomes, are stored
 
 Please refer to the documentation of the :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method for a detailed description of the contents of this dictionary.
 
+
+Post-estimation
+~~~~~~~~~~~~~~~
+
 You can also use the :py:meth:`~mcf_mini.ModifiedCausalForest.analyse` method to investigate a number of post-estimation plots. These plots are also exported to the previously created output folder:
 
 .. code-block:: python
@@ -144,7 +151,7 @@ Finally, for out-of-sample evaluation, simply apply the :py:meth:`~mcf_mini.Modi
 Other commonly used parameters 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Below you find a selected list of optional parameters that are often used to initialize a Modified Causal Forest. 
+Below you find a selected list of optional parameters that are often used to initialize a Modified Causal Forest. For a more detailed description of these parameters, please refer to the documentation of :py:class:`~mcf_mini.ModifiedCausalForest`.
 
 .. collapse:: Click here to view the list
 
@@ -153,31 +160,30 @@ Below you find a selected list of optional parameters that are often used to ini
 
         * - Parameter
         - Description
-        * - `var_id_name`
+        * - ``var_id_name``
         - Individual identifier.
-        * - `var_cluster_name`
+        * - ``var_cluster_name``
         - Cluster identifier.
-        * - `var_w_name`
+        * - ``var_w_name``
         - Weights assigned to each observation.
-        * - `var_y_tree_name`
-        - Outcome used to build trees. If not specified, the first outcome in `y_name` is selected for building trees.
-        * - `var_x_name_always_in_ord`
+        * - ``var_y_tree_name``
+        - Outcome used to build trees. If not specified, the first outcome in ``y_name`` is selected for building trees.
+        * - ``var_x_name_always_in_ord``
         - Ordered feature(s) always used in splitting decision.
-        * - `var_x_name_always_in_unord`
+        * - ``var_x_name_always_in_unord``
         - Unordered feature(s) always used in splitting decision.
-        * - `var_z_name_list`
+        * - ``var_z_name_list``
         - Ordered features with many values used for GATE estimation.
-        * - `var_z_name_ord`
+        * - ``var_z_name_ord``
         - Ordered features with few values used for GATE estimation.
-        * - `var_z_name_unord`
+        * - ``var_z_name_unord``
         - Unordered features used for GATE estimation.
 
-For a more detailed description of these parameters, please refer to the documentation of :py:class:`~mcf_mini.ModifiedCausalForest`.
     
 Learning an optimal policy rule
 -------------------------------
 
-To learn an optimal policy rule, we can use the OptimalPolicy class of the ``mcf`` package. To get started we need a Pandas DataFrame that holds the estimated potential outcomes (also called policy scores), the treatment variable and the features on which we want to base the decision tree. We can use
+To learn an optimal policy rule, we can use the OptimalPolicy class of the **mcf** package. To get started we need a Pandas DataFrame that holds the estimated potential outcomes (also called policy scores), the treatment variable and the features on which we want to base the decision tree. We can use
 
 .. code-block:: python
 
@@ -185,7 +191,7 @@ To learn an optimal policy rule, we can use the OptimalPolicy class of the ``mcf
 
 
 To build an optimal policy tree, we then need to create an instance of class
-OptimalPolicy where we set `gen_method` to 'policy tree' and provide the names
+OptimalPolicy where we set ``gen_method`` to 'policy tree' and provide the names
 of 
 
 - the treatment
@@ -208,14 +214,14 @@ using the following parameters:
         )
 
 
-The ``mcf`` package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create a folder - as indicated in the console output - where these outputs will subsequently be stored. You can also manually specify this folder using the `gen_outpath` parameter.
+The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create a folder - as indicated in the console output - where these outputs will subsequently be stored. You can also manually specify this folder using the ``gen_outpath`` parameter.
 
 
 Next steps
 ----------
 
-The following are great sources to learn even more about the ``mcf`` package:
+The following are great sources to learn even more about the **mcf** package:
 
-- The :doc:`user_guide` offers explanations on additional features of the ``mcf`` package.
-- Check out the :doc:`python_api` for details on interacting with the ``mcf`` package.
+- The :doc:`user_guide` offers explanations on additional features of the **mcf** package.
+- Check out the :doc:`python_api` for details on interacting with the **mcf** package.
 - The :doc:`algorithm_reference` provides a technical description of the methods used in the package.

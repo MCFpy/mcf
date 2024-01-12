@@ -103,11 +103,11 @@ The **mcf** package generates a number of standard outputs for your convenience.
     +----------------------------------+------------------------------------------------------------------------------------------------------------------+
     | ``var_x_name_always_in_unord``   | Unordered feature(s) always used in splitting decision.                                                          |
     +----------------------------------+------------------------------------------------------------------------------------------------------------------+
-    | ``var_z_name_list``              | Ordered feature(s) with many values used for :math:`GATE` estimation.                                            |
+    | ``var_z_name_list``              | Ordered feature(s) with many values used for :math:`\textrm{GATE}` estimation.                                   |
     +----------------------------------+------------------------------------------------------------------------------------------------------------------+
-    | ``var_z_name_ord``               | Ordered feature(s) with few values used for :math:`GATE` estimation.                                             |
+    | ``var_z_name_ord``               | Ordered feature(s) with few values used for :math:`\textrm{GATE}` estimation.                                    |
     +----------------------------------+------------------------------------------------------------------------------------------------------------------+
-    | ``var_z_name_unord``             | Unordered feature(s) used for :math:`GATE` estimation.                                                           |
+    | ``var_z_name_unord``             | Unordered feature(s) used for :math:`\textrm{GATE}` estimation.                                                  |
     +----------------------------------+------------------------------------------------------------------------------------------------------------------+
 
 
@@ -136,7 +136,7 @@ The :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method returns a dictionar
 
     print(results.keys())
 
-By default the average treatment effects (:math:`ATE`) as well as the individualized average treatment effects (:math:`\textrm{IATE}`) are estimated. If these terms do not sound familiar, click here to learn more about the different kinds of heterogeneous treatment effects.
+By default the average treatment effects (:math:`\textrm{ATE}`) as well as the individualized average treatment effects (:math:`\textrm{IATE}`) are estimated. If these terms do not sound familiar, click here to learn more about the different kinds of heterogeneous treatment effects.
 
 In the multiple treatment setting there is more than one average treatment effect to consider. The following entry of the results dictionary lists the estimated treatment contrasts:
 
@@ -144,14 +144,14 @@ In the multiple treatment setting there is more than one average treatment effec
 
     results["ate effect_list"]
 
-An entry *[1, 0]* for instance specifies the treatment contrast between treatment level 1 and treatment level 0. These contrasts are aligned with the estimated :math:`ATE's` and their standard errors, which you can access using:
+An entry *[1, 0]* for instance specifies the treatment contrast between treatment level 1 and treatment level 0. These contrasts are aligned with the estimated :math:`\textrm{ATE's}` and their standard errors, which you can access using:
 
 .. code-block:: python
 
     results["ate"]
     results["ate_se"]
 
-The estimated :math:`IATE's`, together with the predicted potential outcomes, are stored as a Pandas DataFrame in the following entry of the results dictionary:
+The estimated :math:`\textrm{IATE's}`, together with the predicted potential outcomes, are stored as a Pandas DataFrame in the following entry of the results dictionary:
 
 .. code-block:: python
 

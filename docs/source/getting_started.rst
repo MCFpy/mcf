@@ -185,36 +185,81 @@ Finally, for out-of-sample evaluation, simply apply the :py:meth:`~mcf_mini.Modi
 Learning an optimal policy rule
 -------------------------------
 
-To learn an optimal policy rule, we can use the OptimalPolicy class of the **mcf** package. To get started we need a Pandas DataFrame that holds the estimated potential outcomes (also called policy scores), the treatment variable and the features on which we want to base the decision tree. We can use
+To learn an optimal policy rule, we can use the :py:class:`~mcf_mini.OptimalPolicy` class of the **mcf** package. To get started we need a Pandas DataFrame that holds the estimated potential outcomes (also called policy scores), the treatment variable and the features on which we want to base the decision tree.
+
+Recall that we have already estimated the potential outcomes in the previous section. They are stored as columns in the *iate_data_df* entry of the results dictionary:
 
 .. code-block:: python
 
-    results["iate_data_df"]
+    print(results["iate_data_df"].head())
 
-
-To build an optimal policy tree, we then need to create an instance of class
-OptimalPolicy where we set ``gen_method`` to 'policy tree' and provide the names
-of 
-
-- the treatment
-- the potential outcome
-- ordered and/or unordered features
-
-using the following parameters:
+The column names are explained in the `iate_names_dic` entry of the results dictionary. The uncentered potential outcomes are stored in columns with the suffix *_un_lc_pot*.
 
 .. code-block:: python
 
-    my_opt_policy_tree = OptimalPolicy(
+    results["iate_names_dic"]
+
+Equipped with this knowledge, we are now ready to build an Optimal Policy Tree. To do so, we need to create an instance of class :py:class:`~mcf_mini.OptimalPolicy` where we set the ``gen_method`` parameter to 'policy tree' and provide the names of
+
+- the treatment through the ``var_d_name`` parameter
+- the potential outcome through the ``var_polscore_name`` parameter
+- ordered and/or unordered features used to build the policy tree using the ``var_x_ord_name`` and ``var_x_unord_name`` parameters respectively
+
+as follows:
+
+.. code-block:: python
+
+    my_policy_tree = OptimalPolicy(
         var_d_name="d", 
         var_polscore_name=["Y_LC0_un_lc_pot", "Y_LC1_un_lc_pot", "Y_LC2_un_lc_pot"],
         var_x_ord_name=["x1", "x2"],
         var_x_unord_name=["female"],
         gen_method='policy tree',
-        pt_depth=2 # Depth of the policy tree
+        pt_depth=2
         )
 
+Note that the ``pt_depth`` parameter specifies the depth of the policy tree. For demonstration purposes we set it to 2. In practice, you should choose a larger value, which will increase the computational burden.
 
-The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create a folder - as indicated in the console output - where these outputs will subsequently be stored. You can also manually specify this folder using the ``gen_outpath`` parameter.
+After initializing an Optimal Policy Tree, the **mcf** package will similar to above create an output folder where a number of standard outputs will be saved for your convenience. Check your console output for the location of this folder. You can also manually specify this folder using the ``gen_outpath`` parameter.
+
+To find the Optimal Policy Tree, we use the :py:meth:`~mcf_mini.OptimalPolicy.solve` method, where we need to supply the pandas DataFrame holding the potential outcomes, treatment variable and the features:
+
+.. code-block:: python
+
+    train_pt_df = results["iate_data_df"]
+    alloc_df = my_policy_tree.solve(train_pt_df)
+
+The returned DataFrame contains the optimal allocation rule for the training data.
+
+.. code-block:: python
+
+    print(alloc_df.head())
+
+Next, we can use the :py:meth:`~mcf_mini.OptimalPolicy.evaluate` method to evaluate this allocation rule. This will return a dictionary holding the results of the evaluation. As a side-effect, the DataFrame with the optimal allocation is augmented with the observed treatment and a random allocation.
+
+.. code-block:: python
+
+    pt_eval = my_policy_tree.evaluate(alloc_df, train_pt_df)
+
+    print(pt_eval)
+    print(alloc_df.head())
+
+Finally, it is straightforward to apply our Optimal Policy Tree to new data. To do so, we simply apply the :py:meth:`~mcf_mini.OptimalPolicy.allocate` method
+to the DataFrame holding the potential outcomes, treatment variable and the features for the data that was held out for evaluation:
+
+.. code-block:: python
+
+    oos_df = oos_results["iate_data_df"]
+    oos_alloc_df = my_policy_tree.allocate(oos_df)
+
+To evaluate this allocation rule, again apply the :py:meth:`~mcf_mini.OptimalPolicy.allocate` method similar to above.
+
+.. code-block:: python
+
+    oos_eval = my_policy_tree.evaluate(oos_alloc_df, oos_df)
+
+    print(oos_eval)
+    print(oos_alloc_df.head())
 
 
 Next steps
@@ -222,6 +267,6 @@ Next steps
 
 The following are great sources to learn even more about the **mcf** package:
 
-- The :doc:`user_guide` offers explanations on additional features of the **mcf** package.
-- Check out the :doc:`python_api` for details on interacting with the **mcf** package.
+- The :doc:`user_guide` offers explanations on additional features of the mcf package.
+- Check out the :doc:`python_api` for details on interacting with the mcf package.
 - The :doc:`algorithm_reference` provides a technical description of the methods used in the package.

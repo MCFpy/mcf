@@ -19,4 +19,4 @@ Optimal Policy
     :maxdepth: 1
     :numbered:
 
-    algorithm_reference/optimal_policy_algorithm
+    algorithm_reference/optimal-policy_algorithm

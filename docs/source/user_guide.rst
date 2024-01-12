@@ -21,5 +21,5 @@ Optimal Policy
     :maxdepth: 1
     :numbered:
 
-    user_guide/optimal_policy_example
-    user_guide/optimal_policy_speed
+    user_guide/optimal-policy_example
+    user_guide/optimal-policy_speed

@@ -1,2 +1,22 @@
 Algorithm Reference
 =======================
+
+Modified Causal Forest
+----------------------
+
+.. toctree::
+    :maxdepth: 1
+    :numbered:
+
+    algorithm_reference/estimation
+    algorithm_reference/inference
+    algorithm_reference/local_centering
+
+Optimal Policy
+--------------
+
+.. toctree::
+    :maxdepth: 1
+    :numbered:
+
+    algorithm_reference/optimal_policy_algorithm

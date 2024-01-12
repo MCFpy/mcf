@@ -16,6 +16,8 @@ Let us first create some synthetic data. We will consider a setting with three t
 
     import numpy as np
     import pandas as pd
+    from mcf import ModifiedCausalForest
+    from mcf import OptimalPolicy 
 
     def simulate_data(n):
         """
@@ -71,8 +73,6 @@ To estimate a Modified Causal Forest, we use the :py:class:`~mcf_mini.ModifiedCa
 as follows:
 
 .. code-block:: python
-
-    from mcf import ModifiedCausalForest
 
     my_mcf = ModifiedCausalForest(
         var_y_name="y",
@@ -197,8 +197,6 @@ of
 using the following parameters:
 
 .. code-block:: python
-
-    from mcf import OptimalPolicy
 
     my_opt_policy_tree = OptimalPolicy(
         var_d_name="d", 

@@ -1,6 +1,9 @@
 Algorithm Reference
 =======================
 
+.. tbd: if these pages are rather short, we might as well put everything on one
+    page. Jumping with the sidebar is still possible.
+
 Modified Causal Forest
 ----------------------
 

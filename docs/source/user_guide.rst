@@ -11,7 +11,7 @@ Modified Causal Forest
     user_guide/data_cleaning
     user_guide/tuning_feature_selection
     user_guide/common_support
-    user_guide/post-estimation_diagnostics
+    user_guide/post_estimation_diagnostics
     user_guide/experimental_features
 
 Optimal Policy

@@ -82,7 +82,7 @@ as follows:
         _int_show_plots=False # Suppress the display of diagnostic plots during estimation
     )
 
-The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder - as indicated in the console output - where these results will subsequently be stored. You can also manually specify this folder using the ``gen_outpath`` parameter.
+The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder - as indicated in the console - where these results will be stored. You can also manually specify this folder using the ``gen_outpath`` parameter.
 
 .. dropdown:: Commonly used optional parameters 
 
@@ -163,7 +163,7 @@ The estimated :math:`\textrm{IATE's}`, together with the predicted potential out
 
     results["iate_data_df"]
 
-Please refer to the documentation of the :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method for a detailed description of the contents of this dictionary.
+Please refer to the documentation of the :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method for a detailed description of the contents of the results dictionary.
 
 
 Post-estimation
@@ -197,9 +197,9 @@ The column names are explained in the `iate_names_dic` entry of the results dict
 
 .. code-block:: python
 
-    results["iate_names_dic"]
+    print(results["iate_names_dic"])
 
-Equipped with this knowledge, we are now ready to build an Optimal Policy Tree. To do so, we need to create an instance of class :py:class:`~optpol_mini.OptimalPolicy` where we set the ``gen_method`` parameter to 'policy tree' and provide the names of
+Equipped with this knowledge, we are now ready to build an Optimal Policy Tree. To do so, we need to create an instance of class :py:class:`~optpol_mini.OptimalPolicy` where we set the ``gen_method`` parameter to "policy tree" and provide the names of
 
 - the treatment through the ``var_d_name`` parameter
 - the potential outcome through the ``var_polscore_name`` parameter
@@ -214,11 +214,11 @@ as follows:
         var_polscore_name=["Y_LC0_un_lc_pot", "Y_LC1_un_lc_pot", "Y_LC2_un_lc_pot"],
         var_x_ord_name=["x1", "x2"],
         var_x_unord_name=["female"],
-        gen_method='policy tree',
+        gen_method= "policy tree",
         pt_depth=2
         )
 
-Note that the ``pt_depth`` parameter specifies the depth of the policy tree. For demonstration purposes we set it to 2. In practice, you should choose a larger value, which will increase the computational burden.
+Note that the ``pt_depth`` parameter specifies the depth of the policy tree. For demonstration purposes we set it to 2. In practice, you should choose a larger value which will increase the computational burden.
 
 After initializing an Optimal Policy Tree, the **mcf** package will similar to above create an output folder where a number of standard outputs will be saved for your convenience. Check your console output for the location of this folder. You can also manually specify this folder using the ``gen_outpath`` parameter.
 

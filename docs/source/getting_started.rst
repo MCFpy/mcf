@@ -142,7 +142,7 @@ The :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method returns a dictionar
 
     print(results.keys())
 
-By default the average treatment effects (:math:`\textrm{ATE}`) as well as the individualized average treatment effects (:math:`\textrm{IATE}`) are estimated. If these terms do not sound familiar, click here to learn more about the different kinds of heterogeneous treatment effects.
+By default the average treatment effects (:math:`\textrm{ATE's}`) as well as the individualized average treatment effects (:math:`\textrm{IATE's}`) are estimated. If these terms do not sound familiar, click :doc:`here <algorithm_reference/estimation>` to learn more about the different kinds of heterogeneous treatment effects.
 
 In the multiple treatment setting there is more than one average treatment effect to consider. The following entry of the results dictionary lists the estimated treatment contrasts:
 

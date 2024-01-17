@@ -222,6 +222,10 @@ Note that the ``pt_depth`` parameter specifies the depth of the policy tree. For
 
 After initializing an Optimal Policy Tree, the **mcf** package will similar to above create an output folder where a number of standard outputs will be saved for your convenience. Check your console output for the location of this folder. You can also manually specify this folder using the ``gen_outpath`` parameter.
 
+
+Fit an Optimal Policy Tree
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 To find the Optimal Policy Tree, we use the :py:meth:`~optpol_mini.OptimalPolicy.solve` method, where we need to supply the pandas DataFrame holding the potential outcomes, treatment variable and the features:
 
 .. code-block:: python

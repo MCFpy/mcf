@@ -129,7 +129,7 @@ References
 
 - Lechner M. **Modified Causal Forests for Estimating Heterogeneous Causal Effects**. 2019. `Read Paper <https://doi.org/10.48550/arXiv.1812.09487>`__
 
-- Lechner M., Mareckova J. **Modified Causal Forest**. 2022. `Read Paper <https://doi.org/10.48550/arXiv.2209.03744>`__
+- Lechner M, Mareckova J. **Modified Causal Forest**. 2022. `Read Paper <https://doi.org/10.48550/arXiv.2209.03744>`__
 
 License
 -------

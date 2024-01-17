@@ -1,7 +1,7 @@
 Getting started
 =======================
 
-In the following we will show how the **mcf** package can be used to
+This guide will walk you through using the **mcf** package to
 
 - estimate heterogeneous treatment effects using the Modified Causal Forest
 - learn an optimal policy rule based on a Policy Tree
@@ -10,7 +10,7 @@ In the following we will show how the **mcf** package can be used to
 Simulating data
 ---------------
 
-Let us first create some synthetic data. We will consider a setting with three treatment levels (0, 1, 2):
+First, we'll create some synthetic data to showcase the functionality of the **mcf** package. Our example will involve a scenario with three possible treatments, represented by the values 0, 1, and 2.
 
 .. code-block:: python
 
@@ -19,7 +19,7 @@ Let us first create some synthetic data. We will consider a setting with three t
     from mcf import ModifiedCausalForest
     from mcf import OptimalPolicy 
 
-    def simulate_data(n):
+    def simulate_data(n: int) -> pd.DataFrame
         """
         Simulate data with treatment 'd', outcome 'y', an unordered control
         variable 'female' and two ordered controls 'x1', 'x2'.
@@ -49,7 +49,7 @@ Let us first create some synthetic data. We will consider a setting with three t
 
     df = simulate_data(1000)
 
-To estimate both the Modified Causal Forest and the Optimal Policy Tree, we will consider a simple sample splitting approach where we divide the simulated data into three equally sized parts:
+To estimate both a Modified Causal Forest and an Optimal Policy Tree, we will use a simple sample splitting approach, dividing the simulated data into three equally sized parts:
 
 1. *train_mcf_df*: Used to train the Modified Causal Forest.
 2. *pred_mcf_train_pt_df*: Used to the predict the heterogeneous treatment effects and to train the Optimal Policy Tree.
@@ -82,7 +82,7 @@ as follows:
         _int_show_plots=False # Suppress the display of diagnostic plots during estimation
     )
 
-The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder - as indicated in the console - where these results will be stored. You can also manually specify this folder using the ``gen_outpath`` parameter.
+The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder where these results will be stored. You can find the location of this folder in your console output. Alternatively, you can manually specify the folder location using the ``gen_outpath`` parameter.
 
 .. dropdown:: Commonly used optional parameters 
 
@@ -169,13 +169,13 @@ Please refer to the documentation of the :py:meth:`~mcf_mini.ModifiedCausalFores
 Post-estimation
 ~~~~~~~~~~~~~~~
 
-You can also use the :py:meth:`~mcf_mini.ModifiedCausalForest.analyse` method to investigate a number of post-estimation plots. These plots are also exported to the previously created output folder:
+You can use the :py:meth:`~mcf_mini.ModifiedCausalForest.analyse` method to investigate a number of post-estimation plots. These plots are also exported to the previously created output folder:
 
 .. code-block:: python
 
     my_mcf.analyse(results)
 
-Finally, for out-of-sample evaluation, simply apply the :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method to the data held out for evaluation:
+Finally, for out-of-sample evaluation, apply the :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method to the data held out for evaluation:
 
 .. code-block:: python
 
@@ -185,9 +185,9 @@ Finally, for out-of-sample evaluation, simply apply the :py:meth:`~mcf_mini.Modi
 Learning an optimal policy rule
 -------------------------------
 
-To learn an optimal policy rule, we can use the :py:class:`~optpol_mini.OptimalPolicy` class of the **mcf** package. To get started we need a Pandas DataFrame that holds the estimated potential outcomes (also called policy scores), the treatment variable and the features on which we want to base the decision tree.
+Let's explore how to learn an optimal policy rule using the :py:class:`~optpol_mini.OptimalPolicy` class of the **mcf** package. To get started we need a Pandas DataFrame that holds the estimated potential outcomes (also called policy scores), the treatment variable and the features on which we want to base the decision tree.
 
-Recall that we have already estimated the potential outcomes in the previous section. They are stored as columns in the *iate_data_df* entry of the results dictionary:
+As you may recall, we estimated the potential outcomes in the previous section. They are stored as columns in the *iate_data_df* entry of the results dictionary:
 
 .. code-block:: python
 
@@ -199,7 +199,7 @@ The column names are explained in the `iate_names_dic` entry of the results dict
 
     print(results["iate_names_dic"])
 
-Equipped with this knowledge, we are now ready to build an Optimal Policy Tree. To do so, we need to create an instance of class :py:class:`~optpol_mini.OptimalPolicy` where we set the ``gen_method`` parameter to "policy tree" and provide the names of
+Now that we understand this, we are ready to build an Optimal Policy Tree. To do so, we need to create an instance of class :py:class:`~optpol_mini.OptimalPolicy` where we set the ``gen_method`` parameter to "policy tree" and provide the names of
 
 - the treatment through the ``var_d_name`` parameter
 - the potential outcomes through the ``var_polscore_name`` parameter
@@ -220,7 +220,7 @@ as follows:
 
 Note that the ``pt_depth`` parameter specifies the depth of the policy tree. For demonstration purposes we set it to 2. In practice, you should choose a larger value which will increase the computational burden.
 
-After initializing an Optimal Policy Tree, the **mcf** package will similar to above create an output folder where a number of standard outputs will be saved for your convenience. Check your console output for the location of this folder. You can also manually specify this folder using the ``gen_outpath`` parameter.
+After initializing a Optimal Policy Tree, the **mcf** package will automatically create an output folder. This folder will contain a number of standard outputs for your convenience. You can find the location of this folder in your console output. Alternatively, you can manually specify the folder location using the ``gen_outpath`` parameter.
 
 
 Fit an Optimal Policy Tree
@@ -239,7 +239,7 @@ The returned DataFrame contains the optimal allocation rule for the training dat
 
     print(alloc_df.head())
 
-Next, we can use the :py:meth:`~optpol_mini.OptimalPolicy.evaluate` method to evaluate this allocation rule. This will return a dictionary holding the results of the evaluation. As a side-effect, the DataFrame with the optimal allocation is augmented with the observed treatment and a random allocation.
+Next, we can use the :py:meth:`~optpol_mini.OptimalPolicy.evaluate` method to evaluate this allocation rule. This will return a dictionary holding the results of the evaluation. As a side-effect, the DataFrame with the optimal allocation is augmented with columns that contain the observed treatment and a random allocation of treatments.
 
 .. code-block:: python
 

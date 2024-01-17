@@ -65,7 +65,7 @@ To demonstrate how to use **mcf**, let's simulate some data and apply the Modifi
 
     from mcf import ModifiedCausalForest
 
-    def simulate_data(n):
+    def simulate_data(n: int) -> pd.DataFrame
         """
         Simulate data with a binary treatment 'd', outcome 'y', unordered control
         variable 'female' and two ordered controls 'x1', 'x2'.

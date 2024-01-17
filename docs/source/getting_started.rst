@@ -163,7 +163,7 @@ The estimated :math:`\textrm{IATE's}`, together with the predicted potential out
 
     results["iate_data_df"]
 
-Please refer to the documentation of the :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method for a detailed description of the contents of the results dictionary.
+Please refer to the documentation of the :py:meth:`~mcf_mini.ModifiedCausalForest.predict` method for a more detailed description of the contents of the results dictionary.
 
 
 Post-estimation
@@ -202,8 +202,8 @@ The column names are explained in the `iate_names_dic` entry of the results dict
 Equipped with this knowledge, we are now ready to build an Optimal Policy Tree. To do so, we need to create an instance of class :py:class:`~optpol_mini.OptimalPolicy` where we set the ``gen_method`` parameter to "policy tree" and provide the names of
 
 - the treatment through the ``var_d_name`` parameter
-- the potential outcome through the ``var_polscore_name`` parameter
-- ordered and/or unordered features used to build the policy tree using the ``var_x_ord_name`` and ``var_x_unord_name`` parameters respectively
+- the potential outcomes through the ``var_polscore_name`` parameter
+- ordered and/or unordered features used to build the policy tree using the ``var_x_ord_name`` and ``var_x_unord_name`` parameter respectively
 
 as follows:
 
@@ -214,7 +214,7 @@ as follows:
         var_polscore_name=["Y_LC0_un_lc_pot", "Y_LC1_un_lc_pot", "Y_LC2_un_lc_pot"],
         var_x_ord_name=["x1", "x2"],
         var_x_unord_name=["female"],
-        gen_method= "policy tree",
+        gen_method="policy tree",
         pt_depth=2
         )
 

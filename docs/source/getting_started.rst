@@ -17,9 +17,9 @@ First, we'll create some synthetic data to showcase the functionality of the **m
     import numpy as np
     import pandas as pd
     from mcf import ModifiedCausalForest
-    from mcf import OptimalPolicy 
+    from mcf import OptimalPolicy
 
-    def simulate_data(n: int) -> pd.DataFrame
+    def simulate_data(n: int) -> pd.DataFrame:
         """
         Simulate data with treatment 'd', outcome 'y', an unordered control
         variable 'female' and two ordered controls 'x1', 'x2'.

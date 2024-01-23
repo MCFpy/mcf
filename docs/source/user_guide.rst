@@ -9,8 +9,9 @@ Modified Causal Forest
     :numbered:
 
     user_guide/data_cleaning
-    user_guide/tuning_feature_selection
+    user_guide/weights_clusters
     user_guide/common_support
+    user_guide/tuning_feature_selection
     user_guide/post_estimation_diagnostics
     user_guide/experimental_features
 

@@ -273,6 +273,6 @@ Next steps
 
 The following are great sources to learn even more about the **mcf** package:
 
-- The :doc:`user_guide` offers explanations on additional features of the mcf package.
+- The :doc:`user_guide` offers explanations on additional features of the mcf package and provides several example scripts.
 - Check out the :doc:`python_api` for details on interacting with the mcf package.
 - The :doc:`algorithm_reference` provides a technical description of the methods used in the package.

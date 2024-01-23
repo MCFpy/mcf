@@ -28,19 +28,15 @@ Optimal Policy
 Worked examples
 ---------------
 
-We provide several example scripts `in the example folder on GitHub <https://github.com/MCFpy/mcf/tree/main/examples>`__. You will also find the links to the scripts below.
+We provide several example scripts `in the example folder on GitHub <https://github.com/MCFpy/mcf/tree/main/examples>`__. You will also find the links to the scripts below. The data used in these scripts are available `in the data folder on GitHub <https://github.com/MCFpy/mcf/tree/main/data>`__.
 
-The data used in these scripts are available `in the data folder on GitHub <https://github.com/MCFpy/mcf/tree/main/data>`__.
-
-Modified Causal Forest
-~~~~~~~~~~~~~~~~~~~~~~
+**Modified Causal Forest**
 
 - `Minimal example <https://github.com/MCFpy/mcf/blob/main/examples/min_parameters_mcf.py>`__
 - `Minimal example that uses the same data for training and prediction <https://github.com/MCFpy/mcf/blob/main/examples/training_prediction_data_same_mcf.py>`__
 - `Full example with all parameters used <https://github.com/MCFpy/mcf/blob/main/examples/all_parameters_mcf.py>`__
 
-Optimal Policy
-~~~~~~~~~~~~~~~~~~~~~~
+**Optimal Policy**
 
 - `Minimal example <https://github.com/MCFpy/mcf/blob/main/examples/min_parameters_optpolicy.py>`__
 - `Minimal example that jointly estimates a Modified Causal Forest and an Optimal Policy Tree <https://github.com/MCFpy/mcf/blob/main/examples/mcf_optpol_combined.py>`__

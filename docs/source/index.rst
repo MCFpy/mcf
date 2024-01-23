@@ -64,6 +64,7 @@ To demonstrate how to use **mcf**, let's simulate some data and apply the Modifi
     import pandas as pd
 
     from mcf import ModifiedCausalForest
+    from mcf import OptimalPolicy
 
     def simulate_data(n: int) -> pd.DataFrame:
         """
@@ -95,6 +96,7 @@ To demonstrate how to use **mcf**, let's simulate some data and apply the Modifi
     np.random.seed(123)
     df = simulate_data(n=100)
 
+
     # Create an instance of class ModifiedCausalForest:
     my_mcf = ModifiedCausalForest(
         var_y_name="y",
@@ -104,7 +106,7 @@ To demonstrate how to use **mcf**, let's simulate some data and apply the Modifi
         _int_show_plots=False
     )
 
-    # Train the Modified Causal Forest on simulated data and predict treatment
+    # Train the Modified Causal Forest on the simulated data and predict treatment
     # effects in-sample:
     my_mcf.train(df)
     results = my_mcf.predict(df)
@@ -114,6 +116,27 @@ To demonstrate how to use **mcf**, let's simulate some data and apply the Modifi
 
     print(results["ate"])  # Average Treatment Effect (ATE)
     print(results["ate_se"])  # Standard Error (SE) of the ATE
+
+    # DataFrame with Individualized Treatment Effects (IATE) and potential outcomes
+    print(results["iate_data_df"])
+
+
+    # Create an instance of class OptimalPolicy:
+    my_optimal_policy = OptimalPolicy(
+        var_d_name="d",
+        var_polscore_name=["Y_LC0_un_lc_pot", "Y_LC1_un_lc_pot"],
+        var_x_ord_name=["x1", "x2"],
+        var_x_unord_name=["female"]
+        )
+
+    # Learn an optimal policy rule using the predicted potential outcomes
+    alloc_df = my_optimal_policy.solve(results["iate_data_df"])
+
+    # Evaluate the optimal policy rule on the simulated data:
+    my_optimal_policy.evaluate(alloc_df, results["iate_data_df"])
+
+    # Compare the optimal policy rule to the observed and a random allocation:
+    print(alloc_df)
 
 For a more detailed example, see the :doc:`getting_started` section.
 

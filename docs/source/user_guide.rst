@@ -28,7 +28,7 @@ Optimal Policy
 Worked examples
 ---------------
 
-We provide several example scripts `in the example folder on GitHub <https://github.com/MCFpy/mcf/tree/main/examples>`__. You will also find the links to the scripts below. The data used in these scripts are available `in the data folder on GitHub <https://github.com/MCFpy/mcf/tree/main/data>`__.
+We provide several example scripts `in our example folder on GitHub <https://github.com/MCFpy/mcf/tree/main/examples>`__. Below you also find the direct links to these scripts. The data used in the examples are available `in the data folder on GitHub <https://github.com/MCFpy/mcf/tree/main/data>`__.
 
 **Modified Causal Forest**
 

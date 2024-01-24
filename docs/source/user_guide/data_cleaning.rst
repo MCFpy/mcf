@@ -26,6 +26,7 @@ Example
         var_y_name="y",
         var_d_name="d",
         var_x_name_ord=["x1", "x2"],
+        # Parameters for data cleaning:
         dc_clean_data=True,
         dc_screen_covariates=True,
         dc_check_perfectcorr=False,

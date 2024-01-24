@@ -3,6 +3,17 @@ Data cleaning
 
 The class :py:class:`~mcf_mini.ModifiedCausalForest` has several data cleaning options to improve the estimation quality of your Modified Causal Forest. Below, you find a table with the relevant parameters and a brief description: 
 
++------------------------+------------+----------+----------+
+| Header row, column 1   | Header 2   | Header 3 | Header 4 |
+| (header rows optional) |            |          |          |
++========================+============+==========+==========+
+| body row 1, column 1   | column 2   | column 3 | column 4 |
++------------------------+------------+----------+----------+
+| body row 2             | ...        | ...      |          |
++------------------------+------------+----------+----------+
+
+test
+
 +--------------------------+--------------------------------------------------------------------------------------------------------------------------------------------+
 | Parameter                | Description                                                                                                                                | 
 +==========================+====================================================================================================================================--------+

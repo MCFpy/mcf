@@ -15,6 +15,8 @@ The class :py:class:`~mcf_mini.ModifiedCausalForest` has several data cleaning o
 | ``dc_min_dummy_obs``     | If ``dc_screen_covariates`` is True, binary (dummy) covariates with less than ``dc_min_dummy_obs`` zeroes or ones are removed. Default: 10.|
 +--------------------------+--------------------------------------------------------------------------------------------------------------------------------------------+
 
+Please consult the py:class:`API <~mcf_mini.ModifiedCausalForest>` for more details.
+
 Example 
 -------
 

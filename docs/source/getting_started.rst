@@ -91,15 +91,15 @@ The **mcf** package generates a number of standard outputs for your convenience.
     +----------------------------------+------------------------------------------------------------------------------------------------------------------+
     | Parameter                        | Description                                                                                                      |
     +==================================+==================================================================================================================+
-    | ``cf_boot``                      | Number of Causal Trees. Default is 1000.                                                                         |
+    | ``cf_boot``                      | Number of Causal Trees. Default: 1000.                                                                           |
     +----------------------------------+------------------------------------------------------------------------------------------------------------------+
-    | ``p_atet``                       | If True, :math:`\textrm{ATET's}` are estimated. The default is False.                                            |
+    | ``p_atet``                       | If True, :math:`\textrm{ATET's}` are estimated. Default: False.                                                  |
     +----------------------------------+------------------------------------------------------------------------------------------------------------------+
-    | ``p_gatet``                      | If True, :math:`\textrm{GATE's}` and :math:`\textrm{GATET's}` are estimated. The default is False.               |
+    | ``p_gatet``                      | If True, :math:`\textrm{GATE's}` and :math:`\textrm{GATET's}` are estimated. Default False.                      |
     +----------------------------------+------------------------------------------------------------------------------------------------------------------+
     | ``var_w_name``                   | Sampling weights assigned to each observation.                                                                   |
     +----------------------------------+------------------------------------------------------------------------------------------------------------------+
-    | ``gen_weighted``                 | If True, sampling weights from ``var_w_name`` will be used. The default is False.                                |
+    | ``gen_weighted``                 | If True, sampling weights from ``var_w_name`` will be used. Default: False.                                      |
     +----------------------------------+------------------------------------------------------------------------------------------------------------------+
     | ``var_cluster_name``             | Cluster identifier.                                                                                              |
     +----------------------------------+------------------------------------------------------------------------------------------------------------------+

@@ -19,6 +19,10 @@ The class :py:class:`~mcf_mini.ModifiedCausalForest` has several data cleaning o
 
 Please consult the :py:class:`API mcf_mini.ModifiedCausalForest` for more details.
 
+Please consult the :py:class:`API <mcf_mini.ModifiedCausalForest>` for more details.
+
+Please consult the :py:class:`API<mcf_mini.ModifiedCausalForest>` for more details.
+
 Please consult the :py:class:`API ~mcf_mini.ModifiedCausalForest` for more details.
 
 Please consult the :py:class:`API~mcf_mini.ModifiedCausalForest` for more details.

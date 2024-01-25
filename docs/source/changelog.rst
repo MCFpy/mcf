@@ -21,8 +21,17 @@ Changelog
             - A
             - B
 
+    The following should be removed from this file and just be added to the internal documentation:
+    You can cross-reference classes/methods/properties also with a custom link text using e.g. 
+    :py:class:`Custom link text <module.ClassName>` 
+
+    Note the absence of the tilde '~' in this case. 
+
+
 :py:class:`~mcf_mini.ModifiedCausalForest` 
 :py:class:`~optpol_mini.OptimalPolicy` 
+
+:py:class:`Custom link text <mcf_mini.ModifiedCausalForest>` 
 
 :py:meth:`~mcf_mini.ModifiedCausalForest.train`
 :py:meth:`~optpol_mini.OptimalPolicy.solve`

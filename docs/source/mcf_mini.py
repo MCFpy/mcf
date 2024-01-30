@@ -6,28 +6,7 @@ Contains the class and the functions needed for running the mcf.
 -*- coding: utf-8 -*-
 """
 
-from copy import deepcopy
-from time import time
-
 import pandas as pd
-
-from mcf import mcf_ate_functions as mcf_ate
-from mcf import mcf_common_support_functions as mcf_cs
-from mcf import mcf_data_functions as mcf_data
-from mcf import mcf_estimation_functions as mcf_est
-from mcf import mcf_fair_iate_functions as mcf_fair
-from mcf import mcf_feature_selection_functions as mcf_fs
-from mcf import mcf_forest_functions as mcf_fo
-from mcf import mcf_gate_functions as mcf_gate
-from mcf import mcf_gateout_functions as mcf_gateout
-from mcf import mcf_iate_functions as mcf_iate
-from mcf import mcf_init_functions as mcf_init
-from mcf import mcf_local_centering_functions as mcf_lc
-from mcf import mcf_post_functions as mcf_post
-from mcf import mcf_print_stats_functions as ps
-from mcf import mcf_sensitivity_functions as mcf_sens
-from mcf import mcf_weight_functions as mcf_w
-
 
 class ModifiedCausalForest:
     """

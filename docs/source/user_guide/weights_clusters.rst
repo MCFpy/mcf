@@ -18,7 +18,7 @@ The clusters are by default used to draw the random samples when growing the for
 Parameter overview
 ------------------
 
-The following table summarizes the parameters related to sampling weights and clustering in the class :py:class:`~mcf_mini.ModifiedCausalForest`:
+The following table summarizes the parameters related to sampling weights and clustering in the class :py:class:`~mcf_functions.ModifiedCausalForest`:
 
 +----------------------+----------------------------------------------------------------------------------------------------+
 | Parameter            | Description                                                                                        |
@@ -34,7 +34,7 @@ The following table summarizes the parameters related to sampling weights and cl
 | ``gen_panel_data``   | If True, clustered standard errors are computed. Default: False.                                   |
 +----------------------+----------------------------------------------------------------------------------------------------+
 
-Please consult the :py:class:`API <mcf_mini.ModifiedCausalForest>` for more details.
+Please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` for more details.
 
 Examples
 --------

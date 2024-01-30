@@ -14,12 +14,12 @@ Feature selection
 
 The estimation quality of a random forest deteriorates with the number of irrelevant features, because the probability of picking a split based on an irrelevant feature increases. For this reason, it makes sense to remove such features prior to estimation. A bonus of feature selection is that the computational speed increases as a result of a smaller feature space.
 
-The class :py:class:`~mcf_mini.ModifiedCausalForest` provides you with the option to perform feature selection through the parameter ``fs_yes``. If set to True, feature selection is performed. Loosely speaking, the program estimates reduced forms for the treatment and the outcome using random forests and then drops features that have little power to predict the treatment **and** the outcome. 
+The class :py:class:`~mcf_functions.ModifiedCausalForest` provides you with the option to perform feature selection through the parameter ``fs_yes``. If set to True, feature selection is performed. Loosely speaking, the program estimates reduced forms for the treatment and the outcome using random forests and then drops features that have little power to predict the treatment **and** the outcome. 
 
 Note that, an irrelevant feature is never dropped if
 
 - the variable is required for the estimation of :math:`\textrm{GATE's}`, :math:`\textrm{BGATE's}` and :math:`\textrm{CBGATE's}` 
-- the variable is specified in the parameters ``var_x_name_remain_ord`` or ``var_x_name_remain_unord`` of your :py:class:`API <mcf_mini.ModifiedCausalForest>`.
+- the variable is specified in the parameters ``var_x_name_remain_ord`` or ``var_x_name_remain_unord`` of your :py:class:`API <mcf_functions.ModifiedCausalForest>`.
 - the correlation between two variables to be deleted is bigger than 0.5. In this case, one of the two variables is kept.
 
 Below you find a brief explanation of the relevant parameters. 
@@ -39,7 +39,7 @@ Parameter overview
 | ``fs_rf_threshold``       | Defines the threshold for a feature to be considered "irrelevant". This is measured as the percentage increase of the loss function when the feature is randomly permuted. Default: 1. Only relevant if ``fs_yes`` is set to True.                                                                                                |
 +---------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
-Please consult the :py:class:`API <mcf_mini.ModifiedCausalForest>` for more details.
+Please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` for more details.
 
 Example 
 -------

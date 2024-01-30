@@ -1,2 +1,2 @@
-:math:`\textrm{BGATE's}` and :math:`\textrm{CBGATE's}`
-======================================================
+(Causal) balanced group average treatment effects - (C)BGATEs
+=============================================================

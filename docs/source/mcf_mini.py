@@ -607,7 +607,7 @@ class ModifiedCausalForest:
         """
         Analyse estimated IATE with various descriptive tools.
         
-        .. versionadded:: 0.4.4
+       .. versionchanged:: 0.4.4
 
         Parameters
         ----------

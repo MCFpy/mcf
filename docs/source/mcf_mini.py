@@ -606,6 +606,7 @@ class ModifiedCausalForest:
     def analyse(self, results):
         """
         Analyse estimated IATE with various descriptive tools.
+        
         .. versionadded:: 0.4.4
 
         Parameters

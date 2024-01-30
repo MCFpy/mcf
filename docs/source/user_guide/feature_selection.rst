@@ -1,16 +1,5 @@
-Tuning parameters and feature selection
-======================================
-
-Tuning parameters
------------------
-
-TO-DO:
-
-Feature selection first? or separate in different chapters?
-
-
 Feature selection
------------------
+======================================
 
 The estimation quality of a random forest deteriorates with the number of irrelevant features, because the probability of picking a split based on an irrelevant feature increases. For this reason, it makes sense to remove such features prior to estimation. A bonus of feature selection is that the computational speed increases as a result of a smaller feature space.
 
@@ -25,7 +14,7 @@ Note that, an irrelevant feature is never dropped if
 Below you find a brief explanation of the relevant parameters. 
 
 Parameter overview
-~~~~~~~~~~~~~~~~~~
+------------------
 
 +---------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Parameter                 | Description                                                                                                                                                                                                                                                                                                                       |

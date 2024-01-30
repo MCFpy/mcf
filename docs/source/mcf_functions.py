@@ -2,12 +2,10 @@ import pandas as pd
 
 class ModifiedCausalForest:
     """
-    The class contains all methods necessary for a complete mcf estimation.
+    The :py:class:`~mcf_mini.ModifiedCausalForest` contains all methods necessary for a complete mcf estimation.
 
     Attributes
     ----------
-        cf_dict : Dictionary
-            Parameters used in training the forest (directly).
         cs_dict : Dictionary
             Parameters used in common support adjustments.
         ct_dict : Dictionary
@@ -785,6 +783,13 @@ class ModifiedCausalForest:
         self.data_train_dict = self.var_x_type = self.var_x_values = None
         self.forest, self.time_strings = None, {}
 
+    @property
+    def cf_dict(self):
+        """
+        Dictionary, parameters used in training the forest (directly).
+        """
+        return self._cf_dict 
+                
     def train(self, data_df):
         """
         Build the modified causal forest on the training data.

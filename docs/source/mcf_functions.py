@@ -824,6 +824,13 @@ class ModifiedCausalForest:
         self.report = {'predict_list': [],   # Needed for multiple predicts
                        'analyse_list': []}
 
+    @property
+    def blind_dict(self):
+        """
+        Dictionary, parameters to compute (partially) blinded IATEs.
+        """
+        return self._blind_dict 
+    
     def train(self, data_df):
         """
         Build the modified causal forest on the training data.

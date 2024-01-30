@@ -1,7 +1,7 @@
 Experimental features
 =====================
 
-Note: All features in this section are experimental and thus not yet fully documented and tested. Please open an issue `here <https://github.com/MCFpy/mcf/issues>`__ if you encounter any problems or have any questions. 
+All features in this section are experimental and thus not yet fully documented and tested. Please open an issue `here <https://github.com/MCFpy/mcf/issues>`__ if you encounter any problems or have any questions.
 
 Sensitivity checks
 ------------------

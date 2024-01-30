@@ -819,6 +819,13 @@ class ModifiedCausalForest:
         Dictionary, parameters to compute (partially) blinded IATEs.
         """
         return self._blind_dict 
+        
+    @property
+    def cf_dict(self) : 
+        """
+        Dictionary, parameters used in training the forest (directly).
+        """
+        return self._cf_dict 
     
     def train(self, data_df):
         """

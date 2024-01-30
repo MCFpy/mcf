@@ -1,19 +1,3 @@
-"""Created on Mon May 8 2023.
-
-Contains the class and the functions needed for running the mcf.
-@author: MLechner
--*- coding: utf-8 -*-
-"""
-from time import time
-
-from mcf import mcf_print_stats_functions as ps
-from mcf import optpolicy_bb_functions as op_bb
-from mcf import optpolicy_data_functions as op_data
-from mcf import optpolicy_evaluation_functions as op_eval
-from mcf import optpolicy_init_functions as op_init
-from mcf import optpolicy_pt_functions as op_pt
-
-
 class OptimalPolicy:
     """
     The class contains all methods necessary for the Optimal Policy module.

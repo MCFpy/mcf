@@ -38,18 +38,7 @@ class ModifiedCausalForest:
             Types of covariates (internal).
         var_x_values : Dictionary
             Values of covariates (internal).
-
-    Methods
-    -------
-        train : Building the forest with training data.
-        predict : Predicting the effects with prediction data. This does
-                  require to run the train methods first.
-        analyse : Descriptively analyse the estimated IATEs. This requires to
-                  run the predict methods first.
-        blinder_iates : Compute 'standard' IATEs as well as IATEs that are to
-                        to a certain extent blinder than the standard ones.
-                        This requires to run the train method first.
-        sensitivity : Analyse the sensitivity of the algorithm.
+            
     """
 
     def __init__(

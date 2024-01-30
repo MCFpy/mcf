@@ -156,7 +156,7 @@ class ModifiedCausalForest:
     @property
     def blind_dict(self):
         """
-        ``Dictionary``, parameters to compute (partially) blinded IATEs. 
+        ``Dictionary``, parameters to compute (partially) blinded IATEs using the :py:meth:`~mcf_mini.ModifiedCausalForest.train`. 
         """
         return self._blind_dict    
     

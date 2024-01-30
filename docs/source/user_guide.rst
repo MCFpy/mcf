@@ -12,6 +12,7 @@ Modified Causal Forest
     user_guide/weights_clusters
     user_guide/common_support
     user_guide/feature_selection
+    user_guide/estimation
     user_guide/post_estimation_diagnostics
     user_guide/experimental_features
 

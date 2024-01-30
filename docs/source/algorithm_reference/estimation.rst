@@ -1,2 +1,0 @@
-Estimation of treatment effects
-===============================

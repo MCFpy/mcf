@@ -292,7 +292,7 @@ class ModifiedCausalForest:
         -------
         results : Dictionary.
             Results. This dictionary has the following structure:
-            'ate': ATE, 'ate_se': Standard error of ATE,
+            `ate`: ATE, 'ate_se': Standard error of ATE,
             'ate effect_list': List of names of estimated effects,
             'gate': GATE, 'gate_se': SE of GATE,
             'gate_diff': GATE minus ATE,

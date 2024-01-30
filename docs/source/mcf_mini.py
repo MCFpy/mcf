@@ -280,7 +280,7 @@ class ModifiedCausalForest:
     
     def predict(self, data_df):
         """
-        Compute all effects given a causal forest estimated with train method.
+        Compute all effects given a causal forest estimated with :py:meth:`~mcf_mini.ModifiedCausalForest.train` method.
 
         Parameters
         ----------

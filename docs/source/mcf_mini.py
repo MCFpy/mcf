@@ -1,3 +1,11 @@
+..
+"""Created on Mon May 8 2023.
+
+Contains the class and the functions needed for running the mcf.
+@author: MLechner
+-*- coding: utf-8 -*-
+"""
+
 from copy import deepcopy
 from time import time
 

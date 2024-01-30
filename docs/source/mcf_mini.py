@@ -1,5 +1,5 @@
 .. 
-    Created on Mon May 8 2023. Contains the class and the functions needed for running the mcf. @author: MLechner. -*- coding: utf-8 -*-
+    Created on Mon May 8 2023. Contains the class and the functions needed for running the mcf. author: MLechner. -*- coding: utf-8 -*-
 
 import pandas as pd
 

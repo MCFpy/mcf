@@ -2,7 +2,7 @@ import pandas as pd
 
 class ModifiedCausalForest:
     """
-    The :class:`ModifiedCausalForest` contains all methods necessary for a complete mcf estimation.
+    The :py:class:`~mcf_mini.ModifiedCausalForest`  contains all methods necessary for a complete mcf estimation.
 
     Parameters
     ----------
@@ -177,7 +177,7 @@ class ModifiedCausalForest:
 
     def train(self, data_df):
         """
-        Build the modified causal forest on the training data.
+        Build the :py:class:`~mcf_mini.ModifiedCausalForest` on the training data.
 
         Parameters
         ----------
@@ -287,6 +287,7 @@ class ModifiedCausalForest:
         data_df : DataFrame
             Data used to compute the predictions. It must contain information
             about features (and treatment if effects for treatment specific subpopulations are desired as well).
+            Can use the :py:attr:`~mcf_mini.ModifiedCausalForest.blind_dict` attribute. 
 
         Returns
         -------

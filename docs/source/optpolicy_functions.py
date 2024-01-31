@@ -513,7 +513,7 @@ class OptimalPolicy:
         ps.print_mcf(self.gen_dict, val_all, summary=True)
 
 
-    def print_dic_values_all_optp(optp_, summary_top=True, summary_dic=False,
+def print_dic_values_all_optp(optp_, summary_top=True, summary_dic=False,
                                   stage=''):
         """Print the dictionaries."""
         txt = '=' * 100 + f'\nOptimal Policy Modul ({stage}) with '
@@ -522,7 +522,7 @@ class OptimalPolicy:
         print_dic_values_optp(optp_, summary=summary_dic)
     
     
-    def print_dic_values_optp(optp_, summary=False):
+def print_dic_values_optp(optp_, summary=False):
         """Print values of dictionaries that determine module."""
         dic_list = [optp_.int_dict, optp_.gen_dict, optp_.dc_dict,
                     optp_.other_dict, optp_.rnd_dict, optp_.var_dict]

@@ -504,26 +504,26 @@ class OptimalPolicy:
         ps.print_mcf(self.gen_dict, val_all, summary=True)
 
 
-def print_dic_values_all_optp(optp_, summary_top=True, summary_dic=False,
-                              stage=''):
-    """Print the dictionaries."""
-    txt = '=' * 100 + f'\nOptimal Policy Modul ({stage}) with '
-    txt += f'{optp_.gen_dict["method"]}' + '\n' + '-' * 100
-    ps.print_mcf(optp_.gen_dict, txt, summary=summary_top)
-    print_dic_values_optp(optp_, summary=summary_dic)
-
-
-def print_dic_values_optp(optp_, summary=False):
-    """Print values of dictionaries that determine module."""
-    dic_list = [optp_.int_dict, optp_.gen_dict, optp_.dc_dict,
-                optp_.other_dict, optp_.rnd_dict, optp_.var_dict]
-    dic_name_list = ['int_dict', 'gen_dict', 'dc_dict',
-                     'other_dict', 'rnd_dict', 'var_dict']
-    if optp_.gen_dict['method'] in ('policy tree', 'policy tree eff'):
-        add_list = [optp_.var_x_type, optp_.var_x_values, optp_.pt_dict]
-        add_list_name = ['var_x_type', 'var_x_values', 'pt_dict']
-        dic_list.extend(add_list)
-        dic_name_list.extend(add_list_name)
-    for dic, dic_name in zip(dic_list, dic_name_list):
-        ps.print_dic(dic, dic_name, optp_.gen_dict, summary=summary)
-    ps.print_mcf(optp_.gen_dict, '\n', summary=summary)
+    def print_dic_values_all_optp(optp_, summary_top=True, summary_dic=False,
+                                  stage=''):
+        """Print the dictionaries."""
+        txt = '=' * 100 + f'\nOptimal Policy Modul ({stage}) with '
+        txt += f'{optp_.gen_dict["method"]}' + '\n' + '-' * 100
+        ps.print_mcf(optp_.gen_dict, txt, summary=summary_top)
+        print_dic_values_optp(optp_, summary=summary_dic)
+    
+    
+    def print_dic_values_optp(optp_, summary=False):
+        """Print values of dictionaries that determine module."""
+        dic_list = [optp_.int_dict, optp_.gen_dict, optp_.dc_dict,
+                    optp_.other_dict, optp_.rnd_dict, optp_.var_dict]
+        dic_name_list = ['int_dict', 'gen_dict', 'dc_dict',
+                         'other_dict', 'rnd_dict', 'var_dict']
+        if optp_.gen_dict['method'] in ('policy tree', 'policy tree eff'):
+            add_list = [optp_.var_x_type, optp_.var_x_values, optp_.pt_dict]
+            add_list_name = ['var_x_type', 'var_x_values', 'pt_dict']
+            dic_list.extend(add_list)
+            dic_name_list.extend(add_list_name)
+        for dic, dic_name in zip(dic_list, dic_name_list):
+            ps.print_dic(dic, dic_name, optp_.gen_dict, summary=summary)
+        ps.print_mcf(optp_.gen_dict, '\n', summary=summary)

@@ -821,105 +821,105 @@ class ModifiedCausalForest:
         return self._blind_dict 
         
     @property
-    def cf_dict(self) : 
+    def cf_dict(self): 
         """
         Dictionary, parameters used in training the forest (directly).
         """
         return self._cf_dict 
 
     @property
-    def cs_dict(self) : 
+    def cs_dict(self): 
         """
         Dictionary, parameters used in common support adjustments.
         """
         return self._cs_dict 
 
     @property
-    def ct_dict(self) : 
+    def ct_dict(self): 
         """
         Dictionary, parameters used in dealing with continuous treatments.
         """
         return self._ct_dict 
         
     @property
-    def int_dict(self) : 
+    def int_dict(self): 
         """
         Dictionary, internal parameters used in various parts of the class.
         """
         return self._int_dict
         
     @property
-    def dc_dict(self) : 
+    def dc_dict(self): 
         """
         Dictionary, parameters used in data cleaning.
         """
         return self._dc_dict
 
     @property
-    def fs_dict(self) : 
+    def fs_dict(self): 
         """
         Dictionary, parameters used in feature selection.
         """
         return self._fs_dict
 
     @property
-    def forest(self) : 
+    def forest(self): 
         """
         List of list containing the estimated causal forest.
         """
         return self._forest
 
     @property
-    def gen_dict(self) : 
+    def gen_dict(self): 
         """
         Dictionary, general parameters used in various parts of the programme.
         """
         return self._gen_dict
 
     @property
-    def p_dict(self) : 
+    def p_dict(self): 
         """
         Dictionary, parameters used by prediction method.
         """
         return self._p_dict
 
     @property
-    def post_dict(self) : 
+    def post_dict(self): 
         """
         Dictionary, parameters used in analyse method.
         """
         return self._post_dict
 
     @property
-    def sens_dict(self) : 
+    def sens_dict(self): 
         """
         Dictionary, parameters used in sensitivity method.
         """
         return self._sens_dict
 
     @property
-    def time_strings(self) : 
+    def time_strings(self): 
         """
         String, detailed information on how the long the different methods needed.
         """
         return self._time_strings
 
     @property
-    def var_dict(self) : 
+    def var_dict(self): 
         """
         Dictionary, variable names.
         """
         return self._var_dict
 
     @property
-    def var_x_type(self) : 
+    def var_x_type(self): 
         """
         Dictionary, types of covariates (internal).
         """
         return self._var_x_type
 
     @property
-    def var_x_values(self) : 
+    def var_x_values(self): 
         """
         Dictionary, values of covariates (internal).
         """

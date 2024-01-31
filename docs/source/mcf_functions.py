@@ -46,7 +46,7 @@ class ModifiedCausalForest:
 
         .. math:: 
         
-        A = \\frac{\\sqrt{\\text{{number of observations in the smallest treatment group}}^{0.5}}}{10}, at least 2 
+        \\text{A} = \\frac{\\sqrt{\\text{{number of observations in the smallest treatment group}}^{0.5}}}{10}, at least 2 
         
         \\text{{cf_n_min_max}} = \\text{{round}}(A \\times \\text{{number of treatments}})
         

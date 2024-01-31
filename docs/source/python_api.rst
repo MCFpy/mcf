@@ -37,12 +37,36 @@ Attributes
       ModifiedCausalForest.cf_dict
       ModifiedCausalForest.cs_dict
       ModifiedCausalForest.ct_dict
+      ModifiedCausalForest.int_dict
+      ModifiedCausalForest.dc_dict
+      ModifiedCausalForest.fs_dict
+      ModifiedCausalForest.forest
+      ModifiedCausalForest.gen_dict
+      ModifiedCausalForest.p_dict
+      ModifiedCausalForest.post_dict
+      ModifiedCausalForest.sens_dict
+      ModifiedCausalForest.time_strings
+      ModifiedCausalForest.var_dict
+      ModifiedCausalForest.var_x_type
+      ModifiedCausalForest.var_x_values
 
 .. autosummary:: 
     ~ModifiedCausalForest.blind_dict
     ~ModifiedCausalForest.cf_dict
     ~ModifiedCausalForest.cs_dict
     ~ModifiedCausalForest.ct_dict
+    ~ModifiedCausalForest.int_dict
+    ~ModifiedCausalForest.dc_dict
+    ~ModifiedCausalForest.fs_dict
+    ~ModifiedCausalForest.forest
+    ~ModifiedCausalForest.gen_dict
+    ~ModifiedCausalForest.p_dict
+    ~ModifiedCausalForest.post_dict
+    ~ModifiedCausalForest.sens_dict
+    ~ModifiedCausalForest.time_strings
+    ~ModifiedCausalForest.var_dict
+    ~ModifiedCausalForest.var_x_type
+    ~ModifiedCausalForest.var_x_values
 
 Methods
 ^^^^^^^

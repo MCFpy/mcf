@@ -31,6 +31,7 @@ class ModifiedCausalForest:
         .. math:: 
         
             \\text{cf_chunks_maxsize} = 75000 + (\\text{number of observations} - 75000) ** 0.8 / (\\text{no_of_treatment}-1) 
+        
         Default is None.
         
     cf_n_min_grid : Integer (or None), optional

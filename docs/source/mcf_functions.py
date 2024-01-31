@@ -7,7 +7,8 @@ class ModifiedCausalForest:
     cf_alpha_reg_grid : Integer (or None), optional
         Minimum remaining share when splitting leaf: Number of grid values.
         If grid is used, optimal value is determined by out-of-bag
-        estimation of objective function. Default (or None) is 1.
+        estimation of objective function. 
+        Default (or None) is 1.
         
     cf_alpha_reg_max : Float (or None), optional
         Minimum remaining share when splitting leaf: Largest value of

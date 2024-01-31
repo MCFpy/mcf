@@ -26,13 +26,6 @@ class OptimalPolicy:
             Types of covariates (internal).
         var_x_values : Dictionary
             Values of covariates (internal).
-
-    Methods
-    -------
-        solve : Building the assignment algorithm with training data.
-        allocate : Allocate treatments given the assignment algorithm.
-        evaluate : Evaluate an allocation.
-        evaluate_multiple : Evaluate several allocations simultanously.
     """
 
     def __init__(

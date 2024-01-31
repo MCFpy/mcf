@@ -2,31 +2,216 @@ class OptimalPolicy:
     """
     The class contains all methods necessary for the Optimal Policy module.
 
-    Attributes
+    Parameters
     ----------
-        int_dict : Dictionary
-            Parameters used in many parts of the class.
-        dc_dict : Dictionary
-            Parameters used in data cleaning.
-            List of list containing the estimated causal forest.
-        gen_dict : Dictionary
-            General parameters used in various parts of the programme.
-        other_dict : Dictionary
-            Contains other relevant information needed for allocation (like
-                cost, constraints)
-        pt_dict : Dictionary
-            Parameters used to build policy tree.
-        rnd_dict: Dictionary
-            Shares for random allocation.
-        time_strings : String.
-            Detailed information on how the long the different methods needed.
-        var_dict : Dictionary
-            Variable names.
-        var_x_type : Dictionary
-            Types of covariates (internal).
-        var_x_values : Dictionary
-            Values of covariates (internal).
+    dc_screen_covariates : Boolean (or None), optional
+        Check features. Default (or None) is True.
+        
+    dc_check_perfectcorr : Boolean (or None), optional
+        Features that are perfectly correlated are deleted (1 of them).
+        Only relevant if dc_screen_covariates is True.
+        Default (or None) is True.
+        
+    dc_min_dummy_obs : Integer (or None), optional
+        Delete dummmy variables that have less than dc_min_dummy_obs in one
+        of their categories. Only relevant if dc_screen_covariates is True.
+        Default (or None) is 10.
+        
+    dc_clean_data : Boolean (or None), optional
+        Remove all missing & unnecessary variables.
+        Default (or None) is True.
+        
+    gen_method : String (or None), optional.
+        Method to compute assignment algorithm (available methods:
+        'best_policy_score', 'policy tree', 'policy tree eff')
+        'best_policy_score' conducts Black-Box allocations, which are
+        obtained by using the scores directly (potentially subject to
+        restrictions). When the Black-Box allocations are used for
+        allocation of data not used for training, the respective scores
+        must be available.
+        The implemented 'policy tree' 's are optimal trees, i.e. all
+        possible trees are checked if they lead to a better performance.
+        If restrictions are specified, then this is incorparated into
+        treatment specific cost parameters. Many ideas of the
+        implementation follow Zhou, Athey, Wager (2022). If the provided
+        policy scores fulfil their conditions (i.e., they use a doubly
+        robust double machine learning like score), then they also provide
+        attractive theoretical properties.
+        'policy tree eff' is very similar to 'policy tree.' It uses
+        different approximation rules and uses slightly different coding.
+        In many cases it should be faster than 'policy tree'.
+        Default (or None) is 'best_policy_score'.
+        
+    gen_outfiletext : String (or None), optional
+        File for text output. *.txt file extension will be automatically
+        added. Default (or None) is 'txtFileWithOutput'.
+        
+    gen_outpath : String (or None), optional
+        Directory to where to put text output and figures. If it does not
+        exist, it will be created.
+        None: *.out directory just below to the directory where the
+        programme is run. Default is None.
+        
+    gen_output_type : Integer (or None), optional
+        Destination of the output. 0: Terminal, 1: File,
+        2: File and terminal. Default (or None) is 2.
+        
+    gen_variable_importance : Boolean
+        Compute variable importance statistics based on random forest
+        classifiers. Default is False.
+        
+    other_costs_of_treat : List of floats (or None), optional
+        Treatment specific costs. These costs are directly substracted from
+        the policy scores. Therefore, they should be measured in the same
+        units as the scores.
+        None (when there are no constraints): 0
+        None (when are constraints): Costs will be automatically determined
+            such as to enforce constraints in the training data by finding
+            cost values that lead to an allocation ('best_policy_score')
+            that fulfils restrictions other_max_shares.
+        Default is None.
+        
+    other_costs_of_treat_mult : Float or tuple of floats (with as many
+                                elements as treatments) (or None), optional
+        Multiplier of automatically determined cost values. Use only when
+        automatic costs violate the constraints given by OTHER_MAX_SHARES.
+        This allows to increase (>1) or decrease (<1) the share of treated
+        in particular treatment. None: (1, ..., 1). Default is None.
+        
+    other_max_shares : Tuple of float elements as treatments) (or None),
+                       optional
+        Maximum share allowed for each treatment. Default is None.
+        
+    pt_depth : Integer (or None), optional
+        Depth of tree. Defined such that pt_depth == 1 implies 2 splits,
+        pt_depth = 2 implies 4 leafs, pt_depth= 3 implies 8 leafs, etc.
+        Only relevant if gen_method is 'policy tree'.
+        Default (or None) is 3.
+        
+    pt_enforce_restriction : Boolean (or None)
+        Enforces the imposed restriction (to some extent) during the
+        computation of the policy tree. This can be very time consuming.
+        Default is True.
+        
+    pt_eva_cat_mult : Integer (or None).
+        Changes the number of the evaluation points (pt_no_of_evalupoints)
+        for the unordered (categorical) variables to:
+            pt_eva_cat_mult * pt_no_of_evalupoints
+        (available only for the method 'policy tree eff').
+        Default (or None is 1).
+        
+    pt_no_of_evalupoints : Integer (or None), optional
+        No of evaluation points for continous variables. The lower this
+        value, the faster the algorithm, but it may also deviate more from
+        the optimal splitting rule. This parameter is closely related to
+        the approximation parameter of Zhou, Athey, Wager (2022)(A) with
+        pt_no_of_evalupoints = number of observation / A.
+        Only relevant if gen_method is 'policy tree' or 'policy tree eff'.
+        Default (or None) is 100.
+        
+    pt_min_leaf_size : Integer (or None), optional
+        Minimum leaf size. Leaves that are smaller than PT_MIN_LEAF_SIZE in
+        the training data will not be considered. A larger number reduces
+        computation time and avoids some overfitting.
+        None: 0.1 x # of training observations / # of leaves.
+        Only relevant if gen_method is 'policy tree'. Default is None.
+        
+    pt_select_values_cat : Boolean (or None), optional
+        Approximation method for larger categorical variables. Since we
+        search among optimal trees, for catorgical variables variables we
+        need to check for all possible combinations of the different values
+        that lead to binary splits. Thus number could indeed be huge.
+        Therefore, we compare only pt_no_of_evalupoints * 2 different
+        combinations. Method 1 (pt_select_values_cat == True) does this by
+        randomly drawing values from the particular categorical variable
+        and forming groups only using those values. Method 2
+        (pt_select_values_cat == False) sorts the values of the categorical
+        variables according to a values of the policy score as one would do
+        for a standard random forest. If this set is still too large, a
+        random sample of the entailed combinations is drawn. Method 1 is
+        only available for the method 'policy tree eff'.
+        
+    rnd_shares : Tuple of floats (or None), optional
+        Share of treatments of a stochastic assignment as computed by the
+        evaluate method. Sum of all elements must add to 1. This used only
+        used as a comparison in the evaluation of other allocations.
+        None: Shares of treatments in the allocation under investigation.
+        Default is None.
+        
+    var_vi_x_name : List of strings or None, optional
+        Names of variables for which variable importance is computed.
+        Default is None.
+        
+    var_vi_to_dummy_name : List of strings or None, optional
+        Names of variables for which variable importance is computed.
+        These variables will be broken up into dummies. Default is None.
+        
+    var_bb_restrict_name : String (or None), optional
+        Name of variable related to a restriction in case of capacity
+        constraints. If there is a capacity constraint, preference will be
+        given to observations with highest values of this variable.
+        Only relevant if gen_method is 'best_policy_score'.
+        Default is None.
+        
+    var_d_name : String (or None), optional
+        Name of (discrete) treatment. Needed in training data only if
+        'changers' (different treatment in alloication than observed
+        treatment) are analysed and if allocation is compared to observed
+        allocation (in evaluate method). Default is None.
+        
+    var_effect_vs_0  : Tuple of strings (or None), optional
+        Name of variables of effects of treatment relative to first
+        treatment. Dimension is equal to the number of treatments minus 1.
+        Default is None.
+        
+    var_effect_vs_0_se  : Tuple of strings (or None), optional
+        Name of variables of effects of treatment relative to first
+        treatment. Dimension is equal to the number of treatments minus 1.
+        Default is None.
+        
+    var_id_name : (or None), optional
+        Name of identifier in data. Default is None.
+        
+    var_polscore_desc_name : Tuple of tuples of strings (or None), optional
+        Each tuple of dimension equal to the different treatments
+        contains treatment specific variables that are used to evaluate the
+        effect of the allocation with respect to those variables. This
+        could be for example policy score not used in training,but which
+        are relevant nevertheless. Default is None.
+        
+    var_polscore_name : Tuple of strings (or None), optional
+        Names of treatment specific variables to measure the value of
+        individual treatments. This is ususally the estimated potential
+        outcome or any other score related. This is required for the solve
+        method. Default is None.
+        
+    var_x_ord_name : Tuple of strings (or None), optional
+        Name of ordered variables used to build policy tree. They are also
+        used to characterise the allocation. Default is None.
+        
+    var_x_unord_name : Tuple of strings (or None), optional
+        Name of unordered variables used to build policy tree. They are
+        also used to characterise the allocation. Default is None.
+        
+    _int_how_many_parallel : Integer (or None), optional
+        Number of parallel process. None: 80% of logical cores, if this can
+        be effectively implemented. Default is None.
+        
+    _int_output_no_new_dir: Boolean
+        Do not create a new directory when the path already exists. Default
+        is False.
+        
+    _int_parallel_processing : Boolean (or None), optional
+        Multiprocessing.
+        Default (or None) is True.
+        
+    _int_with_numba : Boolean (or None), optional
+        Use Numba to speed up computations. Default (or None) is True.
+        
+    _int_with_output : Boolean (or None), optional
+        Print output on file and/or screen. Default (or None) is True.
     """
+
 
     def __init__(
         self, dc_check_perfectcorr=True,
@@ -47,183 +232,7 @@ class OptimalPolicy:
         _int_parallel_processing=True, _int_with_numba=True,
         _int_with_output=True,
             ):
-        """Define Constructor for OptimalPolicy class.
 
-        Args:
-        ----
-        dc_screen_covariates : Boolean (or None), optional
-            Check features. Default (or None) is True.
-        dc_check_perfectcorr : Boolean (or None), optional
-            Features that are perfectly correlated are deleted (1 of them).
-            Only relevant if dc_screen_covariates is True.
-            Default (or None) is True.
-        dc_min_dummy_obs : Integer (or None), optional
-            Delete dummmy variables that have less than dc_min_dummy_obs in one
-            of their categories. Only relevant if dc_screen_covariates is True.
-            Default (or None) is 10.
-        dc_clean_data : Boolean (or None), optional
-            Remove all missing & unnecessary variables.
-            Default (or None) is True.
-        gen_method : String (or None), optional.
-            Method to compute assignment algorithm (available methods:
-            'best_policy_score', 'policy tree', 'policy tree eff')
-            'best_policy_score' conducts Black-Box allocations, which are
-            obtained by using the scores directly (potentially subject to
-            restrictions). When the Black-Box allocations are used for
-            allocation of data not used for training, the respective scores
-            must be available.
-            The implemented 'policy tree' 's are optimal trees, i.e. all
-            possible trees are checked if they lead to a better performance.
-            If restrictions are specified, then this is incorparated into
-            treatment specific cost parameters. Many ideas of the
-            implementation follow Zhou, Athey, Wager (2022). If the provided
-            policy scores fulfil their conditions (i.e., they use a doubly
-            robust double machine learning like score), then they also provide
-            attractive theoretical properties.
-            'policy tree eff' is very similar to 'policy tree.' It uses
-            different approximation rules and uses slightly different coding.
-            In many cases it should be faster than 'policy tree'.
-            Default (or None) is 'best_policy_score'.
-        gen_outfiletext : String (or None), optional
-            File for text output. *.txt file extension will be automatically
-            added. Default (or None) is 'txtFileWithOutput'.
-        gen_outpath : String (or None), optional
-            Directory to where to put text output and figures. If it does not
-            exist, it will be created.
-            None: *.out directory just below to the directory where the
-            programme is run. Default is None.
-        gen_output_type : Integer (or None), optional
-            Destination of the output. 0: Terminal, 1: File,
-            2: File and terminal. Default (or None) is 2.
-        gen_variable_importance : Boolean
-            Compute variable importance statistics based on random forest
-            classifiers. Default is False.
-        other_costs_of_treat : List of floats (or None), optional
-            Treatment specific costs. These costs are directly substracted from
-            the policy scores. Therefore, they should be measured in the same
-            units as the scores.
-            None (when there are no constraints): 0
-            None (when are constraints): Costs will be automatically determined
-                such as to enforce constraints in the training data by finding
-                cost values that lead to an allocation ('best_policy_score')
-                that fulfils restrictions other_max_shares.
-            Default is None.
-        other_costs_of_treat_mult : Float or tuple of floats (with as many
-                                    elements as treatments) (or None), optional
-            Multiplier of automatically determined cost values. Use only when
-            automatic costs violate the constraints given by OTHER_MAX_SHARES.
-            This allows to increase (>1) or decrease (<1) the share of treated
-            in particular treatment. None: (1, ..., 1). Default is None.
-        other_max_shares : Tuple of float elements as treatments) (or None),
-                           optional
-            Maximum share allowed for each treatment. Default is None.
-        pt_depth : Integer (or None), optional
-            Depth of tree. Defined such that pt_depth == 1 implies 2 splits,
-            pt_depth = 2 implies 4 leafs, pt_depth= 3 implies 8 leafs, etc.
-            Only relevant if gen_method is 'policy tree'.
-            Default (or None) is 3.
-        pt_enforce_restriction : Boolean (or None)
-            Enforces the imposed restriction (to some extent) during the
-            computation of the policy tree. This can be very time consuming.
-            Default is True.
-        pt_eva_cat_mult : Integer (or None).
-            Changes the number of the evaluation points (pt_no_of_evalupoints)
-            for the unordered (categorical) variables to:
-                pt_eva_cat_mult * pt_no_of_evalupoints
-            (available only for the method 'policy tree eff').
-            Default (or None is 1).
-        pt_no_of_evalupoints : Integer (or None), optional
-            No of evaluation points for continous variables. The lower this
-            value, the faster the algorithm, but it may also deviate more from
-            the optimal splitting rule. This parameter is closely related to
-            the approximation parameter of Zhou, Athey, Wager (2022)(A) with
-            pt_no_of_evalupoints = number of observation / A.
-            Only relevant if gen_method is 'policy tree' or 'policy tree eff'.
-            Default (or None) is 100.
-        pt_min_leaf_size : Integer (or None), optional
-            Minimum leaf size. Leaves that are smaller than PT_MIN_LEAF_SIZE in
-            the training data will not be considered. A larger number reduces
-            computation time and avoids some overfitting.
-            None: 0.1 x # of training observations / # of leaves.
-            Only relevant if gen_method is 'policy tree'. Default is None.
-        pt_select_values_cat : Boolean (or None), optional
-            Approximation method for larger categorical variables. Since we
-            search among optimal trees, for catorgical variables variables we
-            need to check for all possible combinations of the different values
-            that lead to binary splits. Thus number could indeed be huge.
-            Therefore, we compare only pt_no_of_evalupoints * 2 different
-            combinations. Method 1 (pt_select_values_cat == True) does this by
-            randomly drawing values from the particular categorical variable
-            and forming groups only using those values. Method 2
-            (pt_select_values_cat == False) sorts the values of the categorical
-            variables according to a values of the policy score as one would do
-            for a standard random forest. If this set is still too large, a
-            random sample of the entailed combinations is drawn. Method 1 is
-            only available for the method 'policy tree eff'.
-        rnd_shares : Tuple of floats (or None), optional
-            Share of treatments of a stochastic assignment as computed by the
-            evaluate method. Sum of all elements must add to 1. This used only
-            used as a comparison in the evaluation of other allocations.
-            None: Shares of treatments in the allocation under investigation.
-            Default is None.
-        var_vi_x_name : List of strings or None, optional
-            Names of variables for which variable importance is computed.
-            Default is None.
-        var_vi_to_dummy_name : List of strings or None, optional
-            Names of variables for which variable importance is computed.
-            These variables will be broken up into dummies. Default is None.
-        var_bb_restrict_name : String (or None), optional
-            Name of variable related to a restriction in case of capacity
-            constraints. If there is a capacity constraint, preference will be
-            given to observations with highest values of this variable.
-            Only relevant if gen_method is 'best_policy_score'.
-            Default is None.
-        var_d_name : String (or None), optional
-            Name of (discrete) treatment. Needed in training data only if
-            'changers' (different treatment in alloication than observed
-            treatment) are analysed and if allocation is compared to observed
-            allocation (in evaluate method). Default is None.
-        var_effect_vs_0  : Tuple of strings (or None), optional
-            Name of variables of effects of treatment relative to first
-            treatment. Dimension is equal to the number of treatments minus 1.
-            Default is None.
-        var_effect_vs_0_se  : Tuple of strings (or None), optional
-            Name of variables of effects of treatment relative to first
-            treatment. Dimension is equal to the number of treatments minus 1.
-            Default is None.
-        var_id_name : (or None), optional
-            Name of identifier in data. Default is None.
-        var_polscore_desc_name : Tuple of tuples of strings (or None), optional
-            Each tuple of dimension equal to the different treatments
-            contains treatment specific variables that are used to evaluate the
-            effect of the allocation with respect to those variables. This
-            could be for example policy score not used in training,but which
-            are relevant nevertheless. Default is None.
-        var_polscore_name : Tuple of strings (or None), optional
-            Names of treatment specific variables to measure the value of
-            individual treatments. This is ususally the estimated potential
-            outcome or any other score related. This is required for the solve
-            method. Default is None.
-        var_x_ord_name : Tuple of strings (or None), optional
-            Name of ordered variables used to build policy tree. They are also
-            used to characterise the allocation. Default is None.
-        var_x_unord_name : Tuple of strings (or None), optional
-            Name of unordered variables used to build policy tree. They are
-            also used to characterise the allocation. Default is None.
-        _int_how_many_parallel : Integer (or None), optional
-            Number of parallel process. None: 80% of logical cores, if this can
-            be effectively implemented. Default is None.
-        _int_output_no_new_dir: Boolean
-            Do not create a new directory when the path already exists. Default
-            is False.
-        _int_parallel_processing : Boolean (or None), optional
-            Multiprocessing.
-            Default (or None) is True.
-        _int_with_numba : Boolean (or None), optional
-            Use Numba to speed up computations. Default (or None) is True.
-        _int_with_output : Boolean (or None), optional
-            Print output on file and/or screen. Default (or None) is True.
-        """
         self.int_dict = op_init.init_int(
             how_many_parallel=_int_how_many_parallel,
             output_no_new_dir=_int_output_no_new_dir,

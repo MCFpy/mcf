@@ -114,11 +114,26 @@ Attributes
       :toctree:
       OptimalPolicy.int_dict
       OptimalPolicy.dc_dict
+      OptimalPolicy.gen_dict
+      OptimalPolicy.other_dict
+      OptimalPolicy.pt_dict
+      OptimalPolicy.rnd_dict
+      OptimalPolicy.time_strings
+      OptimalPolicy.var_dict
+      OptimalPolicy.var_x_type
+      OptimalPolicy.var_x_values
 
 .. autosummary:: 
     ~OptimalPolicy.int_dict
     ~OptimalPolicy.dc_dict
-
+    ~OptimalPolicy.gen_dict
+    ~OptimalPolicy.other_dict
+    ~OptimalPolicy.pt_dict
+    ~OptimalPolicy.rnd_dict    
+    ~OptimalPolicy.time_strings
+    ~OptimalPolicy.var_dict
+    ~OptimalPolicy.var_x_type    
+    ~OptimalPolicy.var_x_values
 
 Methods
 ^^^^^^^
@@ -136,6 +151,8 @@ Methods
       OptimalPolicy.evaluate
       OptimalPolicy.evaluate_multiple
       OptimalPolicy.print_time_strings_all_steps
+      OptimalPolicy.print_dic_values_all_optp
+      OptimalPolicy.print_dic_values_optp
 
 .. autosummary:: 
     ~OptimalPolicy.solve
@@ -143,3 +160,5 @@ Methods
     ~OptimalPolicy.evaluate
     ~OptimalPolicy.evaluate_multiple
     ~OptimalPolicy.print_time_strings_all_steps
+    ~OptimalPolicy.print_dic_values_all_optp
+    ~OptimalPolicy.print_dic_values_optp

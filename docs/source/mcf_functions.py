@@ -27,12 +27,9 @@ class ModifiedCausalForest:
         somewhat).
         If cf_chunks_maxsize is larger than sample size, there is no random
         splitting.
-        If None:  
-        
+        If None:   
         .. math:: 
-        
-            \\text{cf_chunks_maxsize} = 75000 + (\\text{number of observations} - 75000)**0.8 / (\\text{no_of_treatment}-1)
-            
+            \\text{cf_chunks_maxsize} = 75000 + (\\text{number of observations} - 75000) ** 0.8 / (\\text{no_of_treatment}-1) 
         Default is None.
         
     cf_n_min_grid : Integer (or None), optional

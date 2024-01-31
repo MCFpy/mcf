@@ -265,6 +265,78 @@ class OptimalPolicy:
 
         self.time_strings, self.var_x_type, self.var_x_values = {}, {}, {}
 
+    @property
+    def int_dict(self):
+        """
+        Dictionary, parameters used in many parts of the class.
+        """
+        return self._int_dict 
+
+    @property
+    def dc_dict(self):
+        """
+        Dictionary, parameters used in data cleaning.
+        List of list containing the estimated causal forest.
+        """
+        return self._dc_dict 
+
+    @property
+    def gen_dict(self):
+        """
+        Dictionary, general parameters used in various parts of the programme.
+        """
+        return self._gen_dict 
+
+    @property
+    def other_dict(self):
+        """
+        Contains other relevant information needed for allocation (like
+        cost, constraints)
+        """
+        return self._other_dict 
+
+    @property
+    def pt_dict(self):
+        """
+        Dictionary, parameters used to build policy tree.
+        """
+        return self._pt_dict 
+
+    @property
+    def rnd_dict(self):
+        """
+        Dictionary, shares for random allocation.
+        """
+        return self._rnd_dict 
+
+    @property
+    def time_strings(self):
+        """
+        String, detailed information on how the long the different methods needed.
+        """
+        return self._time_strings
+
+    @property
+    def var_dict(self):
+        """
+        Dictionary, variable names.
+        """
+        return self._var_dict 
+
+    @property
+    def var_x_type(self):
+        """
+        Dictionary, types of covariates (internal).
+        """
+        return self._var_x_type
+
+    @property
+    def var_x_values(self):
+        """
+        Dictionary, values of covariates (internal).
+        """
+        return self._var_x_values 
+        
     def solve(self, data_df, data_title=''):
         """
         Solve for optimal allocation rule.

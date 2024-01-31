@@ -11,6 +11,7 @@ Overview of classes
 .. autosummary::
     ~mcf_functions.ModifiedCausalForest
     ~optpolicy_functions.OptimalPolicy
+    ~reporting.McfOptPolReport
 
 
 Modified Causal Forest
@@ -162,3 +163,48 @@ Methods
     ~OptimalPolicy.print_time_strings_all_steps
     ~OptimalPolicy.print_dic_values_all_optp
     ~OptimalPolicy.print_dic_values_optp
+
+
+Reporting
+--------------
+
+.. currentmodule:: reporting
+
+.. autoclass:: McfOptPolReport
+
+
+Attributes
+^^^^^^^^^^
+
+..
+   HACK -- Also list the attributes in the "commented out" paragraph below. The
+   point here is that we don't want this to appear in the output, but the
+   autosummary below will, even when commented out, generate the separate
+   documentation page that can be cross-referenced.
+
+   .. autosummary::
+      :toctree:
+      McfOptPolReport.xxxx
+
+
+.. autosummary:: 
+    ~McfOptPolReport.xxxx
+
+
+Methods
+^^^^^^^
+
+..
+   HACK -- Also list the methods in the "commented out" paragraph below. The
+   point here is that we don't want this to appear in the output, but the
+   autosummary below will, even when commented out, generate the separate
+   documentation page that can be cross-referenced.
+
+   .. autosummary:: 
+      :toctree:
+      McfOptPolReport.report
+
+
+.. autosummary:: 
+    ~McfOptPolReport.report
+

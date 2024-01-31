@@ -36,12 +36,13 @@ Attributes
       ModifiedCausalForest.blind_dict
       ModifiedCausalForest.cf_dict
       ModifiedCausalForest.cs_dict
+      ModifiedCausalForest.ct_dict
 
 .. autosummary:: 
     ~ModifiedCausalForest.blind_dict
     ~ModifiedCausalForest.cf_dict
     ~ModifiedCausalForest.cs_dict
-
+    ~ModifiedCausalForest.ct_dict
 
 Methods
 ^^^^^^^

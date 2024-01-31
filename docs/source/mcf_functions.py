@@ -46,7 +46,7 @@ class ModifiedCausalForest:
 
         .. math:: 
         
-            \\text{A} = \\frac{\\sqrt\\text{number of observations in the smallest treatment group}^{0.5}}{10}, \text{ at least } 2 
+            \\text{A} = \\frac{\\sqrt\\text{number of observations in the smallest treatment group}^{0.5}}{10}, \text{at least} 2 
 
         .. math::
         
@@ -60,7 +60,7 @@ class ModifiedCausalForest:
 
         .. math::
 
-            \\text{A} = \\text{number of observations in smallest treatment group}^{0.4} / 10, \text{ at least } 1.5
+            \\text{A} = \\text{number of observations in smallest treatment group}^{0.4} / 10, \text{at least} 1.5
         
         .. math::
                       
@@ -75,7 +75,10 @@ class ModifiedCausalForest:
         There is no grid based tuning for this parameter.
         This parameter impacts the minimum leaf size which will be at least
         to n_min_treat * number of treatments.
-        None:  (n_min_min+n_min_max)/2 / # of treatments / 10, at least 1.
+        None:  
+        
+        (n_min_min+n_min_max)/2 / # of treatments / 10, at least 1.
+        
         Default is None.
         
     cf_match_nn_prog_score : Boolean (or None), optional
@@ -130,7 +133,10 @@ class ModifiedCausalForest:
             mce_vart == 2: Multiplier of penalty (in terms of MSE(y) value
                            function without splits) for penalty.
               0: no penalty
-              None: 100*4*(n*f_c.subsam_share)^0.8)/(n*f_c.subsam_share).
+              None: 
+              
+              100*4*(n*f_c.subsam_share)^0.8)/(n*f_c.subsam_share).
+              
             mce_vart == 3: Probability of using p-score (0-1)
               None: 0.5.
         Increase value if balancing tests indicate problems.
@@ -162,7 +168,10 @@ class ModifiedCausalForest:
         results).
           0: no random thresholds.
           > 0: number of random thresholds used for ordered variables.
-          None: 4 + # of training observations**0.2 .
+          None: 
+          
+          4 + # of training observations**0.2 .
+          
         Default is None.
         
     cf_vi_oob_yes : Boolean (or None), optional
@@ -185,7 +194,10 @@ class ModifiedCausalForest:
         
     cs_adjust_limits : Float (or None), optional
         Common support adjustment: Accounting for multiple treatments.
-            None: (number of treatments - 2) * 0.05
+            None: 
+            
+            (number of treatments - 2) * 0.05
+            
             If cs_type > 0:
                 upper limit *= 1+support_adjust_limits,
                 lower limit *= 1-support_adjust_limits
@@ -360,6 +372,7 @@ class ModifiedCausalForest:
     p_bgate : Boolean (or None), optional
         Estimate a GATE that is balanced in selected features (as specified
         in var_bgate_name. Default (or None) is False.
+        
     p_gates_minus_previous : Boolean (or None), optional
         Estimate increase of difference of GATEs, CBGATEs, BGATEs when
         evaluated at next larger observed value.
@@ -388,8 +401,11 @@ class ModifiedCausalForest:
         Implementation of (C)BGATE estimation is very cpu intensive.
         Therefore, random samples are used to speed up the programme if
         there are number observations  / number of evaluation points > 10.
-        None: If observation in prediction data (n) < 1000: 1
+        None: 
+        
+        If observation in prediction data (n) < 1000: 1
               If n >= 1000: 1000 + (n-1000)**(3/4) / evaluation points.
+              
         Default is None.
         
     p_max_cats_z_vars : Integer (or None), optional
@@ -505,8 +521,12 @@ class ModifiedCausalForest:
         Descriptive Analyses of IATEs: Number of clusters to be build in
         k-means.
         None: List of 5 values: [a, b, c, d, e]; c = 5 to 10;
-        depending on number of observations; c<7: a=c-2, b=c-1, d=c+1,
-        e=c+2, else a=c-4, b=c-2, d=c+2, e=c+4. Default is None.
+        depending on number of observations; 
+        
+        c<7: a=c-2, b=c-1, d=c+1,
+        e=c+2, else a=c-4, b=c-2, d=c+2, e=c+4. 
+        
+        Default is None.
         
     post_kmeans_max_tries : Integer (or None), optional
         Descriptive Analyses of IATEs: Maximum number of iterations of
@@ -734,8 +754,11 @@ class ModifiedCausalForest:
         
     _int_weight_as_sparse_splits : Integer (or None), optional
         Compute sparse weight matrix in several chuncks.
-        Default: None: int(Rows of prediction data * rows of Fill_y data
+        Default: None: 
+        
+        int(Rows of prediction data * rows of Fill_y data
                            / (20'000 * 20'000)).
+                           
         Default is None.
         Internal variable, change default only if you know what you do.
         

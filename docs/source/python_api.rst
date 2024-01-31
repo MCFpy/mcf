@@ -152,8 +152,7 @@ Methods
       OptimalPolicy.evaluate
       OptimalPolicy.evaluate_multiple
       OptimalPolicy.print_time_strings_all_steps
-      OptimalPolicy.print_dic_values_all_optp
-      OptimalPolicy.print_dic_values_optp
+
 
 .. autosummary:: 
     ~OptimalPolicy.solve
@@ -161,8 +160,6 @@ Methods
     ~OptimalPolicy.evaluate
     ~OptimalPolicy.evaluate_multiple
     ~OptimalPolicy.print_time_strings_all_steps
-    ~OptimalPolicy.print_dic_values_all_optp
-    ~OptimalPolicy.print_dic_values_optp
 
 
 Reporting

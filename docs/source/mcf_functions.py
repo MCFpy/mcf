@@ -46,7 +46,7 @@ class ModifiedCausalForest:
 
         .. math:: 
         
-            \\text{A} = \\frac{\\sqrt\\text{number of observations in the smallest treatment group}^{0.5}}{10}, at least 2 
+            \\text{A} = \\frac{\\sqrt\\text{number of observations in the smallest treatment group}^{0.5}}{10}, \text{ at least } 2 
 
         .. math::
         
@@ -57,11 +57,15 @@ class ModifiedCausalForest:
     cf_n_min_min : Integer (or None), optional
         Minimum leaf size: Smallest minimum leaf size.
         If None: 
+
+        .. math::
+
+            \\text{A} = \left(\text{number of observations in smallest treatment group}\right)^{0.4} / 10, \text{ at least } 1.5
         
-        A = (number of observations
-                      in smallest treatment group) ** 0.4 / 10,at least 1.5
-                 cf_n_min_min = round(A * number of treatments).
-                 
+        .. math::
+                      
+            \\text{cf_n_min_min} = \\text{round}\left(A \times \\text{number of treatments}\right)
+         
         Default is None.
         
     cf_n_min_treat : Integer (or None), optional

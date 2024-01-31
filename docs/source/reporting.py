@@ -4,12 +4,10 @@ class McfOptPolReport:
     Parameters
     ----------
         mcf : Instance of the ModifiedCausalForest class or None, optional
-            Contains all information needed for reports. The default is None.
-            
+            Contains all information needed for reports. The default is None. 
         mcf_blind : Instance of the ModifiedCausalForest class or None, optional
             Contains all information from blinded IATE analysis needed for
-            reports. The default is None.
-            
+            reports. The default is None.      
         mcf_sense : Instance of the ModifiedCausalForest class or None, optional
             Contains all information from sensitivity analysis needed for
             reports. The default is None.

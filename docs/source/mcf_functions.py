@@ -7,8 +7,7 @@ class ModifiedCausalForest:
     cf_alpha_reg_grid : Integer (or None), optional
         Minimum remaining share when splitting leaf: Number of grid values.
         If grid is used, optimal value is determined by out-of-bag
-        estimation of objective function. 
-        Default (or None) is 1.
+        estimation of objective function. Default (or None) is 1.
         
     cf_alpha_reg_max : Float (or None), optional
         Minimum remaining share when splitting leaf: Largest value of
@@ -28,8 +27,13 @@ class ModifiedCausalForest:
         somewhat).
         If cf_chunks_maxsize is larger than sample size, there is no random
         splitting.
-        If None:  cf_chunks_maxsize = 75000 +
-            (number of observations - 75000)**0.8/ (no_of_treatment-1)
+        If None:  
+        
+        .. math:: 
+        
+        \\text{cf_chunks_maxsize} = 75000 +
+            (\\text{number of observations} - 75000)**0.8/ (\\text{no_of_treatment}-1)
+            
         Default is None.
         
     cf_n_min_grid : Integer (or None), optional

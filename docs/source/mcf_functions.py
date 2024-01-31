@@ -60,11 +60,11 @@ class ModifiedCausalForest:
 
         .. math::
 
-            \\text{A} = \left(\text{number of observations in smallest treatment group}\right)^{0.4} / 10, \text{ at least } 1.5
+            \\text{A} = \\text{number of observations in smallest treatment group}^{0.4} / 10, \text{ at least } 1.5
         
         .. math::
                       
-            \\text{cf_n_min_min} = \\text{round}\left(A \times \\text{number of treatments}\right)
+            \\text{cf_n_min_min} = \\text{round}(A \times \\text{number of treatments})
          
         Default is None.
         

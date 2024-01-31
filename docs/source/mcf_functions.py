@@ -31,7 +31,7 @@ class ModifiedCausalForest:
         
         .. math:: 
         
-            \text{{cf_chunks_maxsize}} = 75000 + \frac{{(\text{{number of observations}} - 75000)^{0.8}}}{{(\text{{no_of_treatment}} - 1)}}
+            \\text{{cf_chunks_maxsize}} = 75000 + \\frac{{(\\text{{number of observations}} - 75000)^{0.8}}}{{(\\text{{no_of_treatment}} - 1)}}
         
         Default is None.
         
@@ -48,15 +48,18 @@ class ModifiedCausalForest:
         
         A = \\frac{\\sqrt{\\text{{number of observations in the smallest treatment group}}^{0.5}}}{10}, at least 2 
         
-        cf_n_min_max = round(A * number of treatments)
+        \\text{{cf_n_min_max}} = \\text{{round}}(A \\times \\text{{number of treatments}})
         
         Default is None.
         
     cf_n_min_min : Integer (or None), optional
         Minimum leaf size: Smallest minimum leaf size.
-        If None: A = (number of observations
+        If None: 
+        
+        A = (number of observations
                       in smallest treatment group) ** 0.4 / 10,at least 1.5
                  cf_n_min_min = round(A * number of treatments).
+                 
         Default is None.
         
     cf_n_min_treat : Integer (or None), optional

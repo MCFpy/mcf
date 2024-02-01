@@ -66,9 +66,9 @@ class OptimalPolicy:
         units as the scores.
         None (when there are no constraints): 0
         None (when are constraints): Costs will be automatically determined
-            such as to enforce constraints in the training data by finding
-            cost values that lead to an allocation ('best_policy_score')
-            that fulfils restrictions other_max_shares.
+        such as to enforce constraints in the training data by finding
+        cost values that lead to an allocation ('best_policy_score')
+        that fulfils restrictions other_max_shares.
         Default is None.
         
     other_costs_of_treat_mult : Float or tuple of floats (with as many
@@ -96,7 +96,7 @@ class OptimalPolicy:
     pt_eva_cat_mult : Integer (or None).
         Changes the number of the evaluation points (pt_no_of_evalupoints)
         for the unordered (categorical) variables to:
-            pt_eva_cat_mult * pt_no_of_evalupoints
+        pt_eva_cat_mult * pt_no_of_evalupoints
         (available only for the method 'policy tree eff').
         Default (or None is 1).
         

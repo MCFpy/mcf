@@ -599,11 +599,11 @@ class ModifiedCausalForest:
         
     var_x_name_remain_ord : String or List of strings (or None), optional
         Name of ordered variables that cannot be removed by feature
-        selection. Only relevant for train method. Default is None.
+        selection. Only relevant for :py:meth:`~mcf_functionsModifiedCausalForest.train` method. Default is None.
         
     var_x_name_remain_unord : String or List of strings (or None), optional
         Name of unordered variables that cannot be removed by feature
-        selection. Only relevant for train method. Default is None.
+        selection. Only relevant for :py:meth:`~mcf_functionsModifiedCausalForest.train` method. Default is None.
         
     var_x_name_ord : String or List of strings (or None), optional
         Name of ordered features. Either ordered or unordered features

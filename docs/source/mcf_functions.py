@@ -175,12 +175,8 @@ class ModifiedCausalForest:
         results).
         0: no random thresholds.
         > 0: number of random thresholds used for ordered variables.
-        None: 
-
-        .. math::
-        
-            4 + \\text{number of training observations}^{0.2}
-          
+        None:
+        :math:`4 + \\text{number of training observations}^{0.2}`
         Default is None.
         
     cf_vi_oob_yes : Boolean (or None), optional
@@ -206,8 +202,8 @@ class ModifiedCausalForest:
         None: 
         :math:`(\\text{number of treatments} - 2) \\times 0.05`
         If cs_type > 0:
-        upper limit *= 1+support_adjust_limits,
-        lower limit *= 1-support_adjust_limits
+        :math:`upper limit *= 1+support_adjust_limits`,
+        :math:`lower limit *= 1-support_adjust_limits`. 
         The restrictiveness of the common support criterion increases with
         the number of treatments. This parameter allows to reduce this
         restrictiveness. Default is None.
@@ -220,7 +216,7 @@ class ModifiedCausalForest:
            
     cs_min_p : Float (or None), optional
         Common support adjustment: If cs_type == 2, observations are
-        deleted if p(d=m|x) is less or equal than cs_min_p for at least
+        deleted if :math:`p(d=m|x)` is less or equal than cs_min_p for at least
         one treatment. Default (or None) is 0.01.
            
     cs_quantil : Float (or None), optional
@@ -420,7 +416,7 @@ class ModifiedCausalForest:
         
     p_max_cats_z_vars : Integer (or None), optional
         Maximum number of categories for discretizing continuous z
-        variables. None: Number of observations ** 0.3 . Default is None.
+        variables. None: :math:`Number of observations ** 0.3` . Default is None.
         
     p_iate : Boolean (or None), optional
         IATEs will be estimated. Default (or None) is True.
@@ -438,7 +434,7 @@ class ModifiedCausalForest:
         
     p_cond_var : Boolean (or None), optional
         True: Conditional mean & variances are used.
-        False: Variance estimation uses wy_i = w_i * y_i directly.
+        False: Variance estimation uses :math:`wy_i = w_i * y_i` directly.
         Default (or None) is True.
         
     p_knn : Boolean (or None), optional
@@ -532,8 +528,8 @@ class ModifiedCausalForest:
         Descriptive Analyses of IATEs: Number of clusters to be build in
         k-means.
         None: List of 5 values: [a, b, c, d, e]; c = 5 to 10;
-        depending on number of observations; c<7: a=c-2, b=c-1, d=c+1,
-        e=c+2, else a=c-4, b=c-2, d=c+2, e=c+4. Default is None.
+        depending on number of observations; :math:`c<7: a=c-2, b=c-1, d=c+1,
+        e=c+2, else a=c-4, b=c-2, d=c+2, e=c+4`. Default is None.
         
     post_kmeans_max_tries : Integer (or None), optional
         Descriptive Analyses of IATEs: Maximum number of iterations of

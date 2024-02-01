@@ -1,6 +1,6 @@
 class OptimalPolicy:
     """
-    The class contains all methods necessary for the Optimal Policy module.
+    The class contains all methods necessary for the :class:`OptimalPolicy` module.
 
     Parameters
     ----------

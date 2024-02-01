@@ -117,9 +117,9 @@ Attributes
 
    .. autosummary::
       :toctree:
-      OptimalPolicy.int_dict
       OptimalPolicy.dc_dict
       OptimalPolicy.gen_dict
+      OptimalPolicy.int_dict
       OptimalPolicy.other_dict
       OptimalPolicy.pt_dict
       OptimalPolicy.rnd_dict
@@ -129,9 +129,9 @@ Attributes
       OptimalPolicy.var_x_values
 
 .. autosummary:: 
-    ~OptimalPolicy.int_dict
     ~OptimalPolicy.dc_dict
     ~OptimalPolicy.gen_dict
+    ~OptimalPolicy.int_dict
     ~OptimalPolicy.other_dict
     ~OptimalPolicy.pt_dict
     ~OptimalPolicy.rnd_dict    

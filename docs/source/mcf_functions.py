@@ -551,7 +551,7 @@ class ModifiedCausalForest:
         
     p_knn_const : Boolean (or None), optional
         Multiplier of default number of observation used in movering
-        average of analyses method. Default (or None) is 1.
+        average of :meth:`~ModifiedCausalForest.analyse` method. Default (or None) is 1.
         
     var_bgate_name :  String or List of strings (or None), optional
         Variables to balance the GATEs on. Only relevant if P_BGATE is
@@ -564,8 +564,8 @@ class ModifiedCausalForest:
         is True. Default is None.
         
     var_d_name : String or List of string (or None), optional
-        Name of treatment variable. Must be provided to use the train
-        method. Can be provided for the :py:meth:`~mcf_functionsModifiedCausalForest.predict` method.
+        Name of treatment variable. Must be provided to use the :meth:`~ModifiedCausalForest.train`
+        method. Can be provided for the :meth:`~ModifiedCausalForest.predict` method.
         
     var_id_name : String or List of string (or None)
         Identifier. None: Identifier will be added the data.
@@ -594,16 +594,16 @@ class ModifiedCausalForest:
     var_x_name_always_in_unord : String or List of strings (or None),
                                  optional
         Name of Unordered variables that always checked on when deciding on
-        the next split during tree building. Only relevant for :meth:`ModifiedCausalForest.train` 
+        the next split during tree building. Only relevant for :meth:`~ModifiedCausalForest.train` 
         method. Default is None.
         
     var_x_name_remain_ord : String or List of strings (or None), optional
         Name of ordered variables that cannot be removed by feature
-        selection. Only relevant for :meth:`ModifiedCausalForest.train` method. Default is None.
+        selection. Only relevant for :meth:`~ModifiedCausalForest.train` method. Default is None.
         
     var_x_name_remain_unord : String or List of strings (or None), optional
         Name of unordered variables that cannot be removed by feature
-        selection. Only relevant for :meth:`ModifiedCausalForest.train` method. Default is None.
+        selection. Only relevant for :meth:`~ModifiedCausalForest.train` method. Default is None.
         
     var_x_name_ord : String or List of strings (or None), optional
         Name of ordered features. Either ordered or unordered features
@@ -617,12 +617,12 @@ class ModifiedCausalForest:
         Name of outcome variables. If several variables are specified,
         either var_y_tree_name is used for tree building, or (if
         var_y_tree_name is None), the 1st variable in the list is used.
-        Only necessary for :meth:`ModifiedCausalForest.train` method. Default is None.
+        Only necessary for :meth:`~ModifiedCausalForest.train` method. Default is None.
         
     var_y_tree_name : String or List of string (or None), optional
         Name of outcome variables to be used to build trees. This is only
         relevant if many outcome variables are specified in var_y_name.
-        Only relevant for :meth:`ModifiedCausalForest.train` method. Default is None.
+        Only relevant for :meth:`~ModifiedCausalForest.train` method. Default is None.
         
     var_z_name_list : String or List of strings (or None), optional
         Names of ordered variables with many values to define
@@ -775,7 +775,7 @@ class ModifiedCausalForest:
     _int_del_forest : Boolean (or None), optional
         Delete forests from instance. If True, less memory is needed, but
         the trained instance of the class cannot be reused when calling
-        predict with the same instance again, i.e. the forest has to be
+        :meth:`~ModifiedCausalForest.predict` with the same instance again, i.e. the forest has to be
         retrained when applied again. Default is False.
         
     _int_keep_w0 : Boolean (or None), optional.
@@ -1248,7 +1248,7 @@ class ModifiedCausalForest:
 
     def predict(self, data_df):
         """
-        Compute all effects given a causal forest estimated with :meth:`ModifiedCausalForest.train` method.
+        Compute all effects given a causal forest estimated with :meth:`~ModifiedCausalForest.train` method.
 
         Parameters
         ----------
@@ -1591,7 +1591,7 @@ class ModifiedCausalForest:
         ----------
         results : Dictionary
             Contains estimation results. This dictionary must have the same
-            structure as the one returned from the predict method.
+            structure as the one returned from the :meth:`~ModifiedCausalForest.predict` method.
 
         Raises
         ------
@@ -1655,7 +1655,7 @@ class ModifiedCausalForest:
         Parameters
         ----------
         data_df : DataFrame.
-            Contains data needed to predict the various adjusted IATES.
+            Contains data needed to :meth:`~ModifiedCausalForest.predict` the various adjusted IATES.
         blind_var_x_protected_name : List of strings (or None), optional
             Names of protected variables. Names that are
             explicitly denoted as blind_var_x_unrestricted_name or as
@@ -1736,9 +1736,9 @@ class ModifiedCausalForest:
             used from this dataset. If predict_df is not a DataFrame,
             train_df will be used instead.
         results : dictionary, optional.
-            The standard output dictionary from the predict method is expected.
+            The standard output dictionary from the :meth:`~ModifiedCausalForest.predict` method is expected.
             If this dictionary contains estimated IATEs, the same data as in
-            the predict method will be used, IATEs are computed under the no
+            the :meth:`~ModifiedCausalForest.predict` method will be used, IATEs are computed under the no
             effect (basic) scenario and these IATEs are compared to the IATEs
             contained in the results dictionary. If the dictionary does not
             contain estimated IATEs, passing it has no consequence.
@@ -1770,10 +1770,11 @@ class ModifiedCausalForest:
             the sensitivity analysis. Default is to use the treatment with most
             observed observations.
 
+
         Returns
         -------
         results_avg : Dictionary
-            Same content as for the predict method but (if applicable) averaged
+            Same content as for the :meth:`~ModifiedCausalForest.predict` method but (if applicable) averaged
             over replications.
 
         """

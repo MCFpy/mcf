@@ -158,7 +158,10 @@ class ModifiedCausalForest:
         
             S = \\min(0.67, \\frac{2 \\times (n^{0.8})}{n}), \\text{n: # of training observations} 
         
-        S * cf_subsample_factor_forest is not larger than 80%.
+        .. math:: 
+        
+            S \\times \\text{cf_subsample_factor_forest}, \\text{is not larger than 80%.} 
+  
         Default (or None) is 1.
         
     cf_subsample_factor_eval : Float or Boolean  (or None), optional

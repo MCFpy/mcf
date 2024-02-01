@@ -46,7 +46,7 @@ class ModifiedCausalForest:
 
         .. math:: 
         
-            \\text{A} = \\frac{\\sqrt\\text{number of observations in the smallest treatment group}^{0.5}}{10}, \text{at least} 2 
+            \\text{A} = \\frac{\\sqrt\\text{number of observations in the smallest treatment group}^{0.5}}{10}, \\text{at least} 2 
 
         .. math::
         
@@ -60,7 +60,7 @@ class ModifiedCausalForest:
 
         .. math::
 
-            \\text{A} = \\text{number of observations in smallest treatment group}^{0.4} / 10, \text{at least} 1.5
+            \\text{A} = \\text{number of observations in smallest treatment group}^{0.4} / 10, \\text{at least} 1.5
         
         .. math::
                       
@@ -78,6 +78,11 @@ class ModifiedCausalForest:
         None:  
         
         (n_min_min+n_min_max)/2 / # of treatments / 10, at least 1.
+        
+        .. math::
+        
+        \\frac{\\frac{n_{\\text{min_min}} + n_{\\text{min\_max}}}{2}}{\\text{number of treatments} \\times 10}, \\text{at least} 1
+
         
         Default is None.
         

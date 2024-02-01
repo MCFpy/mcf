@@ -134,12 +134,11 @@ class ModifiedCausalForest:
             mce_vart == 1: Multiplier of penalty (in terms of var(y))
               0: no penalty
               None: 
+              2*((n*subsam_share)**0.9)/(n*subsam_share)* sqrt(no_of_treatments*(no_of_treatments-1)/2).
 
               .. math::
               
-              2*((n*subsam_share)**0.9)/(n*subsam_share)* sqrt(no_of_treatments*(no_of_treatments-1)/2).
-
-              \\frac{2 \\times (\\text{n} \\times \\text{subsam\_share})^{0.9}}{\text{n} \\times \\text{subsam\_share}} \\times \sqrt{\frac{\text{no\_of\_treatments} \\times (\text{no\_of\_treatments} - 1)}{2}}
+                  \\frac{2 \\times (\\text{n} \\times \\text{subsam\_share})^{0.9}}{\text{n} \\times \\text{subsam\_share}} \\times \sqrt{\frac{\text{no\_of\_treatments} \\times (\text{no\_of\_treatments} - 1)}{2}}
 
             
             mce_vart == 2: Multiplier of penalty (in terms of MSE(y) value

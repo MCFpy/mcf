@@ -47,6 +47,10 @@ class McfOptPolReport:
         Dictionary, parameters to compute (partially) blinded IATEs.
         """
         return self._xxxx
+
+    @xxxx.setter
+    def xxxx(self, value):
+        self._xxxx = value
     
     def report(self):
         """Create the content of the report.

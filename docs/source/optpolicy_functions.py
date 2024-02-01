@@ -138,7 +138,7 @@ class OptimalPolicy:
         
     rnd_shares : Tuple of floats (or None), optional
         Share of treatments of a stochastic assignment as computed by the
-        evaluate method. Sum of all elements must add to 1. This used only
+        :meth:`~OptimalPolicy.evaluate` method. Sum of all elements must add to 1. This used only
         used as a comparison in the evaluation of other allocations.
         None: Shares of treatments in the allocation under investigation.
         Default is None.
@@ -162,7 +162,7 @@ class OptimalPolicy:
         Name of (discrete) treatment. Needed in training data only if
         'changers' (different treatment in alloication than observed
         treatment) are analysed and if allocation is compared to observed
-        allocation (in evaluate method). Default is None.
+        allocation (in :meth:`~OptimalPolicy.evaluate` method). Default is None.
         
     var_effect_vs_0  : Tuple of strings (or None), optional
         Name of variables of effects of treatment relative to first
@@ -480,7 +480,7 @@ class OptimalPolicy:
         Parameters
         ----------
         allocation_df : DataFrame
-            Optimal allocation as outputed by the solve and allocate methods.
+            Optimal allocation as outputed by the :meth:`~OptimalPolicy.solve` and :meth:`~OptimalPolicy.allocate` methods.
         data_df : DataFrame
             Additional information that can be linked to allocation_df.
         data_title : String, optional

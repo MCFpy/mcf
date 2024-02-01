@@ -19,12 +19,12 @@ class McfOptPolReport:
             for reports. The default is None.
             
         outputpath : String or None, optional
-            Path to write the pdf file that is created with the reporting
+            Path to write the pdf file that is created with the :meth:`~McfOptPolReport.report`
             method. If None, then an '/out' subdirectory of the current working
             directory is used. If the latter does not exist, it is created.
             
         outputfile : String or None, optional
-            Name of the pdf file that is created by the reporting method.
+            Name of the pdf file that is created by the :meth:`~McfOptPolReport.report` method.
             If None, 'Reporting' is used as name. Any name will always appended
             by string that contains the day and time (measured when the
             programme ends).

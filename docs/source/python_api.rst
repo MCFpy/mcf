@@ -38,13 +38,15 @@ Attributes
       ModifiedCausalForest.cf_dict
       ModifiedCausalForest.cs_dict
       ModifiedCausalForest.ct_dict
-      ModifiedCausalForest.int_dict
+      ModifiedCausalForest.data_train_dict
       ModifiedCausalForest.dc_dict
-      ModifiedCausalForest.fs_dict
       ModifiedCausalForest.forest
+      ModifiedCausalForest.fs_dict
       ModifiedCausalForest.gen_dict
+      ModifiedCausalForest.int_dict
       ModifiedCausalForest.p_dict
       ModifiedCausalForest.post_dict
+      ModifiedCausalForest.report
       ModifiedCausalForest.sens_dict
       ModifiedCausalForest.time_strings
       ModifiedCausalForest.var_dict
@@ -56,13 +58,15 @@ Attributes
     ~ModifiedCausalForest.cf_dict
     ~ModifiedCausalForest.cs_dict
     ~ModifiedCausalForest.ct_dict
-    ~ModifiedCausalForest.int_dict
+    ~ModifiedCausalForest.data_train_dict
     ~ModifiedCausalForest.dc_dict
-    ~ModifiedCausalForest.fs_dict
     ~ModifiedCausalForest.forest
+    ~ModifiedCausalForest.fs_dict
     ~ModifiedCausalForest.gen_dict
+    ~ModifiedCausalForest.int_dict
     ~ModifiedCausalForest.p_dict
     ~ModifiedCausalForest.post_dict
+    ~ModifiedCausalForest.report
     ~ModifiedCausalForest.sens_dict
     ~ModifiedCausalForest.time_strings
     ~ModifiedCausalForest.var_dict

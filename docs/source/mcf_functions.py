@@ -158,10 +158,10 @@ class ModifiedCausalForest:
         
     cf_subsample_factor_eval : Float or Boolean  (or None), optional
         Size of subsampling sample used to populate tree.
-            False: No subsampling in evaluation subsample
-            True or None: 2 * subsample size used for tree building (to
-                      avoid too many empty leaves)
-            Float (>0): Multiplier of subsample size used for tree building
+        False: No subsampling in evaluation subsample
+        True or None: 2 * subsample size used for tree building (to
+        avoid too many empty leaves)
+        Float (>0): Multiplier of subsample size used for tree building
         In particular for larger samples, using subsampling in evaluation
         will speed up computations and reduces demand on memory.
         Tree-specific subsampling in evaluation sample increases speed
@@ -174,9 +174,9 @@ class ModifiedCausalForest:
         feature only; re-randomize for each splitting decision; fewer
         thresholds speeds up programme but may lead to less accurate
         results).
-          0: no random thresholds.
-          > 0: number of random thresholds used for ordered variables.
-          None: 
+        0: no random thresholds.
+        > 0: number of random thresholds used for ordered variables.
+        None: 
           
           4 + # of training observations**0.2 .
           
@@ -190,44 +190,44 @@ class ModifiedCausalForest:
         
     cs_type : Integer (or None), optional
         Common support adjustment: Method.
-            0: No common support adjustment
-            1,2: Support check based on estimated classification forests.
-              1: Min-max rules for probabilities in treatment subsamples.
-              2: Enforce minimum and maximum probabilities for all obs
-                 all but one probability
-              Observations off support are removed. Out-of-bag predictions
-              are used to avoid overfitting (which would lead to a too
-              large reduction in the number of observations).
+        0: No common support adjustment
+        1,2: Support check based on estimated classification forests.
+        1: Min-max rules for probabilities in treatment subsamples.
+        2: Enforce minimum and maximum probabilities for all obs
+        all but one probability
+        Observations off support are removed. Out-of-bag predictions
+        are used to avoid overfitting (which would lead to a too
+        large reduction in the number of observations).
         Default (or None) is 1.
         
     cs_adjust_limits : Float (or None), optional
         Common support adjustment: Accounting for multiple treatments.
-            None: 
+        None: 
             
             (number of treatments - 2) * 0.05
             
-            If cs_type > 0:
-                upper limit *= 1+support_adjust_limits,
-                lower limit *= 1-support_adjust_limits
+        If cs_type > 0:
+        upper limit *= 1+support_adjust_limits,
+        lower limit *= 1-support_adjust_limits
         The restrictiveness of the common support criterion increases with
         the number of treatments. This parameter allows to reduce this
         restrictiveness. Default is None.
         
     cs_max_del_train : Float (or None), optional
         Common support adjustment: If share of observations in training
-           data used that are off support is larger than cs_max_del_train
-           (0-1), an exception is raised. In this case, user should change
-           input data. Default (or None) is 0.5.
+        data used that are off support is larger than cs_max_del_train
+        (0-1), an exception is raised. In this case, user should change
+        input data. Default (or None) is 0.5.
            
     cs_min_p : Float (or None), optional
         Common support adjustment: If cs_type == 2, observations are
-           deleted if p(d=m|x) is less or equal than cs_min_p for at least
-           one treatment. Default (or None) is 0.01.
+        deleted if p(d=m|x) is less or equal than cs_min_p for at least
+        one treatment. Default (or None) is 0.01.
            
     cs_quantil : Float (or None), optional
         Common support adjustment: How to determine upper and lower bounds.
-            If CS_TYPE == 1: 1 or None: min-max rule
-                             < 1: respective quantil
+        If CS_TYPE == 1: 1 or None: min-max rule
+        < 1: respective quantil
         Default (or None) is 1.
         
     ct_grid_dr : Integer (or None), optional
@@ -289,7 +289,7 @@ class ModifiedCausalForest:
         
     fs_other_sample : Boolean (or None), optional
         True (default): Random sample from training data used. These
-           observations will not be used for causal forest.
+        observations will not be used for causal forest.
         False: Use the same sample as used for causal forest estimation.
         Default (or None) is True.
         
@@ -300,7 +300,7 @@ class ModifiedCausalForest:
         
     gen_d_type : String (or None), optional
         Type of treatment. 'discrete': Discrete treatment.
-                           'continuous': Continuous treatment.
+        'continuous': Continuous treatment.
         Default (or None) is 'discrete'.
         
     gen_iate_eff : Boolean (or None), optional
@@ -505,6 +505,7 @@ class ModifiedCausalForest:
         
     p_ate_no_se_only : Boolean (or None)
         Computes only the ATE without standard errors. Default is False.
+        
     post_est_stats : Boolean (or None), optional
         Descriptive Analyses of IATEs (p_iate must be True).
         Default (or None) is True.
@@ -546,8 +547,8 @@ class ModifiedCausalForest:
         
     post_random_forest_vi : Boolean (or None), optional
         Descriptive Analyses of IATEs: Variable importance measure of
-         random forest used to learn factors influencing IATEs.
-         Default (or None) is True.
+        random forest used to learn factors influencing IATEs.
+        Default (or None) is True.
          
     post_plots : Boolean (or None), optional
         Descriptive Analyses of IATEs: Plots of estimated treatment
@@ -705,9 +706,10 @@ class ModifiedCausalForest:
         
     _int_mp_vim_type : Integer (or None), optional
         Type of multiprocessing when computing variable importance
-        statistics:  1: variable based (fast, lots of memory),
-                     2: bootstrap based (slower, less memory)
-                     None: 1 if obs < 20000, 2 otherwise. Default is None.
+        statistics:
+        1: variable based (fast, lots of memory),
+        2: bootstrap based (slower, less memory)
+        None: 1 if obs < 20000, 2 otherwise. Default is None.
         Internal variable, change default only if you know what you do.
         
     _int_mp_weights_tree_batch : Integer (or None), optional
@@ -718,8 +720,8 @@ class ModifiedCausalForest:
         
     _int_mp_weights_type : Integer (or None), optional
         Type of multiprocessing when computing weights:
-            1: groups-of-obs based (fast, lots of memory)
-            2: tree based (takes forever, less memory)
+        1: groups-of-obs based (fast, lots of memory)
+        2: tree based (takes forever, less memory)
         Default (or None) is 1.
         Internal variable, change default only if you know what you do.
         Value of 2 will be internally changed to 1 if multiprocessing.

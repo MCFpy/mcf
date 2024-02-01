@@ -64,7 +64,7 @@ class ModifiedCausalForest:
         
         .. math::
                       
-            \\text{cf_n_min_min} = \\text{round}(A \times \\text{number of treatments})
+            \\text{cf_n_min_min} = \\text{round}(A \\times \\text{number of treatments})
          
         Default is None.
         
@@ -81,8 +81,7 @@ class ModifiedCausalForest:
         
         .. math::
         
-            \\frac{\\frac{n_{\\text{min_min}} + n_{\\text{min\_max}}}{2}}{\\text{number of treatments} \\times 10}, \\text{at least} 1
-
+            \\frac{\\frac{n_{\\text{min_min}} + n_{\\text{min_max}}}{2}}{\\text{number of treatments} \\times 10}, \\text{at least} 1
         
         Default is None.
         
@@ -138,9 +137,8 @@ class ModifiedCausalForest:
 
               .. math::
               
-                  \\frac{2 \\times (\\text{n} \\times \\text{subsam\_share})^{0.9}}{\text{n} \\times \\text{subsam\_share}} \\times \sqrt{\frac{\text{no\_of\_treatments} \\times (\text{no\_of\_treatments} - 1)}{2}}
+                  \\frac{2 \\times (\\text{n} \\times \\text{subsam_share})^{0.9}}{\text{n} \\times \\text{subsam_share}} \\times \sqrt{\frac{\text{no_of_treatments} \\times (\text{no_of_treatments} - 1)}{2}}
 
-            
             mce_vart == 2: Multiplier of penalty (in terms of MSE(y) value
                            function without splits) for penalty.
               0: no penalty

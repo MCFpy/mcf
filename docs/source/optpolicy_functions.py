@@ -43,13 +43,13 @@ class OptimalPolicy:
         Default (or None) is 'best_policy_score'.
         
     gen_outfiletext : String (or None), optional
-        File for text output. *.txt file extension will be automatically
+        File for text output. (\*.txt) file extension will be automatically
         added. Default (or None) is 'txtFileWithOutput'.
         
     gen_outpath : String (or None), optional
         Directory to where to put text output and figures. If it does not
         exist, it will be created.
-        None: *.out directory just below to the directory where the
+        None: (\*.out) directory just below to the directory where the
         programme is run. Default is None.
         
     gen_output_type : Integer (or None), optional
@@ -126,7 +126,7 @@ class OptimalPolicy:
         search among optimal trees, for catorgical variables variables we
         need to check for all possible combinations of the different values
         that lead to binary splits. Thus number could indeed be huge.
-        Therefore, we compare only pt_no_of_evalupoints * 2 different
+        Therefore, we compare only :math:`\\text{pt_no_of_evalupoints} \\times 2` different
         combinations. Method 1 (pt_select_values_cat == True) does this by
         randomly drawing values from the particular categorical variable
         and forming groups only using those values. Method 2
@@ -550,7 +550,7 @@ class OptimalPolicy:
 
     def print_time_strings_all_steps(self):
         """Print an overview over the time needed in all steps of programme."""
-        txt = '\n' + '=' * 100 + '\nSummary of computation times of all steps'
+        txt = '\n' + '=' :math:`\\times 100` + '\nSummary of computation times of all steps'
         ps.print_mcf(self.gen_dict, txt, summary=True)
         val_all = ''
         for _, val in self.time_strings.items():

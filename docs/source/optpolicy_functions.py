@@ -96,7 +96,7 @@ class OptimalPolicy:
     pt_eva_cat_mult : Integer (or None).
         Changes the number of the evaluation points (pt_no_of_evalupoints)
         for the unordered (categorical) variables to:
-        :math:`pt_eva_cat_mult \\times pt_no_of_evalupoints`
+        :math:`\\text{pt_eva_cat_mult} \\times \\text{pt_no_of_evalupoints}`
         (available only for the method 'policy tree eff').
         Default (or None is 1).
         
@@ -105,7 +105,7 @@ class OptimalPolicy:
         value, the faster the algorithm, but it may also deviate more from
         the optimal splitting rule. This parameter is closely related to
         the approximation parameter of Zhou, Athey, Wager (2022)(A) with
-        :math:`pt_no_of_evalupoints = number of observation / A`.
+        :math:`\\text{pt_no_of_evalupoints} = \\text{number of observation} / \\text{A}`.
         Only relevant if gen_method is 'policy tree' or 'policy tree eff'.
         Default (or None) is 100.
         
@@ -114,7 +114,11 @@ class OptimalPolicy:
         the training data will not be considered. A larger number reduces
         computation time and avoids some overfitting.
         None:
-        :math:`0.1 \\times \\frac{\\text{Number of training observations}}{{\\text{Number of leaves}}}` 
+
+        .. math::
+        
+            0.1 \\times \\frac{\\text{Number of training observations}}{{\\text{Number of leaves}}}` 
+            
         Only relevant if gen_method is 'policy tree'. Default is None.
         
     pt_select_values_cat : Boolean (or None), optional

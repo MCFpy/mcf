@@ -956,58 +956,55 @@ class ModifiedCausalForest:
         """
         Dictionary, parameters to compute (partially) blinded IATEs.
         """
-        return self._blind_dict 
+        return self._blind_dict
 
     @blind_dict.setter
     def blind_dict(self, value):
         self._blind_dict = value
         
     @property
-    def cf_dict(self): 
+    def cf_dict(self):
         """
         Dictionary, parameters used in training the forest (directly).
         """
-        return self._cf_dict 
+        return self._cf_dict
 
     @cf_dict.setter
     def cf_dict(self, value):
         self._cf_dict = value
         
     @property
-    def cs_dict(self): 
+    def cs_dict(self):
         """
         Dictionary, parameters used in common support adjustments.
         """
-        return self._cs_dict 
+        return self._cs_dict
 
     @cs_dict.setter
     def cs_dict(self, value):
         self._cs_dict = value
 
     @property
-    def ct_dict(self): 
+    def ct_dict(self):
         """
         Dictionary, parameters used in dealing with continuous treatments.
         """
-        return self._ct_dict 
+        return self._ct_dict
 
     @ct_dict.setter
     def ct_dict(self, value):
         self._ct_dict = value
-        
+
     @property
-    def int_dict(self): 
-        """
-        Dictionary, internal parameters used in various parts of the class.
-        """
-        return self._int_dict
-        
-    @int_dict.setter
-    def int_dict(self, value):
-        self._int_dict = value
-        
+    def data_train_dict(self):
+        return self._data_train_dict
+
+    @data_train_dict.setter
+    def data_train_dict(self, value):
+        self._data_train_dict = value
+
     @property
-    def dc_dict(self): 
+    def dc_dict(self):
         """
         Dictionary, parameters used in data cleaning.
         """
@@ -1045,13 +1042,24 @@ class ModifiedCausalForest:
         Dictionary, general parameters used in various parts of the programme.
         """
         return self._gen_dict
-        
+
     @gen_dict.setter
     def gen_dict(self, value):
         self._gen_dict = value
 
     @property
-    def p_dict(self): 
+    def int_dict(self):
+        """
+        Dictionary, internal parameters used in various parts of the class.
+        """
+        return self._int_dict
+
+    @int_dict.setter
+    def int_dict(self, value):
+        self._int_dict = value
+
+    @property
+    def p_dict(self):
         """
         Dictionary, parameters used by prediction method.
         """
@@ -1073,7 +1081,15 @@ class ModifiedCausalForest:
         self._post_dict = value
 
     @property
-    def sens_dict(self): 
+    def report(self):
+        return self._report
+
+    @report.setter
+    def report(self, value):
+        self._report = value
+
+    @property
+    def sens_dict(self):
         """
         Dictionary, parameters used in sensitivity method.
         """

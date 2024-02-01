@@ -182,8 +182,10 @@ class ModifiedCausalForest:
         0: no random thresholds.
         > 0: number of random thresholds used for ordered variables.
         None: 
-          
-          4 + # of training observations**0.2 .
+
+        .. math::
+        
+            4 + \\text{number of training observations}^{0.2}
           
         Default is None.
         
@@ -209,8 +211,10 @@ class ModifiedCausalForest:
         Common support adjustment: Accounting for multiple treatments.
         None: 
             
-            (number of treatments - 2) * 0.05
-            
+        .. math::
+        
+            (\\text{number of treatments} - 2) \\times 0.05
+
         If cs_type > 0:
         upper limit *= 1+support_adjust_limits,
         lower limit *= 1-support_adjust_limits
@@ -415,10 +419,13 @@ class ModifiedCausalForest:
         Therefore, random samples are used to speed up the programme if
         there are number observations  / number of evaluation points > 10.
         None: 
-        
         If observation in prediction data (n) < 1000: 1
-              If n >= 1000: 1000 + (n-1000)**(3/4) / evaluation points.
-              
+        If n >= 1000: 
+        
+        .. math::
+        
+            1000 + \\frac{{(n - 1000)^{\\frac{3}{4}}}}{{\\text{evaluation points}}}
+        
         Default is None.
         
     p_max_cats_z_vars : Integer (or None), optional
@@ -535,12 +542,8 @@ class ModifiedCausalForest:
         Descriptive Analyses of IATEs: Number of clusters to be build in
         k-means.
         None: List of 5 values: [a, b, c, d, e]; c = 5 to 10;
-        depending on number of observations; 
-        
-        c<7: a=c-2, b=c-1, d=c+1,
-        e=c+2, else a=c-4, b=c-2, d=c+2, e=c+4. 
-        
-        Default is None.
+        depending on number of observations; c<7: a=c-2, b=c-1, d=c+1,
+        e=c+2, else a=c-4, b=c-2, d=c+2, e=c+4. Default is None.
         
     post_kmeans_max_tries : Integer (or None), optional
         Descriptive Analyses of IATEs: Maximum number of iterations of
@@ -770,9 +773,10 @@ class ModifiedCausalForest:
     _int_weight_as_sparse_splits : Integer (or None), optional
         Compute sparse weight matrix in several chuncks.
         Default: None: 
-        
-        int(Rows of prediction data * rows of Fill_y data
-                           / (20'000 * 20'000)).
+
+        .. math:: 
+
+            \\text{int}(\\frac{{\\text{Rows of prediction data} \\times \\text{rows of Fill_y data}}}{{20000 \\times 20000}})
                            
         Default is None.
         Internal variable, change default only if you know what you do.

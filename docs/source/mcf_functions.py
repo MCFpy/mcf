@@ -1,6 +1,6 @@
 class ModifiedCausalForest:
     """
-    The class contains all methods necessary for a complete mcf estimation.
+    The class contains all methods necessary for a complete :py:class:`~mcf_functionsModifiedCausalForest` estimation.
 
     Parameters
     ----------
@@ -565,7 +565,7 @@ class ModifiedCausalForest:
         
     var_d_name : String or List of string (or None), optional
         Name of treatment variable. Must be provided to use the train
-        method. Can be provided for the predict method.
+        method. Can be provided for the :py:meth:`~mcf_functionsModifiedCausalForest.predict` method.
         
     var_id_name : String or List of string (or None)
         Identifier. None: Identifier will be added the data.
@@ -617,12 +617,12 @@ class ModifiedCausalForest:
         Name of outcome variables. If several variables are specified,
         either var_y_tree_name is used for tree building, or (if
         var_y_tree_name is None), the 1st variable in the list is used.
-        Only necessary for train method. Default is None.
+        Only necessary for :py:meth:`~mcf_functionsModifiedCausalForest.train` method. Default is None.
         
     var_y_tree_name : String or List of string (or None), optional
         Name of outcome variables to be used to build trees. This is only
         relevant if many outcome variables are specified in var_y_name.
-        Only relevant for train method. Default is None.
+        Only relevant for :py:meth:`~mcf_functionsModifiedCausalForest.train` method. Default is None.
         
     var_z_name_list : String or List of strings (or None), optional
         Names of ordered variables with many values to define
@@ -1248,7 +1248,7 @@ class ModifiedCausalForest:
 
     def predict(self, data_df):
         """
-        Compute all effects given a causal forest estimated with train method.
+        Compute all effects given a causal forest estimated with :py:meth:`~mcf_functionsModifiedCausalForest.train` method.
 
         Parameters
         ----------

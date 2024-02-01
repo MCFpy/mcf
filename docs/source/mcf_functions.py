@@ -310,13 +310,13 @@ class ModifiedCausalForest:
         None: 80% of logical cores. Default is None.
         
     gen_outfiletext : String (or None), optional
-        File for text output. *.txt file extension will be added.
+        File for text output. (*.txt) file extension will be added.
         None: 'txtFileWithOutput'. Default is None.
         
     gen_outpath : String (or None), optional
         Path were the output is written too (text, estimated effects, etc.)
         If specified directory does not exist, it will be created.
-        None: An */out directory below the current directory is used.
+        None: An (*/out) directory below the current directory is used.
         Default is None.
         
     gen_output_type : Integer (or None), optional

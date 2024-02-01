@@ -550,7 +550,7 @@ class OptimalPolicy:
 
     def print_time_strings_all_steps(self):
         """Print an overview over the time needed in all steps of programme."""
-        txt = '\n' + '=' :math:`\\times 100` + '\nSummary of computation times of all steps'
+        txt = '\n' + '=' * 100 + '\nSummary of computation times of all steps'
         ps.print_mcf(self.gen_dict, txt, summary=True)
         val_all = ''
         for _, val in self.time_strings.items():

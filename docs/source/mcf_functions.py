@@ -557,7 +557,7 @@ class ModifiedCausalForest:
         Variables to balance the GATEs on. Only relevant if P_BGATE is
         True. The distribution of these variables is kept constant when a
         BGATE is computed. None: Use the other heterogeneity variables
-        (var_z_...) (if there are any) for balancing. Default is None.
+        (var_z_ ...) (if there are any) for balancing. Default is None.
         
     var_cluster_name :  String or List of string (or None)
         Name of variable defining clusters. Only relevant if p_cluster_std

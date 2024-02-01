@@ -120,7 +120,7 @@ class ModifiedCausalForest:
           0: mse's of regression only considered
           1: mse+mce criterion (default)
           2: -var(effect): heterogeneity maximising splitting rule of
-                           Wager & Athey (2018)
+          Wager & Athey (2018)
           3: randomly switching between outcome-mse+mce criterion
           & penalty functions
         Default (or None) is 1.
@@ -129,7 +129,7 @@ class ModifiedCausalForest:
         Penalty function (depends on value of mce_vart):
             mce_vart == 0: Irrelevant
             mce_vart == 1: Multiplier of penalty (in terms of var(y))
-              0: no penalty
+            0: no penalty
               None: 
 
             .. math::

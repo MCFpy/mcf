@@ -157,6 +157,8 @@ class ModifiedCausalForest:
         .. math::
         
             S = \\min(0.67, \\frac{2 \\times (n^{0.8})}{n}), \\text{n: # of training observations} 
+
+        :math:`S * \\text{cf_subsample_factor_forest}, \\text{is not larger than 80%.}` 
         
         .. math:: 
         

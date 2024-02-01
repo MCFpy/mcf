@@ -1,6 +1,6 @@
 class ModifiedCausalForest:
     """
-    The class contains all methods necessary for a complete :py:class:`~mcf_functionsModifiedCausalForest` estimation.
+    The class contains all methods necessary for a complete :class:`ModifiedCausalForest` estimation.
 
     Parameters
     ----------

@@ -1255,7 +1255,7 @@ class ModifiedCausalForest:
         data_df : DataFrame
             Data used to compute the predictions. It must contain information
             about features (and treatment if effects for treatment specific
-                            subpopulations are desired as well).
+            subpopulations are desired as well).
 
         Returns
         -------
@@ -1274,12 +1274,12 @@ class ModifiedCausalForest:
             'bgate_se': Standard error of BGATE,
             'bgate_diff': BGATE minus ATE,
             'bgate_diff_se': Standard errror of BGATE minus ATE,
-            'gate_names_values': Dictionary: Order of gates parameters and
-                        name and values of GATE effects.
+            'gate_names_values': Dictionary: Order of gates parameters
+            and name and values of GATE effects.
             'iate': IATE, 'iate_se': Standard error of IATE,
             'iate_eff': (More) Efficient IATE (IATE estimated twice and
-                        averaged where role of tree_building and tree_filling
-                        sample is exchanged),
+            averaged where role of tree_building and tree_filling
+            sample is exchanged),
             'iate_data_df': DataFrame with IATEs,
             'iate_names_dic': Dictionary containing names of IATEs,
             'bala': Effects of balancing tests,
@@ -1758,7 +1758,7 @@ class ModifiedCausalForest:
         sens_scenarios : List or tuple of strings, optional.
             Different scenarios considered. Default is ('basic',).
             'basic' : Use estimated treatment probabilities for simulations.
-                      No confounding.
+            No confounding.
         sens_cv_k : Integer (or None), optional
             Data to be used for any cross-validation: Number of folds in
             cross-validation. Default (or None) is 5.

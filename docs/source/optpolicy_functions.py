@@ -238,20 +238,20 @@ class OptimalPolicy:
         _int_with_output=True,
             ):
 
-        self._int_dict = op_init.init_int(
+        self.int_dict = op_init.init_int(
             how_many_parallel=_int_how_many_parallel,
             output_no_new_dir=_int_output_no_new_dir,
             parallel_processing=_int_parallel_processing,
             with_numba=_int_with_numba, with_output=_int_with_output)
 
-        self._gen_dict = op_init.init_gen(
+        self.gen_dict = op_init.init_gen(
             method=gen_method, outfiletext=gen_outfiletext,
             outpath=gen_outpath, output_type=gen_output_type,
             variable_importance=gen_variable_importance,
             with_output=self.int_dict['with_output'],
             new_outpath=not self.int_dict['output_no_new_dir'])
 
-        self._dc_dict = op_init.init_dc(
+        self.dc_dict = op_init.init_dc(
             check_perfectcorr=dc_check_perfectcorr,
             clean_data=dc_clean_data, min_dummy_obs=dc_min_dummy_obs,
             screen_covariates=dc_screen_covariates)
@@ -263,13 +263,13 @@ class OptimalPolicy:
             select_values_cat=pt_select_values_cat,
             min_leaf_size=pt_min_leaf_size)
 
-        self._other_dict = {'costs_of_treat': other_costs_of_treat,
+        self.other_dict = {'costs_of_treat': other_costs_of_treat,
                            'costs_of_treat_mult': other_costs_of_treat_mult,
                            'max_shares': other_max_shares}
 
-        self._rnd_dict = {'shares': rnd_shares}
+        self.rnd_dict = {'shares': rnd_shares}
 
-        self._var_dict = op_init.init_var(
+        self.var_dict = op_init.init_var(
             bb_restrict_name=var_bb_restrict_name, d_name=var_d_name,
             effect_vs_0=var_effect_vs_0, effect_vs_0_se=var_effect_vs_0_se,
             id_name=var_id_name, polscore_desc_name=var_polscore_desc_name,
@@ -277,18 +277,7 @@ class OptimalPolicy:
             x_unord_name=var_x_unord_name, vi_x_name=var_vi_x_name,
             vi_to_dummy_name=var_vi_to_dummy_name)
 
-        self._time_strings, self._var_x_type, self._var_x_values = {}, {}, {}
-
-    @property
-    def int_dict(self):
-        """
-        Dictionary, parameters used in many parts of the class.
-        """
-        return self._int_dict 
-
-    @int_dict.setter
-    def int_dict(self, value):
-        self._int_dict = value
+        self.time_strings, self.var_x_type, self.var_x_values = {}, {}, {}
 
     @property
     def dc_dict(self):
@@ -296,22 +285,33 @@ class OptimalPolicy:
         Dictionary, parameters used in data cleaning.
         List of list containing the estimated causal forest.
         """
-        return self._dc_dict 
-        
+        return self._dc_dict
+
     @dc_dict.setter
     def dc_dict(self, value):
         self._dc_dict = value
-        
+
     @property
     def gen_dict(self):
         """
         Dictionary, general parameters used in various parts of the programme.
         """
-        return self._gen_dict 
+        return self._gen_dict
 
     @gen_dict.setter
     def gen_dict(self, value):
         self._gen_dict = value
+
+    @property
+    def int_dict(self):
+        """
+        Dictionary, parameters used in many parts of the class.
+        """
+        return self._int_dict
+
+    @int_dict.setter
+    def int_dict(self, value):
+        self._int_dict = value
 
     @property
     def other_dict(self):
@@ -319,7 +319,7 @@ class OptimalPolicy:
         Contains other relevant information needed for allocation (like
         cost, constraints)
         """
-        return self._other_dict 
+        return self._other_dict
 
     @other_dict.setter
     def other_dict(self, value):
@@ -330,7 +330,7 @@ class OptimalPolicy:
         """
         Dictionary, parameters used to build policy tree.
         """
-        return self._pt_dict 
+        return self._pt_dict
     
     @pt_dict.setter
     def pt_dict(self, value):
@@ -363,7 +363,7 @@ class OptimalPolicy:
         """
         Dictionary, variable names.
         """
-        return self._var_dict 
+        return self._var_dict
 
     @var_dict.setter
     def var_dict(self, value):
@@ -385,7 +385,7 @@ class OptimalPolicy:
         """
         Dictionary, values of covariates (internal).
         """
-        return self._var_x_values 
+        return self._var_x_values
 
     @var_x_values.setter
     def var_x_values(self, value):

@@ -68,7 +68,7 @@ class ModifiedCausalForest:
         outcomes from all treatment arms in the evaluation subsample.
         There is no grid based tuning for this parameter.
         This parameter impacts the minimum leaf size which will be at least
-        to n_min_treat * number of treatments.
+        to :math:`\\text{n_min_treat} \\times \\text{number of treatments}`
         None:  
                 
         .. math::
@@ -158,7 +158,7 @@ class ModifiedCausalForest:
     cf_subsample_factor_eval : Float or Boolean  (or None), optional
         Size of subsampling sample used to populate tree.
         False: No subsampling in evaluation subsample
-        True or None: 2 * subsample size used for tree building (to
+        True or None: :math:`(2 \\times subsample size)` used for tree building (to
         avoid too many empty leaves)
         Float (>0): Multiplier of subsample size used for tree building
         In particular for larger samples, using subsampling in evaluation
@@ -202,8 +202,8 @@ class ModifiedCausalForest:
         None: 
         :math:`(\\text{number of treatments} - 2) \\times 0.05`
         If cs_type > 0:
-        upper limit *= 1+support_adjust_limits,
-        lower limit *= 1-support_adjust_limits. 
+        :math:`\text{upper limit} \\times = 1+support_adjust_limits`,
+        :math:`lower limit \\times = 1-support_adjust_limits`. 
         The restrictiveness of the common support criterion increases with
         the number of treatments. This parameter allows to reduce this
         restrictiveness. Default is None.
@@ -435,7 +435,7 @@ class ModifiedCausalForest:
         
     p_cond_var : Boolean (or None), optional
         True: Conditional mean & variances are used.
-        False: Variance estimation uses :math:`wy_i = w_i * y_i` directly.
+        False: Variance estimation uses :math:`wy_i = w_i \\times y_i` directly.
         Default (or None) is True.
         
     p_knn : Boolean (or None), optional

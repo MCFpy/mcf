@@ -551,7 +551,7 @@ class ModifiedCausalForest:
         
     p_knn_const : Boolean (or None), optional
         Multiplier of default number of observation used in movering
-        average of analyses method. Default (or None) is 1.
+        average of :meth:`~ModifiedCausalForest.analyse` method. Default (or None) is 1.
         
     var_bgate_name :  String or List of strings (or None), optional
         Variables to balance the GATEs on. Only relevant if P_BGATE is
@@ -564,7 +564,7 @@ class ModifiedCausalForest:
         is True. Default is None.
         
     var_d_name : String or List of string (or None), optional
-        Name of treatment variable. Must be provided to use the train
+        Name of treatment variable. Must be provided to use the :meth:`~ModifiedCausalForest.train`
         method. Can be provided for the :meth:`~ModifiedCausalForest.predict` method.
         
     var_id_name : String or List of string (or None)

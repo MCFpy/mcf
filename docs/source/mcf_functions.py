@@ -143,7 +143,7 @@ class ModifiedCausalForest:
 
         .. math::
         
-            \\frac{100 \\times 4 \\times (n \\times vtext{f_c.subsam_share})^{0.8}}{n \\times \\text{f_c.subsam_share}}
+            \\frac{100 \\times 4 \\times (n \\times \\text{f_c.subsam_share})^{0.8}}{n \\times \\text{f_c.subsam_share}}
               
         mce_vart == 3: Probability of using p-score (0-1)
         None: 0.5.
@@ -152,7 +152,12 @@ class ModifiedCausalForest:
         
     cf_subsample_factor_forest : Float (or None), optional
         Multiplier of default size of subsampling sample (S) used to build
-        tree. S=min(0.67,(2*(n^0.8)/n)); n: # of training observations.
+        tree. 
+
+        .. math::
+        
+            S = \\min(0.67, \\frac{2 \\times (n^{0.8})}{n}), \\text{n: # of training observations} 
+        
         S * cf_subsample_factor_forest is not larger than 80%.
         Default (or None) is 1.
         

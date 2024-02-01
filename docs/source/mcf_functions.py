@@ -588,7 +588,7 @@ class ModifiedCausalForest:
     var_x_name_always_in_ord : String or List of strings (or None),
                                optional
         Name of ordered variables that always checked on when deciding on
-        the next split during tree building. Only relevant for :meth:`ModifiedCausalForest.train` 
+        the next split during tree building. Only relevant for :meth:`~ModifiedCausalForest.train`
         method. Default is None.
         
     var_x_name_always_in_unord : String or List of strings (or None),

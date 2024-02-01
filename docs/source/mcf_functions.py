@@ -101,10 +101,10 @@ class ModifiedCausalForest:
         
     cf_m_random_poisson : Boolean (or None), optional
         Number of variables used at each new split of tree:
-        True: Number of randomly selected variables is stochastic for each
-              split, drawn from a Poisson distribution. Grid gives mean
-              value of 1 + poisson distribution (m-1) (m is determined by
-              cf_m_share parameters).
+        True: Number of randomly selected variables is stochastic for each 
+        split, drawn from a Poisson distribution. Grid gives mean
+        value of 1 + poisson distribution (m-1) (m is determined by
+        cf_m_share parameters).
         False : No additional randomisation. Default (or None) is True.
         
     cf_m_share_max : Float (or None), optional

@@ -159,11 +159,6 @@ class ModifiedCausalForest:
             S = \\min(0.67, \\frac{2 \\times (n^{0.8})}{n}), \\text{n: # of training observations} 
 
         :math:`S * \\text{cf_subsample_factor_forest}, \\text{is not larger than 80%.}` 
-        
-        .. math:: 
-        
-            S \\times \\text{cf_subsample_factor_forest}, \\text{is not larger than 80%.} 
-  
         Default (or None) is 1.
         
     cf_subsample_factor_eval : Float or Boolean  (or None), optional
@@ -215,11 +210,7 @@ class ModifiedCausalForest:
     cs_adjust_limits : Float (or None), optional
         Common support adjustment: Accounting for multiple treatments.
         None: 
-            
-        .. math::
-        
-            (\\text{number of treatments} - 2) \\times 0.05
-
+        :math:`(\\text{number of treatments} - 2) \\times 0.05`
         If cs_type > 0:
         upper limit *= 1+support_adjust_limits,
         lower limit *= 1-support_adjust_limits

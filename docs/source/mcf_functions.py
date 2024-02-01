@@ -76,9 +76,7 @@ class ModifiedCausalForest:
         This parameter impacts the minimum leaf size which will be at least
         to n_min_treat * number of treatments.
         None:  
-        
-        (n_min_min+n_min_max)/2 / # of treatments / 10, at least 1.
-        
+                
         .. math::
         
             \\frac{\\frac{{\\text{n_min_min}} + {\\text{n_min_max}}}{2}}{\\text{number of treatments} \\times 10}, \\text{at least} 1
@@ -133,11 +131,10 @@ class ModifiedCausalForest:
             mce_vart == 1: Multiplier of penalty (in terms of var(y))
               0: no penalty
               None: 
-              2*((n*subsam_share)**0.9)/(n*subsam_share)* sqrt(no_of_treatments*(no_of_treatments-1)/2).
 
-        .. math::
+            .. math::
               
-            \\frac{2 \\times (\\text{n} \\times \\text{subsam_share})^{0.9}}{\text{n} \\times \\text{subsam_share}} \\times \\sqrt{\\frac{\\text{no_of_treatments} \\times (\\text{no_of_treatments} - 1)}{2}}
+                \\frac{2 \\times (\\text{n} \\times \\text{subsam_share})^{0.9}}{\text{n} \\times \\text{subsam_share}} \\times \\sqrt{\\frac{\\text{no_of_treatments} \\times (\\text{no_of_treatments} - 1)}{2}}
 
             mce_vart == 2: Multiplier of penalty (in terms of MSE(y) value
                            function without splits) for penalty.

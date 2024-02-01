@@ -945,7 +945,7 @@ class ModifiedCausalForest:
             y_name=var_y_name, y_tree_name=var_y_tree_name,
             z_name_list=var_z_name_list, z_name_ord=var_z_name_ord,
             z_name_unord=var_z_name_unord)
-        self.blind_dict = self.sens_dict = None
+        self._blind_dict = self.sens_dict = None
         self.data_train_dict = self.var_x_type = self.var_x_values = None
         self.forest, self.time_strings = None, {}
         self.report = {'predict_list': [],   # Needed for multiple predicts
@@ -957,6 +957,10 @@ class ModifiedCausalForest:
         Dictionary, parameters to compute (partially) blinded IATEs.
         """
         return self._blind_dict 
+
+    @blind_dict.setter
+    def blind_dict(self, value):
+        self._blind_dict = value
         
     @property
     def cf_dict(self): 

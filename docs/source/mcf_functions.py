@@ -844,7 +844,7 @@ class ModifiedCausalForest:
             _int_with_output=True
             ):
         
-        self._int_dict = mcf_init.int_init(
+        self.int_dict = mcf_init.int_init(
             cuda=_int_cuda, del_forest=_int_del_forest,
             descriptive_stats=_int_descriptive_stats, dpi=_int_dpi,
             fontsize=_int_fontsize, no_filled_plot=_int_no_filled_plot,
@@ -871,23 +871,23 @@ class ModifiedCausalForest:
             outpath=gen_outpath, output_type=gen_output_type,
             weighted=gen_weighted, panel_data=gen_panel_data,
             panel_in_rf=gen_panel_in_rf)
-        self._dc_dict = mcf_init.dc_init(
+        self.dc_dict = mcf_init.dc_init(
             check_perfectcorr=dc_check_perfectcorr,
             clean_data=dc_clean_data, min_dummy_obs=dc_min_dummy_obs,
             screen_covariates=dc_screen_covariates)
-        self._ct_dict = {'grid_dr': ct_grid_dr, 'grid_nn': ct_grid_nn,
+        self.ct_dict = {'grid_dr': ct_grid_dr, 'grid_nn': ct_grid_nn,
                         'grid_w': ct_grid_w}
         self.fs_dict = mcf_init.fs_init(
             rf_threshold=fs_rf_threshold, other_sample=fs_other_sample,
             other_sample_share=fs_other_sample_share, yes=fs_yes)
-        self._cs_dict = mcf_init.cs_init(
+        self.cs_dict = mcf_init.cs_init(
             gen_dict,
             max_del_train=cs_max_del_train, min_p=cs_min_p, quantil=cs_quantil,
             type_=cs_type, adjust_limits=cs_adjust_limits)
         self.lc_dict = mcf_init.lc_init(
             cs_cv=lc_cs_cv, cs_cv_k=lc_cs_cv_k, cs_share=lc_cs_share,
             undo_iate=lc_uncenter_po, yes=lc_yes)
-        self._cf_dict = mcf_init.cf_init(
+        self.cf_dict = mcf_init.cf_init(
             alpha_reg_grid=cf_alpha_reg_grid, alpha_reg_max=cf_alpha_reg_max,
             alpha_reg_min=cf_alpha_reg_min, boot=cf_boot,
             chunks_maxsize=cf_chunks_maxsize,
@@ -921,7 +921,7 @@ class ModifiedCausalForest:
             max_weight_share=p_max_weight_share,
             se_boot_ate=p_se_boot_ate, se_boot_gate=p_se_boot_gate,
             se_boot_iate=p_se_boot_iate)
-        self._post_dict = mcf_init.post_init(
+        self.post_dict = mcf_init.post_init(
             p_dict,
             bin_corr_threshold=post_bin_corr_threshold,
             bin_corr_yes=post_bin_corr_yes, est_stats=post_est_stats,
@@ -931,7 +931,7 @@ class ModifiedCausalForest:
             kmeans_yes=post_kmeans_yes, random_forest_vi=post_random_forest_vi,
             relative_to_first_group_only=post_relative_to_first_group_only,
             plots=post_plots)
-        self._var_dict, self._gen_dict, self._p_dict = mcf_init.var_init(
+        self.var_dict, self.gen_dict, self.p_dict = mcf_init.var_init(
             gen_dict, self.fs_dict, p_dict,
             bgate_name=var_bgate_name, cluster_name=var_cluster_name,
             d_name=var_d_name, id_name=var_id_name, w_name=var_w_name,
@@ -945,9 +945,9 @@ class ModifiedCausalForest:
             y_name=var_y_name, y_tree_name=var_y_tree_name,
             z_name_list=var_z_name_list, z_name_ord=var_z_name_ord,
             z_name_unord=var_z_name_unord)
-        self._blind_dict = self._sens_dict = None
-        self.data_train_dict = self._var_x_type = self._var_x_values = None
-        self._forest, self._time_strings = None, {}
+        self.blind_dict = self.sens_dict = None
+        self.data_train_dict = self.var_x_type = self.var_x_values = None
+        self.forest, self.time_strings = None, {}
         self.report = {'predict_list': [],   # Needed for multiple predicts
                        'analyse_list': []}
 
@@ -1018,7 +1018,7 @@ class ModifiedCausalForest:
         self._dc_dict = value
 
     @property
-    def fs_dict(self): 
+    def fs_dict(self):
         """
         Dictionary, parameters used in feature selection.
         """
@@ -1029,7 +1029,7 @@ class ModifiedCausalForest:
         self._fs_dict = value
         
     @property
-    def forest(self): 
+    def forest(self):
         """
         List of list containing the estimated causal forest.
         """
@@ -1040,7 +1040,7 @@ class ModifiedCausalForest:
         self._forest = value
 
     @property
-    def gen_dict(self): 
+    def gen_dict(self):
         """
         Dictionary, general parameters used in various parts of the programme.
         """
@@ -1062,7 +1062,7 @@ class ModifiedCausalForest:
         self._p_dict = value
         
     @property
-    def post_dict(self): 
+    def post_dict(self):
         """
         Dictionary, parameters used in analyse method.
         """
@@ -1084,7 +1084,7 @@ class ModifiedCausalForest:
         self._sens_dict = value
 
     @property
-    def time_strings(self): 
+    def time_strings(self):
         """
         String, detailed information on how the long the different methods needed.
         """
@@ -1095,7 +1095,7 @@ class ModifiedCausalForest:
         self._time_strings = value
 
     @property
-    def var_dict(self): 
+    def var_dict(self):
         """
         Dictionary, variable names.
         """
@@ -1106,7 +1106,7 @@ class ModifiedCausalForest:
         self._var_dict = value
         
     @property
-    def var_x_type(self): 
+    def var_x_type(self):
         """
         Dictionary, types of covariates (internal).
         """
@@ -1117,16 +1117,16 @@ class ModifiedCausalForest:
         self._var_x_type = value
 
     @property
-    def var_x_values(self): 
+    def var_x_values(self):
         """
         Dictionary, values of covariates (internal).
         """
         return self._var_x_values
-        
+
     @var_x_values.setter
     def var_x_values(self, value):
         self._var_x_values = value
-    
+
     def train(self, data_df):
         """
         Build the modified causal forest on the training data.

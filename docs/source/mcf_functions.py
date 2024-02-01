@@ -202,8 +202,8 @@ class ModifiedCausalForest:
         None: 
         :math:`(\\text{number of treatments} - 2) \\times 0.05`
         If cs_type > 0:
-        :math:`upper limit *= 1+support_adjust_limits`,
-        :math:`lower limit *= 1-support_adjust_limits`. 
+        upper limit *= 1+support_adjust_limits,
+        lower limit *= 1-support_adjust_limits. 
         The restrictiveness of the common support criterion increases with
         the number of treatments. This parameter allows to reduce this
         restrictiveness. Default is None.
@@ -416,7 +416,8 @@ class ModifiedCausalForest:
         
     p_max_cats_z_vars : Integer (or None), optional
         Maximum number of categories for discretizing continuous z
-        variables. None: :math:`Number of observations ** 0.3` . Default is None.
+        variables. None: :math:`text{Number of observations}^{0.3}`
+        Default is None.
         
     p_iate : Boolean (or None), optional
         IATEs will be estimated. Default (or None) is True.
@@ -528,8 +529,8 @@ class ModifiedCausalForest:
         Descriptive Analyses of IATEs: Number of clusters to be build in
         k-means.
         None: List of 5 values: [a, b, c, d, e]; c = 5 to 10;
-        depending on number of observations; :math:`c<7: a=c-2, b=c-1, d=c+1,
-        e=c+2, else a=c-4, b=c-2, d=c+2, e=c+4`. Default is None.
+        depending on number of observations; c<7: a=c-2, b=c-1, d=c+1,
+        e=c+2, else a=c-4, b=c-2, d=c+2, e=c+4. Default is None.
         
     post_kmeans_max_tries : Integer (or None), optional
         Descriptive Analyses of IATEs: Maximum number of iterations of

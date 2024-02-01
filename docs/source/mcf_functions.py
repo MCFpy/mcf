@@ -4,6 +4,118 @@ class ModifiedCausalForest:
 
     Parameters
     ----------
+    var_bgate_name :  String or List of strings (or None), optional
+        Variables to balance the GATEs on. Only relevant if P_BGATE is
+        True. The distribution of these variables is kept constant when a
+        BGATE is computed. None: Use the other heterogeneity variables
+        (var_z_ ...) (if there are any) for balancing. Default is None.
+        
+    var_cluster_name :  String or List of string (or None)
+        Name of variable defining clusters. Only relevant if p_cluster_std
+        is True. Default is None.
+        
+    var_d_name : String or List of string (or None), optional
+        Name of treatment variable. Must be provided to use the :meth:`~ModifiedCausalForest.train`
+        method. Can be provided for the :meth:`~ModifiedCausalForest.predict` method.
+        
+    var_id_name : String or List of string (or None)
+        Identifier. None: Identifier will be added the data.
+        Default is None.
+        
+    var_w_name : String or List of string (or None), optional
+        Name of weight. Only relevant if gen_weighted is True.
+        Default is None.
+        
+    var_x_balance_name_ord : String or List of strings (or None), optional
+        Name of ordered variables to be used in balancing tests. Only
+        relevant if p_bt_yes is True. Default is None.
+        
+    var_x_balance_name_unord : String or List of strings (or None),
+                               optional
+        Name of Ordered variables to be used in balancing tests. Treatment
+        specific descriptive statistics are only printed for those
+        variables. Default is None.
+        
+    var_x_name_always_in_ord : String or List of strings (or None),
+                               optional
+        Name of ordered variables that always checked on when deciding on
+        the next split during tree building. Only relevant for :meth:`~ModifiedCausalForest.train`
+        method. Default is None.
+        
+    var_x_name_always_in_unord : String or List of strings (or None),
+                                 optional
+        Name of Unordered variables that always checked on when deciding on
+        the next split during tree building. Only relevant for :meth:`~ModifiedCausalForest.train` 
+        method. Default is None.
+        
+    var_x_name_remain_ord : String or List of strings (or None), optional
+        Name of ordered variables that cannot be removed by feature
+        selection. Only relevant for :meth:`~ModifiedCausalForest.train` method. Default is None.
+        
+    var_x_name_remain_unord : String or List of strings (or None), optional
+        Name of unordered variables that cannot be removed by feature
+        selection. Only relevant for :meth:`~ModifiedCausalForest.train` method. Default is None.
+        
+    var_x_name_ord : String or List of strings (or None), optional
+        Name of ordered features. Either ordered or unordered features
+        must be provided. Default is None.
+        
+    var_x_name_unord : String or List of strings (or None), optional
+        Name of unordered features. Either ordered or unordered features
+        must be provided. Default is None.
+        
+    var_y_name : String or List of strings (or None), optional
+        Name of outcome variables. If several variables are specified,
+        either var_y_tree_name is used for tree building, or (if
+        var_y_tree_name is None), the 1st variable in the list is used.
+        Only necessary for :meth:`~ModifiedCausalForest.train` method. Default is None.
+        
+    var_y_tree_name : String or List of string (or None), optional
+        Name of outcome variables to be used to build trees. This is only
+        relevant if many outcome variables are specified in var_y_name.
+        Only relevant for :meth:`~ModifiedCausalForest.train` method. Default is None.
+        
+    var_z_name_list : String or List of strings (or None), optional
+        Names of ordered variables with many values to define
+        causal heterogeneity. They will be discretized (and dependening
+        p_gates_smooth) also treated as continuous. If not already included
+        in var_x_name_ord, they will be added to the list of features.
+        Default is None.
+        
+    var_z_name_ord : String or List of strings (or None), optional
+        Names of ordered variables with not so many values to define causal
+        heterogeneity. If not already included in var_x_name_ord, they will
+        be added to the list of features. Default is None.
+        
+    var_z_name_unord : String or List of strings (or None), optional
+        Names of unordered variables with not so many values to define
+        causal heterogeneity. If not already included in var_x_name_ord,
+        they will be added to the list of features. Default is None.
+
+    p_atet : Boolean (or None), optional
+        Compute effects for specific treatment groups. Only possible if
+        treatment is included in prediction data.
+        Default (or None) is False.
+        
+    p_gatet : Boolean (or None), optional
+        Compute effects for specific treatment groups. Only possible if
+        treatment is included in prediction data.
+        Default (or None) is False.
+        
+    p_cbgate : Boolean (or None), optional
+        Estimate a GATE that is balanced in all other features.
+        Default (or None) is False.
+        
+    p_bgate : Boolean (or None), optional
+        Estimate a GATE that is balanced in selected features (as specified
+        in var_bgate_name. Default (or None) is False.
+
+    cf_boot : Integer (or None), optional
+        Number of Causal Trees. Default (or None) is 1000.
+
+    lc_yes : Boolean (or None), optional
+        Local centering. Default (or None) is True.
+        
     cf_alpha_reg_grid : Integer (or None), optional
         Minimum remaining share when splitting leaf: Number of grid values.
         If grid is used, optimal value is determined by out-of-bag
@@ -16,9 +128,6 @@ class ModifiedCausalForest:
     cf_alpha_reg_min : Float (or None), optional
         Minimum remaining share when splitting leaf: Smallest value of
         grid (keep it below 0.2). Default (or None) is 0.05.
-        
-    cf_boot : Integer (or None), optional
-        Number of Causal Trees. Default (or None) is 1000.
         
     cf_chunks_maxsize : Integer (or None), optional
         Randomly split training data in chunks and take average of the
@@ -350,31 +459,10 @@ class ModifiedCausalForest:
         Share of trainig data (if lc_cs_cv is False).
         Default (or None) is 0.25.
         
-    lc_yes : Boolean (or None), optional
-        Local centering. Default (or None) is True.
-        
     lc_uncenter_po : Boolean (or None), optional
         Predicted potential outcomes are re-adjusted for local centering
         are added to data output (iate and iate_eff in results dictionary).
         Default (or None) is True.
-        
-    p_atet : Boolean (or None), optional
-        Compute effects for specific treatment groups. Only possible if
-        treatment is included in prediction data.
-        Default (or None) is False.
-        
-    p_gatet : Boolean (or None), optional
-        Compute effects for specific treatment groups. Only possible if
-        treatment is included in prediction data.
-        Default (or None) is False.
-        
-    p_cbgate : Boolean (or None), optional
-        Estimate a GATE that is balanced in all other features.
-        Default (or None) is False.
-        
-    p_bgate : Boolean (or None), optional
-        Estimate a GATE that is balanced in selected features (as specified
-        in var_bgate_name. Default (or None) is False.
         
     p_gates_minus_previous : Boolean (or None), optional
         Estimate increase of difference of GATEs, CBGATEs, BGATEs when
@@ -553,94 +641,6 @@ class ModifiedCausalForest:
         Multiplier of default number of observation used in movering
         average of :meth:`~ModifiedCausalForest.analyse` method. Default (or None) is 1.
         
-    var_bgate_name :  String or List of strings (or None), optional
-        Variables to balance the GATEs on. Only relevant if P_BGATE is
-        True. The distribution of these variables is kept constant when a
-        BGATE is computed. None: Use the other heterogeneity variables
-        (var_z_ ...) (if there are any) for balancing. Default is None.
-        
-    var_cluster_name :  String or List of string (or None)
-        Name of variable defining clusters. Only relevant if p_cluster_std
-        is True. Default is None.
-        
-    var_d_name : String or List of string (or None), optional
-        Name of treatment variable. Must be provided to use the :meth:`~ModifiedCausalForest.train`
-        method. Can be provided for the :meth:`~ModifiedCausalForest.predict` method.
-        
-    var_id_name : String or List of string (or None)
-        Identifier. None: Identifier will be added the data.
-        Default is None.
-        
-    var_w_name : String or List of string (or None), optional
-        Name of weight. Only relevant if gen_weighted is True.
-        Default is None.
-        
-    var_x_balance_name_ord : String or List of strings (or None), optional
-        Name of ordered variables to be used in balancing tests. Only
-        relevant if p_bt_yes is True. Default is None.
-        
-    var_x_balance_name_unord : String or List of strings (or None),
-                               optional
-        Name of Ordered variables to be used in balancing tests. Treatment
-        specific descriptive statistics are only printed for those
-        variables. Default is None.
-        
-    var_x_name_always_in_ord : String or List of strings (or None),
-                               optional
-        Name of ordered variables that always checked on when deciding on
-        the next split during tree building. Only relevant for :meth:`~ModifiedCausalForest.train`
-        method. Default is None.
-        
-    var_x_name_always_in_unord : String or List of strings (or None),
-                                 optional
-        Name of Unordered variables that always checked on when deciding on
-        the next split during tree building. Only relevant for :meth:`~ModifiedCausalForest.train` 
-        method. Default is None.
-        
-    var_x_name_remain_ord : String or List of strings (or None), optional
-        Name of ordered variables that cannot be removed by feature
-        selection. Only relevant for :meth:`~ModifiedCausalForest.train` method. Default is None.
-        
-    var_x_name_remain_unord : String or List of strings (or None), optional
-        Name of unordered variables that cannot be removed by feature
-        selection. Only relevant for :meth:`~ModifiedCausalForest.train` method. Default is None.
-        
-    var_x_name_ord : String or List of strings (or None), optional
-        Name of ordered features. Either ordered or unordered features
-        must be provided. Default is None.
-        
-    var_x_name_unord : String or List of strings (or None), optional
-        Name of unordered features. Either ordered or unordered features
-        must be provided. Default is None.
-        
-    var_y_name : String or List of strings (or None), optional
-        Name of outcome variables. If several variables are specified,
-        either var_y_tree_name is used for tree building, or (if
-        var_y_tree_name is None), the 1st variable in the list is used.
-        Only necessary for :meth:`~ModifiedCausalForest.train` method. Default is None.
-        
-    var_y_tree_name : String or List of string (or None), optional
-        Name of outcome variables to be used to build trees. This is only
-        relevant if many outcome variables are specified in var_y_name.
-        Only relevant for :meth:`~ModifiedCausalForest.train` method. Default is None.
-        
-    var_z_name_list : String or List of strings (or None), optional
-        Names of ordered variables with many values to define
-        causal heterogeneity. They will be discretized (and dependening
-        p_gates_smooth) also treated as continuous. If not already included
-        in var_x_name_ord, they will be added to the list of features.
-        Default is None.
-        
-    var_z_name_ord : String or List of strings (or None), optional
-        Names of ordered variables with not so many values to define causal
-        heterogeneity. If not already included in var_x_name_ord, they will
-        be added to the list of features. Default is None.
-        
-    var_z_name_unord : String or List of strings (or None), optional
-        Names of unordered variables with not so many values to define
-        causal heterogeneity. If not already included in var_x_name_ord,
-        they will be added to the list of features. Default is None.
-        
     _int_cuda : Boolean (or None).
         Use CUDA based GPU if available on hardware. Default is True.
         
@@ -786,8 +786,19 @@ class ModifiedCausalForest:
 
     def __init__(
             self,
+            var_bgate_name=None, var_cluster_name=None,
+            var_d_name=None, var_id_name=None, var_w_name=None,
+            var_x_balance_name_ord=None, var_x_balance_name_unord=None,
+            var_x_name_always_in_ord=None, var_x_name_always_in_unord=None,
+            var_x_name_remain_ord=None, var_x_name_remain_unord=None,
+            var_x_name_ord=None, var_x_name_unord=None, var_y_name=None,
+            var_y_tree_name=None, var_z_name_list=None,
+            var_z_name_ord=None, var_z_name_unord=None,
+            p_atet=False, p_gatet=False, p_bgate=False, p_cbgate=False,
+            cf_boot=1000, 
+            lc_yes=True,
             cf_alpha_reg_grid=1, cf_alpha_reg_max=0.15, cf_alpha_reg_min=0.05,
-            cf_boot=1000, cf_chunks_maxsize=None, cf_n_min_grid=1,
+            cf_chunks_maxsize=None, cf_n_min_grid=1,
             cf_n_min_max=None, cf_n_min_min=None, cf_n_min_treat=None,
             cf_nn_main_diag_only=False, cf_m_grid=1, cf_m_random_poisson=True,
             cf_m_share_max=0.6, cf_m_share_min=0.1,
@@ -804,31 +815,24 @@ class ModifiedCausalForest:
             gen_mp_parallel=None, gen_outfiletext=None, gen_outpath=None,
             gen_output_type=2, gen_panel_in_rf=True, gen_weighted=False,
             lc_cs_cv=True, lc_cs_cv_k=5, lc_cs_share=0.25,
-            lc_uncenter_po=True, lc_yes=True,
-            p_cbgate=False, p_ate_no_se_only=False,
-            p_atet=False, p_bgate=False, p_bt_yes=True,
+            lc_uncenter_po=True, 
+            p_ate_no_se_only=False,
+            p_bt_yes=True,
             p_choice_based_sampling=False, p_choice_based_probs=None,
             p_ci_level=0.90, p_cluster_std=False, p_cond_var=True,
             p_gates_minus_previous=False, p_gates_smooth=True,
             p_gates_smooth_bandwidth=1, p_gates_smooth_no_evalu_points=50,
-            p_gatet=False, p_gate_no_evalu_points=50,
+            p_gate_no_evalu_points=50,
             p_bgate_sample_share=None, p_iate=True, p_iate_se=False,
             p_iate_m_ate=False, p_knn=True, p_knn_const=1, p_knn_min_k=10,
             p_nw_bandw=1, p_nw_kern=1, p_max_cats_z_vars=None,
             p_max_weight_share=0.05, p_se_boot_ate=None, p_se_boot_gate=None,
-            p_se_boot_iate=None, var_bgate_name=None, var_cluster_name=None,
+            p_se_boot_iate=None, 
             post_bin_corr_threshold=0.1, post_bin_corr_yes=True,
             post_est_stats=True, post_kmeans_no_of_groups=None,
             post_kmeans_max_tries=1000, post_kmeans_replications=10,
             post_kmeans_yes=True, post_random_forest_vi=True,
             post_relative_to_first_group_only=True, post_plots=True,
-            var_d_name=None, var_id_name=None, var_w_name=None,
-            var_x_balance_name_ord=None, var_x_balance_name_unord=None,
-            var_x_name_always_in_ord=None, var_x_name_always_in_unord=None,
-            var_x_name_remain_ord=None, var_x_name_remain_unord=None,
-            var_x_name_ord=None, var_x_name_unord=None, var_y_name=None,
-            var_y_tree_name=None, var_z_name_list=None,
-            var_z_name_ord=None, var_z_name_unord=None,
             _int_cuda=True, _int_del_forest=False,
             _int_descriptive_stats=True, _int_dpi=500,
             _int_fontsize=2, _int_keep_w0=False, _int_no_filled_plot=20,

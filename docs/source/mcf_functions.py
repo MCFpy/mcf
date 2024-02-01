@@ -588,7 +588,7 @@ class ModifiedCausalForest:
     var_x_name_always_in_ord : String or List of strings (or None),
                                optional
         Name of ordered variables that always checked on when deciding on
-        the next split during tree building. Only relevant for train
+        the next split during tree building. Only relevant for :meth:`ModifiedCausalForest.train` 
         method. Default is None.
         
     var_x_name_always_in_unord : String or List of strings (or None),
@@ -599,11 +599,11 @@ class ModifiedCausalForest:
         
     var_x_name_remain_ord : String or List of strings (or None), optional
         Name of ordered variables that cannot be removed by feature
-        selection. Only relevant for :py:meth:`~mcf_functionsModifiedCausalForest.train` method. Default is None.
+        selection. Only relevant for train method. Default is None.
         
     var_x_name_remain_unord : String or List of strings (or None), optional
         Name of unordered variables that cannot be removed by feature
-        selection. Only relevant for :py:meth:`~mcf_functionsModifiedCausalForest.train` method. Default is None.
+        selection. Only relevant for train method. Default is None.
         
     var_x_name_ord : String or List of strings (or None), optional
         Name of ordered features. Either ordered or unordered features
@@ -617,12 +617,12 @@ class ModifiedCausalForest:
         Name of outcome variables. If several variables are specified,
         either var_y_tree_name is used for tree building, or (if
         var_y_tree_name is None), the 1st variable in the list is used.
-        Only necessary for :py:meth:`~mcf_functionsModifiedCausalForest.train` method. Default is None.
+        Only necessary for train method. Default is None.
         
     var_y_tree_name : String or List of string (or None), optional
         Name of outcome variables to be used to build trees. This is only
         relevant if many outcome variables are specified in var_y_name.
-        Only relevant for :py:meth:`~mcf_functionsModifiedCausalForest.train` method. Default is None.
+        Only relevant for train method. Default is None.
         
     var_z_name_list : String or List of strings (or None), optional
         Names of ordered variables with many values to define
@@ -1248,7 +1248,7 @@ class ModifiedCausalForest:
 
     def predict(self, data_df):
         """
-        Compute all effects given a causal forest estimated with :py:meth:`~mcf_functionsModifiedCausalForest.train` method.
+        Compute all effects given a causal forest estimated with :meth:`ModifiedCausalForest.train` method.
 
         Parameters
         ----------

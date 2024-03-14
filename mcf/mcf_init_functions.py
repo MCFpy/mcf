@@ -7,8 +7,9 @@ Contains the functions needed for initialising the parameters of the programme.
 """
 from copy import deepcopy
 
-import psutil
+from psutil import virtual_memory, cpu_count
 import numpy as np
+from torch.cuda import is_available
 
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_print_stats_functions as ps
@@ -57,18 +58,22 @@ def blind_init(var_x_protected_name=None, var_x_policy_name=None,
     return dic
 
 
-def int_init(del_forest=None, descriptive_stats=None, dpi=None, fontsize=None,
-             keep_w0=None, no_filled_plot=None, max_save_values=None,
-             max_cats_cont_vars=None, mp_ray_del=None,
+def int_init(cuda=None, del_forest=None, descriptive_stats=None, dpi=None,
+             fontsize=None, keep_w0=None, no_filled_plot=None,
+             max_save_values=None, max_cats_cont_vars=None, mp_ray_del=None,
              mp_ray_objstore_multiplier=None, mp_ray_shutdown=None,
              mp_vim_type=None, output_no_new_dir=None,
              mp_weights_tree_batch=None, mp_weights_type=None,
-             return_iate_sp=None, seed_sample_split=None,
-             share_forest_sample=None, show_plots=None, verbose=None,
-             weight_as_sparse=None, weight_as_sparse_splits=None,
+             return_iate_sp=None, replication=None, report=None,
+             seed_sample_split=None, share_forest_sample=None, show_plots=None,
+             verbose=None, weight_as_sparse=None, weight_as_sparse_splits=None,
              with_output=None, p_ate_no_se_only=None):
     """Initialise dictionary of parameters of internal variables."""
     dic = {}
+    if cuda is False:
+        dic['cuda'] = False
+    else:
+        dic['cuda'] = is_available()
     dic['del_forest'] = del_forest is True
     dic['keep_w0'] = keep_w0 is True
     dic['descriptive_stats'] = descriptive_stats is not False
@@ -94,7 +99,9 @@ def int_init(del_forest=None, descriptive_stats=None, dpi=None, fontsize=None,
         dic['mp_ray_objstore_multiplier'] = mp_ray_objstore_multiplier
     dic['ray_or_dask'] = 'ray'
     dic['no_ray_in_forest_building'] = False
-    if mp_weights_tree_batch is not None and 0 < mp_weights_tree_batch < 1:
+    if mp_weights_tree_batch is False:
+        mp_weights_tree_batch = 1
+    if mp_weights_tree_batch is not None and mp_weights_tree_batch > 0.5:
         dic['mp_weights_tree_batch'] = round(mp_weights_tree_batch)
     else:
         dic['mp_weights_tree_batch'] = 0
@@ -105,6 +112,7 @@ def int_init(del_forest=None, descriptive_stats=None, dpi=None, fontsize=None,
     dic['weight_as_sparse'] = weight_as_sparse is not False
 
     dic['show_plots'] = show_plots is not False
+    dic['report'] = report is not False
     dic['with_output'] = with_output is not False
     dic['verbose'] = verbose is not False
     if not dic['with_output']:
@@ -132,6 +140,7 @@ def int_init(del_forest=None, descriptive_stats=None, dpi=None, fontsize=None,
     if p_ate_no_se_only is not None and p_ate_no_se_only:
         dic['return_iate_sp'] = False
     dic['output_no_new_dir'] = output_no_new_dir is True
+    dic['replication'] = replication is True
     return dic
 
 
@@ -151,7 +160,7 @@ def int_update_train(mcf_):
     if cf_dic['n_train_eff'] < 20000:
         dic['mem_object_store_1'] = dic['mem_object_store_2'] = None
     else:
-        memory = psutil.virtual_memory()
+        memory = virtual_memory()
         # Obs. & number of trees as determinants of obj.store when forest build
         min_obj_str_n_1 = (
             (cf_dic['n_train_eff'] / 60000) * (cf_dic['boot'] / 1000)
@@ -180,7 +189,7 @@ def int_update_pred(mcf_, n_pred):
     n_pred_adj = n_pred * (mcf_.cf_dict['n_train_eff'] / n_pred)**0.5
     int_dic['mp_ray_shutdown'] = ray_shut_down(int_dic['mp_ray_shutdown'],
                                                n_pred_adj)
-    memory = psutil.virtual_memory()
+    memory = virtual_memory()
     if n_pred_adj < 20000:
         int_dic['mem_object_store_3'] = None
     else:
@@ -197,8 +206,7 @@ def int_update_pred(mcf_, n_pred):
 
 def gen_init(int_dic, d_type=None, iate_eff=None, mp_parallel=None,
              outfiletext=None, outpath=None, output_type=None,
-             replication=None, weighted=None, panel_data=None,
-             panel_in_rf=None):
+             weighted=None, panel_data=None, panel_in_rf=None):
     """Initialise dictionary with general parameters."""
     dic = {}
     # Discrete or continuous treatments
@@ -212,7 +220,7 @@ def gen_init(int_dic, d_type=None, iate_eff=None, mp_parallel=None,
     dic['iate_eff'] = iate_eff is True
     # Number of cores for multiprocessiong
     if mp_parallel is None or not isinstance(mp_parallel, (float, int)):
-        dic['mp_parallel'] = round(psutil.cpu_count(logical=True)*0.8)
+        dic['mp_parallel'] = round(cpu_count(logical=True)*0.8)
         dic['mp_automatic'] = True
     elif mp_parallel <= 1.5:
         dic['mp_parallel'] = 1
@@ -220,8 +228,7 @@ def gen_init(int_dic, d_type=None, iate_eff=None, mp_parallel=None,
     else:
         dic['mp_parallel'] = round(mp_parallel)
         dic['mp_automatic'] = False
-    dic['replication'] = replication is True
-    dic['sys_share'] = 0.7 * getattr(psutil.virtual_memory(), 'percent') / 100
+    dic['sys_share'] = 0.7 * getattr(virtual_memory(), 'percent') / 100
     # Define or create directory for output and avoid overwritting
     if int_dic['with_output']:
         dic['outpath'] = mcf_sys.define_outpath(
@@ -384,9 +391,9 @@ def var_init(gen_dic, fs_dic, p_dic, bgate_name=None, cluster_name=None,
     if p_dic['bgate'] and not p_dic['gate']:
         txt += 'BGATEs can only be computed if GATEs are computed.'
         p_dic['bgate'] = False
-    if p_dic['amgate'] and not p_dic['gate']:
-        txt += 'AMGATEs can only be computed if GATEs are computed.'
-        p_dic['amgate'] = False
+    if p_dic['cbgate'] and not p_dic['gate']:
+        txt += 'CBGATEs can only be computed if GATEs are computed.'
+        p_dic['cbgate'] = False
     if p_dic['gatet'] and not p_dic['gate']:
         txt += 'GATETs can only be computed if GATEs are computed.'
         p_dic['gatet'] = False
@@ -625,7 +632,7 @@ def cf_init(alpha_reg_grid=None, alpha_reg_max=None, alpha_reg_min=None,
         mtot, mtot_no_mce, estimator_str = 3, 1, 'MSE'
     elif mce_vart == 3:  # MSE+MCE rule or penalty function rule
         mtot, mtot_no_mce = 4, 0                      # (randomly decided)
-        estimator_str = 'MSE,MCE or penalty (random)'
+        estimator_str = 'MSE, MCE or penalty (random)'
     else:
         raise ValueError('Inconsistent MTOT definition of  MCE_VarT.')
     # These values will be updated later
@@ -661,19 +668,17 @@ def cf_update_train(mcf_, data_df):
     cf_dic['n_train'] = reduce_effective_n_train(mcf_, n_train)
     if fs_dic['yes'] and fs_dic['other_sample']:
         obs_by_treat = obs_by_treat * (1 - fs_dic['other_sample_share'])
-
-    # Determine chunck size when doing many smaller forests instead of only one
     if not isinstance(cf_dic['chunks_maxsize'], int):
-        base_level = 60000
-        cf_dic['chunks_maxsize'] = round(max(
-            base_level + np.sqrt(max(cf_dic['n_train'] - base_level, 0)),
-            base_level))
+        base_level = 75000
+        cf_dic['chunks_maxsize'] = round(
+            base_level + (max(cf_dic['n_train'] - base_level, 0) ** 0.8)
+            / (mcf_.gen_dict['no_of_treat'] - 1))
     # Effective sample sizes per chuck
-    no_of_chucks = np.ceil(cf_dic['n_train'] / cf_dic['chunks_maxsize'])
+    no_of_chucks = int(np.ceil(cf_dic['n_train'] / cf_dic['chunks_maxsize']))
     # Actual number of chucks could be smaller if lot's of data is deleted in
     # common support adjustment
-    cf_dic['n_train_eff'] = cf_dic['n_train'] / no_of_chucks
-    obs_by_treat_eff = obs_by_treat / cf_dic['chunks_maxsize']
+    cf_dic['n_train_eff'] = np.int32(cf_dic['n_train'] / no_of_chucks)
+    obs_by_treat_eff = np.int32(obs_by_treat / no_of_chucks)
 
     # size of subsampling samples         n/2: size of forest sample
     cf_dic['subsample_share_forest'] = sub_size(
@@ -779,12 +784,12 @@ def cf_update_train(mcf_, data_df):
     mcf_.cf_dict = cf_dic
 
 
-def p_init(gen_dic, ate_no_se_only=None, amgate=None, atet=None, bgate=None,
+def p_init(gen_dic, ate_no_se_only=None, cbgate=None, atet=None, bgate=None,
            bt_yes=None, choice_based_sampling=None, choice_based_probs=None,
            ci_level=None, cluster_std=None, cond_var=None,
            gates_minus_previous=None, gates_smooth=None,
            gates_smooth_bandwidth=None, gates_smooth_no_evalu_points=None,
-           gatet=None, gmate_no_evalu_points=None,  gmate_sample_share=None,
+           gatet=None, gate_no_evalu_points=None,  bgate_sample_share=None,
            iate=None, iate_se=None, iate_m_ate=None, knn=None, knn_const=None,
            knn_min_k=None, nw_bandw=None, nw_kern=None, max_cats_z_vars=None,
            max_weight_share=None, se_boot_ate=None, se_boot_gate=None,
@@ -793,12 +798,12 @@ def p_init(gen_dic, ate_no_se_only=None, amgate=None, atet=None, bgate=None,
     atet, gatet = atet is True, gatet is True
     ate_no_se_only = ate_no_se_only is True
     if ate_no_se_only:
-        atet = gatet = amgate = bgate = bt_yes = cluster_std = False
+        atet = gatet = cbgate = bgate = bt_yes = cluster_std = False
         gates_smooth = iate = iate_se = iate_m_ate = se_boot_ate = False
         se_boot_gate = se_boot_iate = False
     if gatet:
         atet = True
-    amgate, bgate, bt_yes = amgate is True,  bgate is True, bt_yes is True
+    cbgate, bgate, bt_yes = cbgate is True,  bgate is True, bt_yes is True
     if choice_based_sampling is True:
         if gen_dic['d_type'] != 'discrete':
             raise NotImplementedError('No choice based sample with continuous'
@@ -820,10 +825,10 @@ def p_init(gen_dic, ate_no_se_only=None, amgate=None, atet=None, bgate=None,
         gates_smooth_no_evalu_points = 50
     else:
         gates_smooth_no_evalu_points = round(gates_smooth_no_evalu_points)
-    if gmate_no_evalu_points is None or gmate_no_evalu_points < 2:
-        gmate_no_evalu_points = 50
+    if gate_no_evalu_points is None or gate_no_evalu_points < 2:
+        gate_no_evalu_points = 50
     else:
-        gmate_no_evalu_points = round(gmate_no_evalu_points)
+        gate_no_evalu_points = round(gate_no_evalu_points)
     iate = iate is not False
     iate_se = iate_se is True
     iate_m_ate = iate_m_ate is True
@@ -846,16 +851,16 @@ def p_init(gen_dic, ate_no_se_only=None, amgate=None, atet=None, bgate=None,
     q_w = [0.5, 0.25, 0.1, 0.05, 0.04, 0.03, 0.02, 0.01]
     # Assign variables to dictionary
     dic = {
-        'ate_no_se_only': ate_no_se_only, 'amgate': amgate, 'atet': atet,
+        'ate_no_se_only': ate_no_se_only, 'cbgate': cbgate, 'atet': atet,
         'bgate': bgate, 'bt_yes': bt_yes, 'ci_level': ci_level,
         'choice_based_sampling': choice_based_sampling,
         'choice_based_probs': choice_based_probs, 'cluster_std': cluster_std,
-        'cond_var': cond_var, 'gmate_sample_share': gmate_sample_share,
+        'cond_var': cond_var, 'bgate_sample_share': bgate_sample_share,
         'gates_minus_previous': gates_minus_previous,
         'gates_smooth': gates_smooth,
         'gates_smooth_bandwidth': gates_smooth_bandwidth,
         'gates_smooth_no_evalu_points': gates_smooth_no_evalu_points,
-        'gatet': gatet, 'gmate_no_evalu_points': gmate_no_evalu_points,
+        'gatet': gatet, 'gate_no_evalu_points': gate_no_evalu_points,
         'iate':  iate, 'iate_se': iate_se, 'iate_m_ate': iate_m_ate,
         'knn': knn, 'knn_const': knn_const,
         'knn_min_k': knn_min_k, 'nw_bandw': nw_bandw, 'nw_kern': nw_kern,
@@ -868,8 +873,8 @@ def p_init(gen_dic, ate_no_se_only=None, amgate=None, atet=None, bgate=None,
                                    gen_dic['with_output'])
         dic = mcf_sys.get_fig_path(dic, gen_dic['outpath'], 'gate',
                                    gen_dic['with_output'])
-        if amgate:
-            dic = mcf_sys.get_fig_path(dic, gen_dic['outpath'], 'amgate',
+        if cbgate:
+            dic = mcf_sys.get_fig_path(dic, gen_dic['outpath'], 'cbgate',
                                        gen_dic['with_output'])
         if bgate:
             dic = mcf_sys.get_fig_path(dic, gen_dic['outpath'], 'bgate',
@@ -892,8 +897,8 @@ def p_update_pred(mcf_, data_df):
     """Update parameters of p_dict with data_df related information."""
     gen_dic, p_dic, var_dic = mcf_.gen_dict, mcf_.p_dict, mcf_.var_dict
     n_pred = len(data_df)
-    if p_dic['gmate_sample_share'] is None or p_dic['gmate_sample_share'] <= 0:
-        p_dic['gmate_sample_share'] = (
+    if p_dic['bgate_sample_share'] is None or p_dic['bgate_sample_share'] <= 0:
+        p_dic['bgate_sample_share'] = (
             1 if n_pred < 1000 else (1000 + ((n_pred-1000) ** 0.75)) / n_pred)
     d_name = (var_dic['d_name'][0]
               if isinstance(var_dic['d_name'], (list, tuple))
@@ -1124,9 +1129,9 @@ def bootstrap(se_boot, cut_off, bnr, cluster_std):
     return False
 
 
-def sens_init(p_dict, amgate=None, bgate=None, gate=None, iate=None,
+def sens_init(p_dict, cbgate=None, bgate=None, gate=None, iate=None,
               iate_se=None, scenarios=None, cv_k=None,
-              replications=2, reference_population=None):
+              replications=2, reference_population=None, iate_df=None):
     """Initialise parameters of post-estimation analysis."""
     dic = {}
     # Check if types of inputs are ok
@@ -1137,8 +1142,8 @@ def sens_init(p_dict, amgate=None, bgate=None, gate=None, iate=None,
         raise TypeError('Number of replication must be integer, float or None')
     if scenarios is not None and not isinstance(scenarios, (list, tuple, str)):
         raise TypeError('Names of scenarios must be string or None')
-    if amgate is not None and not isinstance(amgate, bool):
-        raise TypeError('amgate must be boolean or None')
+    if cbgate is not None and not isinstance(cbgate, bool):
+        raise TypeError('cbgate must be boolean or None')
     if bgate is not None and not isinstance(bgate, bool):
         raise TypeError('bgate must be boolean or None')
     if gate is not None and not isinstance(gate, bool):
@@ -1152,13 +1157,16 @@ def sens_init(p_dict, amgate=None, bgate=None, gate=None, iate=None,
         raise TypeError('reference_population must be boolean or None')
 
     # Assign default values
-    dic['amgate'] = amgate is True
+    dic['cbgate'] = cbgate is True
     dic['bgate'] = bgate is True
-    dic['gate'] = gate is True or dic['amgate'] or dic['bgate']
-    dic['iate'] = iate is True
+    dic['gate'] = gate is True or dic['cbgate'] or dic['bgate']
+    if iate_df is not None:
+        dic['iate'] = True
+    else:
+        dic['iate'] = iate is True
     dic['iate_se'] = iate_se is True
-    if dic['amgate'] and not p_dict['amgate']:
-        raise ValueError('p_amgate must be set to True if sens_amgate is True')
+    if dic['cbgate'] and not p_dict['cbgate']:
+        raise ValueError('p_cbgate must be set to True if sens_cbgate is True')
     if dic['gate'] and not p_dict['bgate']:
         raise ValueError('p_bgate must be set to True if sens_bgate is True')
 
@@ -1200,4 +1208,4 @@ def reduce_effective_n_train(mcf_, n_train):
         n_train *= (1 - mcf_.lc_dict['cs_share'])
     if mcf_.lc_dict['yes'] and not mcf_.lc_dict['cs_cv']:
         n_train *= (1 - mcf_.lc_dict['cs_share'])
-    return n_train
+    return int(n_train)

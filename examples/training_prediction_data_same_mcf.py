@@ -9,7 +9,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.4.3
+Version: 0.5.0
 
 This is an example to show how a minimal specification of the mcf can be
 implemented that uses the same data from training and prediction.
@@ -20,7 +20,8 @@ import os
 import pandas as pd
 
 from mcf.mcf_functions import ModifiedCausalForest
-# from mcf import ModifiedCausalForest
+from mcf.reporting import McfOptPolReport
+
 
 # ------------------ NOT parameters of the ModifiedCausalForest ---------------
 #  Define data to be used in this example
@@ -49,6 +50,7 @@ tree_df, fill_y_df = mymcf.train(train_df)  # Returns not used here
 results = mymcf.predict(fill_y_df)
 
 results_with_cluster_id_df = mymcf.analyse(results)
-
+my_report = McfOptPolReport(mcf=mymcf)
+my_report.report()
 print('End of computations.\n\nThanks for using ModifiedCausalForest.'
       ' \n\nYours sincerely\nMCF \U0001F600')

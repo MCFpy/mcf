@@ -13,7 +13,7 @@ from copy import deepcopy
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import scipy.stats as sct
+from scipy.stats import norm
 
 from mcf import mcf_estimation_functions as mcf_est
 from mcf import mcf_general as mcf_gp
@@ -90,7 +90,7 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
         for i in range(n_p):
             w_add = np.zeros((no_of_treat, n_y))
             for t_ind, _ in enumerate(d_values):
-                w_i_csr = weights[t_ind].getrow(i)    # copy
+                w_i_csr = weights[t_ind].getrow(i)    # copy, but still sparse
                 if gen_dic['weighted']:
                     w_i_csr = w_i_csr.multiply(w_dat.reshape(-1))
                 sum_wi = w_i_csr.sum()
@@ -154,7 +154,7 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
                             ' Redo statistic without this variable.'
                             ' \nOr try to use more bootstraps.'
                             ' \nOr Sample may be too small.'
-                            '\nOr Problem may be with AMGATE only.')
+                            '\nOr Problem may be with CBGATE only.')
                     ps.print_mcf(gen_dic, txt, summary=True)
                     raise RuntimeError(txt)
             if not continuous:
@@ -404,8 +404,7 @@ def dose_response_figure(y_name, d_name, effects, stderr, d_values, int_dic,
     """Plot the average dose response curve."""
     titel = 'Dose response relative to non-treated: ' + y_name + ' ' + d_name
     file_title = 'DR_rel_treat0' + y_name + d_name
-    cint = sct.norm.ppf(p_dic['ci_level'] +
-                        0.5 * (1 - p_dic['ci_level']))
+    cint = norm.ppf(p_dic['ci_level'] + 0.5 * (1 - p_dic['ci_level']))
     upper = effects + stderr * cint
     lower = effects - stderr * cint
     label_ci = f'{p_dic["ci_level"]:2.0%}-CI'

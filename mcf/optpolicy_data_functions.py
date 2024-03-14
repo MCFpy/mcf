@@ -5,6 +5,8 @@ Created on Sun Jul 16 13:10:45 2023
 # -*- coding: utf-8 -*-
 @author: MLechner
 """
+from hashlib import sha256
+
 import numpy as np
 
 from mcf import mcf_data_functions as mcf_data
@@ -77,8 +79,9 @@ def prepare_data_bb_pt(optp_, data_df):
     (optp_.var_x_type, optp_.var_x_values, optp_.gen_dic
      ) = classify_var_for_pol_tree(optp_, data_new_df,
                                    optp_.var_dict['x_name'],
-                                   eff=gen_dic['method'] == 'policy tree eff')
-    (optp_.gen_dict, optp_.var_dict, optp_.var_x_type, optp_.var_x_values
+                                   eff=gen_dic['method'] == 'policy tree')
+    (optp_.gen_dict, optp_.var_dict, optp_.var_x_type, optp_.var_x_values,
+     optp_.report['removed_vars']
      ) = mcf_data.screen_adjust_variables(optp_, data_new_df)
     return data_new_df, None
 
@@ -140,8 +143,20 @@ def prepare_data_eval(optp_, data_df):
         dum_in = var_available(optp_.var_dict['vi_to_dummy_name'], var_names,
                                needed='must_have')
         if not (x_in or dum_in):
-            raise ValueError('Variable importance requires the specification '
-                             'of at least "var_vi_x_name" or'
-                             ' "vi_to_dummy_name"')
+            print('WARNING: Variable importance requires the specification '
+                  'of at least "var_vi_x_name" or "vi_to_dummy_name"'
+                  'Since they are not specified, variable_importance'
+                  'is not conducted.')
+            optp_.gen_dict['variable_importance'] = False
     return data_df, d_ok, polscore_desc_ok, mcf_gp.remove_dupl_keep_order(
         desc_var_list)
+
+
+def dataframe_checksum(data_df):
+    """Get a checksum for dataframe."""
+    # Convert the DataFrame to a string representation
+    df_string = data_df.to_string()
+
+    # Use hashlib to create a hash of the string
+    hash_object = sha256(df_string.encode())
+    return hash_object.hexdigest()

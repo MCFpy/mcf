@@ -8,14 +8,14 @@ Contains the functions needed for computing the GATEs.
 
 """
 from copy import copy, deepcopy
-import itertools
-import math
-import os
+from itertools import combinations
+from math import log10
+from os import listdir
 
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import scipy.stats as sct
+from scipy.stats import norm
 
 from mcf import mcf_estimation_functions as mcf_est
 from mcf import mcf_general as mcf_gp
@@ -26,7 +26,7 @@ from mcf import mcf_print_stats_functions as ps
 def make_gate_figures_discr(
         titel, z_name, z_vals, z_type, effects, stderr, int_dic, p_dic, ate=0,
         ate_se=None, gate_type='GATE', z_smooth=False, gatet_yes=False):
-    """Generate the figures for GATE results (discrete outcomes).
+    """Generate the figures for GATE results (discrete treatments).
 
     Parameters
     ----------
@@ -51,11 +51,11 @@ def make_gate_figures_discr(
         file_name_pdf = p_dic['gate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
         file_name_csv = (p_dic['gate_fig_pfad_csv'] + '/' + titel_f
                          + 'plotdat.csv')
-    elif gate_type == 'AMGATE':
-        file_name_jpeg = (p_dic['amgate_fig_pfad_jpeg'] + '/' + titel_f
+    elif gate_type == 'CBGATE':
+        file_name_jpeg = (p_dic['cbgate_fig_pfad_jpeg'] + '/' + titel_f
                           + '.jpeg')
-        file_name_pdf = p_dic['amgate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
-        file_name_csv = (p_dic['amgate_fig_pfad_csv'] + '/' + titel_f
+        file_name_pdf = p_dic['cbgate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
+        file_name_csv = (p_dic['cbgate_fig_pfad_csv'] + '/' + titel_f
                          + 'plotdat.csv')
     elif gate_type == 'BGATE':
         file_name_jpeg = (p_dic['bgate_fig_pfad_jpeg'] + '/' + titel_f
@@ -68,8 +68,8 @@ def make_gate_figures_discr(
         if gate_type == 'GATE':
             gate_str = 'GATE-ATE'
             label_m = 'GATET-ATET' if gatet_yes else 'GATE-ATE'
-        elif gate_type == 'AMGATE':
-            gate_str, label_m = 'AMGATE-avg.(AMGATE)', 'AMGATE-avg.(AMGATE)'
+        elif gate_type == 'CBGATE':
+            gate_str, label_m = 'CBGATE-avg.(CBGATE)', 'CBGATE-avg.(CBGATE)'
         elif gate_type == 'BGATE':
             gate_str, label_m = 'BGATE-avg.(BGATE)', 'BGATE-avg.(BGATE)'
         label_y = 'Effect - average'
@@ -79,31 +79,32 @@ def make_gate_figures_discr(
         if gate_type == 'GATE':
             label_m = 'GATET' if gatet_yes else 'GATE'
             ate_label, gate_str = 'ATE', 'GATE'
-        elif gate_type == 'AMGATE':
-            label_m, ate_label, gate_str = 'AMGATE', 'avg.(AMGATE)', 'AMGATE'
+        elif gate_type == 'CBGATE':
+            label_m, ate_label, gate_str = 'CBGATE', 'avg.(CBGATE)', 'CBGATE'
         elif gate_type == 'BGATE':
             label_m, ate_label, gate_str = 'BGATE', 'avg.(BGATE)', 'BGATE'
         label_y = 'Effect'
     ate = ate * np.ones((len(z_values), 1))
     if isinstance(z_type, (list, tuple, np.ndarray)):
         z_type = z_type[0]
-    cint = sct.norm.ppf(
+    cint = norm.ppf(
         p_dic['ci_level'] + 0.5 * (1 - p_dic['ci_level']))
     upper, lower = effects + stderr * cint, effects - stderr * cint
     if ate_se is not None:
         ate_upper, ate_lower = ate + ate_se * cint, ate - ate_se * cint
     label_ci = f'{p_dic["ci_level"]:2.0%}-CI'
+    file_name_f_jpeg = None
     if (z_type == 0) and (len(z_values) > int_dic['no_filled_plot']):
-        if gate_type in ('AMGATE', 'BGATE',) or z_smooth:
+        if z_smooth:
             if gate_type == 'GATE':
                 file_name_f_jpeg = (p_dic['gate_fig_pfad_jpeg']
                                     + '/' + titel_f + 'fill.jpeg')
                 file_name_f_pdf = (p_dic['gate_fig_pfad_pdf']
                                    + '/' + titel_f + 'fill.pdf')
-            elif gate_type == 'AMGATE':
-                file_name_f_jpeg = (p_dic['amgate_fig_pfad_jpeg']
+            elif gate_type == 'CBGATE':
+                file_name_f_jpeg = (p_dic['cbgate_fig_pfad_jpeg']
                                     + '/' + titel_f + 'fill.jpeg')
-                file_name_f_pdf = (p_dic['amgate_fig_pfad_pdf']
+                file_name_f_pdf = (p_dic['cbgate_fig_pfad_pdf']
                                    + '/' + titel_f + 'fill.pdf')
             elif gate_type == 'BGATE':
                 file_name_f_jpeg = (p_dic['bgate_fig_pfad_jpeg']
@@ -190,10 +191,13 @@ def make_gate_figures_discr(
     mcf_sys.delete_file_if_exists(file_name_csv)
     datasave.to_csv(file_name_csv, index=False)
 
+    file_name = file_name_jpeg if file_name_f_jpeg is None else file_name_f_jpeg
+    return file_name
+
 
 def make_gate_figures_cont(titel, z_name, z_vals, effects, int_dic, p_dic,
                            ate=None, gate_type='GATE', d_values=None):
-    """Generate the figures for GATE results.
+    """Generate the figures for GATE results (continuous treatments).
 
     Parameters
     ----------
@@ -215,11 +219,11 @@ def make_gate_figures_cont(titel, z_name, z_vals, effects, int_dic, p_dic,
         file_name_jpeg = p_dic['gate_fig_pfad_jpeg'] + '/' + titel_f + '.jpeg'
         file_name_pdf = p_dic['gate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
         gate_str = 'GATE-ATE' if ate is not None else 'GATE'
-    elif gate_type == 'AMGATE':
-        file_name_jpeg = (p_dic['amgate_fig_pfad_jpeg'] + '/' + titel_f
+    elif gate_type == 'CBGATE':
+        file_name_jpeg = (p_dic['cbgate_fig_pfad_jpeg'] + '/' + titel_f
                           + '.jpeg')
-        file_name_pdf = p_dic['amgate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
-        gate_str = 'AMGATE-avg(AMGATE)' if ate is not None else 'AMGATE'
+        file_name_pdf = p_dic['cbgate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
+        gate_str = 'CBGATE-avg(CBGATE)' if ate is not None else 'CBGATE'
     elif gate_type == 'BGATE':
         file_name_jpeg = (p_dic['bgate_fig_pfad_jpeg'] + '/' + titel_f
                           + '.jpeg')
@@ -243,6 +247,7 @@ def make_gate_figures_cont(titel, z_name, z_vals, effects, int_dic, p_dic,
         plt.show()
     else:
         plt.close()
+    return file_name_jpeg
 
 
 def gate_tables_nice(p_dic, d_values, gate_type='GATE'):
@@ -254,7 +259,7 @@ def gate_tables_nice(p_dic, d_values, gate_type='GATE'):
     c_dict : Dict.
         Parameters of mcf.
     gate : Boolean. Optional.
-        Define is gate (True) or mgate/amgate (False). The default is True.
+        Define is gate (True) or bgate/cbgate (False). The default is True.
 
     Returns
     -------
@@ -265,12 +270,12 @@ def gate_tables_nice(p_dic, d_values, gate_type='GATE'):
         folder = p_dic['gate_fig_pfad_csv']
     elif gate_type == 'BGATE':
         folder = p_dic['bgate_fig_pfad_csv']
-    elif gate_type == 'AMGATE':
-        folder = p_dic['amgate_fig_pfad_csv']
+    elif gate_type == 'CBGATE':
+        folder = p_dic['cbgate_fig_pfad_csv']
     else:
         raise ValueError('Wrong gate_type variable.')
     try:
-        file_list = os.listdir(folder)
+        file_list = listdir(folder)
     except OSError:
         print(f'Folder {folder} not found.',
               f' No nice printing of {gate_type}')
@@ -297,11 +302,11 @@ def count_digits(x_tuple):
     digits = 0
     for i in range(2):
         if x_tuple[i] > 0:
-            digits += int(math.log10(x_tuple[i])) + 1
+            digits += int(log10(x_tuple[i])) + 1
         elif x_tuple[i] == 0:
             digits += 1
         else:
-            digits += int(math.log10(-x_tuple[i])) + 2  # +1 without minus sign
+            digits += int(log10(-x_tuple[i])) + 2  # +1 without minus sign
     return digits
 
 
@@ -312,8 +317,8 @@ def gate_tables_nice_by_hugo_bodory(path, filenames, treatments):
     Parameters
     ----------
     path : STRING
-        Directory storing CSV files for GATEs or MGATEs or AMGATEs
-        For example: r'D:/uni/wia0/amgate/csv
+        Directory storing CSV files for GATEs or CBGATEs
+        For example: r'D:/uni/wia0/cbgate/csv
     filenames : LIST
          CSV file names including the extension '.csv'
     treatments : Sorted LIST of integers
@@ -328,7 +333,7 @@ def gate_tables_nice_by_hugo_bodory(path, filenames, treatments):
     filenames.sort()
     number_of_treatments = len(treatments)
     treatments.sort()
-    combi = list(itertools.combinations(treatments, 2))
+    combi = list(combinations(treatments, 2))
     number_of_combi = len(combi)
 
     params = {}  # Parameter dictionary
@@ -407,8 +412,6 @@ def generate_gate_table(p_dict, label_row=False):
                 dat = dat.rename(columns={'x_values': 'z_values'})
             dat['d'] = i_co
             data = pd.concat((data, dat))
-
-    # data.drop_duplicates(subset=['z_values'], inplace=True)
 
     data_0 = np.array(data.pivot(index='z_values', columns="d",
                                  values="effects"))
@@ -543,6 +546,7 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
     y_pot_all, y_pot_var_all = effect_dic['y_pot'], effect_dic['y_pot_var']
     txt_all = effect_dic['txt_weights']
     m_ate_yes = effect_m_ate_dic is not None
+    figure_list = []
     if m_ate_yes:
         y_pot_m_ate_all = effect_m_ate_dic['y_pot']
         y_pot_m_ate_var_all = effect_m_ate_dic['y_pot_var']
@@ -574,6 +578,7 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
             z_smooth_l[zj_idx] = z_name in gate_est_dic['z_name_smooth']
     for z_name_j, z_name in enumerate(var_dic['z_name']):
         z_name_ = ps.del_added_chars(z_name, prime=True)
+        z_type = z_type_l[z_name_j]
         y_pot = deepcopy(y_pot_all[z_name_j])
         y_pot_var = deepcopy(y_pot_var_all[z_name_j])
         if gate_type == 'GATE':
@@ -611,7 +616,7 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
                         y_pot[zj_idx, a_idx, :, o_idx].reshape(-1),
                         y_pot_var[zj_idx, a_idx, :, o_idx].reshape(-1),
                         d_values_dr, continuous=continuous)
-                    ret_gate[zj_idx] = np.array(ret, dtype=object, copy=True)
+                    ret_gate[zj_idx] = ret
                     gate_z[zj_idx, o_idx, a_idx, :] = ret[0]
                     gate_z_se[zj_idx, o_idx, a_idx, :] = ret[1]
                     if m_ate_yes:
@@ -621,8 +626,7 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
                                 -1), d_values_dr, continuous=continuous)
                         gate_z_mate[zj_idx, o_idx, a_idx, :] = ret[0]
                         gate_z_mate_se[zj_idx, o_idx, a_idx, :] = ret[1]
-                        ret_gate_mate[zj_idx] = np.array(ret, dtype=object,
-                                                         copy=True)
+                        ret_gate_mate[zj_idx] = ret
                     else:
                         gate_z_mate = gate_z_mate_se = ret_gate_mate = None
                 if int_dic['with_output']:
@@ -647,6 +651,7 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
                 for o_idx, o_lab in enumerate(var_dic['y_name']):
                     for t_idx, t_lab in enumerate(treat_comp_label):
                         for e_idx, e_lab in enumerate(effect_type_label):
+                            figure_disc = figure_cont = None
                             if e_idx == 0:
                                 effects = gate_z[:, o_idx, a_idx, t_idx]
                                 ste = gate_z_se[:, o_idx, a_idx, t_idx]
@@ -669,10 +674,10 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
                                         if j_lab == zjjlab:
                                             z_values_f[zjj] = jdx
                             if not continuous and effects is not None:
-                                make_gate_figures_discr(
+                                figure_disc = make_gate_figures_discr(
                                     e_lab + ' ' + z_name_ + ' ' + a_lab +
                                     ' ' + o_lab + ' ' + t_lab, z_name,
-                                    z_values_f, z_type_l, effects, ste,
+                                    z_values_f, z_type, effects, ste,
                                     int_dic, p_dic, ate_f, ate_f_se,
                                     gate_type, z_smooth, gatet_yes=gatet_yes)
                             if continuous and t_idx == len(treat_comp_label)-1:
@@ -682,11 +687,20 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
                                 else:
                                     ate_f = None
                                     effects = gate_z_mate[:, o_idx, a_idx, :]
-                                make_gate_figures_cont(
+                                figure_cont = make_gate_figures_cont(
                                     e_lab + ' ' + z_name_ + ' ' + a_lab +
                                     ' ' + o_lab, z_name, z_values_f,
                                     effects, int_dic, p_dic, ate_f,
                                     gate_type, d_values=d_values_dr)
+                            figure_file = (figure_disc if figure_cont is None
+                                           else figure_cont)
+                            vs0 = int(t_lab[-1]) == int(gen_dic['d_values'][0])
+                            if a_idx == 0 and vs0 and (
+                                    (m_ate_yes and e_idx == 1)
+                                    or (not m_ate_yes and e_idx == 0)
+                                    ):
+                                figure_list.append(figure_file)
+
         gate[z_name_j], gate_se[z_name_j] = gate_z, gate_z_se
         if m_ate_yes:
             gate_diff[z_name_j] = gate_z_mate
@@ -694,7 +708,7 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
         else:
             gate_diff = gate_se_diff = None
         if int_dic['with_output']:
-            if gate_type in ('AMGATE', 'BGATE'):
+            if gate_type in ('CBGATE', 'BGATE'):
                 ps.print_mcf(gen_dic, txt, summary=True)
             else:
                 ps.print_mcf(gen_dic, txt_weight + txt, summary=False)
@@ -703,19 +717,20 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
             txt += '-' * 100
     if int_dic['with_output']:
         gate_tables_nice(p_dic, gate_est_dic['d_values'], gate_type=gate_type)
-    return gate, gate_se, gate_diff, gate_se_diff
+    return gate, gate_se, gate_diff, gate_se_diff, figure_list
 
 
-def get_names_values(mcf_, gate_est_dic, bgate_est_dic, amgate_est_dic):
+def get_names_values(mcf_, gate_est_dic, bgate_est_dic, cbgate_est_dic):
     """Collect information about Gates for the final results dictionary."""
     if gate_est_dic is not None:
         est_dic = gate_est_dic
     elif bgate_est_dic is not None:
         est_dic = bgate_est_dic
-    elif amgate_est_dic is not None:
-        est_dic = amgate_est_dic
+    elif cbgate_est_dic is not None:
+        est_dic = cbgate_est_dic
     gate_names_values = {'z_names_list': est_dic['var_dic']['z_name']}
-    for idx, z_name in enumerate(est_dic['var_dic']['z_name']):
+    # for idx, z_name in enumerate(est_dic['var_dic']['z_name']):
+    for z_name in est_dic['var_dic']['z_name']:
         if mcf_.var_x_type[z_name] > 0:
             values, _ = mcf_gp.recode_if_all_prime(
                 est_dic['var_x_values'][z_name].copy(), z_name)

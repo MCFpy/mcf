@@ -11,7 +11,9 @@ from math import sqrt, log2
 
 import numpy as np
 from numba import njit
-import scipy.stats as sct
+from scipy.stats import skew
+from scipy.stats import norm
+from scipy.stats import t
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 
@@ -19,7 +21,7 @@ from mcf import mcf_print_stats_functions as ps
 
 
 def effect_from_potential(pot_y, pot_y_var, d_values, se_yes=True,
-                          continuous=False):
+                          continuous=False, return_comparison=True):
     """Compute effects and stats from potential outcomes.
 
     Parameters
@@ -29,6 +31,8 @@ def effect_from_potential(pot_y, pot_y_var, d_values, se_yes=True,
     d_values : List. Treatment values.
     se_yes : Bool. Compute standard errors. Default is True.
     continuous: Bool. Continuous treatment. Default is False.
+    return_comparison: Bool. Return an array indicating the treatments that are
+                             compared. Default is True.
 
     Returns
     -------
@@ -38,30 +42,50 @@ def effect_from_potential(pot_y, pot_y_var, d_values, se_yes=True,
     p_val : Numpy array.
 
     """
-    no_of_comparisons = (len(d_values) - 1 if continuous
-                         else round(len(d_values) * (len(d_values) - 1) / 2))
-    est = np.empty(no_of_comparisons)
-    if se_yes:
-        stderr = np.empty_like(est)
-    comparison = [None] * no_of_comparisons
-    j = 0
-    for idx, treat1 in enumerate(d_values):
-        for jnd, treat2 in enumerate(d_values):
-            if jnd <= idx:
-                continue
-            est[j] = pot_y[jnd] - pot_y[idx]
-            if se_yes:
-                var = pot_y_var[jnd] + pot_y_var[idx]
-                stderr[j] = np.sqrt(var) if var > 0.000001 else 0.000001
-            comparison[j] = [treat2, treat1]
-            j += 1
-        if continuous:
-            break
-    if se_yes:
-        t_val = np.abs(est / stderr)
-        p_val = sct.t.sf(t_val, 1000000) * 2
-    else:
-        stderr = t_val = p_val = None
+    if continuous:
+        # This legazy code for the continuous case is not yet optimized
+        no_of_comparisons = len(d_values) - 1
+        est = np.empty(no_of_comparisons)
+        if se_yes:
+            var = np.empty_like(est)
+        comparison = [None] * no_of_comparisons
+        j = 0
+        for idx, treat1 in enumerate(d_values):
+            for jnd, treat2 in enumerate(d_values):
+                if jnd <= idx:
+                    continue
+                est[j] = pot_y[jnd] - pot_y[idx]
+                if se_yes:
+                    var[j] = pot_y_var[jnd] + pot_y_var[idx]
+                comparison[j] = [treat2, treat1]
+                j += 1
+                break
+        if se_yes:
+            var = np.where(var < 0.000001,  0.000001, var)
+            stderr = np.sqrt(var)
+            t_val = np.abs(est / stderr)
+            p_val = t.sf(t_val, 1000000) * 2
+        else:
+            stderr = t_val = p_val = None
+    else:  # Optimized for discrete case
+        idx, jnd = np.triu_indices(len(d_values), k=1)
+        est = pot_y[jnd] - pot_y[idx]
+        if se_yes:
+            var = pot_y_var[jnd] + pot_y_var[idx]
+            var = np.where(var < 0.000001,  0.000001, var)
+            stderr = np.sqrt(var)
+            t_val = np.abs(est / stderr)
+            p_val = t.sf(t_val, 1000000) * 2
+        else:
+            stderr = t_val = p_val = None
+        d_values = np.array(d_values)
+        no_of_comparisons = round(len(d_values) * (len(d_values) - 1) / 2)
+        if return_comparison:
+            comparison = np.empty((no_of_comparisons, 2), dtype=np.int16)
+            comparison[:, 0] = d_values[jnd]
+            comparison[:, 1] = d_values[idx]
+        else:
+            comparison = None
     return est, stderr, t_val, p_val, comparison
 
 
@@ -220,8 +244,8 @@ def weight_var(w0_dat, y0_dat, cl_dat, gen_dic, p_dic, norm=True,
                     k = int(np.round(p_dic['knn_const'] * np.sqrt(obs) * 2))
                     if k < p_dic['knn_min_k']:
                         k = p_dic['knn_min_k']
-                    if k > obs/2:
-                        k = np.floor(obs/2)
+                    if k > obs / 2:
+                        k = np.floor(obs / 2)
                     exp_y_cond_w, var_y_cond_w = moving_avg_mean_var(y_s, k)
                 else:
                     band = bandwidth_nw_rule_of_thumb(w_s) * p_dic['nw_bandw']
@@ -230,10 +254,11 @@ def weight_var(w0_dat, y0_dat, cl_dat, gen_dic, p_dic, norm=True,
                     var_y_cond_w = nadaraya_watson((y_s - exp_y_cond_w)**2,
                                                    w_s, w_s, p_dic['nw_kern'],
                                                    band)
-                variance = np.dot(w_s**2, var_y_cond_w) + obs * np.var(
-                    w_s*exp_y_cond_w)
+                variance = (np.dot(w_s**2, var_y_cond_w)
+                            + obs * np.var(w_s * exp_y_cond_w))
             else:
                 variance = len(w_dat2) * np.var(w_dat2 * y_dat)
+            variance *= len(w_dat2) / (len(w_dat2)-1)  # Finite sample adjustm.
     else:
         variance = None
     return est, variance, w_ret
@@ -295,13 +320,13 @@ def aggregate_cluster_pos_w(cl_dat, w_dat, y_dat=None, norma=True, w2_dat=None,
                                 y_dat[in_cluster_pos2, odx]) / w2_agg[j])
                     else:
                         y_agg[j, odx] = (np.dot(
-                            w_dat[in_cluster_pos] *
-                            sweights[in_cluster_pos].reshape(-1),
+                            w_dat[in_cluster_pos]
+                            * sweights[in_cluster_pos].reshape(-1),
                             y_dat[in_cluster_pos, odx]) / w_agg[j])
                         if y2_compute:
                             y2_agg[j, odx] = (np.dot(
-                                w2_dat[in_cluster_pos2] *
-                                sweights[in_cluster_pos2].reshape(-1),
+                                w2_dat[in_cluster_pos2]
+                                * sweights[in_cluster_pos2].reshape(-1),
                                 y_dat[in_cluster_pos2, odx]) / w2_agg[j])
     if norma:
         sum_w_agg = np.sum(w_agg)
@@ -314,6 +339,7 @@ def aggregate_cluster_pos_w(cl_dat, w_dat, y_dat=None, norma=True, w2_dat=None,
     return w_agg, y_agg, w2_agg, y2_agg
 
 
+# Since pad is not supported by numba, njit does not bring improvements
 def moving_avg_mean_var(data, k, mean_and_var=True):
     """Compute moving average of mean and std deviation.
 
@@ -327,27 +353,36 @@ def moving_avg_mean_var(data, k, mean_and_var=True):
     mean : numpy array.
     var : numpy array.
     """
-    var, obs, k = None, len(data), int(k)
+    obs = len(data)
+    k = int(k)
+
     if k >= obs:
         mean = np.full(obs, np.mean(data))
         if mean_and_var:
             var = np.full(obs, np.var(data))
     else:
         weights = np.ones(k) / k
+
+        # Compute the rolling mean
         mean = np.convolve(data, weights, mode='valid')
-        half_diff_in_len = (obs - len(mean))/2
-        add_dim_first = int(np.ceil(half_diff_in_len))
-        add_dim_last = int(np.floor(half_diff_in_len))
-        firstvalues = np.full(add_dim_first, mean[0])
-        lastvalues = np.full(add_dim_last, mean[-1])
-        mean = np.concatenate((firstvalues, mean, lastvalues))
+
+        # Compute the rolling variance if needed
         if mean_and_var:
             data_s = data ** 2
             mean_s = np.convolve(data_s, weights, mode='valid')
-            firstvalues = np.full(add_dim_first, mean_s[0])
-            lastvalues = np.full(add_dim_last, mean_s[-1])
-            mean_s = np.concatenate((firstvalues, mean_s, lastvalues))
-            var = mean_s - mean * mean
+            var = mean_s - mean**2
+
+        # Pad the results to match the length of the original data
+        pad_before = (obs - len(mean)) // 2
+        pad_after = obs - len(mean) - pad_before
+
+        mean = np.pad(mean, (pad_before, pad_after), mode='edge')
+
+        if mean_and_var:
+            var = np.pad(var, (pad_before, pad_after), mode='edge')
+        else:
+            var = None
+
     return mean, var
 
 
@@ -367,13 +402,11 @@ def bandwidth_nw_rule_of_thumb(data):
 
     """
     obs = len(data)
-    ass_str = f'Only {len(data)} observations for bandwidth selection.'
     if obs < 5:
-        raise ValueError(ass_str)
-    iqr = np.quantile(data, (0.25, 0.75))
-    iqr = (iqr[1] - iqr[0]) / 1.349
+        raise ValueError(f'Only {obs} observations for bandwidth selection.')
+    iqr = np.subtract(*np.percentile(data, [75, 25])) / 1.349
     std = np.std(data)
-    sss = std if (std < iqr) or (iqr < 1e-15) else iqr
+    sss = min(std, iqr) if iqr > 1e-15 else std
     bandwidth = sss * (obs ** (-0.2))
     if bandwidth < 1e-15:
         bandwidth = 1
@@ -399,10 +432,9 @@ def bandwidth_silverman(data, kernel=1):
     if obs < 5:
         raise ValueError(f'Only {len(data)} observations for bandwidth '
                          'selection.')
-    iqr = np.quantile(data, (0.25, 0.75))
-    iqr = (iqr[1] - iqr[0]) / 1.349
+    iqr = np.subtract(*np.percentile(data, [75, 25])) / 1.349
     std = np.std(data)
-    sss = std if (std < iqr) or (iqr < 1e-15) else iqr
+    sss = min(std, iqr) if iqr > 1e-15 else std
     band = 1.3643 * (obs ** (-0.2)) * sss
     if kernel not in (1, 2):
         raise ValueError('Wrong type of kernel in Silverman bandwidth')
@@ -433,8 +465,7 @@ def nadaraya_watson(y_dat, x_dat, grid, kernel, bandwidth):
     """
     f_yx = kernel_density_y(y_dat, x_dat, grid, kernel, bandwidth)
     f_x = kernel_density(x_dat, grid, kernel, bandwidth)
-    estimate = f_yx / f_x
-    return estimate
+    return f_yx / f_x
 
 
 def kernel_density(data, grid, kernel, bandwidth):
@@ -500,20 +531,24 @@ def kernel_proc(data, kernel):
 
     """
     if kernel == 1:
-        y_dat = np.zeros(np.shape(data))   # this works with matrices
-        smaller_than_1 = np.abs(data) < 1  # abs() seems to be efficient
-        y_dat[smaller_than_1] = 3/4 * (1 - (data[smaller_than_1] ** 2))
-    if kernel == 2:  # This works for matrices
-        y_dat = sct.norm.pdf(data)
+        abs_data = np.abs(data)
+        y_dat = np.where(abs_data < 1, 3/4 * (1 - abs_data**2), 0)
+    elif kernel == 2:  # This works for matrices
+        y_dat = norm.pdf(data)
+    else:
+        raise ValueError('Only Epanechikov and normal kernel supported.')
     return y_dat
 
 
-def gini_coeff_pos(x_dat, len_x):
+def gini_coeff_pos(x_dat):
     """Compute Gini coefficient of numpy array of values with values >= 0."""
     sss = x_dat.sum()
-    if sss > 1e-15:
-        rrr = np.argsort(np.argsort(-x_dat))  # calculates zero based ranks
-        return 1 - (2.0 * (rrr * x_dat).sum() + sss) / (len_x * sss)
+    if sss > 1e-15:                        # Use 'mergesort' for stable sorting
+        rrr = np.argsort(-x_dat, kind='mergesort')
+        ranks = np.arange(1, len(x_dat) + 1)
+        gini = 1 - 2 * (np.sum((ranks - 1) * x_dat[rrr]) + sss) / (len(x_dat)
+                                                                   * sss)
+        return gini
     return 0
 
 
@@ -572,8 +607,8 @@ def analyse_weights(weights, title, gen_dic, p_dic, ate=True, continuous=False,
         n_all = len(w_j)
         equal_0[j] = n_all - n_pos
         mean_pos[j], std_pos[j] = np.mean(w_pos), np.std(w_pos)
-        gini_all[j] = gini_coeff_pos(w_j, n_all) * 100
-        gini_pos[j] = gini_coeff_pos(w_pos, n_pos) * 100
+        gini_all[j] = gini_coeff_pos(w_j) * 100
+        gini_pos[j] = gini_coeff_pos(w_pos) * 100
         if n_pos > 5:
             qqq = np.quantile(w_pos, (0.99, 0.95, 0.9))
             for i in range(3):
@@ -599,31 +634,6 @@ def analyse_weights(weights, title, gen_dic, p_dic, ate=True, continuous=False,
             share_largest_q, sum_larger, obs_larger, txt)
 
 
-def waldtest(diff, variance):
-    """Compute Wald Chi2 statistics.
-
-    Parameters
-    ----------
-    diff : 1D Numy array.
-    variance : 2D Numpy array.
-
-    Returns
-    -------
-    stat : Numpy float. Test statistic.
-    df : Int. Degrees of freedom.
-    p : Numpy float. p-value.
-
-    """
-    degfr = np.linalg.matrix_rank(variance)
-    stat = pval = -1
-    if degfr == len(variance):
-        if np.all(np.linalg.eigvals(variance) > 1e-15):
-            weight = np.linalg.inv(variance)
-            stat = quadratic_form(diff, weight)
-            pval = sct.chi2.sf(stat, degfr)
-    return stat, degfr, pval
-
-
 @njit
 def quadratic_form(vec, mat):
     """Quadratic form for Numpy: vec'mat*vec.
@@ -638,7 +648,7 @@ def quadratic_form(vec, mat):
     Numpy Float. The Quadratic form.
 
     """
-    return np.dot(vec, mat @ vec)
+    return vec @ (mat @ vec.T)
 
 
 def random_forest_scikit(
@@ -794,7 +804,7 @@ def random_forest_scikit(
         vi_names_shares = None
     if pred_uncertainty and (pred_t_flag or pred_p_flag):
         resid_oob = y_1d - pred_oob
-        skewness_res_oob = sct.skew(resid_oob)
+        skewness_res_oob = skew(resid_oob)
         if with_output:
             txt += f'\nSkewness of oob residual: {skewness_res_oob}'
         symmetric = np.absolute(skewness_res_oob) < pu_skew_sym

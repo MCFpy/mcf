@@ -8,7 +8,7 @@ Contains the functions needed for computing the weights.
 @author: MLechner
 -*- coding: utf-8 -*-
 """
-import os
+from os.path import isdir
 from pathlib import Path
 
 import numpy as np
@@ -45,9 +45,9 @@ def get_weights_mp(mcf_, data_df, forest_dic, reg_round, with_output=True):
             int_dic['weight_as_sparse_splits'] = 1
         else:
             int_dic['weight_as_sparse_splits'] = round(
-                len(forest_dic['y_train_df'])
-                * len(data_df / cf_dic['folds']) / (20000 * 20000))
-        if int_dic['weight_as_sparse_splits'] < 1:
+                len(forest_dic['y_train_df']) * len(data_df)
+                / cf_dic['folds'] / (20000 * 20000))
+        if int_dic['weight_as_sparse_splits'] <= 1:
             int_dic['weight_as_sparse_splits'] = 1
     x_dat_all = data_df[var_dic['x_name']].to_numpy()
     if int_dic['weight_as_sparse_splits'] == 1 or not int_dic[
@@ -56,7 +56,7 @@ def get_weights_mp(mcf_, data_df, forest_dic, reg_round, with_output=True):
             forest_dic, x_dat_all, cf_dic.copy(), ct_dic, gen_dic, int_dic,
             p_dic, with_output=with_output)
     else:
-        if gen_dic['outpath'] is None or not os.path.isdir(gen_dic['outpath']):
+        if gen_dic['outpath'] is None or not isdir(gen_dic['outpath']):
             base_file = str(Path(__file__).parent.absolute()) + '/temp_weights'
         else:
             base_file = gen_dic['outpath'] + '/' + 'temp_weights'
@@ -67,7 +67,7 @@ def get_weights_mp(mcf_, data_df, forest_dic, reg_round, with_output=True):
         for idx, x_dat in enumerate(x_dat_list):
             if int_dic['with_output'] and int_dic['verbose'] and with_output:
                 print('\nWeights computation with additional splitting. ',
-                      f'Mastersplit {idx} ({len(x_dat_list)})')
+                      f'Mastersplit {idx+1} ({len(x_dat_list)})')
             if idx == len(x_dat_list) - 1:  # Last iteration, get x_bala
                 no_x_bala_return = False
             weights_i, y_dat, x_bala, cl_dat, w_dat = get_weights_mp_inner(
@@ -106,7 +106,7 @@ def get_weights_mp(mcf_, data_df, forest_dic, reg_round, with_output=True):
                        else gen_dic['no_of_treat'])
         txt = mcf_sys.print_size_weight_matrix(
             weights, int_dic['weight_as_sparse'], no_of_treat)
-        ps.print_mcf(gen_dic, ' ' + txt, summary=False)
+        ps.print_mcf(gen_dic, txt, summary=False)
     weights_dic = {'weights': weights, 'y_dat_np': y_dat, 'x_bala_np': x_bala,
                    'cl_dat_np': cl_dat, 'w_dat_np': w_dat}
     return weights_dic
@@ -168,7 +168,7 @@ def get_weights_mp_inner(forest_dic, x_dat, cf_dic, ct_dic, gen_dic, int_dic,
         weights = initialise_weights(n_x, n_y, no_of_treat,
                                      int_dic['weight_as_sparse'])
         split_forest = False
-        for idx in range(n_x):
+        for idx in range(n_x):  # Iterate over i
             results_fut_idx = weights_obs_i(
                 idx, n_y, forest_dic['forest'], x_dat, d_dat, cf_dic, ct_dic,
                 gen_dic, mp_over_boots, maxworkers, False)
@@ -182,7 +182,6 @@ def get_weights_mp_inner(forest_dic, x_dat, cf_dic, ct_dic, gen_dic, int_dic,
             else:
                 weights[idx] = results_fut_idx[1]
             empty_leaf_counter += results_fut_idx[2]
-            merge_leaf_counter += results_fut_idx[3]
         if int_dic['weight_as_sparse']:
             weights = weights_to_csr(weights, no_of_treat)
     else:
@@ -302,16 +301,15 @@ def get_weights_mp_inner(forest_dic, x_dat, cf_dic, ct_dic, gen_dic, int_dic,
                             if int_dic['weight_as_sparse']:
                                 for d_idx in range(no_of_treat):
                                     indices = results_fut_idx[1][idx][d_idx][0]
-                                    weights_obs = results_fut_idx[1][idx][d_idx
-                                                                          ][1]
-                                    idx_resized = np.resize(indices,
-                                                            (len(indices), 1))
+                                    weights_obs = (
+                                        results_fut_idx[1][idx][d_idx][1])
+                                    idx_resized = np.resize(
+                                        indices, (len(indices), 1))
                                     weights[d_idx][val_list, idx_resized
                                                    ] = weights_obs
                             else:
                                 weights[val_list] = results_fut_idx[1][idx]
                         empty_leaf_counter += results_fut_idx[2]
-                        merge_leaf_counter += results_fut_idx[3]
                 if 'refs' in int_dic['mp_ray_del']:
                     del x_dat_ref, forest_ref
                 if 'rest' in int_dic['mp_ray_del']:
@@ -351,18 +349,37 @@ def normalize_weights(weights, no_of_treat, sparse_m, n_x):
     """Normalise weight matrix (needed when forest is split)."""
     for d_idx in range(no_of_treat):
         if sparse_m:
-            row_sum = 1 / weights[d_idx].sum(axis=1)
-            for i in range(n_x):
-                weights[d_idx][i, :] = weights[d_idx][i, :].multiply(
-                    row_sum[i])
-            weights[d_idx] = weights[d_idx].astype(np.float32,
-                                                   casting='same_kind')
+            weights[d_idx] = normal_weights_sparse(weights[d_idx], n_x)
         else:
             for i in range(n_x):
                 weights[i][d_idx][1] = weights[i][d_idx][1] / np.sum(
                     weights[i][d_idx][1])
                 weights[i][d_idx][1] = weights[i][d_idx][1].astype(np.float32)
     return weights
+
+
+def normal_weights_sparse_loop(weights: sparse.csr, n_x: int):
+    """Normalize sparse weight matrix (which is the heavy duty case."""
+    row_sum = 1 / weights.sum(axis=1)
+    for i in range(n_x):
+        weights[i, :] = weights[i, :].multiply(
+            row_sum[i])
+    weights = weights.astype(np.float32, casting='same_kind')
+    return weights
+
+
+def normal_weights_sparse(weights: sparse.csr, n_x: int):
+    """Normalize sparse weight matrix (which is the heavy duty case."""
+    row_sum_inv = 1 / weights.sum(axis=1)
+    # Create a diagonal matrix with the reciprocals of row sums
+    diag_matrix = sparse.csr_matrix((row_sum_inv.A.ravel(),
+                                     (range(n_x), range(n_x))))
+    # Multiply the original sparse matrix by the diagonal matrix
+    normalized_weights = weights @ diag_matrix
+    # Convert to float32
+    normalized_weights = normalized_weights.astype(np.float32,
+                                                   casting='same_kind')
+    return normalized_weights
 
 
 def initialise_weights(n_x, n_y, no_of_treat, weight_as_sparse):
@@ -401,10 +418,9 @@ def weights_obs_i(idx, n_y, forest, x_dat, d_dat, cf_dic, ct_dic, gen_dic,
     idx : Int. Counter.
     weights_i : List of lists.
     empty_leaf_counter : Int.
-    merge_leaf_counter : Int.
 
     """
-    empty_leaf_counter = merge_leaf_counter = 0
+    empty_leaf_counter = 0
     if gen_dic['d_type'] == 'continuous':
         no_of_treat = len(ct_dic['grid_w_val'])
         d_values = ct_dic['grid_w_val']
@@ -419,23 +435,22 @@ def weights_obs_i(idx, n_y, forest, x_dat, d_dat, cf_dic, ct_dic, gen_dic,
     if mp_over_boots:
         if not ray.is_initialized():
             ray.init(num_cpus=maxworkers, include_dashboard=False)
-            still_running = [ray_weights_obs_i_inside_boot.remote(
-                weights_obs_i_inside_boot, forest[boot], x_dat_i, n_y,
-                no_of_treat, d_values, d_dat, continuous)
-                for boot in range(cf_dic['boot'])]
-            while len(still_running) > 0:
-                finished, still_running = ray.wait(still_running)
-                finished_res = ray.get(finished)
-                for result in finished_res:
-                    if result[1]:
-                        empty_leaf_counter += 1
-                    else:
-                        weights_i_np[:, 1:] += result[0]
+        still_running = [ray_weights_obs_i_inside_boot.remote(
+            forest[boot], x_dat_i, n_y, no_of_treat, d_values, d_dat,
+            continuous) for boot in range(cf_dic['boot'])]
+        while len(still_running) > 0:
+            finished, still_running = ray.wait(still_running)
+            finished_res = ray.get(finished)
+            for result in finished_res:
+                if result[1]:
+                    empty_leaf_counter += 1
+                else:
+                    weights_i_np[:, 1:] += result[0]
     else:
         for boot in range(cf_dic['boot']):
             weights_ij_np, empty_leaf = weights_obs_i_inside_boot(
-                forest[boot], x_dat_i, n_y, no_of_treat, d_values,
-                d_dat, continuous)
+                forest[boot], x_dat_i, n_y, no_of_treat, d_values, d_dat,
+                continuous)
             if empty_leaf:
                 empty_leaf_counter += 1
             else:
@@ -443,7 +458,7 @@ def weights_obs_i(idx, n_y, forest, x_dat, d_dat, cf_dic, ct_dic, gen_dic,
     obs_without_leaf = 1 if empty_leaf_counter == cf_dic['boot'] else 0
     normalize = not split_forest
     weights_i = final_trans(weights_i_np, no_of_treat, normalize)
-    return idx, weights_i, obs_without_leaf, merge_leaf_counter
+    return idx, weights_i, obs_without_leaf
 
 
 @ray.remote
@@ -500,7 +515,6 @@ def weights_obs_i_inside_boot(forest_b, x_dat_i, n_y, no_of_treat,
             leaf_0_complete, leaf_pos_complete = False, True
             # Zuerst 0 einsammeln
             for jdx, fb_lid_14 in enumerate(fb_lid_14_list):
-                # fb_lid_14 = fb_lid_14_list[jdx]
                 d_ib = d_dat[fb_lid_14].reshape(-1)  # view
                 indices_ibj_0 = d_ib < 1e-15
                 indices_ibj_pos = d_ib >= 1e-15
@@ -535,6 +549,33 @@ def weights_obs_i_inside_boot(forest_b, x_dat_i, n_y, no_of_treat,
     return weights_ij_np, empty_leaf
 
 
+def final_trans_old(weights_i_np, no_of_treat, normalize=True):
+    """
+    Compute last transformations of (positive only) weights.
+
+    Parameters
+    ----------
+    weights_i_np : 2D Numpy array. Weights including zeros.
+    no_of_treat : Int. Number of treatments.
+    normalize : Bool. Normalize weights to row sum of 1. Default is True.
+
+    Returns
+    -------
+    weights_i: List of lists (of different lengths).
+
+    """
+    weights_i = [None] * no_of_treat
+    for jdx in range(no_of_treat):
+        weights_t = weights_i_np[weights_i_np[:, jdx+1] > 1e-14]
+        weights_ti = np.int32(weights_t[:, 0])  # Indices
+        if normalize:
+            weights_tw = weights_t[:, jdx+1] / np.sum(weights_t[:, jdx+1])
+        else:
+            weights_tw = weights_t[:, jdx+1].copy()
+        weights_i[jdx] = [weights_ti, weights_tw.astype(np.float32)]
+    return weights_i
+
+
 def final_trans(weights_i_np, no_of_treat, normalize=True):
     """
     Compute last transformations of (positive only) weights.
@@ -547,17 +588,18 @@ def final_trans(weights_i_np, no_of_treat, normalize=True):
 
     Returns
     -------
-    weights_i: List of lists.
+    weights_i: List of lists (of different lengths).
 
     """
-    iterator, weights_i = no_of_treat, [None] * no_of_treat
-    for jdx in range(iterator):
-        weights_t = weights_i_np[weights_i_np[:, jdx+1] > 1e-14]
+    weights_i = [None] * no_of_treat
+    for jdx in range(no_of_treat):
+        mask = weights_i_np[:, jdx + 1] > 1e-14
+        weights_t = weights_i_np[mask]
         weights_ti = np.int32(weights_t[:, 0])  # Indices
-        weights_tw = (weights_t[:, jdx+1] / np.sum(weights_t[:, jdx+1])
-                      if normalize else weights_t[:, jdx+1].copy())
-        weights_tw = weights_tw.astype(np.float32)
-        weights_i[jdx] = [weights_ti, weights_tw]
+        weights_tw = weights_t[:, jdx + 1]
+        if normalize:
+            weights_tw /= np.sum(weights_tw)
+        weights_i[jdx] = [weights_ti, weights_tw.astype(np.float32)]
     return weights_i
 
 
@@ -600,13 +642,11 @@ def weights_many_obs_i(idx_list, n_y, forest, x_dat, d_dat, cf_dic, ct_dic,
 
     """
     weights = [None] * len(idx_list)
-    empty_leaf_counter = merge_leaf_counter = 0
+    empty_leaf_counter = 0
     for idx, val in enumerate(idx_list):
-        results_fut_idx = weights_obs_i(
-            val, n_y, forest, x_dat, d_dat, cf_dic, ct_dic,
-            gen_dic, mp_over_boots=False,
-            maxworkers=1, split_forest=split_forest)
-        weights[idx] = results_fut_idx[1]
-        empty_leaf_counter += results_fut_idx[2]
-        merge_leaf_counter += results_fut_idx[3]
-    return idx_list, weights, empty_leaf_counter, merge_leaf_counter
+        ret = weights_obs_i(val, n_y, forest, x_dat, d_dat, cf_dic, ct_dic,
+                            gen_dic, mp_over_boots=False, maxworkers=1,
+                            split_forest=split_forest)
+        weights[idx] = ret[1]
+        empty_leaf_counter += ret[2]
+    return idx_list, weights, empty_leaf_counter

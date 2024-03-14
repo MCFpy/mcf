@@ -23,11 +23,14 @@ from mcf import mcf_variable_importance_functions as mcf_vi
 
 def common_support(mcf_, tree_df, fill_y_df, train=True):
     """Remove observations from data files that are off-support."""
-    gen_dic = mcf_.gen_dict
+    gen_dic, int_dic = mcf_.gen_dict, mcf_.int_dict
     lc_dic, var_x_type, cs_dic = mcf_.lc_dict, mcf_.var_x_type, mcf_.cs_dict
     data_train_dic = mcf_.data_train_dict
     d_name, _, no_of_treat = mcf_data.get_treat_info(mcf_)
     x_name, x_type = mcf_gp.get_key_values_in_list(var_x_type)
+    len1 = 0 if tree_df is None else len(tree_df)
+    len2 = 0 if fill_y_df is None else len(fill_y_df)
+    obs = len1 + len2
     names_unordered = [x_name[j] for j, val in enumerate(x_type) if val > 0]
     if gen_dic['with_output'] and gen_dic['verbose']:
         ps.print_mcf(gen_dic, '\n' + '=' * 100 + '\nCommon support analysis',
@@ -50,6 +53,7 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
         tree_mcf_df, fill_y_mcf_df = tree_df, None
     x_mcf_df, obs_mcf = mcf_data.get_x_data(tree_mcf_df, x_name)  # train,adj.
     txt = ''
+    file_list_jpeg = file_list_d_jpeg = None
     if train:
         if names_unordered:  # List is not empty
             x_fy_df, _ = mcf_data.dummies_for_unord(
@@ -68,7 +72,7 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
             txt += '\n' + '-' * 100 + '\n'
             txt += 'Computing random forest based common support\n'
             ps.print_mcf(gen_dic, txt, summary=False)
-        max_workers = 1 if gen_dic['replication'] else gen_dic['mp_parallel']
+        max_workers = 1 if int_dic['replication'] else gen_dic['mp_parallel']
         classif = RandomForestClassifier(
             n_estimators=mcf_.cf_dict['boot'], max_features='sqrt',
             bootstrap=True, oob_score=False, n_jobs=max_workers,
@@ -120,7 +124,8 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
         mcf_.cs_dict = cs_dic   # Update instance with cut-off prob's
         # Descriptive stats
         if gen_dic['with_output']:
-            plot_support(mcf_, pred_cs_np, d_cs_np)
+            file_list_jpeg, file_list_d_jpeg = plot_support(mcf_, pred_cs_np,
+                                                            d_cs_np)
             descriptive_stats_on_off_support(mcf_, pred_fy_np, fill_y_mcf_df,
                                              'Training - fill mcf with y data')
         # Reduce samples
@@ -142,7 +147,12 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
         titel = 'Training - build mcf data' if train else 'Prediction data'
         descriptive_stats_on_off_support(mcf_, pred_mcf_np, tree_mcf_df, titel)
     tree_mcf_df, _ = on_off_support_df(mcf_, pred_mcf_np, tree_mcf_df)
-    return tree_mcf_df, fill_y_mcf_df
+    len1 = 0 if tree_mcf_df is None else len(tree_mcf_df)
+    len2 = 0 if fill_y_mcf_df is None else len(fill_y_mcf_df)
+    obs_remain = len1 + len2
+    share_deleted = (obs - obs_remain) / obs
+    return (tree_mcf_df, fill_y_mcf_df, share_deleted, obs_remain,
+            (file_list_jpeg, file_list_d_jpeg,))
 
 
 def check_if_too_many_deleted(mcf_, obs_keep, obs_del):
@@ -262,12 +272,10 @@ def mean_by_treatment(treat_df, data_df, gen_dic, summary=False):
 def on_off_support_df(mcf_, probs_np, data_df):
     """Split DataFrame into retained and deleted part."""
     cs_dic = mcf_.cs_dict
-    _, _, no_of_treat = mcf_data.get_treat_info(mcf_)
+    # _, _, no_of_treat = mcf_data.get_treat_info(mcf_)
     lower, upper = cs_dic['cut_offs']['lower'], cs_dic['cut_offs']['upper']
     obs = len(probs_np)
     off_support = np.empty(obs, dtype=bool)
-    # off_upper = np.empty(no_of_treat, dtype=bool)
-    # off_lower = np.empty_like(off_upper)
     for i in range(obs):
         off_upper = np.any(probs_np[i, :] > upper)
         off_lower = np.any(probs_np[i, :] < lower)
@@ -289,6 +297,8 @@ def plot_support(mcf_, probs_np, d_np):
     if len(color_list) < len(d_values):
         color_list = color_list * len(d_values)
     color_list = color_list[:len(d_values)]
+    file_list_jpeg = []
+    file_list_d_jpeg = []
     for idx_p, ival_p in enumerate(d_values):  # iterate treatment probs
         treat_prob = probs_np[:, idx_p]
         titel = f'Probability of treatment {ival_p} in different subsamples'
@@ -297,12 +307,14 @@ def plot_support(mcf_, probs_np, d_np):
                          + '/' + f_titel + '.csv')
         file_name_jpeg = (cs_dic['common_support_fig_pfad_jpeg']
                           + '/' + f_titel + '.jpeg')
+        file_list_jpeg.append(file_name_jpeg)
         file_name_pdf = (cs_dic['common_support_fig_pfad_pdf']
                          + '/' + f_titel + '.pdf')
         file_name_csv_d = (cs_dic['common_support_fig_pfad_csv']
                            + '/' + f_titel + '_d.csv')
         file_name_jpeg_d = (cs_dic['common_support_fig_pfad_jpeg']
                             + '/' + f_titel + '_d.jpeg')
+        file_list_d_jpeg.append(file_name_jpeg_d)
         file_name_pdf_d = (cs_dic['common_support_fig_pfad_pdf']
                            + '/' + f_titel + '_d.pdf')
         data_hist = [treat_prob[d_np == val] for val in d_values]
@@ -366,6 +378,7 @@ def plot_support(mcf_, probs_np, d_np):
             plt.show()
         else:
             plt.close()
+    return file_list_jpeg, file_list_d_jpeg
 
 
 def get_cut_off_probs(mcf_, probs_np, d_np):

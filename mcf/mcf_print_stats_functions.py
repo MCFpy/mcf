@@ -9,7 +9,7 @@ Created on Thu May 11 16:30:11 2023
 from datetime import datetime, timedelta
 from io import StringIO
 
-import scipy.stats as sct
+from scipy.stats import norm
 import pandas as pd
 import numpy as np
 
@@ -189,7 +189,7 @@ def balancing_tests(gen_dic, mean, std, count, only_next=False, summary=False,
                 std_diff = np.sqrt((std.loc[i, :]**2) / count.loc[i]
                                    + (std.loc[j, :]**2) / count.loc[j])
                 t_diff = mean_diff.div(std_diff).abs()
-                p_diff = 2 * sct.norm.sf(t_diff) * 100
+                p_diff = 2 * norm.sf(t_diff) * 100
                 stand_diff = (mean_diff / np.sqrt(
                     (std.loc[i, :]**2 + std.loc[j, :]**2) / 2) * 100)
                 stand_diff.abs()
@@ -463,40 +463,49 @@ def print_iate(iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic):
     n_obs = len(iate)
     str_f, str_m, str_l = '=' * 100, '-' * 100, '- ' * 50
     print_str = '\n' + str_f + '\nDescriptives for IATE estimation\n' + str_m
+    print_str_short = ''
     iterator = 2 if p_dic['iate_m_ate'] else 1
     for types in range(iterator):
         if types == 0:
-            print_str += '\nIATE with corresponding statistics\n' + str_l
+            print_str += '\nEffect: IATE\n' + str_l
         else:
-            print_str += ('IATE minus ATE with corresponding statistics '
+            print_str += ('Effect: IATE minus ATE '
                           + '(weights not censored)\n' + str_l)
         for o_idx in range(no_outcomes):
-            print_str += (f'\nOutcome variable: {var_dic["y_name"][o_idx]}\n'
-                          + str_l)
-            str1 = '\n        Comparison          Mean       Median      Std'
+            y_name = var_dic["y_name"][o_idx]
+            if len(y_name) > 3 and y_name[-3:] == '_LC':
+                y_name = y_name[:-3]
+            string = f'\nOutcome variable: {y_name}\n'
+            print_str_short += string
+            print_str += string + str_l
+            str1 = '\nComparison        Mean       Median           Std'
             if p_dic['iate_se']:
-                print_str += (str1 + '  Effect > 0 mean(SE)  sig 10%'
-                              '  sig 5%   sig 1%')
+                string = (str1 + '    Effect > 0  mean(SE)  sig 10%'
+                          '   sig 5%   sig 1%')
             else:
-                print_str += str1 + '  Effect > 0'
+                string = str1 + '    Effect > 0'
+            print_str_short += string + '\n'
+            print_str += string
             for jdx, effects in enumerate(effect_list):
                 fdstring = (f'{effects[0]:<9.5f} vs {effects[1]:>9.5f}'
                             if gen_dic['d_type'] == 'continuous' else
-                            f'{effects[0]:<9} vs {effects[1]:>9} ')
-                print_str += '\n' + fdstring
+                            f'{effects[0]:<4} vs {effects[1]:>4} ')
+                string = '\n' + fdstring
                 est = iate[:, o_idx, jdx, types].reshape(-1)
                 if p_dic['iate_se']:
                     stderr = iate_se[:, o_idx, jdx, types].reshape(-1)
                     p_val = iate_p[:, o_idx, jdx, types].reshape(-1)
-                print_str += (f'{np.mean(est):12.5f} {np.median(est):12.5f}'
-                              f' {np.std(est):12.5f} '
-                              f'{np.count_nonzero(est > 1e-15) / n_obs:7.2%}')
+                string += (f'{np.mean(est):12.5f} {np.median(est):12.5f}'
+                           f' {np.std(est):12.5f} '
+                           f'{np.count_nonzero(est > 1e-15) / n_obs:7.2%}')
                 if p_dic['iate_se']:
-                    print_str += (
+                    string += (
                         f' {np.mean(stderr):12.5f}'
                         f' {np.count_nonzero(p_val < 0.1)/n_obs:8.2%}'
                         f' {np.count_nonzero(p_val < 0.05)/n_obs:8.2%}'
                         f' {np.count_nonzero(p_val < 0.01)/n_obs:8.2%}')
+                print_str_short += string
+                print_str += string
         print_str += '\n' + str_m + '\n'
     print_str += '\n' + str_m
     if p_dic['iate_se']:
@@ -504,7 +513,7 @@ def print_iate(iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic):
                                            p_dic['se_boot_iate']))
         print_str += print_minus_ate_info(gen_dic['weighted'], print_it=False,
                                           gate_or_iate='IATE')
-    return print_str
+    return print_str, print_str_short
 
 
 def print_minus_ate_info(weighted, print_it=True, gate_or_iate='GATE'):
@@ -590,8 +599,8 @@ def stars(pval):
 
 def del_added_chars(name, prime=False, catv=False):
     """Remove added indicators for primes and categoricals for printing."""
-    if prime and len(name) > 6 and name[-6:] == '_PRIME':
+    if prime and name.endswith('_PRIME'):
         name = name[:-6]
-    if catv and len(name) > 4 and name[-4:] == 'CATV':
+    elif catv and name.endswith('CATV'):
         name = name[:-4]
     return name

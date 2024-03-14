@@ -15,7 +15,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 
 from mcf import mcf_print_stats_functions as ps
-from mcf import mcf_variable_importance_functions as vi
+from mcf import mcf_variable_importance_functions as mcf_vi
 
 
 def evaluate(optp_, data_df, allocation_df, d_ok, polscore_desc_ok, desc_var):
@@ -94,10 +94,11 @@ def evaluate(optp_, data_df, allocation_df, d_ok, polscore_desc_ok, desc_var):
                     if pop == 'Switchers':
                         txt += ' for switchers'
                     txt += '\n' + '-' * 100
-                    ps.print_mcf(gen_dic, txt, summary=True)
+                    summary = not (alloc_name == 'random_rest')
+                    ps.print_mcf(gen_dic, txt, summary=summary)
                     ps.statistics_by_treatment(
                         gen_dic, data_new_df_, [alloc_name], desc_var,
-                        only_next=False, summary=True, median_yes=False,
+                        only_next=False, summary=summary, median_yes=False,
                         std_yes=False, balancing_yes=False)
     return results_dic
 
@@ -128,8 +129,9 @@ def evaluation_of_alloc(optp_, results_dic, pop, alloc_name, score_sel_new_df,
             mean = desc_new_var_df[var].mean()
             txt += f' {mean:10.2f}'
             local_dic[var] = mean
-    treat_shares = get_treat_shares(allocation, optp_.gen_dict['d_values'])
-    treat_shares_s = [f'{s:>8.2%}' for s in treat_shares]
+    local_dic['treatment share'] = get_treat_shares(allocation,
+                                                    optp_.gen_dict['d_values'])
+    treat_shares_s = [f'{s:>8.2%}' for s in local_dic['treatment share']]
     txt += ' ' * 6 + ''.join(treat_shares_s)
     if optp_.gen_dict['with_output']:
         ps.print_mcf(optp_.gen_dict, txt, summary=True)
@@ -141,10 +143,12 @@ def get_treat_shares(allocation, d_values):
     """Get treatment shares."""
     values_, treat_counts = np.unique(allocation, return_counts=True)
     treat_shares_ = treat_counts / len(allocation)
-    treat_shares, jdx = [0] * len(d_values), 0
+    # treat_shares = [0] * len(d_values)
+    treat_shares = np.zeros(len(d_values))
+    jdx = 0
     if list(values_):
         for idx, vals in enumerate(d_values):
-            if values_[jdx] == vals:
+            if jdx < len(values_) and values_[jdx] == vals:
                 treat_shares[idx] = treat_shares_[jdx]
                 jdx += 1
     return treat_shares
@@ -229,8 +233,7 @@ def variable_importance(optp_, data_df, allocation_df, seed=1234567):
             n_estimators=1000, max_features='sqrt', bootstrap=True,
             oob_score=False, n_jobs=optp_.int_dict['mp_parallel'],
             random_state=seed, verbose=False, min_samples_split=5)
-#        classif.fit(x_train, d_train)
-        vi.print_variable_importance(
+        mcf_vi.print_variable_importance(
             classif, x_new_df, d_df, x_name, names_unordered, dummy_names,
             optp_.gen_dict, summary=True)
 

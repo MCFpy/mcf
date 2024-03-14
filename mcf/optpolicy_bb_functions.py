@@ -5,8 +5,6 @@ Created on Sun Jul 16 14:03:58 2023
 # -*- coding: utf-8 -*-
 @author: MLechner
 """
-from math import inf
-
 import numpy as np
 import pandas as pd
 
@@ -45,12 +43,12 @@ def largest_gain_fct(po_np):
     return np.argmax(po_np, axis=1)
 
 
-def random_rest_fct(no_treat, no_obs, max_by_cat, rng):
+def random_rest_fct(no_treat, no_obs, max_by_cat, rng, max_attempts=10):
     """Compute random allocation under restrictions."""
-    alloc = np.zeros(no_obs)
-    so_far_by_cat = np.zeros_like(max_by_cat)
+    alloc = np.zeros(no_obs, dtype=int)
+    so_far_by_cat = np.zeros_like(max_by_cat, dtype=int)
     for idx in range(no_obs):
-        for _ in range(10):
+        for _ in range(max_attempts):
             draw = rng.integers(0, high=no_treat, size=1)
             max_by_cat_draw = max_by_cat[draw]  # pylint: disable=E1136
             if so_far_by_cat[draw] <= max_by_cat_draw:
@@ -96,14 +94,15 @@ def largest_gain_rest_idx_fct(order_treat, largest_gain_alloc, max_by_cat,
                               po_np, no_treat):
     """Get index of largest gain under restr. for each obs with given order."""
     def helper_largest_gain(best_last, po_np_i, so_far_by_cat, max_by_cat):
-        po_np_i[best_last] = -inf
-        best = np.argmax(po_np_i)
-        if so_far_by_cat[best] <= max_by_cat[best]:
-            so_far_by_cat[best] += 1
-            success = True
+        po_np_i[best_last] = float('-inf')
+        best_candidates = np.where(po_np_i == np.max(po_np_i))[0]
+        for best in best_candidates:
+            if so_far_by_cat[best] < max_by_cat[best]:
+                so_far_by_cat[best] += 1
+                success = True
+                break
         else:
             success = False
-        # otherwise it remains at the zero default
         return so_far_by_cat, best, success
 
     so_far_by_cat = np.zeros_like(max_by_cat)

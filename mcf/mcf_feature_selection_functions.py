@@ -32,6 +32,7 @@ def feature_selection(mcf_, data_df):
             on list of variables to deselect.
     """
     var_dic, gen_dic, fs_dic = mcf_.var_dict, mcf_.gen_dict, mcf_.fs_dict
+    int_dic = mcf_.int_dict
     var_x_type, var_x_values = copy(mcf_.var_x_type), copy(mcf_.var_x_values)
     boot = mcf_.cf_dict['boot']
     if gen_dic['with_output']:
@@ -80,7 +81,7 @@ def feature_selection(mcf_, data_df):
      ) = train_test_split(
          data_fs_df[var_dic['y_tree_name']], data_fs_df[var_dic['d_name']],
          data_fs_df[x_names], test_size=0.25, random_state=42)
-    max_workers = 1 if gen_dic['replication'] else gen_dic['mp_parallel']
+    max_workers = 1 if int_dic['replication'] else gen_dic['mp_parallel']
     params = {'n_estimators': boot, 'max_features': 'sqrt', 'bootstrap': True,
               'oob_score': False, 'n_jobs': max_workers, 'random_state': 42,
               'verbose': False}
@@ -176,9 +177,10 @@ def feature_selection(mcf_, data_df):
         if gen_dic['with_output']:
             ps.print_mcf(gen_dic, '\nNo variables removed in feature'
                          ' selection' + '\n' + '-' * 100, summary=True)
+        names_to_remove = []
     mcf_.var_dict = var_dic
     mcf_.var_x_type, mcf_.var_x_values = var_x_type, var_x_values
-    return data_mcf_df
+    return data_mcf_df, names_to_remove
 
 
 def score_for_y(y_true, y_pred, y_as_classifier):

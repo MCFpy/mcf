@@ -4,7 +4,9 @@ setup.py
 mcf/__init__.py
 mcf/mcf_ate_functions.py
 mcf/mcf_common_support_functions.py
+mcf/mcf_cuda_functions.py
 mcf/mcf_data_functions.py
+mcf/mcf_estimation_cuda_functions.py
 mcf/mcf_estimation_functions.py
 mcf/mcf_fair_iate_functions.py
 mcf/mcf_feature_selection_functions.py
@@ -18,6 +20,7 @@ mcf/mcf_gate_functions.py
 mcf/mcf_gateout_functions.py
 mcf/mcf_general.py
 mcf/mcf_general_sys.py
+mcf/mcf_iate_cuda_functions.py
 mcf/mcf_iate_functions.py
 mcf/mcf_init_functions.py
 mcf/mcf_local_centering_functions.py
@@ -34,6 +37,9 @@ mcf/optpolicy_init_functions.py
 mcf/optpolicy_pt_add_functions.py
 mcf/optpolicy_pt_eff_functions.py
 mcf/optpolicy_pt_functions.py
+mcf/reporting.py
+mcf/reporting_content_functions.py
+mcf/reporting_functions.py
 mcf.egg-info/PKG-INFO
 mcf.egg-info/SOURCES.txt
 mcf.egg-info/dependency_links.txt

@@ -1,5 +1,7 @@
 """
-Provide functions for Black-Box allocations.
+Provide functions for old policy tree allocations.
+
+Most functions are no longer used.
 
 Created on Thu Aug  3 15:23:17 2023
 # -*- coding: utf-8 -*-
@@ -7,7 +9,7 @@ Created on Thu Aug  3 15:23:17 2023
 """
 from copy import deepcopy
 from math import inf
-import random
+from random import randrange
 
 import numpy as np
 import pandas as pd
@@ -21,7 +23,7 @@ from mcf import optpolicy_pt_eff_functions as opt_pt_eff
 
 def policy_tree_allocation(optp_, data_df):
     """Compute optimal policy tree brute force."""
-    var_dic, ot_dic = optp_.var_dict, optp_.other_dict
+    var_dic, ot_dic, pt_dic = optp_.var_dict, optp_.other_dict, optp_.pt_dict
     po_np = data_df[var_dic['polscore_name']].to_numpy()
     no_obs = len(po_np)
     if ot_dic['restricted']:
@@ -40,23 +42,54 @@ def policy_tree_allocation(optp_, data_df):
         costs_of_treat_update = ot_dic['costs_of_treat']
     # Do not update cost information in attribute but keep it separate
     optp_.pt_dict['cost_of_treat_restrict'] = np.array(costs_of_treat_update)
-    best_tree = None
-    while best_tree is None:
-        if optp_.gen_dict['method'] == 'policy tree':
-            best_tree, _, _ = optimal_tree_proc(optp_, data_df, seed=12345)
-        elif optp_.gen_dict['method'] == 'policy tree eff':
-            best_tree, _, _ = opt_pt_eff.optimal_tree_eff_proc(optp_, data_df,
-                                                               seed=12345)
-        if best_tree is None:
-            if optp_.gen_dict['with_output']:
-                txt = (f'No tree obtained for depth {optp_.pt_dict["depth"]}.'
-                       ' Depth is reduced. If results are desired for original'
-                       ' depth level, try reducing the minimum leaf size or'
-                       ' in increase the number of evaluation points.')
-                optp_.pt_dict['depth'] -= 1
-                ps.print_mcf(optp_.gen_dict, txt, summary=True)
-    optp_.pt_dict['policy_tree'] = best_tree
-    pt_alloc_np = pred_policy_allocation(optp_, data_df)
+
+    tree_levels = 2 if pt_dic['depth_tree_2'] > 1 else 1
+    data_df_list = [data_df]   # Put df in list for use of iterators
+    level_2_dic = {'level_1_tree': None, 'level_2_tree_list': []}
+
+    for tree_number in range(tree_levels):  # Iterate over levels
+        for idx, data_tmp_df in enumerate(data_df_list):  # Iterate over leaves
+            optp_local = get_adjusted_optp(optp_, tree_number, tree_levels)
+            best_tree = None
+            level_str = 'first' if tree_number == 0 else 'second'
+            txt = f'\nCreating {level_str} level optimal policy tree'
+            if tree_number == 1:
+                txt += f'. Leaf of first tree: {idx+1}'
+            ps.print_mcf(optp_.gen_dict, txt, summary=False)
+            while best_tree is None:
+                if optp_.gen_dict['method'] == 'policy tree':
+                    best_tree, _, _ = opt_pt_eff.optimal_tree_eff_proc(
+                        optp_local, data_tmp_df, seed=12345)
+                elif optp_.gen_dict['method'] == 'policy tree old':
+                    best_tree, _, _ = optimal_tree_proc(optp_local, data_tmp_df,
+                                                        seed=12345)
+                if best_tree is None:
+                    if optp_.gen_dict['with_output']:
+                        txt = ('No tree obtained for depth '
+                               f'{optp_local.pt_dict["depth"]}. Depth is '
+                               'reduced.\nIf results are desired for original '
+                               'depth level, try reducing the minimum leaf size'
+                               ' or increasing the # of evaluation points.')
+                        ps.print_mcf(optp_.gen_dict, txt, summary=True)
+                    optp_local.pt_dict['depth'] -= 1
+                    if optp_local.pt_dict['depth'] == 1:
+                        break
+            if tree_number == 1:
+                level_2_dic['level_2_tree_list'].append(best_tree)
+        if tree_levels == 1:
+            optp_.pt_dict['policy_tree'] = best_tree
+        elif tree_levels == 2:
+            if tree_number == 0:
+                level_2_dic['level_1_tree'] = best_tree
+                # create new data_tmp_df_list from trainings data in leaf
+                data_df_list, leaf_id_df_list = get_data_from_tree(
+                    optp_local, data_df, best_tree)
+            elif tree_number == 1:
+                # collect all trees and form new tree from the two tree levels
+                optp_.pt_dict['policy_tree'] = merge_tree_levels(
+                    leaf_id_df_list, level_2_dic)
+
+    pt_alloc_np, _, _ = pred_policy_allocation(optp_, data_df)
     allocation_df = pd.DataFrame(data=pt_alloc_np, columns=('Policy Tree',))
     return allocation_df
 
@@ -81,7 +114,7 @@ def policy_tree_prediction_only(optp_, data_df):
                 raise ValueError(f'The following values of {name} were not '
                                  'contained in the prediction data:'
                                  f' {no_in_val}')
-    pt_alloc_np = pred_policy_allocation(optp_, data_df)
+    pt_alloc_np, _, _ = pred_policy_allocation(optp_, data_df)
     allocation_df = pd.DataFrame(data=pt_alloc_np, columns=('Policy Tree',))
     return allocation_df
 
@@ -105,11 +138,10 @@ def pred_policy_allocation(optp_, data_df):
 
     """
     def pred_treat_fct(treat, indx_in_leaf, total_obs):
-        """Collect data and bring in the same as original data."""
+        """Collect data and bring in the same order as original data."""
         pred_treat = np.zeros((total_obs, 2), dtype=np.int64)
         idx_start = 0
-        for idx, idx_leaf in enumerate(indx_in_leaf):
-            idx_treat = treat[idx]
+        for idx_leaf, idx_treat in zip(indx_in_leaf, treat):
             idx_end = idx_start + len(idx_leaf[0])
             pred_treat[idx_start:idx_end, 0] = idx_leaf[0].to_numpy().flatten()
             pred_treat[idx_start:idx_end, 1] = idx_treat[0]
@@ -131,10 +163,12 @@ def pred_policy_allocation(optp_, data_df):
     length = len(pt_dic['policy_tree'])
     ids = [None] * length
     terminal_leafs = []
+    terminal_leafs_id = []
     for leaf_i in range(length):
         ids[leaf_i] = pt_dic['policy_tree'][leaf_i][0]
         if pt_dic['policy_tree'][leaf_i][4] == 1:
             terminal_leafs.append(pt_dic['policy_tree'][leaf_i])
+            terminal_leafs_id.append(pt_dic['policy_tree'][leaf_i][0])
     assert len(set(ids)) == len(ids), ('Some leafs IDs are identical.' +
                                        'Rerun programme.')
     splits_seq = [None] * len(terminal_leafs)
@@ -148,7 +182,7 @@ def pred_policy_allocation(optp_, data_df):
     predicted_treatment = pred_treat_fct(treat, indx_in_leaf, total_obs)
     if gen_dic['with_output']:
         opt_pt_add.describe_tree(optp_, splits_seq, treat, obs)
-    return predicted_treatment
+    return predicted_treatment, indx_in_leaf, terminal_leafs_id
 
 
 def two_leafs_info(tree, polscore_df, x_df, leaf, polscore_is_index=False):
@@ -416,7 +450,7 @@ def merge_trees(tree_l, tree_r, name_x_m, type_x_m, val_x, treedepth):
 
     """
     leaf = [None] * 9
-    leaf[0], leaf[1] = random.randrange(100000), None
+    leaf[0], leaf[1] = randrange(100000), None
     leaf[5], leaf[6], leaf[7] = name_x_m, type_x_m, val_x
     if treedepth == 2:  # Final split (defines 2 final leaves)
         leaf[2], leaf[3], leaf[4] = None, None, 1
@@ -540,3 +574,66 @@ def final_leaf_dict(leaf, left_right):
     return_dic = {'x_name': leaf[5], 'x_type': leaf[6],
                   'cut-off or set': leaf[7], 'left or right': left_right}
     return return_dic
+
+
+def get_adjusted_optp(optp_, tree_number, tree_levels):
+    """Copy and adjust instance of policy tree."""
+    optp_local = deepcopy(optp_)
+    if tree_number == 0:
+        optp_local.pt_dict['depth'] = optp_.pt_dict['depth_tree_1']
+        if tree_levels == 2:
+            # Adjust minimum leaf size --> speeds up computation
+            optp_local.pt_dict['min_leaf_size'] = round(
+                optp_.pt_dict['min_leaf_size']
+                * 2**(optp_.pt_dict['depth_tree_2'] - 1))
+    elif tree_number == 1:
+        optp_local.pt_dict['depth'] = optp_.pt_dict['depth_tree_2']
+    else:
+        raise NotImplementedError('Not yet (?) implemented for more than 2 '
+                                  'levels of optimal trees.')
+    return optp_local
+
+
+def get_data_from_tree(optp_local, data_df, tree):
+    """Get the data for the final leafs as list."""
+    leaf_data_df_list, leaf_id_list = [], []
+    optp_local.pt_dict[('policy_tree')] = tree
+    optp_local.gen_dict['with_output'] = False
+    _, idx_in_leaf, leaf_id = pred_policy_allocation(optp_local, data_df)
+    for idx, id_ in zip(idx_in_leaf, leaf_id):
+        for idx_left_right in idx:
+            leaf_id_list.append(id_)
+            leaf_data_df_list.append(
+                data_df.iloc[idx_left_right['Sorter'].tolist()])
+    return leaf_data_df_list, leaf_id_list
+
+
+def merge_tree_levels(leaf_id_list, level_2_dic):
+    """Merge second level trees to first level tree."""
+    no_final_double_leafs = round(len(leaf_id_list) / 2)
+    tree = deepcopy(level_2_dic['level_1_tree'])
+    for idx in range(no_final_double_leafs):
+        # Find leaf in 1st tree that has to be adapted
+        leaf_1_idx = find_leaf_one_idx(tree, leaf_id_list[idx*2])
+        # Relevant trees of second round
+        tree_2_l = deepcopy(level_2_dic['level_2_tree_list'][idx*2])
+        tree_2_r = deepcopy(level_2_dic['level_2_tree_list'][idx*2+1])
+        if tree_2_l is not None and tree_2_r is not None:
+            # Recode parent leave in 1st tree for both second level trees
+            tree_2_l[0][1] = tree[leaf_1_idx][0]
+            # Recode final leaf in 1st tree with information of first leaf 2nd
+            # level
+            tree[leaf_1_idx][2] = tree_2_l[0][0]    # Add ID of daughter leave
+            tree_2_r[0][1] = tree[leaf_1_idx][0]
+            tree[leaf_1_idx][3] = tree_2_r[0][0]
+            tree[leaf_1_idx][4] = 0     # Not a final leaf anymore
+            tree = tree + tree_2_l + tree_2_r
+    return tree
+
+
+def find_leaf_one_idx(tree, leaf_id):
+    """Find id of a leaf in another tree."""
+    for idx, leaf in enumerate(tree):
+        if leaf_id == leaf[0]:
+            return idx
+    raise ValueError('Leaf id not found.')

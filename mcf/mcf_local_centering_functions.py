@@ -22,7 +22,7 @@ def local_centering(mcf_, tree_df, fill_y_df, train=True):
     """Locally center all outcome variables."""
     lc_dic, gen_dic, var_dic = mcf_.lc_dict, mcf_.gen_dict, mcf_.var_dict
     var_x_type, data_train_dict = mcf_.var_x_type, mcf_.data_train_dict
-    cf_dic = mcf_.cf_dict
+    cf_dic, int_dic = mcf_.cf_dict, mcf_.int_dict
     if gen_dic['with_output']:
         ps.print_mcf(gen_dic, '=' * 100 + '\nLocal Centering' + '\n',
                      summary=True)
@@ -57,6 +57,7 @@ def local_centering(mcf_, tree_df, fill_y_df, train=True):
         x_tree_df, dummy_names = data.dummies_for_unord(
             x_tree_df, names_unordered, data_train_dict=data_train_dict)
     x_tree_np = x_tree_df.to_numpy()
+    lc_r2_txt = None
     if train:
         if names_unordered:  # List is not empty
             x_fy_df, _ = data.dummies_for_unord(
@@ -67,7 +68,7 @@ def local_centering(mcf_, tree_df, fill_y_df, train=True):
         if not lc_dic['cs_cv']:
             x_lc_np = x_lc_df.to_numpy()
         x_fy_np = x_fy_df.to_numpy()
-        max_workers = 1 if gen_dic['replication'] else gen_dic['mp_parallel']
+        max_workers = 1 if int_dic['replication'] else gen_dic['mp_parallel']
         params = {'n_estimators': cf_dic['boot'], 'max_features': 'sqrt',
                   'bootstrap': True, 'oob_score': False, 'n_jobs': max_workers,
                   'random_state': seed, 'verbose': False}
@@ -101,9 +102,11 @@ def local_centering(mcf_, tree_df, fill_y_df, train=True):
                 forests_all.append(deepcopy(forests_y))
             if gen_dic['with_output']:
                 for idx, y_name in enumerate(var_dic['y_name']):
-                    print_lc_info(y_name, y_as_classifier, gen_dic,
-                                  y_x_tree[:, idx].ravel(),
-                                  y_tree_np[:, idx].ravel())
+                    txt_return = print_lc_info(
+                        y_name, y_as_classifier, gen_dic,
+                        y_x_tree[:, idx].ravel(), y_tree_np[:, idx].ravel())
+                    if idx == 0:
+                        lc_r2_txt = txt_return
             y_x_fy /= lc_dic['cs_cv_k']
         else:
             forests_y = []
@@ -118,9 +121,12 @@ def local_centering(mcf_, tree_df, fill_y_df, train=True):
                 y_x_fy[:, idx] = y_rf_obj.predict(x_fy_np)
                 forests_y.append(deepcopy(y_rf_obj))
                 if gen_dic['with_output']:
-                    print_lc_info(y_name, y_as_classifier, gen_dic,
-                                  y_x_tree[:, idx].ravel(),
-                                  tree_mcf_df[y_name].to_numpy().ravel())
+                    txt_return = print_lc_info(
+                        y_name, y_as_classifier, gen_dic,
+                        y_x_tree[:, idx].ravel(),
+                        tree_mcf_df[y_name].to_numpy().ravel())
+                    if idx == 0:
+                        lc_r2_txt = txt_return
             forests_all.append(deepcopy(forests_y))
         if isinstance(var_dic['y_name'], (list, tuple)):
             y_name = [y_name]
@@ -161,7 +167,7 @@ def local_centering(mcf_, tree_df, fill_y_df, train=True):
     if train:
         mcf_.lc_dict = lc_dic
         mcf_.var_dict = var_dic
-    return tree_add_y_lc_df, fill_add_y_lc_df, y_x_df
+    return tree_add_y_lc_df, fill_add_y_lc_df, y_x_df, lc_r2_txt
 
 
 def print_lc_info(y_name, y_as_classifier, gen_dic, y_pred, y_true,
@@ -176,6 +182,8 @@ def print_lc_info(y_name, y_as_classifier, gen_dic, y_pred, y_true,
     txt = '\n' + 100 * '-' + '\nFit of Ey|x for local centering.   '
     txt += method + f'for {y_name}: {fit:5.2%} \n' + '- ' * 50
     ps.print_mcf(gen_dic, txt, summary=summary)
+    txt_return = 'fit of Ey|x (' + method + f') for {y_name}: {fit:5.2%}'
+    return txt_return
 
 
 def adjust_y_names(var_dic, gen_dic, y_name_old, y_name_new, summary=True):

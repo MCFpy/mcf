@@ -1,4 +1,3 @@
-
 from time import time
 
 from mcf import mcf_print_stats_functions as ps
@@ -96,7 +95,8 @@ class OptimalPolicy:
     pt_depth_tree_1 : Integer (or None), optional
         Depth of 1st optimal tree. Default is 3.
         Note that tree depth is defined such that a depth of 1 implies 2
-        leaves, a depth of 2 implies 4 leaves, a depth of 3 implies 8 leaves, etc.
+        leaves, a depth of 3 implies 4 leaves, a depth of 3 implies 8 leaves,
+        etc.
 
     pt_depth_tree_2 : Integer (or None), optional
         Depth of 2nd optimal tree. This set is build within the strata

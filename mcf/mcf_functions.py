@@ -477,6 +477,10 @@ class ModifiedCausalForest:
         Estimate increase of difference of GATEs, CBGATEs, BGATEs when
         evaluated at next larger observed value.
         Default (or None) is False.
+
+    p_gates_no_evalu_points : Integer (or None), optional
+        Number of evaluation points for discretized variables in (CB)(B)GATE
+        estimation. Default (or None) is 50.
         
     p_gates_smooth : Boolean (or None), optional
         Alternative way to estimate GATEs for continuous features. Instead
@@ -498,10 +502,6 @@ class ModifiedCausalForest:
         treatment is included in prediction data.
         Default (or None) is False.
         
-    p_gates_no_evalu_points : Integer (or None), optional
-        Number of evaluation points for discretized variables in (C)BGATE
-        estimation. Default (or None) is 50.
-
     p_bgate : Boolean (or None), optional
         Estimate a GATE that is balanced in selected features (as specified
         in var_bgate_name. Default (or None) is False.
@@ -1529,7 +1529,7 @@ class ModifiedCausalForest:
                 (results_plus_cluster, report['knn_table']
                  ) = mcf_post.k_means_of_x_iate(self, results)
             else:
-                report['knn_table'] = None
+                results_plus_cluster = report['knn_table'] = None
             time_end_km = time()
             if self.post_dict['random_forest_vi']:
                 mcf_post.random_forest_of_iate(self, results)

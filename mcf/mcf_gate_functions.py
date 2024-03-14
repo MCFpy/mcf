@@ -9,7 +9,7 @@ Contains the functions needed for computing the GATEs.
 """
 from copy import deepcopy
 from itertools import chain, compress, repeat
-import os
+from os import remove
 
 import numpy as np
 import ray
@@ -23,17 +23,17 @@ from mcf import mcf_weight_functions as mcf_w
 
 
 def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
-             z_name_amgate=None, with_output=True, paras_amgate=None):
-    """Estimate GATE(T)s, BGATE and AMGATE and their standard errors."""
-    if gate_type not in ('GATE', 'AMGATE', 'BGATE'):
+             z_name_cbgate=None, with_output=True, paras_cbgate=None):
+    """Estimate GATE(T)s, BGATE and CBGATE and their standard errors."""
+    if gate_type not in ('GATE', 'CBGATE', 'BGATE'):
         raise ValueError('Wrong GATE specifified ({gate_type}). gate_type must'
-                         'be on of the following: GATE, AMGATE, BGATE')
+                         'be on of the following: GATE, CBGATE, BGATE')
     gen_dic, ct_dic, int_dic = mcf_.gen_dict, mcf_.ct_dict, mcf_.int_dict
     p_dic, var_dic = mcf_.p_dict, deepcopy(mcf_.var_dict)
     if gate_type != 'GATE':
         (var_dic, var_x_values, smooth_yes, z_name_smooth) = deepcopy(
-            paras_amgate)
-        var_dic['z_name'] = z_name_amgate
+            paras_cbgate)
+        var_dic['z_name'] = z_name_cbgate
     else:
         var_x_values = deepcopy(mcf_.var_x_values)
         if p_dic['gates_smooth']:
@@ -254,7 +254,7 @@ def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
         txt_all.append(txt_z_name)
         if files_to_delete:  # delete temporary files
             for file in files_to_delete:
-                os.remove(file)
+                remove(file)
         gate_est_dic = {
             'continuous': continuous, 'd_values': d_values,
             'd_values_dr': d_values_dr, 'treat_comp_label': treat_comp_label,
@@ -274,9 +274,9 @@ def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
             gate_est_dic, txt_all)
 
 
-def bamgate_est(mcf_, data_df, weights_dic, w_ate, forest_dic,
-                gate_type='AMGATE'):
-    """Compute AMGATE & BGATE for single variables keeping others constant."""
+def bgate_est(mcf_, data_df, weights_dic, w_ate, forest_dic,
+              gate_type='CBGATE'):
+    """Compute CBGATE & BGATE for single variables keeping others constant."""
     int_dic, var_dic = mcf_.int_dict, mcf_.var_dict
     var_x_type = deepcopy(mcf_.var_x_type)
     var_x_values = deepcopy(mcf_.var_x_values)
@@ -302,8 +302,8 @@ def bamgate_est(mcf_, data_df, weights_dic, w_ate, forest_dic,
             data_df, var_dic, var_x_values, p_dic)
     else:
         smooth_yes, z_name_smooth = False, None
-    eva_values = ref_vals_amgate(data_df, var_x_type, var_x_values,
-                                 no_eva_values=p_dic['gmate_no_evalu_points'])
+    eva_values = ref_vals_cbgate(data_df, var_x_type, var_x_values,
+                                 no_eva_values=p_dic['gate_no_evalu_points'])
     if int_dic['with_output'] and int_dic['verbose']:
         print(f'\n{gate_type} variable under investigation: ', end=' ')
     y_pot_all, y_pot_var_all, y_pot_mate_all, txt_all = [], [], [], []
@@ -324,7 +324,7 @@ def bamgate_est(mcf_, data_df, weights_dic, w_ate, forest_dic,
                 data_df.copy(), vname, int_dic, p_dic, eva_values,
                 var_dic['bgate_name'][:])
         else:
-            data_df_new, z_values, txt_sim = ref_data_amgate(
+            data_df_new, z_values, txt_sim = ref_data_cbgate(
                 data_df.copy(), vname, int_dic, p_dic, eva_values)
         vname_ = ps.del_added_chars(vname, prime=True)
         text_sim_all += f'\n{vname_}: ' + txt_sim
@@ -337,8 +337,8 @@ def bamgate_est(mcf_, data_df, weights_dic, w_ate, forest_dic,
         (y_pot_gate_z, y_pot_var_gate_z, y_pot_mate_gate_z,
          y_pot_mate_var_gate_z, gate_est_dic_z, txt_p) = gate_est(
              mcf_, data_df_new, weights_dic, w_ate, gate_type=gate_type,
-             z_name_amgate=[vname], with_output=False,
-             paras_amgate=(var_dic, var_x_values, smooth_yes, z_name_smooth))
+             z_name_cbgate=[vname], with_output=False,
+             paras_cbgate=(var_dic, var_x_values, smooth_yes, z_name_smooth))
         txt += txt_p[0]
         txt_all.append(txt)
         y_pot_all.append(y_pot_gate_z[0])
@@ -366,18 +366,18 @@ def bamgate_est(mcf_, data_df, weights_dic, w_ate, forest_dic,
             gate_est_dic_all, txt_all, text_sim_all)
 
 
-def ref_data_amgate(data_df, z_name, int_dic, p_dic, eva_values):
-    """Create reference samples for covariates (AMGATE)."""
+def ref_data_cbgate(data_df, z_name, int_dic, p_dic, eva_values):
+    """Create reference samples for covariates (CBGATE)."""
     eva_values = eva_values[z_name]
     no_eval, obs, txt = len(eva_values), len(data_df), ''
     if obs/no_eval > 10:  # Save computation time by using random samples
-        share = p_dic['gmate_sample_share'] / no_eval
+        share = p_dic['bgate_sample_share'] / no_eval
         if 0 < share < 1:
             rng = np.random.default_rng(seed=9324561)
             idx = rng.choice(obs, int(np.floor(obs * share)), replace=False)
             obs = len(idx)
             if int_dic['with_output'] and int_dic['verbose']:
-                txt += f' AMGATE: {share:5.2%} random sample drawn'
+                txt += f' CBGATE: {share:5.2%} random sample drawn'
         else:
             idx = np.arange(obs)
     else:
@@ -387,7 +387,7 @@ def ref_data_amgate(data_df, z_name, int_dic, p_dic, eva_values):
     new_values_z = list(chain.from_iterable([[i] * obs for i in eva_values]))
     data_all_df.loc[:, z_name] = new_values_z
     if int_dic['with_output'] and int_dic['verbose']:
-        txt += ('\nAMGATEs minus ATE are evaluated at fixed z-feature values'
+        txt += ('\nCBGATEs minus ATE are evaluated at fixed z-feature values'
                 ' (equally weighted).')
     return data_all_df, eva_values, txt
 
@@ -398,14 +398,14 @@ def ref_data_bgate(data_df, z_name, int_dic, p_dic, eva_values, bgate_name):
     no_eval, obs, txt = len(eva_values), len(data_df), ''
     if z_name in bgate_name:
         bgate_name.remove(z_name)
-    if len(z_name) > 4 and z_name[-4:] == 'CATV' and z_name[:-4] in bgate_name:
+    if z_name.endswith('CATV') and z_name[:-4] in bgate_name:
         bgate_name.remove(z_name[:-4])
     if z_name + 'CATV' in bgate_name:  # the continuous variable
         bgate_name.remove(z_name + 'CATV')
     if not bgate_name:
         raise ValueError('BGATE {z_name}: No variables left for balancing.')
     if obs/no_eval > 10:  # Save computation time by using random samples
-        share = p_dic['gmate_sample_share'] / no_eval
+        share = p_dic['bgate_sample_share'] / no_eval
         if 0 < share < 1:
             rng = np.random.default_rng(seed=9324561)
             idx = rng.choice(obs, int(np.floor(obs * share)), replace=False)
@@ -424,7 +424,7 @@ def ref_data_bgate(data_df, z_name, int_dic, p_dic, eva_values, bgate_name):
         txt += (f'\nBGATEs are balanced with respect to {" ".join(bgate_name)}'
                 '\nBGATEs minus ATE are evaluated at fixed z-feature values'
                 ' (equally weighted).')
-    # Until here these are the identical steps to AMGATE. Next, observations in
+    # Until here these are the identical steps to CBGATE. Next, observations in
     # data_all_df get substituted by their nearest neighbours in terms of
     # bgate_name conditional on the z_name variables.
     data_new_b_np = data_new_df[bgate_name].to_numpy(copy=True)
@@ -455,7 +455,7 @@ def ref_data_bgate(data_df, z_name, int_dic, p_dic, eva_values, bgate_name):
         data_org_b_np_condz = data_org_b_np[z_true]
         diff = data_org_b_np_condz - data_new_b_np[idx, :]
         if data_org_b_np.shape[1] > 1:
-            dist = np.sum(np.dot(diff, bz_cov_inv) * diff, axis=1)
+            dist = np.sum((diff @ bz_cov_inv) * diff, axis=1)
         else:
             dist = diff**2
         match_neigbour_idx = np.argmin(dist)
@@ -484,7 +484,7 @@ def invcovariancematrix(data_np):
     return cov_inv
 
 
-def ref_vals_amgate(data_df, var_x_type, var_x_values, no_eva_values=50):
+def ref_vals_cbgate(data_df, var_x_type, var_x_values, no_eva_values=50):
     """Compute reference values for moderated gates and balanced gates."""
     evaluation_values = {}
     obs = len(data_df)

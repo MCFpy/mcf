@@ -6,7 +6,6 @@ Created on Thu May 11 16:30:11 2023
 @author: MLechner
 # -*- coding: utf-8 -*-
 """
-from concurrent import futures
 from math import floor
 
 import numpy as np
@@ -55,6 +54,7 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
 
     """
     int_dic, gen_dic = mcf_.int_dict, mcf_.gen_dict
+    cuda = int_dic['cuda']
     if int_dic['with_output'] and int_dic['verbose']:
         txt = '\nVariable importance measures (OOB data)\nSingle variables'
         ps.print_mcf(gen_dic, txt, summary=True)
@@ -97,7 +97,7 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
         for jdx in range(number_of_oobs):
             oob_values[jdx], _ = get_oob_mcf(
                 data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
-                jdx, True, [], forest, False, partner_k[jdx])
+                jdx, True, [], forest, False, partner_k[jdx], cuda)
             if int_dic['with_output'] and int_dic['verbose']:
                 gp.share_completed(jdx+1, number_of_oobs)
     else:  # Fast but needs a lot of memory because it copied a lot
@@ -105,7 +105,7 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
         if int_dic['ray_or_dask'] == 'ray':
             still_running = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
-                cf_dic, idx, True, [], forest_ref, True, partner_k[idx])
+                cf_dic, idx, True, [], forest_ref, True, partner_k[idx], cuda)
                 for idx in range(number_of_oobs)]
             jdx = 0
             while len(still_running) > 0:
@@ -136,7 +136,8 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
         if maxworkers > 1 and int_dic['ray_or_dask'] == 'ray':
             still_running = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
-                cf_dic, idx, False, ind_groups, forest_ref, True, partner_k)
+                cf_dic, idx, False, ind_groups, forest_ref, True, partner_k,
+                cuda)
                 for idx in range(n_g)]
             idx = 0
             while len(still_running) > 0:
@@ -152,7 +153,8 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
             for idx in range(n_g):
                 oob_values[idx], _ = get_oob_mcf(
                     data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
-                    cf_dic, idx, False, ind_groups, forest, False, partner_k)
+                    cf_dic, idx, False, ind_groups, forest, False, partner_k,
+                    cuda)
                 if int_dic['with_output'] and int_dic['verbose']:
                     gp.share_completed(idx+1, n_g)
         vim_g, txt = vim_print(mse_ref, np.array(oob_values), x_name,
@@ -171,7 +173,8 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
         if maxworkers > 1 and int_dic['ray_or_dask'] == 'ray':
             still_running = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
-                cf_dic, idx, False, ind_groups, forest_ref, True, partner_k)
+                cf_dic, idx, False, ind_groups, forest_ref, True, partner_k,
+                cuda)
                 for idx in range(n_g)]
             idx = 0
             while len(still_running) > 0:
@@ -187,7 +190,8 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
             for idx in range(n_g):
                 oob_values[idx], _ = get_oob_mcf(
                     data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
-                    cf_dic, idx, False, ind_groups, forest, False, partner_k)
+                    cf_dic, idx, False, ind_groups, forest, False, partner_k,
+                    cuda)
                 if int_dic['with_output'] and int_dic['verbose']:
                     gp.share_completed(idx+1, n_g)
         vim_mg, txt = vim_print(mse_ref, np.array(oob_values), x_name,
@@ -353,16 +357,16 @@ def vim_print(mse_ref, mse_values, x_name, ind_list=0, with_output=True,
 @ray.remote
 def ray_get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
                     cf_dic, k, single, group_ind_list, forest, no_mp=False,
-                    partner_k=None):
+                    partner_k=None, cuda=False):
     """Make function usable for Ray."""
     return get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
                        cf_dic, k, single, group_ind_list, forest, no_mp,
-                       partner_k)
+                       partner_k, cuda)
 
 
 def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
                 k, single, group_ind_list, forest, no_mp=False,
-                partner_k=None):
+                partner_k=None, cuda=False):
     """Get the OOB value of a forest.
 
     Parameters
@@ -381,6 +385,7 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
     no_mp : Bool. No multiprocessing.  Default is False.
     partner_k : For single variables only: Allows to jointly randomize another
                 single variables that strongly covaries with variable k.
+    cuda : Boolean. Use GPU.
 
     Returns
     -------
@@ -405,13 +410,14 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
             data_np_oob = data_np[forest[idx]['oob_indices']]
             oob_tree = get_oob_mcf_b(
                 data_np_oob, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k,
-                single, group_ind_list, forest[idx], partner_k=partner_k)
+                single, group_ind_list, forest[idx], partner_k=partner_k,
+                cuda=cuda)
             oob_value += oob_tree
     else:
         if int_dic['mp_weights_tree_batch'] > 1:  # User defined # of batches
             no_of_boot_splits = int_dic['mp_weights_tree_batch']
             split_forest = True
-        elif int_dic['mp_weights_tree_batch'] == 0:  # Automatic # of batches
+        elif int_dic['mp_weights_tree_batch'] == 0:  # Automatic no. of batches
             size_of_forest_mb = mcf_sys.total_size(forest) / (1024 * 1024)
             no_of_boot_splits, txt = mcf_sys.no_of_boot_splits_fct(
                 size_of_forest_mb, maxworkers)
@@ -426,38 +432,30 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
         if split_forest:
             b_ind_list = np.array_split(range(cf_dic['boot']),
                                         no_of_boot_splits)
-            with futures.ProcessPoolExecutor(max_workers=maxworkers) as fpp:
-                ret_fut = {}
-                for idx, b_ind in enumerate(b_ind_list):
-                    forest_temp = forest[b_ind[0]:b_ind[-1]+1]
-                    ret_fut_t = {fpp.submit(
-                        get_oob_mcf_chuncks, data_np, y_i, y_nn_i, x_i, d_i,
-                        w_i, gen_dic, cf_dic, k, single, group_ind_list,
-                        forest_temp, b_ind, partner_k): idx}
-                    ret_fut.update(ret_fut_t)
-                for frv in futures.as_completed(ret_fut):
-                    oob_value += frv.result()
-                    del ret_fut[frv]
-                    del frv
+            for idx, b_ind in enumerate(b_ind_list):
+                forest_temp = forest[b_ind[0]:b_ind[-1]+1]
+                oob_value += get_oob_mcf_chuncks(
+                    data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k,
+                    single, group_ind_list, forest_temp, b_ind, partner_k, cuda)
     oob_value = oob_value / cf_dic['boot']
     return oob_value, k
 
 
 def get_oob_mcf_chuncks(data, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k,
                         single, group_ind_list, tree_dics, index_list,
-                        partner_k=None):
+                        partner_k=None, cuda=False):
     """Compute OOB value in chuncks."""
     oob_value = 0
     for idx, _ in enumerate(index_list):
         data_np_oob = data[tree_dics[idx]['oob_indices']]
         oob_value += get_oob_mcf_b(
             data_np_oob, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k,
-            single, group_ind_list, tree_dics[idx], partner_k)
+            single, group_ind_list, tree_dics[idx], partner_k, cuda)
     return oob_value
 
 
 def get_oob_mcf_b(data, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k, single,
-                  group_ind_list, tree_dict, partner_k=None):
+                  group_ind_list, tree_dict, partner_k=None, cuda=False):
     """Generate OOB contribution for single bootstrap."""
     x_dat, y_dat = data[:, x_i], data[:, y_i]
     y_nn = data[:, y_nn_i]
@@ -482,7 +480,7 @@ def get_oob_mcf_b(data, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k, single,
     oob_tree = mcf_fo.oob_in_tree(
         obs_in_leaf, y_dat, y_nn, d_dat, w_dat, cf_dic['mtot'],
         gen_dic['no_of_treat'], gen_dic['d_values'], gen_dic['weighted'],
-        cont=gen_dic['d_type'] == 'continuous')
+        cont=gen_dic['d_type'] == 'continuous', cuda=cuda)
     return oob_tree
 
 
@@ -546,4 +544,4 @@ def print_variable_importance(clas_obj, x_df, d_df, x_name, names_uo,
                            'display.expand_frame_repr', True,
                            'chop_threshold', 1e-13):
         ps.print_mcf(gen_dic, vi_information.transpose().sort_values(
-            by=['rel_diff_d_%'], ascending=False), summary=False)
+            by=['rel_diff_d_%'], ascending=False), summary=summary)

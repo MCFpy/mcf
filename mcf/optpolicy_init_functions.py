@@ -4,7 +4,7 @@ Contains the functions needed for initialising the parameters.
 @author: MLechner
 -*- coding: utf-8 -*-
 """
-import psutil
+from psutil import cpu_count
 
 import numpy as np
 
@@ -12,21 +12,29 @@ from mcf import mcf_general as gp
 from mcf import mcf_general_sys as mcf_sys
 
 
-def init_int(how_many_parallel=None, parallel_processing=None,
-             output_no_new_dir=None, with_numba=None, with_output=None):
+def init_int(cuda=None, how_many_parallel=None, parallel_processing=None,
+             output_no_new_dir=None, report=None, with_numba=None,
+             with_output=None, xtr_parallel=False):
     """Initialise basic technical pamameters."""
     dic = {}
+    if cuda is False:
+        dic['cuda'] = False
+    else:
+        # dic['cuda'] = torch.cuda.is_available()
+        raise NotImplementedError('GPU is not used for Optimal Policy')
     dic['parallel_processing'] = parallel_processing is not False
     if dic['parallel_processing']:
         if how_many_parallel is None or how_many_parallel < 0.5:
-            dic['mp_parallel'] = round(psutil.cpu_count(logical=True)*0.8)
+            dic['mp_parallel'] = round(cpu_count(logical=True)*0.8)
         else:
             dic['mp_parallel'] = round(how_many_parallel)
     else:
         dic['mp_parallel'] = 1
     dic['output_no_new_dir'] = output_no_new_dir is True
+    dic['report'] = report is not False
     dic['with_numba'] = with_numba is not False
     dic['with_output'] = with_output is not False
+    dic['xtr_parallel'] = xtr_parallel is not False and dic['mp_parallel'] > 1
     return dic
 
 
@@ -36,15 +44,15 @@ def init_gen(method=None, outfiletext=None, outpath=None, output_type=None,
     dic = {}
     dic['method'] = 'best_policy_score' if method is None else method
     if dic['method'] not in ('best_policy_score', 'policy tree',
-                             'policy tree eff',):
+                             'policy tree old',):
         raise ValueError(f'{dic["method"]} is not a valid method.')
-    if method == 'best_policy_score':
+    if dic['method'] == 'best_policy_score':
         dir_nam = 'BPS'
-    elif method == 'policy tree':
+    elif dic['method'] == 'policy tree':
         dir_nam = 'PT'
-    elif method == 'policy tree eff':
-        dir_nam = 'PT_EFF'
-    dic['variable_importance'] = variable_importance is True
+    elif dic['method'] == 'policy tree old':
+        dir_nam = 'PT_OLD'
+    dic['variable_importance'] = variable_importance is not False
 
     dic['output_type'] = 2 if output_type is None else output_type
     if dic['output_type'] == 0:
@@ -97,8 +105,8 @@ def init_dc(check_perfectcorr=None, clean_data=None, min_dummy_obs=None,
     return dic
 
 
-def init_pt(depth=None, enforce_restriction=None, eva_cat_mult=None,
-            no_of_evalupoints=None, min_leaf_size=None,
+def init_pt(depth_tree_1=None, depth_tree_2=None, enforce_restriction=None,
+            eva_cat_mult=None, no_of_evalupoints=None, min_leaf_size=None,
             select_values_cat=None):
     """Initialise parameters related to policy tree."""
     dic = {}
@@ -106,13 +114,22 @@ def init_pt(depth=None, enforce_restriction=None, eva_cat_mult=None,
         dic['no_of_evalupoints'] = 100
     else:
         dic['no_of_evalupoints'] = round(no_of_evalupoints)
-    if depth is None or depth < 1:
-        dic['depth'] = 4
+
+    if depth_tree_1 is None or depth_tree_1 < 1:
+        dic['depth_tree_1'] = 4
     else:
-        dic['depth'] = round(depth + 1)
+        dic['depth_tree_1'] = round(depth_tree_1 + 1)
+    if depth_tree_2 is None or depth_tree_2 < 0:
+        dic['depth_tree_2'] = 2
+    else:
+        dic['depth_tree_2'] = round(depth_tree_2 + 1)
+    dic['depth'] = dic['depth_tree_1'] + dic['depth_tree_2'] - 1
+
     dic['min_leaf_size'] = min_leaf_size   # To be initialized later
     dic['select_values_cat'] = select_values_cat is True
     dic['enforce_restriction'] = enforce_restriction is True
+    if dic['enforce_restriction'] and dic['depth_tree_2'] > 1:
+        dic['enforce_restriction'] = False
     if (eva_cat_mult is None or not isinstance(eva_cat_mult, (float, int))
             or eva_cat_mult < 0.1):
         dic['eva_cat_mult'] = 1
@@ -123,8 +140,16 @@ def init_pt(depth=None, enforce_restriction=None, eva_cat_mult=None,
 
 def init_pt_solve(optp_, no_of_obs):
     """Initialise parameters related to policy tree."""
-    optp_.pt_dict['min_leaf_size'] = 0.1 * no_of_obs / (
-        (optp_.pt_dict['depth'] - 1) * 2)
+    if (optp_.pt_dict['min_leaf_size'] is None
+            or optp_.pt_dict['min_leaf_size'] < 0):
+        optp_.pt_dict['min_leaf_size'] = 0.1 * no_of_obs / (
+            (optp_.pt_dict['depth'] - 1) * 2)
+        if optp_.other_dict['restricted']:
+            min_share = np.min(optp_.other_dict['max_shares'])
+            optp_.pt_dict['min_leaf_size'] = round(
+                optp_.pt_dict['min_leaf_size'] * min_share)
+    else:
+        optp_.pt_dict['min_leaf_size'] = round(optp_.pt_dict['min_leaf_size'])
 
 
 def init_other_solve(optp_):
@@ -145,7 +170,8 @@ def init_other_solve(optp_):
 
     if (ot_dic['costs_of_treat_mult'] is None
             or len(ot_dic['costs_of_treat_mult']) < no_of_treat):
-        ot_dic['costs_of_treat_mult'] = [1] * no_of_treat
+        mult = 1
+        ot_dic['costs_of_treat_mult'] = [mult] * no_of_treat
     if any(cost <= 0 for cost in ot_dic['costs_of_treat_mult']):
         raise ValueError('Cost multiplier must be positive.')
     optp_.other_dict = ot_dic

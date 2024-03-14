@@ -12,7 +12,6 @@ from time import time
 
 import numpy as np
 import ray
-# import pandas as pd
 
 from mcf import mcf_forest_data_functions as mcf_fo_data
 from mcf import mcf_forest_add_functions as mcf_fo_add
@@ -62,8 +61,7 @@ def train_forest(mcf_, tree_df, fill_y_df):
             # Estimate forest structure (regular, efficient IATE)
             if gen_dic['with_output']:
                 print(f'\nBuilding {splits+1} / {folds} forests, {round_}')
-            forest, x_name_mcf = build_forest(mcf_, tree_fold_df)
-
+            forest, x_name_mcf, report_ = build_forest(mcf_, tree_fold_df)
             if reg_round and splits == 0:
                 cf_dic['x_name_mcf'] = x_name_mcf
             # Variable importance  ONLY REGULAR
@@ -79,19 +77,26 @@ def train_forest(mcf_, tree_df, fill_y_df):
             # Fill tree with outcomes(regular, , efficient IATE)
             if gen_dic['with_output']:
                 print(f'Filling {splits+1} / {folds} forests, {round_}')
-            forest, _, _ = mcf_fo_add.fill_trees_with_y_indices_mp(
-                mcf_, fill_y_fold_df, forest)
+            forest, _, share_merged = mcf_fo_add.fill_trees_with_y_indices_mp(
+                mcf_, fill_y_fold_df, forest)    # Fill
             forest_dic = mcf_fo_add.train_save_data(mcf_, fill_y_fold_df,
                                                     forest)
             forest_list = mcf_fo_add.save_forests_in_cf_dic(
                 forest_dic, forest_list, splits, folds, reg_round,
                 gen_dic['iate_eff'])
-    return cf_dic, forest_list, time_vi
+            if gen_dic['with_output']:
+                if reg_round and splits == 0:
+                    report = report_
+                    report["share_leaf_merged"] = share_merged
+            else:
+                report = None
+    return cf_dic, forest_list, time_vi, report
 
 
 def build_forest(mcf_, tree_df):
     """Build MCF (not yet populated by w and outcomes)."""
     int_dic, gen_dic, cf_dic = mcf_.int_dict, mcf_.gen_dict, mcf_.cf_dict
+    cuda = int_dic['cuda']
     with_ray = (not int_dic['no_ray_in_forest_building']
                 and (int_dic['ray_or_dask'] == 'ray'))
     if not with_ray:
@@ -116,7 +121,7 @@ def build_forest(mcf_, tree_df):
             forest[idx] = build_tree_mcf(
                 data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
                 x_values, x_ind, x_ai_ind, gen_dic, cf_dic, mcf_.ct_dict, idx,
-                pen_mult)
+                pen_mult, cuda)
             if int_dic['with_output'] and int_dic['verbose']:
                 mcf_gp.share_completed(idx+1, cf_dic['boot'])
     else:
@@ -136,7 +141,7 @@ def build_forest(mcf_, tree_df):
             still_running = [ray_build_tree_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i,
                 x_type, x_values, x_ind, x_ai_ind, gen_dic, cf_dic,
-                mcf_.ct_dict, boot, pen_mult)
+                mcf_.ct_dict, boot, pen_mult, cuda)
                 for boot in range(cf_dic['boot'])]
             jdx = 0
             while len(still_running) > 0:
@@ -165,25 +170,27 @@ def build_forest(mcf_, tree_df):
     del forest    # Free memory
     # Describe final forest
     if int_dic['with_output']:
-        mcf_fo_add.describe_forest(forest_final, m_n_final, mcf_.var_dict,
-                                   cf_dic, gen_dic, pen_mult)
+        report = mcf_fo_add.describe_forest(
+            forest_final, m_n_final, mcf_.var_dict, cf_dic, gen_dic, pen_mult)
+    else:
+        report = None
     # x_name: List. Order of x_name as used by tree building
-    return forest_final, x_name
+    return forest_final, x_name, report
 
 
 @ray.remote
 def ray_build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i,
                        x_type, x_values, x_ind, x_ai_ind, gen_dic, cf_dic,
-                       ct_dic, boot, pen_mult):
+                       ct_dic, boot, pen_mult, cuda):
     """Prepare function for Ray."""
     return build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i,
                           x_type, x_values, x_ind, x_ai_ind, gen_dic, cf_dic,
-                          ct_dic, boot, pen_mult)
+                          ct_dic, boot, pen_mult, cuda)
 
 
 def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
                    x_values, x_ind, x_ai_ind, gen_dic, cf_dic, ct_dic, boot,
-                   pen_mult):
+                   pen_mult, cuda):
     """Build single trees for all values of tuning parameters.
 
     Parameters
@@ -202,6 +209,7 @@ def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
     ..._dict : Dict. Control parameters
     boot : INT. Counter for bootstrap replication (currently not used)
     ....
+    cuda : Boolean. If True, use CUDA for MSE calculations (if available).
 
     Returns
     -------
@@ -238,7 +246,7 @@ def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
                     data_np, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                     x_type, x_values, x_ind, x_ai_ind, cf_dic, gen_dic,
                     ct_dic['grid_nn_val'], m_idx, n_min, alpha_reg,
-                    deepcopy(tree_empty), pen_mult, rng)
+                    deepcopy(tree_empty), pen_mult, rng, cuda)
                 j += 1
     return deepcopy(tree_all)
 
@@ -246,7 +254,7 @@ def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
 def build_single_tree(data, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                       x_type, x_values, x_ind, x_ai_ind, cf_dic, gen_dic,
                       ct_grid_nn_val, mmm, n_min, alpha_reg,
-                      tree_dict_global, pen_mult, rng):
+                      tree_dict_global, pen_mult, rng, cuda):
     """Build single tree given random sample split.
 
     Parameters
@@ -269,6 +277,7 @@ def build_single_tree(data, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
     tree_dict : Dict. Initial tree.
     pen_mult: Float. Multiplier of penalty.
     rng : Default random number generator object.
+    cuda : Boolean. If True, use CUDA for MSE calculations (if available).
 
     Returns
     -------
@@ -325,7 +334,7 @@ def build_single_tree(data, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
          split_n_oob_r, split_value) = next_split(
              data_leaf, data_oob_leaf, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
              x_type, x_values, x_ind, x_ai_ind, cf_dic, gen_dic,
-             ct_grid_nn_val, mmm, n_min, alpha_reg, pen_mult, rng)
+             ct_grid_nn_val, mmm, n_min, alpha_reg, pen_mult, rng, cuda)
         if terminal:
             leaf_id_daughters = None
         else:
@@ -344,7 +353,7 @@ def build_single_tree(data, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
              split_n_l, split_n_r, split_leaf_l, split_leaf_r,
              split_leaf_oob_l, split_leaf_oob_r, split_n_oob_l, split_n_oob_r,
              terminal, leaf_id_daughters, d_i, w_i, d_grid_i, y_nn_i, y_i,
-             ct_grid_nn_val, gen_dic, cf_dic, rng)
+             ct_grid_nn_val, gen_dic, cf_dic, rng, cuda)
     tree_dict = mcf_fo_asdict.cut_back_empty_cells_tree(tree_dict)
     return tree_dict
 
@@ -354,12 +363,12 @@ def best_m_n_min_alpha_reg(forest, gen_dic, cf_dic):
 
     Parameters
     ----------
-    forest : List of list of lists... Estimated forests.
+    forest : List of dictionaries. Estimated forests.
     c : Dict. Parameters.
 
     Returns
     -------
-    forest_final : List of lists. OOB-optimal forest.
+    forest_final : List of dictionaries. OOB-optimal forest.
     m_n_final : List. Optimal values of m and n_min.
 
     """
@@ -387,30 +396,34 @@ def best_m_n_min_alpha_reg(forest, gen_dic, cf_dic):
                     mse_mce_tree = np.zeros((no_of_treat, no_of_treat))
                     obs_t_tree = np.zeros(no_of_treat)
                 tree_mse = 0
-                for leaf in tree:                        # leaves within tree
-                    if leaf[4] == 1:   # Terminal leafs only
-                        n_total += np.sum(leaf[6])
-                        if leaf[7] is None:
-                            if no_of_treat is None:
-                                n_lost += leaf[6]
+                for leaf_no, leaf_int in enumerate(tree['leaf_info_int']):
+                    leaf_float_2 = tree['leaf_info_float'][leaf_no, 2]
+                    leaf_float_2_dim1 = isinstance(
+                        leaf_float_2, (float, np.float32, np.float64))
+                    if leaf_int[7] == 1:  # Terminal leafs
+                        n_total += np.sum(leaf_int[9])
+                        if leaf_float_2 is None or leaf_float_2 <= 0:
+                            if no_of_treat is None or leaf_float_2_dim1:
+                                n_lost += leaf_int[9]
                             else:
-                                n_lost += np.sum(leaf[6])  # [6]: Leaf size
+                                n_lost += np.sum(leaf_int[9])
                         else:
-                            if no_of_treat is None:  # [7]: leaf_mse
-                                tree_mse += leaf[6] * leaf[7]
+                            if no_of_treat is None or leaf_float_2_dim1:
+                                tree_mse += (leaf_int[9] * leaf_float_2)
                             else:
                                 mse_mce_tree, obs_t_tree = (
                                     mcf_fo_obj.add_rescale_mse_mce(
-                                        leaf[7], leaf[6], cf_dic['mtot'],
-                                        no_of_treat, mse_mce_tree, obs_t_tree)
+                                        leaf_float_2, leaf_int[9],
+                                        cf_dic['mtot'], no_of_treat,
+                                        mse_mce_tree, obs_t_tree)
                                     )
                 if n_lost > 0:
-                    if no_of_treat is None:
+                    if no_of_treat is None or leaf_float_2_dim1:
                         tree_mse = tree_mse * n_total / (n_total - n_lost)
                     else:
                         if (n_total - n_lost) < 1:
                             trees_without_oob[j] += 1
-                if no_of_treat is not None:
+                if no_of_treat is not None and not leaf_float_2_dim1:
                     mse_mce_tree = mcf_fo_obj.get_avg_mse_mce(
                         mse_mce_tree, obs_t_tree, cf_dic['mtot'], no_of_treat)
                     tree_mse = mcf_fo_obj.compute_mse_mce(
@@ -470,7 +483,7 @@ def efficient_iate(mcf_, fill_y_df, tree_df, summary=False):
 
 def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                x_type, x_values, x_ind, x_ai_ind, cf_dic, gen_dic,
-               ct_grid_nn_val, mmm, n_min, alpha_reg, pen_mult, rng):
+               ct_grid_nn_val, mmm, n_min, alpha_reg, pen_mult, rng, cuda):
     """Find best next split of leaf (or terminate splitting for this leaf).
 
     Parameters
@@ -489,8 +502,9 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
     mmm : INT. Number of X-variables to choose for splitting.
     n_min : Int. Minimum leaf size.
     alpha_reg : Float. Alpha regularity.
-    pen_mult: Float. Penalty multiplier.
-    rng: Numpy default random number generator object.
+    pen_mult : Float. Penalty multiplier.
+    rng : Numpy default random number generator object.
+    cuda : Boolean. Use cuda if True.
 
     Returns
     -------
@@ -540,7 +554,7 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                 break
         if terminal_x:
             terminal = True  # No variation in drawn X. Splitting stops.
-    if not terminal:         # ML 25.5.2022
+    if not terminal:
         if mtot in (1, 4):
             y_nn = data_train[:, y_nn_i]
         else:
@@ -660,10 +674,10 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                     # compute objective functions given particular method
                     mse_mce_l, shares_l, obs_by_treat_l = mcf_fo_obj.mcf_mse(
                         y_dat[leaf_l], y_nn_l, d_dat_l, w_l, n_l, mtot,
-                        no_of_treat, d_values, w_yes)
+                        no_of_treat, d_values, w_yes, False, cuda)
                     mse_mce_r, shares_r, obs_by_treat_r = mcf_fo_obj.mcf_mse(
                         y_dat[leaf_r], y_nn_r, d_dat_r, w_r, n_r, mtot,
-                        no_of_treat, d_values, w_yes)
+                        no_of_treat, d_values, w_yes, False, cuda)
                     mse_mce = mcf_fo_obj.add_mse_mce_split(
                         mse_mce_l, mse_mce_r, obs_by_treat_l,
                         obs_by_treat_r, mtot, no_of_treat)
@@ -703,7 +717,7 @@ def update_tree(
         split_n_l, split_n_r, split_leaf_l, split_leaf_r, split_leaf_oob_l,
         split_leaf_oob_r, split_n_oob_l, split_n_oob_r, terminal,
         leaf_id_daughters, d_i, w_i, d_grid_i, y_nn_i, y_i, ct_grid_nn_val,
-        gen_dic, cf_dic, rng):
+        gen_dic, cf_dic, rng, cuda):
     """Assign values obtained from splitting to parent & daughter leaves."""
     tree = deepcopy(tree_dict_global)
     if gen_dic['d_type'] == 'continuous':
@@ -731,7 +745,8 @@ def update_tree(
                 y_nn = data_oob_parent[:, y_nn_i]
             mse_mce, _, obs_oob_list = mcf_fo_obj.mcf_mse(
                 data_oob_parent[:, y_i], y_nn, d_oob, w_oob, n_oob,
-                cf_dic['mtot'], no_of_treat, d_values, gen_dic['weighted'])
+                cf_dic['mtot'], no_of_treat, d_values, gen_dic['weighted'],
+                False, cuda)
             obj_fct_oob = mcf_fo_obj.compute_mse_mce(mse_mce, cf_dic['mtot'],
                                                      no_of_treat)
             obs_oob = np.sum(obs_oob_list)
@@ -909,7 +924,7 @@ def term_or_data(data_tr_ns, data_oob_ns, y_i, d_i, d_grid_i, x_i_ind_split,
 
 
 def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
-                treat_values, w_yes, cont=False):
+                treat_values, w_yes, cont=False, cuda=False):
     """Compute OOB values for a tree.
 
     Parameters
@@ -924,6 +939,7 @@ def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
     treat_values : INT.
     w_yes : INT.
     cont : Boolean. Default is False.
+    cuda : Boolean. MSE computation with Cuda if True. Default is False.
 
     Returns
     -------
@@ -952,7 +968,7 @@ def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
         if enough_data_in_leaf:
             mse_mce_leaf, _, obs_by_treat_leaf = mcf_fo_obj.mcf_mse(
                 y_dat[in_leaf], y_nn[in_leaf], d_dat_in_leaf, w_l, n_l,
-                mtot, no_of_treat, treat_values, w_yes, cont)
+                mtot, no_of_treat, treat_values, w_yes, cont, cuda)
             mse_mce_tree, obs_t_tree = mcf_fo_obj.add_rescale_mse_mce(
                 mse_mce_leaf, obs_by_treat_leaf, mtot, no_of_treat,
                 mse_mce_tree, obs_t_tree)

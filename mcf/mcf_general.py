@@ -7,13 +7,15 @@ Created on Thu May 11 16:30:11 2023
 # -*- coding: utf-8 -*-
 """
 from copy import deepcopy
+from functools import lru_cache
 from math import log, prod
 
 import numpy as np
 from sympy.ntheory import primefactors
+import torch
 
 
-def memoize(func):
+def memoize(func):   # Alternatively using functools.lru_cache may be faster
     """Save in for storing computed results."""
     cache = {}  # Cache for storing computed results
 
@@ -138,9 +140,6 @@ def adjust_vars_vars(var_in, var_weg):
     ohne_var_weg : list of strings
 
     """
-    # v_inter = set(var_in).intersection(set(var_weg))
-    # ohne_var_weg = (list(set(var_in)-v_inter) if not v_inter == set()
-    #                 else deepcopy(var_in))
     ohne_var_weg = [var for var in var_in if var not in var_weg]
     return ohne_var_weg
 
@@ -185,6 +184,8 @@ def cleaned_var_names(var_name):
     """
     if var_name is None:
         var_name = []
+    if isinstance(var_name, str):
+        var_name = [var_name]
     if any(s is isinstance(s, (tuple, list)) for s in var_name):
         raise ValueError(f'{var_name} must be a list or tuple. It seems '
                          ' that it is list/tuple of lists/tuples.')
@@ -268,7 +269,7 @@ def recode_if_all_prime(values, name):
     new_name = name
     if is_prime:
         values_l = primeposition(values_l, start_with_1=False)
-        if name is not None and len(name) > 6 and name[-6:] == '_PRIME':
+        if name is not None and name.endswith('_PRIME'):
             new_name = name[:-6] + '(mayberec0)'
     return values_l, new_name
 
@@ -396,7 +397,7 @@ def primes_list(number=1000):
     return primes[0:number]
 
 
-@memoize
+@lru_cache(maxsize=200000)
 def primes_reverse(number, int_type=True):
     """Give the prime factors of integers.
 
@@ -526,6 +527,38 @@ def bound_norm_weights(weight, max_weight, renormalize=True):
     return weight_norm, no_censored, share_censored
 
 
+def bound_norm_weights_cuda(weight, max_weight, renormalize=True):
+    """Bound and renormalized weights (tensor version).
+
+    Parameters
+    ----------
+    weight : 1d Tensor. Weights.
+    max_weight : Scalar Float. Maximum value of any weight
+    renormalize : Boolean, optional. If True renormalize the weights that they
+               add to 1. The default is True.
+
+    Returns
+    -------
+    weight_norm : Tensor of same size as input. Normalized weights.
+    no_censored: Intt. Number of censored observations.
+    share_censored: Float. Share of censored observations (0-1).
+
+    """
+    weight_norm = weight.reshape(-1)
+    too_large = (weight + 1e-15) > max_weight
+    if torch.any(too_large):
+        no_censored = torch.count_nonzero(too_large)
+        weight_norm[too_large] = max_weight
+    else:
+        no_censored = 0
+    share_censored = no_censored / len(weight)
+    if renormalize:
+        sum_w = torch.sum(weight_norm)
+        if not ((-1e-10 < sum_w < 1e-10) or (1-1e-10 < sum_w < 1+1e-10)):
+            weight_norm = weight_norm / sum_w
+    return weight_norm, no_censored, share_censored
+
+
 def remove_dupl_keep_order(input_list):
     """Remove duplicates from a list but preserves the order."""
     output_list = []
@@ -542,11 +575,11 @@ def include_org_variables(names, names_in_data):
     new_names = names[:]
     for name in names:
         if len(name) > 4:
-            if name[-4:] == 'CATV' and name[:-4] in names_in_data:
+            if name.endswith('CATV') and name[:-4] in names_in_data:
                 if name[:-4] not in names:
                     new_names.append(name[:-4])
             if len(name) > 6:
-                if name[-6:] == '_PRIME' and name[:-6] in names_in_data:
+                if name.endswith('_PRIME') and name[:-6] in names_in_data:
                     if name[:-6] not in names:
                         new_names.append(name[:-6])
     return new_names

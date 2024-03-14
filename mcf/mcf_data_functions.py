@@ -33,7 +33,7 @@ def screen_adjust_variables(mcf_, data_df):
     else:
         gen_dic, var_dic = mcf_.gen_dict, mcf_.var_dict
         var_x_type, var_x_values = mcf_.var_x_type, mcf_.var_x_values
-    return gen_dic, var_dic, var_x_type, var_x_values
+    return gen_dic, var_dic, var_x_type, var_x_values, variables_deleted
 
 
 def screen_variables(mcf_, data_df):
@@ -56,7 +56,6 @@ def screen_variables(mcf_, data_df):
         if kk1 != k:
             deleted_vars = [var for var in all_variable
                             if var not in all_variable1]
-            # list(all_variable - all_variable1)
             txt += '\nVariables without variation: ' + ' '.join(deleted_vars)
     if dc_dic['check_perfectcorr']:
         corr_matrix = datanew.corr().abs()
@@ -150,6 +149,7 @@ def adjust_variables(mcf_, del_var):
 def clean_data(mcf_, data_df, train=True):
     """Clean the data."""
     int_dic, var_dic, gen_dic = mcf_.int_dict, mcf_.var_dict, mcf_.gen_dict
+    obs = len(data_df)
     if train:
         namen_to_inc = gp.add_var_names(
             var_dic['id_name'], var_dic['y_name'], var_dic['cluster_name'],
@@ -159,18 +159,23 @@ def clean_data(mcf_, data_df, train=True):
             namen_to_inc.append(*var_dic['grid_nn_name'])
     else:
         namen_to_inc = gp.add_var_names(
-            var_dic['id_name'], var_dic['cluster_name'], var_dic['w_name'],
+            var_dic['id_name'], var_dic['w_name'],
             var_dic['x_balance_name'], var_dic['x_name'])
         if mcf_.p_dict['d_in_pred']:
             namen_to_inc = gp.add_var_names(namen_to_inc, var_dic['d_name'])
             if gen_dic['d_type'] == 'continuous':
                 namen_to_inc.append(*var_dic['grid_nn_name'])
+        if mcf_.p_dict['cluster_std']:
+            namen_to_inc = gp.add_var_names(namen_to_inc,
+                                            var_dic['cluster_name'])
+# TODO
     namen_to_inc = gp.include_org_variables(namen_to_inc[:], data_df.columns)
     data_df, var_dic['id_name'] = clean_reduce_data(
         data_df, namen_to_inc, gen_dic, var_dic['id_name'],
         int_dic['descriptive_stats'])
+    obs_del = obs - len(data_df)
     mcf_.var_dict = var_dic
-    return data_df
+    return data_df, (obs, obs_del,)
 
 
 def clean_reduce_data(data_df, names_to_inc, gen_dic, id_name,
@@ -394,8 +399,7 @@ def create_xz_variables(mcf_, data_df, train=True):
                         new_name = z_new_name_dict[z_name]
                         new_dic = z_new_dic_dict[z_name]
                         cont_name = new_name[:-4]
-                        # z_name_ord_new.extend([new_name])
-                    z_name_ord_new.append(new_name)  # changed 25.8.23
+                    z_name_ord_new.append(new_name)
                     z_name_cont_remove.append(cont_name)
                     data_df[new_name] = data_s.copy()
                     if train:
@@ -545,7 +549,6 @@ def create_xz_variables(mcf_, data_df, train=True):
     var_x_values = dict(zip(var_dic['x_name'], x_name_values))
     gen_dic['x_type_0'], gen_dic['x_type_1'] = type_0, type_1
     gen_dic['x_type_2'] = type_2
-    # cn_dict.update(cn_add) TODO
     if gen_dic['with_output'] and gen_dic['verbose'] and (type_1 or type_2):
         txt = ''
         if type_1:

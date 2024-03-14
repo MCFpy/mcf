@@ -6,13 +6,16 @@ Contains the data related functions needed for building the forst.
 -*- coding: utf-8 -*-
 """
 from copy import deepcopy
-import math
+from math import ceil
+from numba import njit, prange
 
 import numpy as np
 import pandas as pd
 import ray
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+import torch
 
+from mcf import mcf_cuda_functions as mcf_c
 from mcf import mcf_data_functions as data
 from mcf import mcf_general as gp
 from mcf import mcf_general_sys as gp_sys
@@ -140,7 +143,6 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
     var_dic, gen_dic, cf_dic = mcf_.var_dict, mcf_.gen_dict, mcf_.cf_dict
     lc_dic, var_x_type = mcf_.lc_dict, mcf_.var_x_type
     int_dic = mcf_.int_dict
-
     if gen_dic['x_type_1'] or gen_dic['x_type_2']:  # Expand cat var to dummy
         var_names_unordered = gp.dic_get_list_of_key_by_item(var_x_type,
                                                              [1, 2])
@@ -203,54 +205,63 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
         # determine distance metric of Mahalanobis matching
         k = np.shape(x_dat)
         if k[1] > 1:
-            try:
-                cov_x = np.cov(x_dat, rowvar=False)
-            except AttributeError:
-                cov_x = np.cov(x_dat.astype(float), rowvar=False)
-            if cf_dic['nn_main_diag_only']:
-                cov_x = cov_x * np.eye(k[1])   # only main diag
-            rank_not_ok = True
-            counter = 0
-            while rank_not_ok:
-                if counter == 20:
-                    cov_x *= np.eye(k[1])
-                if counter > 20:
-                    cov_x_inv = np.eye(k[1])
-                    break
-                if np.linalg.matrix_rank(cov_x) < k[1]:
-                    cov_x += 0.5 * np.diag(cov_x) * np.eye(k[1])
-                    counter += 1
-                else:
-                    cov_x_inv = np.linalg.inv(cov_x)
-                    rank_not_ok = False
+            # No gain in using GPU
+            cov_x_inv = get_inv_cov(x_dat, cf_dic['nn_main_diag_only'],
+                                    cuda=False)
         else:
-            cov_x_inv = 1
-        if gen_dic['mp_parallel'] < 1.5:
-            maxworkers = 1
+            cov_x_inv = np.ones((1, 1))
+        if int_dic['cuda'] and len(cov_x_inv) > gen_dic['no_of_treat']:
+            # GPU leads to massive gains for Mahalanobis matching, but not
+            # when using the low-dimensional prognostic score
+            maxworkers, cuda = 1, True
         else:
-            if gen_dic['mp_automatic']:
-                maxworkers = gp_sys.find_no_of_workers(gen_dic['mp_parallel'],
-                                                       gen_dic['sys_share'])
+            cuda = False
+            # If covariance is low dimensional, using prange is fastest
+            if (isinstance(cov_x_inv, (int, float))
+                or len(cov_x_inv) <= gen_dic['no_of_treat']
+                    or gen_dic['mp_parallel'] < 1.5):
+                maxworkers = 1
             else:
-                maxworkers = gen_dic['mp_parallel']
+                # Use ray for the higher dimensional cases
+                if gen_dic['mp_automatic']:
+                    maxworkers = gp_sys.find_no_of_workers(
+                        gen_dic['mp_parallel'], gen_dic['sys_share'])
+                else:
+                    maxworkers = gen_dic['mp_parallel']
         if gen_dic['with_output'] and gen_dic['verbose']:
-            txt = f'\nNumber of parallel processes: {maxworkers}'
+            print('Matching')
+            txt = f'\nNumber of parallel processes for Ray: {maxworkers}'
+            if int_dic['cuda'] and not cuda:
+                txt += (' (GPU is currently not used for NN matching as it is'
+                        ' too slow)')
+            elif cuda:
+                txt += '  GPU is used instead of multiple CPUs.'
             ps.print_mcf(gen_dic, txt, summary=False)
         if maxworkers == 1:
             for i_treat, i_value in enumerate(d_values):
-                y_match[:, i_treat] = nn_neighbour_mcf2(
-                    y_dat, x_dat, d_dat, obs, cov_x_inv, i_value)
-        else:  # Later on more workers needed
+                if cuda:
+                    y_match[:, i_treat] = nn_neighbour_mcf2_cuda(
+                        y_dat, x_dat, d_dat, obs, cov_x_inv, i_value, i_treat
+                        )[0].flatten()
+                elif gen_dic['mp_parallel'] < 1.5:
+                    y_match[:, i_treat] = nn_neighbour_mcf2(
+                        y_dat, x_dat, d_dat, obs, cov_x_inv, i_value, i_treat
+                        )[0].flatten()
+                else:  # Parallelized with prange of Numba (fastest)
+                    y_match[:, i_treat] = nn_neighbour_mcf2_parallel(
+                        y_dat, x_dat, d_dat, obs, cov_x_inv, i_value, i_treat
+                        )[0].flatten()
+        else:
             if int_dic['mp_ray_shutdown'] or int_dic['ray_or_dask'] == 'dask':
-                if maxworkers > math.ceil(no_of_treat/2):
-                    maxworkers = math.ceil(no_of_treat/2)
+                if maxworkers > ceil(no_of_treat/2):
+                    maxworkers = ceil(no_of_treat/2)
             if int_dic['ray_or_dask'] == 'ray':
                 if not ray.is_initialized():
                     ray.init(num_cpus=maxworkers, include_dashboard=False)
                 x_dat_ref = ray.put(x_dat)
                 still_running = [ray_nn_neighbour_mcf2.remote(
                     y_dat, x_dat_ref, d_dat, obs, cov_x_inv, d_values[idx],
-                    idx) for idx in range(no_of_treat)]
+                    idx, cuda) for idx in range(no_of_treat)]
                 while len(still_running) > 0:
                     finished, still_running = ray.wait(still_running)
                     finished_res = ray.get(finished)
@@ -289,15 +300,89 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
 
 @ray.remote
 def ray_nn_neighbour_mcf2(y_dat, x_dat, d_dat, obs, cov_x_inv, treat_value,
-                          i_treat=None):
+                          i_treat, cuda):
     """Make procedure compatible for Ray."""
-    return nn_neighbour_mcf2(y_dat, x_dat, d_dat, obs, cov_x_inv, treat_value,
-                             i_treat)
+    if cuda:
+        y_all, i_treat = nn_neighbour_mcf2_cuda(
+            y_dat, x_dat, d_dat, obs, cov_x_inv, treat_value, i_treat)
+    else:
+        y_all, i_treat = nn_neighbour_mcf2(y_dat, x_dat, d_dat, obs, cov_x_inv,
+                                           treat_value, i_treat)
+    y_all = y_all.flatten()
+    return y_all, i_treat
 
 
-def nn_neighbour_mcf2(y_dat, x_dat, d_dat, obs, cov_x_inv, treat_value,
-                      i_treat=None):
+def nn_neighbour_mcf2_cuda(y_dat_np, x_dat_np, d_dat_np, obs, cov_x_inv_np,
+                           treat_value, i_treat):
     """Find nearest neighbour-y in subsamples by value of d.
+
+    Cuda version is faster for large problems. For small problems cuda and non-
+    cuda vesions are fast.
+
+    Parameters
+    ----------
+    y_dat : Numpy array: Outcome variable
+    x_dat : Numpy array: Covariates
+    d_dat : Numpy array: Treatment
+    obs : INT64: Sample size
+    cov_x_inv : Numpy array: inverse of covariance matrix
+    treat_value : int. Treatment value
+    i_treat : Position treat_values investigated
+
+    Returns
+    -------
+    y_all : Numpy series with matched values.
+    i_treat: see above (included to ease mulithreading which may confuse
+                        positions).
+
+    """
+    # Do boolean mask on cpu instead of GPU (slow)
+    mask = (d_dat_np == treat_value).reshape(-1)
+    x_t_np = x_dat_np[mask, :]
+    y_t_np = y_dat_np[mask]
+    y_all_np = np.zeros_like(y_dat_np)
+    y_all_np[mask] = y_dat_np[mask]
+    all_idx = np.arange(obs)
+    non_treat_idx = all_idx[np.logical_not(mask)]
+    # Create tensors from numpy arrays
+    prec = 32
+    x_dat = torch.tensor(x_dat_np, dtype=mcf_c.tdtype('float', prec))
+    x_t = torch.tensor(x_t_np, dtype=mcf_c.tdtype('float', prec))
+    y_dat = torch.tensor(y_dat_np, dtype=mcf_c.tdtype('float', prec))
+    y_all = torch.tensor(y_all_np, dtype=mcf_c.tdtype('float', prec))
+    y_t = torch.tensor(y_t_np, dtype=mcf_c.tdtype('float', prec))
+    d_dat = torch.tensor(d_dat_np, dtype=mcf_c.tdtype('int', 32))
+    cov_x_inv = torch.tensor(cov_x_inv_np, dtype=mcf_c.tdtype('float', prec))
+    non_treat_idx = torch.tensor(non_treat_idx)
+
+    # Send all data to GPU
+    x_dat = x_dat.to("cuda")
+    x_t = x_t.to("cuda")
+    y_dat = y_dat.to("cuda")
+    y_t = y_t.to("cuda")
+    d_dat = d_dat.to("cuda")
+    cov_x_inv = cov_x_inv.to("cuda")
+    non_treat_idx = non_treat_idx.to('cuda')
+
+    # To use full GPU speed this loop needs to be expressed in tensor
+    # operations. This is possible, but tensors will be too large.
+    for idx in non_treat_idx:
+        diff = x_t - x_dat[idx, :]
+        product = torch.matmul(diff, cov_x_inv) * diff
+        dist = torch.sum(product, axis=1)
+        min_ind = torch.where(dist <= (dist.min() + 1e-15))
+        y_all[idx] = torch.mean(y_t[min_ind])
+    y_all = y_all.to('cpu')
+    y_all_np = y_all.numpy()
+    return y_all_np, i_treat
+
+
+@njit
+def nn_neighbour_mcf2(y_dat, x_dat, d_dat, obs, cov_x_inv, treat_value,
+                      i_treat):
+    """Find nearest neighbour-y in subsamples by value of d.
+
+    Parallelized with ray. This is slower than the version below.
 
     Parameters
     ----------
@@ -316,18 +401,114 @@ def nn_neighbour_mcf2(y_dat, x_dat, d_dat, obs, cov_x_inv, treat_value,
                         positions).
 
     """
-    cond = (d_dat == treat_value).reshape(-1)
-    x_t = x_dat[cond, :]
-    y_t = y_dat[cond]
-    y_all = np.empty(obs)
+    mask = (d_dat == treat_value).reshape(-1)
+    x_t = x_dat[mask, :]
+    y_t = y_dat[mask]
+    y_all = np.zeros_like(y_dat)
+    y_all[mask] = y_dat[mask]
+    # non_treat_idx = all_idx[~mask]
+    # n_obs = len(non_treat_idx)
     for i in range(obs):
-        if treat_value == d_dat[i]:
-            y_all[i] = y_dat[i]
-        else:
+        if treat_value != d_dat[i]:
             diff = x_t - x_dat[i, :]
-            dist = np.sum(np.dot(diff, cov_x_inv) * diff, axis=1)
-            min_ind = np.nonzero(dist <= (dist.min() + 1e-15))
+            dist = np.sum((diff @ cov_x_inv) * diff, axis=1)
+            min_ind = np.where(dist <= (dist.min() + 1e-15))
             y_all[i] = np.mean(y_t[min_ind])
-    if i_treat is None:
-        return y_all  # i_treat is returned for multithreading
-    return y_all, i_treat  # i_treat is returned for multithreading
+    return y_all, i_treat
+
+
+@njit(parallel=True)
+def nn_neighbour_mcf2_parallel(y_dat, x_dat, d_dat, obs, cov_x_inv, treat_value,
+                               i_treat):
+    """Find nearest neighbour-y in subsamples by value of d.
+
+    Parallelized on the CPU (faster than using ray on the other function).
+
+    Parameters
+    ----------
+    y_dat : Numpy array: Outcome variable
+    x_dat : Numpy array: Covariates
+    d_dat : Numpy array: Treatment
+    obs : INT64: Sample size
+    cov_x_inv : Numpy array: inverse of covariance matrix
+    treat_values : Numpy array: possible values of D
+    i_treat : Position treat_values investigated
+
+    Returns
+    -------
+    y_all : Numpy series with matched values.
+    i_treat: see above (included to ease mulithreading which may confuse
+                        positions).
+
+    """
+    # Currently, does not run if cov_x_inv is matrix (at least a larger one)
+    mask = (d_dat == treat_value).reshape(-1)
+    x_t = x_dat[mask, :]
+    y_t = y_dat[mask]
+    y_all = np.zeros_like(y_dat)
+    y_all[mask] = y_dat[mask]
+    all_idx = np.arange(obs)
+    non_treat_idx = all_idx[~mask]
+    n_obs = len(non_treat_idx)
+    for idx in prange(n_obs):
+        i = int(non_treat_idx[idx])
+        diff = x_t - x_dat[i, :]
+        diffcovinv = diff @ cov_x_inv
+        dist = np.sum(diffcovinv * diff, axis=1)
+        min_ind = np.where(dist <= (dist.min() + 1e-15))
+        y_all[i] = np.mean(y_t[min_ind])
+    return y_all, i_treat
+
+
+def get_inv_cov(x_dat, main_diag_only, cuda=False):
+    """Get inverse of covariance matrix."""
+    cols_x = x_dat.shape[1]
+    if cuda:
+        x_dat_t = torch.from_numpy(x_dat.T)
+        x_dat_t = x_dat_t.to('cuda')
+        try:
+            cov_x = torch.cov(x_dat_t)
+        except AttributeError:
+            x_dat_t = x_dat_t.to(torch.float32)
+            cov_x = torch.cov(x_dat_t)
+        if main_diag_only:
+            cov_x = cov_x * torch.eye(cols_x, device='cuda')   # only main diag
+        rank_not_ok = True
+        counter = 0
+        while rank_not_ok:
+            if counter == 20:
+                cov_x = cov_x * torch.eye(cols_x, device='cuda')
+            if counter > 20:
+                cov_x_inv = torch.eye(cols_x, device='cuda')
+                break
+            if torch.linalg.matrix_rank(cov_x) < cols_x:
+                cov_x += 0.5 * torch.diag(cov_x) * torch.eye(cols_x,
+                                                             device='cuda')
+                counter += 1
+            else:
+                cov_x_inv_t = torch.linalg.inv(cov_x)
+                rank_not_ok = False
+        cov_x_inv_t = cov_x_inv_t.to('cpu')
+        cov_x_inv = cov_x_inv_t.numpy()
+    else:
+        try:
+            cov_x = np.cov(x_dat, rowvar=False)
+        except AttributeError:
+            cov_x = np.cov(x_dat.astype(np.float32), rowvar=False)
+        if main_diag_only:
+            cov_x = cov_x * np.eye(cols_x)   # only main diag
+        rank_not_ok = True
+        counter = 0
+        while rank_not_ok:
+            if counter == 20:
+                cov_x *= np.eye(cols_x)
+            if counter > 20:
+                cov_x_inv = np.eye(cols_x)
+                break
+            if np.linalg.matrix_rank(cov_x) < cols_x:
+                cov_x += 0.5 * np.diag(cov_x) * np.eye(cols_x)
+                counter += 1
+            else:
+                cov_x_inv = np.linalg.inv(cov_x)
+                rank_not_ok = False
+    return cov_x_inv

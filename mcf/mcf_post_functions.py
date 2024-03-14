@@ -12,7 +12,7 @@ from copy import deepcopy
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import scipy.stats as sct
+from scipy.stats import norm
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
@@ -27,6 +27,7 @@ def post_estimation_iate(mcf_, results):
     ct_dic, int_dic = mcf_.ct_dict, mcf_.int_dict
     gen_dic, p_dic, post_dic = mcf_.gen_dict, mcf_.p_dict, mcf_.post_dict
     var_dic, var_x_type = mcf_.var_dict, mcf_.var_x_type
+    figure_list = []
 
     txt = '\n' + '=' * 100 + '\nPost estimation analysis'
     if gen_dic['d_type'] == 'continuous':
@@ -64,7 +65,7 @@ def post_estimation_iate(mcf_, results):
     iate = data_df[iate_pot_name['names_iate']]
     x_name = delete_x_with_catv(var_x_type.keys())
     x_dat = data_df[x_name]
-    cint = sct.norm.ppf(p_dic['ci_level'] + 0.5 * (1 - p_dic['ci_level']))
+    cint = norm.ppf(p_dic['ci_level'] + 0.5 * (1 - p_dic['ci_level']))
     if post_dic['bin_corr_yes']:
         txt += '\n' + '=' * 100 + '\nCorrelations of effects with ... in %'
         txt += '\n' + '-' * 100
@@ -197,6 +198,8 @@ def post_estimation_iate(mcf_, results):
                 datasave = pd.DataFrame(data=effects_et_al, columns=cols)
                 mcf_sys.delete_file_if_exists(file_name_csv)
                 datasave.to_csv(file_name_csv, index=False)
+                if imate == iterator[-1] and p_dic['iate_se']:
+                    figure_list.append(file_name_jpeg)
                 # density plots
                 if imate == 0:
                     titel = 'Density ' + iate_pot_name['names_iate'][idx]
@@ -241,6 +244,8 @@ def post_estimation_iate(mcf_, results):
                     datasave = pd.DataFrame(data=effects_et_al, columns=cols)
                     mcf_sys.delete_file_if_exists(file_name_csv)
                     datasave.to_csv(file_name_csv, index=False)
+                    if not p_dic['iate_se']:
+                        figure_list.append(file_name_jpeg)
     if gen_dic['d_type'] == 'continuous':
         no_of_y = len(var_dic['y_name'])
         no_of_iate_y = round(len(iate_pot_name['names_iate']) / no_of_y)
@@ -283,7 +288,10 @@ def post_estimation_iate(mcf_, results):
                     plt.show()
                 else:
                     plt.close()
+                if imate == iterator[-1]:
+                    figure_list.append(file_name_jpeg)
     ps.print_mcf(gen_dic, txt, summary=True)
+    return figure_list
 
 
 def k_means_of_x_iate(mcf_, results_prev):
@@ -342,17 +350,25 @@ def k_means_of_x_iate(mcf_, results_prev):
             ' for the first outcome.')
     cl_values, cl_obs = np.unique(cl_group, return_counts=True)
     txt += '\n' + '-' * 100 + '\nNumber of observations in the clusters'
+    txt_report = '\n' * 2 + 'Number of observations in the clusters' + '\n'
     txt += '\n' + '- ' * 50
     for idx, val in enumerate(cl_values):
-        txt += f'\nCluster {val:2}: {cl_obs[idx]:6} '
+        string = f'\nCluster {val:2}: {cl_obs[idx]:6} '
+        txt += string
+        txt_report += string
+    report_dic = {'obs_cluster_str': txt_report}
     txt += '\n' + '-' * 100 + '\nEffects\n' + '- ' * 50
+    txt_report += '\n' * 2 + 'Effects\n'
     data_df['IATE_Cluster'] = cl_group  # Add cluster as new variable
     cl_means = iate.groupby(by=cl_group).mean(numeric_only=True)
+    report_dic['IATE_df'] = np.round(cl_means.transpose().copy(), 2)
     txt += '\n' + cl_means.transpose().to_string()
     txt += '\n' + '-' * 100 + '\nPotential outcomes\n' + '- ' * 50
     cl_means = y_pot.groupby(by=cl_group).mean(numeric_only=True)
+    report_dic['PotOutcomes_df'] = np.round(cl_means.transpose(), 2)
     txt += '\n' + cl_means.transpose().to_string()
     txt += '\n' + '-' * 100 + '\nCovariates\n' + '- ' * 50
+
     names_unordered = [xn for xn in var_x_type.keys()
                        if var_x_type[xn] > 0]
     if names_unordered:  # List is not empty
@@ -362,6 +378,13 @@ def k_means_of_x_iate(mcf_, results_prev):
         x_km = x_dat
     cl_means = x_km.groupby(by=cl_group).mean(numeric_only=True)
     ps.print_mcf(gen_dic, txt, summary=True)
+    all_names = cl_means.columns.copy()
+    cl_means.columns = [name.replace('_PRIME', '') for name in all_names]
+    all_names = cl_means.columns.copy()
+    cl_means.columns = [name.replace('_PRIME_', '_D') for name in all_names]
+    all_names = cl_means.columns.copy()
+    cl_means.columns = [name.replace('.0', '') for name in all_names]
+    report_dic['Features_df'] = np.round(cl_means.transpose(), 2)
     txt = cl_means.transpose().to_string() + '\n' + '-' * 100
     pd.set_option('display.max_rows', 1000, 'display.max_columns', 100)
     ps.print_mcf(gen_dic, txt, summary=True)
@@ -369,7 +392,7 @@ def k_means_of_x_iate(mcf_, results_prev):
     txt = '\nSaving cluster indicator from k-means clustering.\n'
     ps.print_mcf(gen_dic, txt, summary=False)
     results['iate_data_df'] = data_df
-    return results
+    return results, report_dic
 
 
 def random_forest_of_iate(mcf_, results):

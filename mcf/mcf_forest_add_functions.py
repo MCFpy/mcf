@@ -49,7 +49,7 @@ def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, cf_dic, mmm, rng):
         x_i_for_split_list = x_i_for_split.tolist()
     else:
         if m_l > len(x_ai_ind_pos):
-            x_i_for_split = rng.choice(x_ind_pos, m_l-len(x_ai_ind_pos),
+            x_i_for_split = rng.choice(x_ind_pos, m_l - len(x_ai_ind_pos),
                                        replace=False)
             x_i_for_split = np.concatenate((x_i_for_split, x_ai_ind_pos))
             x_i_for_split = np.unique(x_i_for_split)
@@ -138,7 +138,7 @@ def describe_forest(forest, m_n_min_ar, var_dic, cf_dic, gen_dic, pen_mult=0,
     txt += f'\nSplitting rule used:        {splitting_rule:<4}'
     if cf_dic['p_diff_penalty'] > 0:
         txt += f'\nPenalty used in splitting:  {pen_mult}'
-    txt += '\nShare of data in subsample for forest buildung:'
+    txt += '\nShare of data in subsample for forest building:'
     txt += f' {cf_dic["subsample_share_forest"]:<4}'
     txt += '\nShare of data in subsample for forest evaluation:'
     txt += f' {cf_dic["subsample_share_eval"]:<4}'
@@ -161,6 +161,20 @@ def describe_forest(forest, m_n_min_ar, var_dic, cf_dic, gen_dic, pen_mult=0,
     txt += f'\nAverage # of obs in leaves (single tree): {leaf_info[5]:4.0f}'
     txt += '\n' + '-' * 100
     ps.print_mcf(gen_dic, txt, summary=summary)
+    report = {}
+    report["n_min"] = m_n_min_ar[1]
+    report["m_split"] = m_n_min_ar[0]
+    report["f_share_build"] = cf_dic["subsample_share_forest"]
+    report["f_share_fill"] = cf_dic["subsample_share_eval"]
+    report["alpha"] = m_n_min_ar[2]
+    report["y_name_tree"] = var_dic['y_tree_name'][0]
+    report["Features"] = ' '.join(var_dic['x_name'])
+    report["leaves_mean"] = leaf_info[0]
+    report["obs_leaf_mean"] = leaf_info[1]
+    report["obs_leaf_med"] = leaf_info[2]
+    report["obs_leaf_min"] = leaf_info[3]
+    report["obs_leaf_max"] = leaf_info[4]
+    return report
 
 
 def get_tree_infos(forest):
@@ -219,27 +233,104 @@ def get_terminal_leaf_no(tree_dict, x_dat):
     leaf_info_int = tree_dict['leaf_info_int']
     cut_off_cont = tree_dict['leaf_info_float'][:, 1]
     cats_prime = tree_dict['cats_prime']
-    not_terminal, leaf_id = True, 0
-    while not_terminal:    # Should equally fast than 'for' loop
+    categorical = any(cat > 0.5 for cat in cats_prime)
+    first_leaf_id = 0
+    loop = True     # Solve with while loop or directly by recursion; same speed
+    if loop:       # recursion via while loop
+        if categorical:  # Faster with Numba
+            leaf_id = terminal_leaf_loop(leaf_info_int, cut_off_cont,
+                                         cats_prime, x_dat, first_leaf_id)
+        else:
+            leaf_id = terminal_leaf_loop_numba(leaf_info_int, cut_off_cont,
+                                               x_dat, first_leaf_id)
+    else:  # direct recursion
+        if categorical:  # Faster with Numba
+            leaf_id = terminal_leaf_recursive(leaf_info_int, cut_off_cont,
+                                              cats_prime, x_dat, first_leaf_id)
+        else:
+            leaf_id = terminal_leaf_recursive_numba(leaf_info_int, cut_off_cont,
+                                                    x_dat, first_leaf_id)
+    return leaf_id
+
+
+@njit
+def terminal_leaf_loop_numba(leaf_info_int, cut_off_cont, x_dat, leaf_id):
+    """Get the final leaf number with a loop algorithm."""
+    while True:    # Should be equally fast than 'for' loop
         leaf = leaf_info_int[leaf_id, :]
-        if leaf[7] not in (0, 1):
-            raise RuntimeError(f'Leaf is still active. {leaf[4]}')
         if leaf[7] == 1:             # Terminal leaf
-            not_terminal = False
-            leaf_no = leaf[0]
-        elif leaf[7] == 0:          # Intermediate leaf
-            if leaf[5] == 0:        # Continuous variable
-                leaf_id = (
-                    leaf[2]
-                    if (x_dat[leaf[4]] - 1e-15) <= cut_off_cont[leaf_id]
-                    else leaf[3])
-            else:                   # Categorical variable
-                prime_factors = mcf_gp.primes_reverse(cats_prime[leaf_id],
-                                                      False)
-                leaf_id = (
-                    leaf[2] if int(np.round(x_dat[leaf[4]])) in prime_factors
-                    else leaf[3])
-    return leaf_no
+            return leaf[0]
+        leaf_id = get_next_leaf_no_numba(leaf, leaf_id, x_dat, cut_off_cont)
+    return leaf_id
+
+
+def terminal_leaf_loop(leaf_info_int, cut_off_cont, cats_prime, x_dat, leaf_id):
+    """Get the final leaf number with a loop algorithm."""
+    while True:    # Should be equally fast than 'for' loop
+        leaf = leaf_info_int[leaf_id, :]
+        if leaf[7] == 1:             # Terminal leaf
+            return leaf[0]
+        leaf_id = get_next_leaf_no(leaf, leaf_id, x_dat, cut_off_cont,
+                                   cats_prime)
+    return leaf_id
+
+
+@njit
+def terminal_leaf_recursive_numba(leaf_info_int, cut_off_cont, x_dat, leaf_id):
+    """Get the final leaf number with a recursive algorithm."""
+    leaf = leaf_info_int[leaf_id, :]
+    if leaf[7] == 1:             # Terminal leaf, leave recursion
+        return leaf[0]
+    # Not final leave, so continue search and update leaf_id
+    next_leaf_id = get_next_leaf_no_numba(leaf, leaf_id, x_dat, cut_off_cont)
+    return terminal_leaf_recursive_numba(leaf_info_int, cut_off_cont,
+                                         x_dat, next_leaf_id)
+
+
+def terminal_leaf_recursive(leaf_info_int, cut_off_cont, cats_prime, x_dat,
+                            leaf_id):
+    """Get the final leaf number with a recursive algorithm."""
+    leaf = leaf_info_int[leaf_id, :]
+    if leaf[7] == 1:             # Terminal leaf, leave recursion
+        return leaf[0]
+    # Not final leave, so continue search and update leaf_id
+    next_leaf_id = get_next_leaf_no(leaf, leaf_id, x_dat, cut_off_cont,
+                                    cats_prime)
+    return terminal_leaf_recursive(leaf_info_int, cut_off_cont, cats_prime,
+                                   x_dat, next_leaf_id)
+
+
+@njit
+def get_next_leaf_no_numba(leaf, leaf_id, x_dat, cut_off_cont):
+    """Get next deeper leaf number for a non-active and non-terminal leaf."""
+    if leaf[7] not in (0, 1):
+        raise RuntimeError(f'Leaf is still active. {leaf[4]}')
+    if leaf[5] == 0:        # Continuous variable
+        condition = (x_dat[leaf[4]] - 1e-15) <= cut_off_cont[leaf_id]
+    else:                   # Categorical variable
+        raise ValueError("""There should be no categorical variables.""")
+    return leaf[2] if condition else leaf[3]
+
+
+def get_next_leaf_no(leaf, leaf_id, x_dat, cut_off_cont, cats_prime):
+    """Get next deeper leaf number for a non-active and non-terminal leaf."""
+    if leaf[7] not in (0, 1):
+        raise RuntimeError(f'Leaf is still active. {leaf[4]}')
+    if leaf[5] == 0:        # Continuous variable
+        condition = (x_dat[leaf[4]] - 1e-15) <= cut_off_cont[leaf_id]
+    else:                   # Categorical variable
+        condition = prime_in_leaf(cats_prime[leaf_id],
+                                  int(np.round(x_dat[leaf[4]])))
+        # prime_factors = mcf_gp.primes_reverse(cats_prime[leaf_id], False)
+        # condition = int(np.round(x_dat[leaf[4]])) in prime_factors
+
+    return leaf[2] if condition else leaf[3]
+
+
+def prime_in_leaf(cats_prime_leaf_id, x_dat_leaf4):
+    """Check if primefactor is in primeproduct."""
+    prime_factors = mcf_gp.primes_reverse(cats_prime_leaf_id, False)
+    return x_dat_leaf4 in prime_factors
 
 
 def fill_trees_with_y_indices_mp(mcf_, data_df, forest):
@@ -336,9 +427,9 @@ def fill_trees_with_y_indices_mp(mcf_, data_df, forest):
     no_of_avg_enodes = np.mean(nodes_empty)
     no_of_avg_mnodes = np.mean(nodes_merged)
     if int_dic['with_output'] and int_dic['verbose']:
-        txt = ('\nNumber of merged leaves (w/o all treatments per tree): '
+        txt = ('\nShare of merged leaves (w/o all treatments per tree): '
                f'{no_of_avg_mnodes:6.3%}')
-        txt += ('\nNumber of leaves w/o all treatments per tree (after '
+        txt += ('\nShare of leaves w/o all treatments per tree (after '
                 f'merger): {no_of_avg_enodes:6.3%}')
         if no_of_avg_enodes > 0:
             txt += ('\nIncomplete leafs will not be considered for weight'
@@ -347,7 +438,7 @@ def fill_trees_with_y_indices_mp(mcf_, data_df, forest):
         mem = round(mcf_sys.total_size(forest) / (1024 * 1024), 2)
         txt += f'\nSize of forest: {mem} MB' + '\n' + '-' * 100
         ps.print_mcf(gen_dic, txt, summary=True)
-    return forest, terminal_nodes, no_of_avg_enodes
+    return forest, terminal_nodes, no_of_avg_mnodes
 
 
 @ray.remote
@@ -383,16 +474,7 @@ def fill_mp(tree_dict_g, obs, d_dat, x_dat, b_idx, gen_dic, cf_dic):
         obs = round(obs * cf_dic['subsample_share_eval'])
         rng = np.random.default_rng((10+b_idx)**2+121)
         indices = rng.choice(indices, size=obs, replace=False)
-
-    if obs < 255:
-        obs_in_leaf = np.zeros((obs, 1), dtype=np.uint8)
-    elif obs < 65535:
-        obs_in_leaf = np.zeros((obs, 1), dtype=np.uint16)
-    elif obs < 4294967295:
-        obs_in_leaf = np.zeros((obs, 1), dtype=np.uint32)
-    else:
-        obs_in_leaf = np.zeros((obs, 1), dtype=np.uint64)
-
+    obs_in_leaf = make_zeros(obs)
     for i, idx in enumerate(indices):
         obs_in_leaf[i] = get_terminal_leaf_no(tree_dict, x_dat[idx, :])
     unique_leafs = np.unique(obs_in_leaf)
@@ -402,7 +484,7 @@ def fill_mp(tree_dict_g, obs, d_dat, x_dat, b_idx, gen_dic, cf_dic):
     no_of_treat = (2 if gen_dic['d_type'] == 'continuous'
                    else gen_dic['no_of_treat'])
     tree_dict['fill_y_empty_leave'] = np.zeros(
-        len(tree_dict['fill_y_indices_list']), dtype=np.int8)
+        len(tree_dict['fill_y_indices_list']), dtype=np.int32)
     empty_leaves = merged_leaves = 0
     for leaf_id in unique_leafs:
         if tree_dict['leaf_info_int'][leaf_id, 7] != 1:  # Leaf already merged
@@ -416,6 +498,19 @@ def fill_mp(tree_dict_g, obs, d_dat, x_dat, b_idx, gen_dic, cf_dic):
     empty_share = empty_leaves / len(unique_leafs)
     merge_share = merged_leaves / len(unique_leafs)
     return b_idx, tree_dict, unique_leafs, empty_share, merge_share
+
+
+def make_zeros(obs):
+    """Make zeros in memory-efficient data format."""
+    if obs < 255:
+        obs_in_leaf = np.zeros((obs, 1), dtype=np.uint8)
+    elif obs < 65535:
+        obs_in_leaf = np.zeros((obs, 1), dtype=np.uint16)
+    elif obs < 4294967295:
+        obs_in_leaf = np.zeros((obs, 1), dtype=np.uint32)
+    else:
+        obs_in_leaf = np.zeros((obs, 1), dtype=np.uint64)
+    return obs_in_leaf
 
 
 def merge_leaves(tree_dict, leaf_id, obs_in_leaf, indices, d_dat, no_of_treat):

@@ -6,15 +6,15 @@ Created on Thu May 11 16:30:11 2023
 @author: MLechner
 # -*- coding: utf-8 -*-
 """
-import gc
+from gc import collect
 from itertools import chain
-import math
+from math import ceil, floor
 import os
 from pathlib import Path
-import pickle
-import sys
+from pickle import dump, load
+from sys import getsizeof, stderr
 
-import psutil
+from psutil import virtual_memory
 
 
 def delete_file_if_exists(file_name):
@@ -51,7 +51,7 @@ def define_outpath(outpath, new_outpath=True):
                 os.mkdir(outpath)
             except OSError as oserr:
                 raise OSError(
-                    f'Creation of the directory {out_temp} failed') from oserr
+                    f'Creation of the directory {outpath} failed') from oserr
     return outpath
 
 
@@ -91,7 +91,7 @@ def find_no_of_workers(maxworkers, sys_share=0):
     max_cores: Bool. Limit to number of physical(not logical cores)
 
     """
-    share_used = getattr(psutil.virtual_memory(), 'percent') / 100
+    share_used = getattr(virtual_memory(), 'percent') / 100
     if sys_share >= share_used:
         sys_share = 0.9 * share_used
     sys_share = sys_share / 2
@@ -102,7 +102,7 @@ def find_no_of_workers(maxworkers, sys_share=0):
         workers = 1
     else:
         workers = maxworkers
-    workers = math.floor(workers + 1e-15)
+    workers = floor(workers + 1e-15)
     return workers
 
 
@@ -128,7 +128,7 @@ def no_of_boot_splits_fct(size_of_object_mb, workers):
                                           * multiplier)
         chunck_size_mb = min(chunck_size_mb, 2000)
         chunck_size_mb = max(chunck_size_mb, 10)
-        no_of_splits = math.ceil(size_of_object_mb / chunck_size_mb)
+        no_of_splits = ceil(size_of_object_mb / chunck_size_mb)
     else:
         no_of_splits = 1
         chunck_size_mb = size_of_object_mb
@@ -171,17 +171,17 @@ def total_size(ooo, handlers=None, verbose=False):
                     frozenset: iter}
     all_handlers.update(handlers)     # user handlers take precedence
     seen = set()               # track which object id's have already been seen
-    default_size = sys.getsizeof(0)
+    default_size = getsizeof(0)
     # estimate sizeof object without __sizeof__
 
     def sizeof(ooo):
         if id(ooo) in seen:       # do not double count the same object
             return 0
         seen.add(id(ooo))
-        sss = sys.getsizeof(ooo, default_size)
+        sss = getsizeof(ooo, default_size)
 
         if verbose:
-            print(sss, type(ooo), repr(ooo), file=sys.stderr)
+            print(sss, type(ooo), repr(ooo), file=stderr)
 
         for typ, handler in all_handlers.items():
             if isinstance(ooo, typ):
@@ -208,7 +208,7 @@ def memory_statistics():
     free : Float. Free memory in GB.
 
     """
-    memory = psutil.virtual_memory()
+    memory = virtual_memory()
     total = round(memory.total / (1024 * 1024), 2)
     available = round(memory.available / (1024 * 1024), 2)
     used = round(memory.used / (1024 * 1024), 2)
@@ -226,11 +226,12 @@ def auto_garbage_collect(pct=80.0):
     pct - Default value of 80%.  Amount of memory in use that triggers
           the garbage collection call.
     """
-    if psutil.virtual_memory().percent >= pct:
-        gc.collect()
+    if virtual_memory().percent >= pct:
+        collect()
 
 
-def print_size_weight_matrix(weights, weight_as_sparse, no_of_treat):
+def print_size_weight_matrix(weights, weight_as_sparse, no_of_treat,
+                             no_text=False):
     """
     Print size of weight matrix in MB.
 
@@ -251,7 +252,9 @@ def print_size_weight_matrix(weights, weight_as_sparse, no_of_treat):
             total_bytes += (weights[d_idx].data.nbytes
                             + weights[d_idx].indices.nbytes
                             + weights[d_idx].indptr.nbytes)
-    return f'Size of weight matrix: {round(total_bytes / (1024 * 1024), 2)} MB'
+    if no_text:
+        return total_bytes
+    return f'Size of weight matrix: {total_bytes / (1024 * 1024): .2f} MB'
 
 
 def save_load(file_name, object_to_save=None, save=True, output=True):
@@ -272,12 +275,12 @@ def save_load(file_name, object_to_save=None, save=True, output=True):
     if save:
         delete_file_if_exists(file_name)
         with open(file_name, "wb+") as file:
-            pickle.dump(object_to_save, file)
+            dump(object_to_save, file)
         object_to_load = None
         text = '\nObject saved to '
     else:
         with open(file_name, "rb") as file:
-            object_to_load = pickle.load(file)
+            object_to_load = load(file)
         text = '\nObject loaded from '
     if output:
         print(text + file_name)

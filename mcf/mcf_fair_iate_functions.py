@@ -19,7 +19,7 @@ def make_fair_iates(mcf_, data_df, with_output=None):
     blind_dic = mcf_.blind_dict
     potout_dic = {}
     mcf_.gen_dict['with_output'] = mcf_.int_dict['with_output'] = False
-    mcf_.p_dict['atet'] = mcf_.p_dict['gatet'] = mcf_.p_dict['amgate'] = False
+    mcf_.p_dict['atet'] = mcf_.p_dict['gatet'] = mcf_.p_dict['cbgate'] = False
     mcf_.p_dict['bt_yes'] = False
     mcf_.p_dict['bgate'] = mcf_.p_dict['bt_yes'] = False
     mcf_.p_dict['cluster_std'] = mcf_.p_dict['gates_smooth'] = False
@@ -56,8 +56,7 @@ def make_fair_iates(mcf_, data_df, with_output=None):
                          and blind_dic['weights_of_blind'][0] > 0))
     if compute_blind:
         mcf_.p_dict['ate_no_se_only'] = True
-        mcf_.p_dict['iate'] = False
-        mcf_.cs_dict['yes'] = False
+        mcf_.p_dict['iate'] = mcf_.cs_dict['yes'] = False
         mp_parallel = mcf_.gen_dict['mp_parallel']
         mcf_.gen_dict['mp_parallel'] = 1
         data_reference_df = compute_reference_data(mcf_, data_df,
@@ -253,11 +252,14 @@ def remove_end_str(var_list, str_to_remove='_PRIME'):
     """Remove ending that have been added by the mcf estimation programme."""
     var_list_red = []
     for var in var_list:
-        if len(var) > 4 and var[-4:] == 'CATV':
+        if var.endswith('CATV'):
             var_list_red.append(var[:-4])
             continue
-        if len(var) > 6 and var[-6:] == '_PRIME':
+        if var.endswith('_PRIME'):
             var_list_red.append(var[:-6])
+            continue
+        if var.endswith(str_to_remove):
+            var_list_red.append(var[:-len(str_to_remove)])
             continue
         var_list_red.append(var)
     return var_list_red
@@ -285,10 +287,10 @@ def print_variable_output(mcf_, var_blind=None, var_policy=None):
     for var in x_type:
         ordered = 'ordered' if x_type[var] == 0 else 'unordered'
         if ordered == 'ordered':
-            if len(var) > 4 and var[-4:] == 'CATV':
+            if var.endswith('CATV'):
                 var = var[:-4]
         else:
-            if len(var) > 6 and var[-6:] == '_PRIME':
+            if var.endswith('_PRIME'):
                 var = var[:-6]
         if var in var_blind:
             if var in mcf_.blind_dict['var_x_protected_name']:

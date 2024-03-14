@@ -13,6 +13,8 @@ import pandas as pd
 import ray
 
 from mcf import mcf_estimation_functions as mcf_est
+from mcf import mcf_cuda_functions as mcf_cuda
+from mcf import mcf_iate_cuda_functions as mcf_iate_cuda
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
 from mcf import mcf_print_stats_functions as ps
@@ -88,35 +90,76 @@ def iate_est_mp(mcf_, weights_dic, w_ate, reg_round=True):
     if not p_dic['iate_m_ate']:
         w_ate = None
     l1_to_9 = [None] * n_x
-    if gen_dic['mp_parallel'] < 1.5:
-        maxworkers = 1
+    if gen_dic['mp_automatic']:
+        maxworkers = mcf_sys.find_no_of_workers(gen_dic['mp_parallel'],
+                                                gen_dic['sys_share'])
     else:
-        if gen_dic['mp_automatic']:
-            maxworkers = mcf_sys.find_no_of_workers(gen_dic['mp_parallel'],
-                                                    gen_dic['sys_share'])
-        else:
-            maxworkers = gen_dic['mp_parallel']
+        maxworkers = gen_dic['mp_parallel']
+
+    cuda = int_dic['cuda'] and maxworkers < 16  # else multiple CPUs faster
+
+    if gen_dic['mp_parallel'] < 1.5 or cuda:
+        #  Pytorch does not work well with ray. Need to set max_workers to 1.
+        maxworkers = 1
     if int_dic['with_output'] and int_dic['verbose']:
         print('Number of parallel processes: ', maxworkers)
     if int_dic['weight_as_sparse']:
-        iterator = len(weights)
+        iterator = len(weights)   # Number of treatments
     if maxworkers == 1:
-        for idx in range(n_x):
-            if int_dic['weight_as_sparse']:
-                weights_idx = [weights[t_idx].getrow(idx) for
-                               t_idx in range(iterator)]
-            else:
-                weights_idx = weights[idx]
-            ret_all_i = iate_func1_for_mp(
-                idx, weights_idx, cl_dat, no_of_cluster, w_dat, w_ate, y_dat,
-                no_of_out, n_y, ct_dic, int_dic, gen_dic, p_dic,
-                iate_se_flag, se_boot_iate, iate_m_ate_flag)
-            (pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var, l1_to_9,
-             share_censored) = assign_ret_all_i(
-                 pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var, l1_to_9,
-                 share_censored, ret_all_i, n_x, idx)
+        if cuda:
             if int_dic['with_output'] and int_dic['verbose']:
-                mcf_gp.share_completed(idx+1, n_x)
+                print('Computing IATEs with Cuda')
+            # The full weight matrix may not fit into GPU memory, batch it.
+            # Up to share_weights of free GPU memory for weight matrix
+            share_weights = 0.33
+            batch_max_size = mcf_iate_cuda.max_batch_size(
+                n_x, weights, share_weights, int_dic['weight_as_sparse'],
+                gen_dic)
+            batch_idx_tuple = mcf_cuda.split_into_batches(n_x, batch_max_size)
+
+            for batch_no, idx_ba in enumerate(batch_idx_tuple):
+                if int_dic['with_output'] and int_dic['verbose'] and (
+                        len(batch_idx_tuple) > 1):
+                    print('Batch: ', batch_no)
+                if int_dic['weight_as_sparse']:
+                    weights_ba = [weights[t_idx][idx_ba, :]
+                                  for t_idx in range(iterator)]
+                else:
+                    weights_ba = weights[idx_ba[0]:idx_ba[-1]+1]
+                (pot_y_ba, pot_y_var_ba, pot_y_m_ate_ba, pot_y_m_ate_var_ba,
+                 l1_to_9_ba, share_censored_ba) = mcf_iate_cuda.iate_cuda(
+                     weights_ba, cl_dat, no_of_cluster, w_dat, w_ate, y_dat,
+                     no_of_out, n_y, ct_dic, int_dic, gen_dic, p_dic,
+                     iate_se_flag, se_boot_iate, iate_m_ate_flag, len(idx_ba),
+                     no_of_treat_dr)
+
+                pot_y[idx_ba, :] = pot_y_ba
+                if pot_y_var is not None:
+                    pot_y_var[idx_ba, :] = pot_y_var_ba
+                if iate_m_ate_flag:
+                    pot_y_m_ate[idx_ba] = pot_y_m_ate_ba
+                    if pot_y_m_ate_var is not None:
+                        pot_y_m_ate_var[idx_ba] = pot_y_m_ate_var_ba
+                l1_to_9[idx_ba[0]:idx_ba[-1]+1] = l1_to_9_ba
+                share_censored += share_censored_ba * len(idx_ba)
+            share_censored /= n_x
+        else:
+            for idx in range(n_x):
+                if int_dic['weight_as_sparse']:
+                    weights_idx = [weights[t_idx].getrow(idx) for
+                                   t_idx in range(iterator)]
+                else:
+                    weights_idx = weights[idx]
+                ret_all_i = iate_func1_for_mp(
+                    idx, weights_idx, cl_dat, no_of_cluster, w_dat, w_ate,
+                    y_dat, no_of_out, n_y, ct_dic, int_dic, gen_dic, p_dic,
+                    iate_se_flag, se_boot_iate, iate_m_ate_flag)
+                (pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var, l1_to_9,
+                 share_censored) = assign_ret_all_i(
+                     pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var, l1_to_9,
+                     share_censored, ret_all_i, n_x, idx)
+                if int_dic['with_output'] and int_dic['verbose']:
+                    mcf_gp.share_completed(idx+1, n_x)
     else:
         rows_per_split = 1e9    # Just a large number; feature is not used
         no_of_splits = round(n_x / rows_per_split)
@@ -168,6 +211,7 @@ def iate_est_mp(mcf_, weights_dic, w_ate, reg_round=True):
         if int_dic['mp_ray_shutdown']:
             ray.shutdown()
     if reg_round:
+        # Not efficient to get rid of loop because of inhomogenous elements
         for idx in range(n_x):
             larger_0 += l1_to_9[idx][0]
             equal_0 += l1_to_9[idx][1]
@@ -343,10 +387,13 @@ def iate_effects_print(mcf_, effect_dic, effect_m_ate_dic, effect_eff_dic,
             if int_dic['mp_ray_shutdown']:
                 ray.shutdown()
     if int_dic['with_output']:
-        txt = ps.print_iate(iate, iate_se, iate_p, effect_list, gen_dic, p_dic,
-                            var_dic)
-        ps.print_mcf(gen_dic, txt, summary=True, non_summary=False)
-        ps.print_mcf(gen_dic, effect_dic['txt_weights'] + txt, summary=False)
+        txt_iate_long, txt_iate = ps.print_iate(
+            iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic)
+        ps.print_mcf(gen_dic, txt_iate_long, summary=True, non_summary=False)
+        if p_dic['iate_m_ate']:
+            ps.print_mcf(gen_dic, effect_dic['txt_weights'], summary=False)
+    else:
+        txt_iate = ''
 
     # Add results to data file
     y_pot_np = np.empty((n_x, no_of_out * no_of_treat_dr))
@@ -512,17 +559,7 @@ def iate_effects_print(mcf_, effect_dic, effect_m_ate_dic, effect_eff_dic,
     if not int_dic['return_iate_sp']:
         results_df = None
     return (iate, iate_se, iate_eff, (names_pot_iate, names_pot_iate0),
-            results_df)
-
-
-@ray.remote
-def ray_iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
-                          y_dat, no_of_out, n_y, ct_dic, int_dic, gen_dic,
-                          p_dic, iate_se_flag, se_boot_iate):
-    """Make function useful for Ray."""
-    return iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat,
-                             w_ate, y_dat, no_of_out, n_y, ct_dic, int_dic,
-                             gen_dic, p_dic, iate_se_flag, se_boot_iate)
+            results_df, txt_iate)
 
 
 def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
@@ -877,6 +914,7 @@ def iate_func2_for_mp(idx, no_of_out, pot_y_i, pot_y_var_i, pot_y_m_ate_i,
     else:
         iate_se_i = iate_p_i = None
     iterator = 2 if iate_m_ate_flag else 1
+    compute_comparison_label = True
     for o_i in range(no_of_out):
         for jdx in range(iterator):
             if jdx == 0:
@@ -888,10 +926,14 @@ def iate_func2_for_mp(idx, no_of_out, pot_y_i, pot_y_var_i, pot_y_m_ate_i,
                                 if iate_se_flag else None)
             ret = mcf_est.effect_from_potential(
                 pot_y_ao, pot_y_var_ao, d_values,
-                se_yes=iate_se_flag, continuous=d_type == 'continuous')
+                se_yes=iate_se_flag, continuous=d_type == 'continuous',
+                return_comparison=compute_comparison_label)
+            if compute_comparison_label:
+                effect_list = ret[4]
             if iate_se_flag:
                 (iate_i[o_i, :, jdx], iate_se_i[o_i, :, jdx], _,
-                 iate_p_i[o_i, :, jdx], effect_list) = ret
+                 iate_p_i[o_i, :, jdx]) = ret[:4]
             else:
-                (iate_i[o_i, :, jdx], _, _, _, effect_list) = ret
+                (iate_i[o_i, :, jdx], _, _, _) = ret[:4]
+            compute_comparison_label = False
     return idx, iate_i, iate_se_i, iate_p_i, effect_list

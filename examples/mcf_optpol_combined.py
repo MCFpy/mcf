@@ -9,7 +9,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.4.3
+Version: 0.5.0
 
 This is an example to show how to combine the ModifiedCausalForest class and
 the OptimalPolicy class for joint estimation. Please note that there could be
@@ -23,9 +23,8 @@ import pandas as pd
 
 from mcf.mcf_functions import ModifiedCausalForest
 from mcf.optpolicy_functions import OptimalPolicy
+from mcf.reporting import McfOptPolReport
 
-# from mcf import ModifiedCausalForest
-# from mcf import OptimalPolicy
 
 #  In this example we combine mcf estimation and an optimal policy tree in a
 #  simple split sample approach.
@@ -51,7 +50,8 @@ VAR_POLSCORE_NAME = ('Y_LC0_un_lc_pot_eff',
 # --- Parameters --
 GEN_IATE_EFF = None
 GEN_METHOD = 'policy tree'
-PT_DEPTH = 2  # Too small for real application, for demonstration only
+PT_DEPTH_TREE_1 = 2  # Too small for real application, for demonstration only
+PT_DEPTH_TREE_2 = 2
 
 # -----------------------------------------------------------------------------
 alldata_df = pd.read_csv(DATPATH + '/' + ALLDATA)
@@ -81,9 +81,10 @@ data_train_pt = results['iate_data_df']
 oos_df = results_oos['iate_data_df']
 
 myoptp = OptimalPolicy(var_d_name=VAR_D_NAME,
-                       var_x_ord_name=VAR_X_NAME_ORD,
+                       var_x_name_ord=VAR_X_NAME_ORD,
                        var_polscore_name=VAR_POLSCORE_NAME,
-                       pt_depth=PT_DEPTH,
+                       pt_depth_tree_1=PT_DEPTH_TREE_1,
+                       pt_depth_tree_2=PT_DEPTH_TREE_2,
                        gen_outpath=APPLIC_PATH,
                        gen_method=GEN_METHOD)
 
@@ -94,6 +95,9 @@ alloc_eva_df = myoptp.allocate(oos_df, data_title='')
 results_eva_train = myoptp.evaluate(alloc_eva_df, oos_df,
                                     data_title='Evaluate PT data')
 myoptp.print_time_strings_all_steps()
+my_report = McfOptPolReport(mcf=mymcf, optpol=myoptp,
+                            outputfile='Report_mcf_optpolicy')
+my_report.report()
 
 
 print('End of computations.\n\nThanks for using ModifiedCausalForest and'

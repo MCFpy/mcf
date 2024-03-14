@@ -9,7 +9,7 @@ setup(
   packages = ['mcf'],
   version = '0.4.3',
   license='MIT',
-  description = 'mcf is a powerful package to estimate heterogeneous treatment effects for multiple treatment models in a selection-on-observables setting and learn optimal policy rules',
+  description = 'The Python package mcf implements the Modified Causal Forest introduced by Lechner (2018). This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, mcf offers the capability to learn optimal policy allocations.',
   author = 'mlechner',
   author_email = 'michael.lechner@unisg.ch',
   url = 'https://github.com/MCFpy/mcf',

@@ -25,7 +25,12 @@ The current version of **mcf** is compatible with **Python 3.11**. You can insta
 
     pip install mcf
 
-For a smoother experience and to avoid conflicts with other packages, we strongly recommend using a virtual environment based on **conda**. First install conda as described `here <https://docs.conda.io/projects/conda/en/latest/user-guide/install/>`__. Next follow the steps below in your Anaconda Prompt (Windows) or terminal (macOS and Linux):
+For a smoother experience and to avoid conflicts with other packages, we strongly recommend using a virtual environment based on **conda**. 
+
+You can manage conda environments either via the command line or a graphical interface. 
+The command line offers a compatible solution for all operating systems, making it our recommended choice. However, the graphical interface is more user-friendly.
+
+If you prefer to use the command line, first install conda as described `here <https://docs.conda.io/projects/conda/en/latest/user-guide/install/>`__. Next follow the steps below in your Anaconda Prompt (Windows) or terminal (macOS and Linux):
 
 1. Set up and activate a conda environment named *mcf-env*:
 
@@ -49,7 +54,24 @@ For a smoother experience and to avoid conflicts with other packages, we strongl
 
       pip install mcf
 
+
+
+If you prefer a graphical interface, you can:
+
+1. Install Anaconda distribution including Anaconda navigator by downloading it `here <https://docs.anaconda.com/free/navigator/install/>`__.
+
+2. Set up an environment, follow the guide `here <https://docs.anaconda.com/free/navigator/getting-started/#managing-environments>`__ and make sure you choose **Python=3.11.8** for your environment.
+
+3. Install the **mcf** package by using pip install in your IDE console:
+
+  .. code-block:: bash
+
+      pip install mcf
+
+An alternative to the step above is to install the **mcf** package using this guide `here <https://docs.anaconda.com/free/navigator/getting-started/#managing-packages>`__.
+
 Note: It is recommended to prioritize ``conda install`` for package installations before using ``pip install``. On a Windows machine, if you plan to use Spyder as your IDE, make sure to execute ``conda install spyder`` before proceeding with ``pip install mcf`` to reduce the risk of errors during installation.
+
 
 .. _usage-example:
 

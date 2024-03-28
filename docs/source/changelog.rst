@@ -27,6 +27,13 @@ Changelog
 
     Note the absence of the tilde '~' in this case. 
 
+Version 0.5.1
+-------------
+
+General
+~~~~~~~
+
+- Updated link to new website on PyPI. 
 
 Version 0.5.0
 -------------

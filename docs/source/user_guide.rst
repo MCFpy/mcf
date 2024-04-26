@@ -1,6 +1,8 @@
 User Guide
 =======================
 
+This user guide provides a comprehensive walkthrough on how to use the main features of the **mcf**. It includes several example scripts to help users, regardless of their technical expertise, to navigate and use the **mcf** package effectively.
+
 Modified Causal Forest
 ----------------------
 

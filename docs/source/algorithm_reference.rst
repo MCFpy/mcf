@@ -1,6 +1,8 @@
 Algorithm Reference
 =======================
 
+The algorithm reference offers a detailed explanation of the core processes of the **mcf**. It covers the key methods such as training, inference, local centering, and the use of CBGATEs and BGATEs of the Modified Causal Forest module. Additionally, it explores the Policy Tree algorithm used in the Optimal Policy module.
+
 Modified Causal Forest
 ----------------------
 

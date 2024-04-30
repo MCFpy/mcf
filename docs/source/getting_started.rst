@@ -284,6 +284,15 @@ A great way to get an overview of the results is to read the PDF-report that can
         )
     policy_tree_report.report()
 
+Additionally, you can access the results programmatically. The `report` attribute of your optimal policy object is a dictionary containing the results. Here's how you can access a specific element:
+
+.. code-block:: python
+
+    dictionary_of_results = myoptp.report
+    print(dictionary_of_results.keys())
+    evaluation_list = dictionary_of_results['evalu_list']
+    print("Evaluation List: ", evaluation_list)
+
 Finally, it is straightforward to apply our Optimal Policy Tree to new data. To do so, we simply apply the :py:meth:`~optpolicy_functions.OptimalPolicy.allocate` method
 to the DataFrame holding the potential outcomes, treatment variable and the features for the data that was held out for evaluation:
 

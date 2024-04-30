@@ -1,3 +1,5 @@
+.. _common-support:
+
 Common support
 ==============
 

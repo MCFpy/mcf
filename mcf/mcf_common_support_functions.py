@@ -351,9 +351,11 @@ def plot_support(mcf_, probs_np, d_np):
         mcf_sys.delete_file_if_exists(file_name_csv)
         fig.savefig(file_name_jpeg, dpi=int_dic['dpi'])
         fig.savefig(file_name_pdf, dpi=int_dic['dpi'])
-        save_list = [data_hist, labels]
-        save_df = pd.DataFrame(save_list)
-        save_df = save_df.fillna(value='NaN')
+        # Ensure all arrays in data_hist have the same length for pretty df
+        m = max([len(x) for x in data_hist])
+        data_hist = [np.pad(x, (0, m - len(x)), 
+                            constant_values=np.nan) for x in data_hist]
+        save_df = pd.DataFrame({k: v for k, v in zip(labels, data_hist)})
         save_df.to_csv(file_name_csv, index=False)
         axs_d.set_title(titel)
         axs_d.set_xlabel('Treatment probability')
@@ -368,9 +370,10 @@ def plot_support(mcf_, probs_np, d_np):
         mcf_sys.delete_file_if_exists(file_name_jpeg_d)
         mcf_sys.delete_file_if_exists(file_name_pdf_d)
         mcf_sys.delete_file_if_exists(file_name_csv_d)
-        save_list = [fit_line_all, bins_all, labels]
-        save_df = pd.DataFrame(save_list)
-        save_df = save_df.fillna(value='NaN')
+        fit_line_all = pd.DataFrame(fit_line_all, index=labels)
+        bins_all = pd.DataFrame(bins_all, index=labels)
+        save_df = pd.concat([fit_line_all, bins_all], 
+                            axis=1, keys=['fit_line', 'bins']).T
         save_df.to_csv(file_name_csv_d, index=False)
         fig_d.savefig(file_name_jpeg_d, dpi=int_dic['dpi'])
         fig_d.savefig(file_name_pdf_d, dpi=int_dic['dpi'])

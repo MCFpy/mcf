@@ -195,4 +195,5 @@ License
    user_guide.rst
    algorithm_reference.rst
    python_api.rst
+   FAQ.rst
    changelog.rst

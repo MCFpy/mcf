@@ -10,7 +10,7 @@ This guide will walk you through using the **mcf** package to
 
 
 Simulating data
----------------
+^^^^^^^^^^^^^^^^
 
 First, we'll create some synthetic data to showcase the functionality of the **mcf** package. Our example will involve a scenario with three possible treatments, represented by the values 0, 1, and 2.
 
@@ -88,6 +88,9 @@ as follows:
         _int_show_plots=False # Suppress the display of diagnostic plots during estimation
     )
 
+Accessing and customizing output location
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder where these results will be stored. You can find the location of this folder by accessing the `"outpath"` entry of the `gen_dict` attribute of your Modified Causal Forest:
 
 .. code-block:: python
@@ -126,7 +129,7 @@ Below you find a selected list of optional parameters that are often used to ini
 
 
 Training a Modified Causal Forest
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------
 
 Next we will train the Modified Causal Forest on the *train_mcf_df* data using the :py:meth:`~mcf_functions.ModifiedCausalForest.train` method:
 
@@ -141,8 +144,8 @@ Now we are ready to estimate heterogeneous treatment effects on the *pred_mcf_tr
     results = my_mcf.predict(pred_mcf_train_pt_df)
 
 
-Results
-~~~~~~~
+Accessing results
+~~~~~~~~~~~~~~~~~
 
 The easiest way to get an overview of your results is to read the PDF-report that can be generated using the class :py:class:`~reporting.McfOptPolReport`:
 
@@ -184,7 +187,7 @@ Please refer to the documentation of the :py:meth:`~mcf_functions.ModifiedCausal
 
 
 Post-estimation
-~~~~~~~~~~~~~~~
+-----------------
 
 You can use the :py:meth:`~mcf_functions.ModifiedCausalForest.analyse` method to investigate a number of post-estimation plots. These plots are also exported to the previously created output folder:
 
@@ -241,7 +244,7 @@ After initializing an Optimal Policy Tree, the **mcf** package will automaticall
 
 
 Fit an Optimal Policy Tree
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------
 
 To find the Optimal Policy Tree, we use the :py:meth:`~optpolicy_functions.OptimalPolicy.solve` method, where we need to supply the pandas DataFrame holding the potential outcomes, treatment variable and the features:
 

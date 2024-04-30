@@ -54,7 +54,7 @@ Usage
 
 - **How can I determine which data points were excluded during common support checks and access the corresponding dataframe?**
 
-  You can check which data points were excluded in the in the common support section of the PDF file which is automatically generated. 
+  We recommend you check the :ref:`Common Support <common-support>` section. Additonally, you can check which data points were excluded in the in the common support section of the PDF file which is automatically generated.
 
 - **How do I access the dataframe representing the final sample that passed common support criteria?**
 

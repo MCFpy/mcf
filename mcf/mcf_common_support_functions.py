@@ -370,10 +370,11 @@ def plot_support(mcf_, probs_np, d_np):
         mcf_sys.delete_file_if_exists(file_name_jpeg_d)
         mcf_sys.delete_file_if_exists(file_name_pdf_d)
         mcf_sys.delete_file_if_exists(file_name_csv_d)
-        fit_line_all = pd.DataFrame(fit_line_all, index=labels)
-        bins_all = pd.DataFrame(bins_all, index=labels)
-        save_df = pd.concat([fit_line_all, bins_all], 
-                            axis=1, keys=['fit_line', 'bins']).T
+        fit_line_all = pd.DataFrame(fit_line_all, index=labels).T
+        bins_all = pd.DataFrame(bins_all, index=labels).T
+        fit_line_all['type'] = 'fit_line'
+        bins_all['type'] = 'bins'
+        save_df = pd.concat([fit_line_all, bins_all], axis=0)
         save_df.to_csv(file_name_csv_d, index=False)
         fig_d.savefig(file_name_jpeg_d, dpi=int_dic['dpi'])
         fig_d.savefig(file_name_pdf_d, dpi=int_dic['dpi'])

@@ -240,6 +240,9 @@ as follows:
 
 Note that the ``pt_depth_tree_1`` parameter specifies the depth of the (first) policy tree. For demonstration purposes we set it to 2. In practice, you should choose a larger value which will increase the computational burden. See the :doc:`User guide <user_guide/optimal-policy_example>` and the :doc:`Algorithm reference <algorithm_reference/optimal-policy_algorithm>` for more detailed explanations.
 
+Accessing results
+~~~~~~~~~~~~~~~~~
+
 After initializing an Optimal Policy Tree, the **mcf** package will automatically create an output folder. This folder will contain a number of standard outputs for your convenience. You can find the location of this folder in your console output. Alternatively, you can manually specify the folder location using the ``gen_outpath`` parameter.
 
 
@@ -267,6 +270,9 @@ Next, we can use the :py:meth:`~optpolicy_functions.OptimalPolicy.evaluate` meth
 
     print(pt_eval)
     print(alloc_df.head())
+
+Overview of results
+~~~~~~~~~~~~~~~~~~~~~
 
 A great way to get an overview of the results is to read the PDF-report that can be generated using the class :py:class:`~reporting.McfOptPolReport`:
 

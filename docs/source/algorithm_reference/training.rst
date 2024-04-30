@@ -71,6 +71,7 @@ Example
         cf_match_nn_prog_score = True
     )
 
+.. _computational-speed:
 
 Parameter tuning and Computational Speed
 -------------------------------------------

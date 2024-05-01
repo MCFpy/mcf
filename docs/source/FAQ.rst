@@ -50,11 +50,11 @@ Usage
 
   For more examples you can check out the :ref:`Getting Started <getting-started>` or the :doc:`user_guide`.
 
-  As with the :py:class:`~optpolicy_functions.OptimalPolicy` class, further results are also stored in the "out" folder either as PDF, txt or csv files. 
+  As with the :py:class:`~mcf_functions.ModifiedCausalForest` class, further results are also stored in the "out" folder either as PDF, txt or csv files. 
 
 - **How can I determine which data points were excluded during common support checks and access the corresponding dataframe?**
 
-  We recommend you check the :ref:`Common Support <common-support>` section. Additonally, you can check which data points were excluded in the in the common support section of the PDF file which is automatically generated.
+  We recommend you check the :ref:`Common Support <common-support>` section. Additonally, you can check which data points were excluded in the common support section of the PDF file which is automatically generated.
 
 - **How do I access the dataframe representing the final sample that passed common support criteria?**
 
@@ -85,7 +85,7 @@ Troubleshooting
 
   If you're getting an error with Ray, try resetting the kernel before every training. This can often solve issues related to Ray. If the problem persists, please use the `issue tracker <https://github.com/MCFpy/mcf/issues>`__.
 
-- **The package installed successfully, but I'm getting an error when I try to import it. What should I do?**
+- **The package has been installed successfully, but I'm getting an error when I try to import it. What should I do?**
 
   This could be due to a conflict with other packages or an `issue <https://github.com/MCFpy/mcf/issues>`__ with your Python environment. Try creating a new virtual environment and installing the package there. If the problem persists, please open an `issue <https://github.com/MCFpy/mcf/issues>`__ on the GitHub repository.
 

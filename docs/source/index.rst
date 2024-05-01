@@ -15,6 +15,7 @@ For those seeking further information:
 - Check out the :doc:`python_api` for details on interacting with the mcf package.
 - The :doc:`algorithm_reference` provides a technical description of the methods used in the package.
 
+.. _installation-guide:
 
 Installation Guide
 ------------------

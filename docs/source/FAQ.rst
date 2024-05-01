@@ -72,7 +72,7 @@ Usage
 
 - **What's the difference between ordered and unordered variables?**
 
-  Ordered variables are numerical variables that have a natural order, such as age or income. Unordered variables, also known as categorical variables, are variables that don't have a natural order, such as gender or nationality.
+  Ordered variables are numerical variables that have a natural order, such as age or income. To increase the speed of the **mcf** algorithm, specify binary variables also as ordered ones.  Unordered variables, also known as categorical variables, are variables that don’t have a natural order, such as occupation or nationality.
 
 Troubleshooting
 ---------------

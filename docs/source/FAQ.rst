@@ -39,7 +39,7 @@ Usage
 
   For more examples you can check out the :ref:`Getting Started <getting-started>` or the :doc:`user_guide`.
 
-  Moreover, when using the :py:meth:`~mcf_functions.ModifiedCausalForest.train`, :py:meth:`~mcf_functions.ModifiedCausalForest.predict`, :py:meth:`~mcf_functions.ModifiedCausalForest.analyse` methods, and the :py:class:`~reporting.McfOptPolReport`: class, a folder is generated in your specified output path. If no output path is specified, all files will be saved where the Anaconda distribution is installed. You can learn more about working directories and output paths at `w3schools <https://www.w3schools.com/python/ref_os_chdir.asp>`_.
+  Moreover, when using the :py:meth:`~mcf_functions.ModifiedCausalForest.train`, :py:meth:`~mcf_functions.ModifiedCausalForest.predict`, :py:meth:`~mcf_functions.ModifiedCausalForest.analyse` methods, and the :py:class:`~reporting.McfOptPolReport` class, a folder called "out" is generated in your specified output path. If no output path is specified, all files will be saved where the Anaconda distribution is installed. You can learn more about working directories and output paths at `w3schools <https://www.w3schools.com/python/ref_os_chdir.asp>`_.
 
   The "out" folder contains a PDF with crucial information regarding the estimation of the :py:class:`~mcf_functions.ModifiedCausalForest`. For more comprehensive insights, we recommend reviewing the `Full example with all parameters used <https://github.com/MCFpy/mcf/blob/main/examples/all_parameters_mcf.py>`__.
 

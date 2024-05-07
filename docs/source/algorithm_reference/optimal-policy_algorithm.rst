@@ -18,7 +18,7 @@ For instance, in contrast to policytree, the optpoltree allows you to consider c
 Implementation
 -----------------------------
 
-The :py:class:`~optpolicy_functions.OptimalPolicy` class explores the space of all viable policy trees and picks the optimal one. This optimal tree maximizes the value function, computed as the sum of individual-specific policy scores, by assigning treatments to observations within terminal nodes.
+The :py:class:`~optpolicy_functions.OptimalPolicy` class explores the space of all viable policy trees and picks the optimal one. This optimal tree maximizes the value function, computed as the sum of individual-specific policy scores, by assigning observations to treatments within terminal nodes.
 
 Given a fixed choice of previous partitions, the problem of finding an optimal solution simplifies to solving two subproblems: 
 

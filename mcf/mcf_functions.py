@@ -216,7 +216,7 @@ class ModifiedCausalForest:
         Default (or None) is 0.6.
         
     cf_m_share_min : Float (or None), optional
-        Share of variables used at each new split of tree: Maximum.
+        Share of variables used at each new split of tree: Minimum.
         Default (or None) is 0.1.
         
     cf_mce_vart : Integer (or None), optional

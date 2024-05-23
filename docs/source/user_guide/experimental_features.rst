@@ -43,16 +43,19 @@ Example
 
     from mcf import ModifiedCausalForest
 
-    ModifiedCausalForest(
+    my_mcf = ModifiedCausalForest(
         var_y_name="y",
         var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
-        var_x_name_unord=["female"],
+        var_x_name_ord=["x1", "x2", "female"],
+        var_x_name_unord=["occupation"],
         # Parameters for balancing tests:
         p_bt_yes=True,
-        var_x_balance_name_ord=["x1", "x2"],
-        var_x_balance_name_unord=["female"]
+        var_x_balance_name_ord=["x1", "x2", "female"],
+        var_x_balance_name_unord=["occupation"]
     )
+    
+    my_mcf.train(df)
+    results = my_mcf.predict(df)
 
 
 Sensitivity checks

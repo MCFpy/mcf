@@ -117,9 +117,10 @@ Group average treatment effects are estimated by the :py:meth:`~mcf_functions.Mo
     my_mcf = ModifiedCausalForest(
         var_y_name="y",
         var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
+        # define binary variables as ordered for faster performance
+        var_x_name_ord=["x1", "x2", "female"],
         # Specify the unordered heterogeneity variable 'female' for GATE estimation
-        var_z_name_unord=["female"]
+        var_z_name_unord=["occupation"]
     )
     results = my_mcf.predict(my_data)
 
@@ -146,8 +147,8 @@ To estimate the :math:`\textrm{GATE's}` for subpopulations defined by treatment 
     my_mcf = ModifiedCausalForest(
         var_y_name="y",
         var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
-        var_z_name_unord=["female"],
+        var_x_name_ord=["x1", "x2", "female"],
+        var_z_name_unord=["occupation"],
         # Estimate the GATE's for 'female' by treatment status
         p_gatet = True
     )
@@ -160,7 +161,7 @@ smooth the distribution of the variable. The smoothing procedure evaluates the e
     my_mcf = ModifiedCausalForest(
         var_y_name="y",
         var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
+        var_x_name_ord=["x1", "x2", "female"],
         # Specify the continuous heterogeneity variable 'age' for GATE estimation
         var_z_name_list=["age"],
         # Smoothing the distribution of the continuous variable 'age' for GATE estimation
@@ -176,7 +177,7 @@ Instead of smoothing continuous heterogeneity variables, you can also discretize
     my_mcf = ModifiedCausalForest(
         var_y_name="y",
         var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
+        var_x_name_ord=["x1", "x2", "female"],
         # Specify the continuous heterogeneity variable 'age' for GATE estimation
         var_z_name_list=["age"],
         # Discretizing the continuous variable 'age' for GATE estimation
@@ -223,7 +224,7 @@ Example
     my_mcf = ModifiedCausalForest(
         var_y_name="y",
         var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
+        var_x_name_ord=["x1", "x2", "female"],
         # Truncate weights to an upper threshold of 0.01
         p_max_weight_share = 0.01
     )

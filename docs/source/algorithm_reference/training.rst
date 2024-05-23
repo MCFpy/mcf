@@ -119,7 +119,7 @@ Please refer to the :py:class:`API <mcf_functions.ModifiedCausalForest>` for a d
 
 Adjusting these options can help to significantly reduce the computational time, but it may also affect the accuracy of the results. Therefore, it is recommended to understand the implications of each option before adjusting them. Below you find a list of the discussed parameters that are relevant for parameter tuning and computational speed.
 
-**Note:** The **mcf** achieves faster performance when binary features, such as gender, are defined as ordered using ``var_x_name_ord``.
+**Note:** The **mcf** achieves faster performance when binary features, such as gender, are defined as ordered, using ``var_x_name_ord`` instead of ``var_x_name_unord``.
 
 .. list-table:: 
    :widths: 30 70

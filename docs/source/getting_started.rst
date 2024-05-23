@@ -26,33 +26,35 @@ First, we'll create some synthetic data to showcase the functionality of the **m
         """
         Simulate data with treatment 'd', outcome 'y', an unordered control
         variable 'female' and two ordered controls 'x1', 'x2'.
-
+    
         Parameters:
         - n (int): Number of observations in the simulated data.
         - seed (int): Seed for the random number generator.
-
+    
         Returns:
         pd.DataFrame: Simulated data in a Pandas DataFrame.
-
+    
         """
         rng = np.random.default_rng(seed)
-
-        d = rng.integers(low=0, high=2, size=n, endpoint=True)
+    
+        d = rng.integers(low=0, high=1, size=n, endpoint=True)  
+        occupation = rng.choice([1, 2, 3], size=n)  # Generate unordered variable with 3 unique values
         female = rng.integers(low=0, high=1, size=n, endpoint=True)
         x_ordered = rng.normal(size=(n, 2))
         y = (x_ordered[:, 0] +
             x_ordered[:, 1] * (d == 1) +
             x_ordered[:, 1] * (d == 2) +
             0.5 * female +
+            0.5 * occupation +  
             rng.normal(size=n))
-
-        data = {"y": y, "d": d, "female": female}
-
+    
+        data = {"y": y, "d": d, "female": female,"occupation": occupation}  # Replace 'female' with 'occupation'
+    
         for i in range(x_ordered.shape[1]):
             data["x" + str(i + 1)] = x_ordered[:, i]
-
+    
         return pd.DataFrame(data)
-
+    
     df = simulate_data(n=1000, seed=1234)
 
 To estimate both a Modified Causal Forest and an Optimal Policy Tree, we will use a simple sample splitting approach, dividing the simulated data into three equally sized parts:
@@ -83,8 +85,8 @@ as follows:
     my_mcf = ModifiedCausalForest(
         var_y_name="y",
         var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
-        var_x_name_unord=["female"],
+        var_x_name_ord=["x1", "x2", "female"],
+        var_x_name_unord=["occupation"],
         _int_show_plots=False # Suppress the display of diagnostic plots during estimation
     )
 
@@ -231,9 +233,9 @@ as follows:
 
     my_policy_tree = OptimalPolicy(
         var_d_name="d", 
-        var_polscore_name=["Y_LC0_un_lc_pot", "Y_LC1_un_lc_pot", "Y_LC2_un_lc_pot"],
-        var_x_name_ord=["x1", "x2"],
-        var_x_name_unord=["female"],
+        var_polscore_name=["Y_LC0_un_lc_pot", "Y_LC1_un_lc_pot"],
+        var_x_name_ord=["x1", "x2", "female"],
+        var_x_name_unord=["occupation"],
         gen_method="policy tree",
         pt_depth_tree_1=2
         )

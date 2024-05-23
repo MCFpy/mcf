@@ -18,8 +18,8 @@ To conduct *any* post-estimation diagnostics, the parameter ``post_est_stats`` o
     my_mcf = ModifiedCausalForest(
             var_y_name="y",
             var_d_name="d",
-            var_x_name_ord=["x1", "x2"],
-            var_x_name_unord=["female"],
+            var_x_name_ord=["x1", "x2", "female"],
+            var_x_name_unord=["occupation"],
             # Enable post-estimation diagnostics
             post_est_stats=True
         )
@@ -70,8 +70,8 @@ To analyze heterogeneity in different groups (clusters), you can conduct :math:`
     my_mcf = ModifiedCausalForest(
             var_y_name="y",
             var_d_name="d",
-            var_x_name_ord=["x1", "x2"],
-            var_x_name_unord=["female"],
+            var_x_name_ord=["x1", "x2", "female"],
+            var_x_name_unord=["occupation"],
             post_est_stats=True,
             # Perform k-means clustering
             post_kmeans_yes=True
@@ -150,12 +150,12 @@ Example
     my_mcf = ModifiedCausalForest(
             var_y_name="y", 
             var_d_name="d",
-            var_x_name_ord=["x1", "x2"],
-            var_x_name_unord=["female"],
+            var_x_name_ord=["x1", "x2", "female"],
+            var_x_name_unord=["occupation"],
             p_ci_level=0.95,
             # Parameters for post-estimation diagnostics
             post_est_stats=True,
-            post_est_stats=True
+            post_est_stats=True,
             post_relative_to_first_group_only=True,
             post_bin_corr_yes=True,
             post_bin_corr_threshold=0.1,

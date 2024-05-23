@@ -117,7 +117,7 @@ To demonstrate how to use **mcf**, let's simulate some data and apply the Modifi
             0.5 * occupation +  
             rng.normal(size=n))
 
-        data = {"y": y, "d": d, "female": female,"occupation": occupation}  
+        data = {"y": y, "d": d, "female": female, "occupation": occupation}  
 
         for i in range(x_ordered.shape[1]):
             data["x" + str(i + 1)] = x_ordered[:, i]

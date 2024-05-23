@@ -92,8 +92,9 @@ To demonstrate how to use **mcf**, let's simulate some data and apply the Modifi
 
     def simulate_data(n: int, seed: int) -> pd.DataFrame:
         """
-        Simulate data with a binary treatment 'd', outcome 'y', unordered control
-        variable 'female' and two ordered controls 'x1', 'x2'.
+        Simulate data with treatment 'd', outcome 'y', an unordered control
+        variable 'occupation' with three unique values, and three ordered 
+        controls 'x1', 'x2', and 'female'.
 
         Parameters:
         - n (int): Number of observations in the simulated data.
@@ -105,15 +106,18 @@ To demonstrate how to use **mcf**, let's simulate some data and apply the Modifi
         """
         rng = np.random.default_rng(seed)
 
-        d = rng.integers(low=0, high=1, size=n, endpoint=True)
+        d = rng.integers(low=0, high=1, size=n, endpoint=True)  
+        occupation = rng.choice([1, 2, 3], size=n)  
         female = rng.integers(low=0, high=1, size=n, endpoint=True)
         x_ordered = rng.normal(size=(n, 2))
         y = (x_ordered[:, 0] +
             x_ordered[:, 1] * (d == 1) +
+            x_ordered[:, 1] * (d == 2) +
             0.5 * female +
+            0.5 * occupation +  
             rng.normal(size=n))
 
-        data = {"y": y, "d": d, "female": female}
+        data = {"y": y, "d": d, "female": female,"occupation": occupation}  
 
         for i in range(x_ordered.shape[1]):
             data["x" + str(i + 1)] = x_ordered[:, i]
@@ -126,8 +130,9 @@ To demonstrate how to use **mcf**, let's simulate some data and apply the Modifi
     my_mcf = ModifiedCausalForest(
         var_y_name="y",
         var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
-        var_x_name_unord=["female"],
+        # define binary variables as ordered for faster performance
+        var_x_name_ord=["x1", "x2", "female"],
+        var_x_name_unord=["occupation"],
         _int_show_plots=False
     )
 
@@ -150,8 +155,8 @@ To demonstrate how to use **mcf**, let's simulate some data and apply the Modifi
     my_optimal_policy = OptimalPolicy(
         var_d_name="d",
         var_polscore_name=["Y_LC0_un_lc_pot", "Y_LC1_un_lc_pot"],
-        var_x_name_ord=["x1", "x2"],
-        var_x_name_unord=["female"]
+        var_x_name_ord=["x1", "x2", "female"],
+        var_x_name_unord=["occupation"]
         )
 
     # Learn an optimal policy rule using the predicted potential outcomes

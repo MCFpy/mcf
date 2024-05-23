@@ -25,7 +25,8 @@ First, we'll create some synthetic data to showcase the functionality of the **m
     def simulate_data(n: int, seed: int) -> pd.DataFrame:
         """
         Simulate data with treatment 'd', outcome 'y', an unordered control
-        variable 'female' and two ordered controls 'x1', 'x2'.
+        variable 'occupation' with three unique values, and three ordered
+        controls 'x1', 'x2', and 'female'.
     
         Parameters:
         - n (int): Number of observations in the simulated data.
@@ -38,7 +39,7 @@ First, we'll create some synthetic data to showcase the functionality of the **m
         rng = np.random.default_rng(seed)
     
         d = rng.integers(low=0, high=1, size=n, endpoint=True)  
-        occupation = rng.choice([1, 2, 3], size=n)  # Generate unordered variable with 3 unique values
+        occupation = rng.choice([1, 2, 3], size=n) 
         female = rng.integers(low=0, high=1, size=n, endpoint=True)
         x_ordered = rng.normal(size=(n, 2))
         y = (x_ordered[:, 0] +
@@ -48,7 +49,7 @@ First, we'll create some synthetic data to showcase the functionality of the **m
             0.5 * occupation +  
             rng.normal(size=n))
     
-        data = {"y": y, "d": d, "female": female,"occupation": occupation}  # Replace 'female' with 'occupation'
+        data = {"y": y, "d": d, "female": female, "occupation": occupation} 
     
         for i in range(x_ordered.shape[1]):
             data["x" + str(i + 1)] = x_ordered[:, i]

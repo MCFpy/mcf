@@ -86,6 +86,7 @@ The **mcf** allows for a grid search mainly over tree types of parameters:
 
 In practical terms, a forest is estimated for all possible combinations of these parameters, with a fixed random seed. Below are the main parameters that you can adjust to either tune your forest or increase computational speed.
 
+
 - **Forest Growing and Subsampling**: 
 
   - ``cf_boot`` defines the number of trees forming the forest. The larger number will increase processing time. 
@@ -117,6 +118,8 @@ In practical terms, a forest is estimated for all possible combinations of these
 Please refer to the :py:class:`API <mcf_functions.ModifiedCausalForest>` for a detailed description of these and other options. 
 
 Adjusting these options can help to significantly reduce the computational time, but it may also affect the accuracy of the results. Therefore, it is recommended to understand the implications of each option before adjusting them. Below you find a list of the discussed parameters that are relevant for parameter tuning and computational speed.
+
+**Note:** The **mcf** achieves faster performance when binary features, such as gender, are defined as ordered using ``var_x_name_ord``.
 
 .. list-table:: 
    :widths: 30 70

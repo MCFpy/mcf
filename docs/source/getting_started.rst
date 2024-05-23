@@ -290,7 +290,7 @@ Additionally, you can access the results programmatically. The `report` attribut
 
 .. code-block:: python
 
-    dictionary_of_results = myoptp.report
+    dictionary_of_results = my_policy_tree.report
     print(dictionary_of_results.keys())
     evaluation_list = dictionary_of_results['evalu_list']
     print("Evaluation List: ", evaluation_list)

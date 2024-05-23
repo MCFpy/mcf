@@ -155,7 +155,6 @@ Example
             p_ci_level=0.95,
             # Parameters for post-estimation diagnostics
             post_est_stats=True,
-            post_est_stats=True,
             post_relative_to_first_group_only=True,
             post_bin_corr_yes=True,
             post_bin_corr_threshold=0.1,

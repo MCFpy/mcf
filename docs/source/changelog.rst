@@ -27,6 +27,15 @@ Changelog
 
     Note the absence of the tilde '~' in this case. 
 
+Version 0.6.0
+-------------
+
+General
+~~~~~~~
+
+- Data are no longer provided as *.csv files. Instead they are generated directly by the new function example_data(*) (which has to be loaded from mcf.example_data_functions.py). These changes are reflected in the various parts of the documentation. The function itself is documented in the API. This leads to changes in all example programmes provided (and the related documentation).
+- Programmes have been simplified as intermediate results are no longer saved. 
+
 Version 0.5.1
 -------------
 

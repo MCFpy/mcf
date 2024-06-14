@@ -111,12 +111,24 @@ Additional features
 
 -  New method: fairscores(*args, *keyws)
     - This fairness method is experimental. It is a preview of what  will be discussed in the paper by Bearth, Lechner, Mareckova, and   Muny (2024): Explainable Optimal Policy with Protected Variables.  The main idea is to adjust the policy scores in a way such that the resulting optimal allocation will not depend on the protected  variables.
-       - The following keyword are new and related to this adjustment:
-          - fair_regression_method : String (or None), optional. Regression method to adjust scores w.r.t. protected variables.
-               Available methods are 'RandomForest', 'RandomForestNminl5', 'RandomForestNminls5', 'SupportVectorMachine',    'SupportVectorMachineC2', 'SupportVectorMachineC4', 'AdaBoost',     'AdaBoost100', 'AdaBoost200', 'GradBoost', 'GradBoostDepth6',    'GradBoostDepth12', 'LASSO', 'NeuralNet', 'NeuralNetLarge',     'NeuralNetLarger', 'Mean'. If 'automatic', an optimal methods       will be chosen based on 5-fold cross-validation in the training      data. If a method is specified it will be used for all scores       and all adjustments. If 'automatic', every policy score might be       adjusted with a different method. 'Mean' is included for cases in        which regression methods have no explanatory power.           Default is 'RandomForest'.
+       - The following keywords are new and related to this adjustment:
+          - fair_regression_method : String (or None), optional. Regression method to adjust scores w.r.t. protected variables. Available methods are 'RandomForest', 'RandomForestNminl5', 'RandomForestNminls5', 'SupportVectorMachine',    'SupportVectorMachineC2', 'SupportVectorMachineC4', 'AdaBoost',     'AdaBoost100', 'AdaBoost200', 'GradBoost', 'GradBoostDepth6',    'GradBoostDepth12', 'LASSO', 'NeuralNet', 'NeuralNetLarge',     'NeuralNetLarger', 'Mean'. If 'automatic', an optimal methods       will be chosen based on 5-fold cross-validation in the training      data. If a method is specified it will be used for all scores       and all adjustments. If 'automatic', every policy score might be       adjusted with a different method. 'Mean' is included for cases in        which regression methods have no explanatory power.           Default is 'RandomForest'.
           - fair_type : String (or None), optional.    Method to chose the type of correction for the policy scores.       'Mean':  Mean dependence of the policy score on protected var's       is removed by residualisation. 'MeanVar':  Mean dependence and         heteroscedasticity is removed by residualisation and rescaling.      Default (or None) is 'MeanVar'.
           - var_protected_ord_name : List or tuple of strings (nor None),                             optional.     Names of ordered variables for which their influence will be         removed on the policy scores.
           - var_protected_unord_name : List or tuple of strings (nor None),           optional.     Names of unordered variables for which their influence will be removed on the policy scores.
+
+-  Solve method has an additional return (2nd position)
+    - result_dic : Dictionary that contains additional information about the   trained allocation rule.              Currently, the only entry is a dictionary decribing the      terminal leaves of the policy tree (or None if the  policy has been selected as allocation method).
+
+- Solve method has a new algorithm named 'bps_classifier'.
+    - The   bps_classifier classifier algorithm runs a classifier for each of the    allocations obtained by the 'best_policy_score' algorithm. One    advantage compared of this approach compared to the     'best_policy_score' algorithm is that the prediction of the allocation      for new observations is fast as it does not require to recompute the    policy score (as it is case with the 'best_policy_score' algorithm).       The classifier is selected among four different classifiers offered by  sci-kit learn, namely a simple neural network, two classification   random forests with minimum leaf size of 2 and 5, and ADDABoost. The   selection is a made according to the out-of-sample performance on    scikit-learns Accuracy Score.
+
+- Some additional explanations to the output of the policy tree (including   a warning if there are more than 30 features for the policy trees) have  been added.
+
+Changes concerning the class :py:class:`~mcf_functions.McfOptPolReport`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- The structure of the policy tree is added to the pdf file.
+
 
 Version 0.5.1
 -------------

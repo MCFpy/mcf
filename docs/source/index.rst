@@ -189,6 +189,8 @@ References
 
 - Lechner M, Mareckova J. **Modified Causal Forest**. 2022. `Read Paper <https://doi.org/10.48550/arXiv.2209.03744>`__
 
+- Lechner M, Mareckova J **Comprehensive Causal Causal Machine Learning**. 2024 `Read Paper <https://doi.org/10.48550/arXiv.2405.10198>`__
+
 License
 -------
 

@@ -150,16 +150,16 @@ class ModifiedCausalForest:
 
         Default is None.
 
-   cf_compare_only_to_zero : Boolean (or None), optional
-       If True, the computation of the MCE ignores all elements not
-       related to the first treatment (which usually is the control group). This
-       speeds up computation, should give better effect estimates, and may
-       be attractive when interest is only in the comparisons of each
-       treatment to the control group and not among each other. This may also
-       be attractive for optimal policy analysis based on using estimated
-       potential outcomes normalized by the estimated potential outcome of the
-       control group (i.e., IATEs of treatments vs. control group).
-       Default (or None) is False.
+    cf_compare_only_to_zero : Boolean (or None), optional
+        If True, the computation of the MCE ignores all elements not
+        related to the first treatment (which usually is the control group). This
+        speeds up computation, should give better effect estimates, and may
+        be attractive when interest is only in the comparisons of each
+        treatment to the control group and not among each other. This may also
+        be attractive for optimal policy analysis based on using estimated
+        potential outcomes normalized by the estimated potential outcome of the
+        control group (i.e., IATEs of treatments vs. control group).
+        Default (or None) is False.
 
     cf_n_min_grid : Integer (or None), optional
         Minimum leaf size: Number of grid values.

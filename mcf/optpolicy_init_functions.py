@@ -17,7 +17,7 @@ def init_int(cuda=None, how_many_parallel=None, parallel_processing=None,
              with_output=None, xtr_parallel=False):
     """Initialise basic technical pamameters."""
     dic = {}
-    if cuda is False:
+    if cuda is not True:
         dic['cuda'] = False
     else:
         # dic['cuda'] = torch.cuda.is_available()
@@ -44,7 +44,7 @@ def init_gen(method=None, outfiletext=None, outpath=None, output_type=None,
     dic = {}
     dic['method'] = 'best_policy_score' if method is None else method
     if dic['method'] not in ('best_policy_score', 'policy tree',
-                             'policy tree old',):
+                             'policy tree old', 'bps_classifier'):
         raise ValueError(f'{dic["method"]} is not a valid method.')
     if dic['method'] == 'best_policy_score':
         dir_nam = 'BPS'
@@ -52,6 +52,8 @@ def init_gen(method=None, outfiletext=None, outpath=None, output_type=None,
         dir_nam = 'PT'
     elif dic['method'] == 'policy tree old':
         dir_nam = 'PT_OLD'
+    elif dic['method'] == 'bps_classifier':
+        dir_nam = 'BPS_CLASSIF'
     dic['variable_importance'] = variable_importance is not False
 
     dic['output_type'] = 2 if output_type is None else output_type
@@ -76,6 +78,45 @@ def init_gen(method=None, outfiletext=None, outpath=None, output_type=None,
     if with_output:
         mcf_sys.delete_file_if_exists(dic['outfiletext'])
         mcf_sys.delete_file_if_exists(dic['outfilesummary'])
+    return dic
+
+
+def init_fair(regression_method=None, adj_type=None):
+    """Initialise parameters for fair allocations with protected variables."""
+    dic = {}
+    ok_methods = ('RandomForest', 'RandomForestNminl5',
+                  'RandomForestNminls5',
+                  'SupportVectorMachine', 'SupportVectorMachineC2',
+                  'SupportVectorMachineC4',
+                  'AdaBoost', 'AdaBoost100', 'AdaBoost200',
+                  'GradBoost', 'GradBoostDepth6',  'GradBoostDepth12',
+                  'LASSO',
+                  'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger',
+                  'Mean', 'automatic')
+    if regression_method is None:
+        dic['regression_method'] = 'RandomForest'
+    else:
+        ok_estimators_cfold = [name.casefold() for name in ok_methods]
+        try:
+            position = ok_estimators_cfold.index(regression_method.casefold())
+            dic['regression_method'] = ok_methods[position]
+        except ValueError:
+            print(f'Specified method {regression_method} to correct '
+                  'scores for protected variables is not among '
+                  f'acceptable methods {" ".join(ok_methods)}')
+
+    ok_types = ('Mean', 'MeanVar')
+    if adj_type is None or not isinstance(adj_type, str):
+        dic['adj_type'] = 'MeanVar'
+    else:
+        ok_types_cfold = [name.casefold() for name in ok_types]
+        try:
+            position = ok_types_cfold.index(adj_type.casefold())
+            dic['adj_type'] = adj_type
+        except ValueError:
+            print(f'Specified adjustment method {adj_type} '
+                  'to correct scores for protected variables is not '
+                  f'among acceptable methods {" ".join(ok_types)}')
     return dic
 
 
@@ -124,6 +165,10 @@ def init_pt(depth_tree_1=None, depth_tree_2=None, enforce_restriction=None,
     else:
         dic['depth_tree_2'] = round(depth_tree_2 + 1)
     dic['depth'] = dic['depth_tree_1'] + dic['depth_tree_2'] - 1
+
+    dic['depth_tree_1_adj'] = dic['depth_tree_1'] - 1
+    dic['depth_tree_2_adj'] = dic['depth_tree_2'] - 1
+    dic['total_depth_adj'] = dic['depth_tree_1_adj'] + dic['depth_tree_2_adj']
 
     dic['min_leaf_size'] = min_leaf_size   # To be initialized later
     dic['select_values_cat'] = select_values_cat is True
@@ -195,8 +240,9 @@ def init_rnd_shares(optp_, data_df, d_in_data):
 
 def init_var(bb_restrict_name=None, d_name=None, effect_vs_0=None,
              effect_vs_0_se=None, id_name=None, polscore_desc_name=None,
-             polscore_name=None, vi_x_name=None, vi_to_dummy_name=None,
-             x_ord_name=None, x_unord_name=None):
+             polscore_name=None, protected_ord_name=None,
+             protected_unord_name=None, vi_x_name=None,
+             vi_to_dummy_name=None, x_ord_name=None, x_unord_name=None):
     """Initialise variables."""
     var_dic = {}
     var_dic['bb_restrict_name'] = check_var(bb_restrict_name)
@@ -210,6 +256,14 @@ def init_var(bb_restrict_name=None, d_name=None, effect_vs_0=None,
     var_dic['x_unord_name'] = check_var(x_unord_name)
     var_dic['vi_x_name'] = check_var(vi_x_name)
     var_dic['vi_to_dummy_name'] = check_var(vi_to_dummy_name)
+    if protected_ord_name is None:
+        var_dic['protected_ord_name'] = []
+    else:
+        var_dic['protected_ord_name'] = check_var(protected_ord_name)
+    if protected_unord_name is None:
+        var_dic['protected_unord_name'] = []
+    else:
+        var_dic['protected_unord_name'] = check_var(protected_unord_name)
     var_dic['name_ordered'] = var_dic['z_name'] = var_dic['x_name_remain'] = []
     var_dic['name_unordered'] = var_dic['x_balance_name'] = []
     var_dic['x_name_always_in'] = []

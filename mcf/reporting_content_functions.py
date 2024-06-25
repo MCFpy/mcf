@@ -71,6 +71,35 @@ def sensitivity(sens_o, empty_lines_end):
     return txt + '\n' * empty_lines_end
 
 
+def opt_fairness(opt_o, empty_lines_end):
+    """Text content for the fairness (protected variables) adjustment."""
+    prot_vars = [*opt_o.var_dict['protected_ord_name'],
+                 *opt_o.var_dict['protected_unord_name']]
+    txt = ('\nThis fairness module is experimental. It is a preview of what '
+           'will be discussed in the paper by Bearth, Lechner, Mareckova, and '
+           'Muny (2024): Explainable Optimal Policy with Protected Variables. '
+           'The main idea is to adjust the policy scores in a way such that '
+           'the resulting optimal allocation will not depend on the protected '
+           'variables. '
+           '\nCurrently the following methods are available for the '
+           'adjustments: '
+           '\n  Mean: Mean dependence of the policy score with protected '
+           'variables is removed.'
+           '\n  MeanVar: In addition to the mean dependence, '
+           'heteroscedasticity of the policy scores related to the '
+           'protected variables is removed as well.'
+           '\n')
+
+    txt += ('\nScores are adjusted for the following protected '
+            f'variables: {", ".join(prot_vars)}. ')
+    txt += '\n' + opt_o.report['fairscores_delete_x_vars_txt']
+    txt += '\n' + opt_o.report['fairscores_build_stats']
+    txt += ('\n\nTo see whether the resulting decision rules are still '
+            'dependent on the protected variable, check the variable '
+            'importance statistics in the output files as well.')
+    return txt + '\n' * empty_lines_end
+
+
 def opt_allocation(opt_o, empty_lines_end):
     """Text allocation part of description."""
     txt = ''
@@ -89,10 +118,18 @@ def opt_evaluation(opt_o):
         columns = ['Value function', *treat_values]
         for idx, key in enumerate(results_dic):
             index = next(iter(results_dic[key]))   # first key
-            data = [round(results_dic[key][index][0], 4),
-                    *list(np.round(results_dic[key]['treatment share']*100, 2))]
-            tmp_df = pd.DataFrame([data], index=(index,), columns=columns,
-                                  copy=True)
+            if isinstance(results_dic[key][index], (list, tuple)) and (
+                    len(results_dic[key][index]) == 1):
+                data = [round(results_dic[key][index][0], 4),
+                        *list(np.round(results_dic[key]['treatment share']*100,
+                                       2))]
+                tmp_df = pd.DataFrame([data], index=(index,), columns=columns,
+                                      copy=True)
+            else:
+                data = [*list(np.round(results_dic[key]['treatment share']*100,
+                                       2))]
+                tmp_df = pd.DataFrame([data], index=(key,),
+                                      columns=columns[1:], copy=True)
             if idx == 0:
                 table_df = tmp_df
             else:
@@ -100,9 +137,10 @@ def opt_evaluation(opt_o):
         return table_df
 
     txt_table_list = []
-    general_txt = ('\nMain Evaluation results.'
-                   '\n' * 2 + 'Note:The output files contain additional '
-                   'information, like descriptive analysis of treatment groups'
+    general_txt = ('\nMain evaluation results.'
+                   + '\n' * 2 + 'Note: The output files contain relevant '
+                   'additional information, like a descriptive analysis of '
+                   'the treatment groups'
                    )
     if (opt_o.gen_dict['variable_importance']
             and (opt_o.var_dict['vi_x_name']
@@ -144,7 +182,7 @@ def opt_training(opt_o, empty_lines_end=2):
         if clean:
             txt += ('\nRows with any missing values for variables needed for'
                     ' training are removed.')
-    if opt_o.gen_dict['method'] == 'best_policy_score':
+    if opt_o.gen_dict['method'] in ('best_policy_score', 'bps_classifier'):
         if opt_o.other_dict['restricted']:
             txt += '\n' * 2 + 'RESTRICTIONS on treatment shares'
             txt += '\nRestrictions are ignored if they are not binding.'
@@ -164,8 +202,8 @@ def opt_training(opt_o, empty_lines_end=2):
             txt += '\n' * 2 + 'RESTRICTIONS on treatment shares'
             txt += (
                 '\nRestrictions are taken into account by modifying '
-                'the policy scores with artifical costs. These '
-                'artifical costs are computed such that a Black-Box '
+                'the policy scores with artificial costs. These '
+                'artificial costs are computed such that a Black-Box '
                 'allocation will respect the constraints automatically.'
                 )
             cm_1 = [cm == 1 for cm in opt_o.other_dict['costs_of_treat_mult']]
@@ -176,7 +214,7 @@ def opt_training(opt_o, empty_lines_end=2):
                         f'using the following multipliers: {", ".join(mult)}.')
             txt += (
                 '\nIf the allocated treatment shares are not close enough '
-                'to the desired shares, than these artifical costs can '
+                'to the desired shares, then these artificial costs can '
                 'be adjusted by specifying/changing the cost '
                 'multiplier (keyword "costs_of_treat_mult"). '
                 )
@@ -189,9 +227,9 @@ def opt_training(opt_o, empty_lines_end=2):
                     )
         txt += '\n' * 2 + 'COMPUTATIONAL EFFICIENCY'
         txt += (
-            '\nOptimal policy trees are computationaly very demanding. '
+            '\nOptimal policy trees are computationally very demanding. '
             'Therefore, several approximation parameters are used.'
-            '\nInstead of evaluating all values of continous variables and '
+            '\nInstead of evaluating all values of continuous variables and '
             'combinations of values of categorical variables when '
             f'splitting, only {opt_o.pt_dict["no_of_evalupoints"]} values are '
             'considered. These values are equally '
@@ -205,19 +243,19 @@ def opt_training(opt_o, empty_lines_end=2):
         txt += (
             '\nThe depth of the tree is also a key parameter. Usually, it '
             'is very hard to estimate trees beyond the depth of 4 '
-            '(16 leaves) with resonably sized training data. There are '
+            '(16 leaves) with reasonably sized training data. There are '
             'two options to improve the computational performance. The '
             'first one is to reduce the depth (leading to loss of '
             'efficiency but a gain in interpretability). The second option '
-            'is to split the tree into several steps. '
+            'is to split the tree building into several steps. '
             )
         if opt_o.pt_dict["depth_tree_2"] > 2:
             txt += (
-                '\nIn this application, this option is implemented in the '
-                'following way. After buildung the first '
+                '\nIn this application, this two-step tree buildung option is '
+                'implemented in the following way: After buildung the first '
                 f'tree of depth {opt_o.pt_dict["depth_tree_1"]-1}, in each '
                 'leaf of this tree, a second optimal tree of depth '
-                f'{opt_o.pt_dict["depth_tree_2"]-1} is build. Subsequently, '
+                f'{opt_o.pt_dict["depth_tree_2"]-1} is built. Subsequently, '
                 'these trees are combined to form the final tree of depth '
                 f'{opt_o.pt_dict["depth"]-1}. For given final tree depth, '
                 'the more similar the depths of the two trees are, the faster '
@@ -231,7 +269,7 @@ def opt_training(opt_o, empty_lines_end=2):
             'minimum leaf size. Too small leaves may be undesirable for '
             'practical purposes (and they increase computation times). '
             'The minimum leaf size in this application is set to '
-            f' {opt_o.pt_dict["min_leaf_size"]}.'
+            f' {round(opt_o.pt_dict["min_leaf_size"])}.'
             )
         txt += (
             '\nIn addition, the user may reduce the size of the training '
@@ -266,6 +304,9 @@ def opt_training(opt_o, empty_lines_end=2):
                 '\nMultiplier used for the number of split points for '
                 'categorical variables considered (relative to ordered '
                 f'variables: {opt_o.pt_dict["eva_cat_mult"]}')
+        if opt_o.report['training_leaf_information'] is not None:
+            txt += '\n' * 3 + 'STRUCTURE OF FINAL TREE'
+            txt += opt_o.report['training_leaf_information']
     return txt + '\n' * empty_lines_end
 
 
@@ -277,10 +318,17 @@ def opt_general(opt_o, empty_lines_end):
         txt += 'to the treatment with the highest score.'
     elif opt_o.gen_dict['method'] in ('policy tree', 'policy tree old',):
         txt += ('using a shallow decision tree of depth '
-                f'{opt_o.pt_dict["depth"]-1}.')
+                f'{opt_o.pt_dict["depth"]-1}')
+        if opt_o.pt_dict["depth_tree_2"] > 2:
+            txt += (' (based on 2 optimal trees, '
+                    f'depth of 1st tree: {opt_o.pt_dict["depth_tree_1"]-1}, '
+                    f'depth of 2nd tree: {opt_o.pt_dict["depth_tree_2"]-1})')
+        txt += '.'
         if opt_o.gen_dict['method'] == 'policy tree old':
             txt += '\n   Older, less efficient method used for tree building.'
-
+    elif opt_o.gen_dict['method'] == 'bps_classifier':
+        txt += ('using a classifier (for all allocations considered by the '
+                'best_policy_score algorithm).')
     txt += '\n\nVARIABLES provided'
     var_dic = opt_o.var_dict
     txt += f'\nPolicy scores: {", ".join(var_dic["polscore_name"])}'
@@ -293,8 +341,9 @@ def opt_general(opt_o, empty_lines_end):
     if var_dic['polscore_desc_name']:
         txt += ('\nTreatment dependent variables for descriptive analysis: '
                 f'{", ".join(var_dic["polscore_desc_name"])}')
-    if (opt_o.gen_dict['method'] == 'best_policy_score'
-            and var_dic['bb_restrict_name'] and opt_o.other_dict['restricted']):
+    if (opt_o.gen_dict['method'] in ('best_policy_score', 'bps_classifier')
+            and var_dic['bb_restrict_name'] and opt_o.other_dict[
+                'restricted']):
         txt += ('\nVariables determining prioritisation of units in case of '
                 'binding constraints for the best_policy_score method: '
                 f'{", ".join(var_dic["bb_restrict_name"])}')
@@ -360,6 +409,10 @@ def mcf_iate_analyse(mcf_o, empty_lines_end):
                      'the IATEs, potential outcomes, and the features in '
                      'these clusters, respectively.'
                      )
+        if mcf_o.post_dict['k_means_single']:
+            knn_text += ('There are also results for clustering according to '
+                         'single effects only. These results are contained in '
+                         'the respective *.txt-files.')
     if mcf_o.report.get('fig_iate') is not None:
         fig_iate = mcf_o.report['fig_iate']
     else:
@@ -375,8 +428,8 @@ def mcf_iate_analyse(mcf_o, empty_lines_end):
 def mcf_iate_part1(mcf_o, empty_lines_end):
     """Text basic descriptives of IATEs."""
     txt = ('\n' * 2 +
-           'This section contains parts a basic descriptive analysis '
-           ' of the IATEs. Use the analyse method to obtain more '
+           'This section contains parts of the descriptive analysis '
+           'of the IATEs. Use the analyse method to obtain more '
            'descriptives of the IATEs, like their distribution, and their '
            'relations to the features.')
     if mcf_o.gen_dict['iate_eff']:
@@ -457,8 +510,8 @@ def build_ate_table(mcf_o):
         ate_1d = np.round(ate[o_idx, 0, :].flatten().reshape(-1, 1), 3)
         ate_se_1d = np.round(ate_se[o_idx, 0, :].flatten().reshape(-1, 1), 3)
         t_val = np.round(np.abs(ate_1d / ate_se_1d), 2)
-        p_val = np.round(t.sf(t_val, 1000000) * 2, 2) * 100
-        p_stars = [p_star_string(val) for val in p_val]
+        p_val = np.round(t.sf(t_val, 1000000) * 2 * 100, 2)
+        p_stars = [p_star_string(val/100) for val in p_val]
         table1_df = pd.DataFrame(
             data=np.concatenate((ate_1d, ate_se_1d, t_val, p_val), axis=1),
             index=ate_effect_list,
@@ -548,8 +601,11 @@ def mcf_forest(mcf_o, empty_lines_end):
     """Text the forest method."""
     dic, rep = mcf_o.cf_dict, mcf_o.report['cf']
     txt = '\n' * 2 + 'METHOD and tuning parameters'
-    txt += (f'\nMethod used for forest building is {dic["estimator_str"]}.'
-            f'\nThe causal forest consists of {dic["boot"]} trees.'
+    txt += f'\nMethod used for forest building is {dic["estimator_str"]}. '
+    if dic['compare_only_to_zero']:
+        txt += ('MSE is only computed for IATEs comparing all treatments to '
+                'the first (control) treatment.')
+    txt += (f'\nThe causal forest consists of {dic["boot"]} trees.'
             f'\nThe minimum leaf size is {rep["n_min"]}.'
             '\nThe number of variables considered for each split is '
             f'{rep["m_split"]}'
@@ -562,7 +618,7 @@ def mcf_forest(mcf_o, empty_lines_end):
             'splitting ')
     if mcf_o.lc_dict["yes"]:
         txt += '(locally centered).'
-    var = rep["Features"].replace('_PRIME', '')
+    var = rep["Features"].replace('_prime', '')
     txt += f'\nThe features used for splitting are {var}.'
 
     txt += '\n' * 2 + 'RESULTS'
@@ -596,19 +652,30 @@ def mcf_forest(mcf_o, empty_lines_end):
 def mcf_local_center(mcf_o, empty_lines_end):
     """Text the local centering results."""
     txt = '\nMETHOD'
-    txt += ('\nLocal centering is based on training a random forest to predict '
+    txt += ('\nLocal centering is based on training a regression to predict '
             'the outcome variable conditional on the features (without '
-            'the treatment). The resulting out-of-sample predictions are '
-            'subtracted from the observed outcome in the training data used to '
-            'build the forest.')
+            'the treatment). The regression method is selected among various '
+            'versions of Random Forests, Support Vector Machines, Boosting '
+            'methods, and Neural Networks of scikit-learn. The best method is '
+            'selected by minimizing their out-of-sample Mean Squared Error ')
     if mcf_o.lc_dict["cs_cv"]:
-        txt += ('\nOut-of-sample predictions are generated by '
+        txt += f'using {mcf_o.lc_dict["cs_cv_k"]}-fold cross-validation. '
+    else:
+        txt += (f'using a test sample ({mcf_o.lc_dict["cs_share"]:5.2%} of the '
+                'training data). ')
+    txt += ('The full set of results of the method selection step are '
+            f'contained in {mcf_o.gen_dict["outfiletext"]}. '
+            '\nThe respective out-of-sample predictions are '
+            'subtracted from the observed outcome in the training data used to '
+            'build the forest. ')
+    if mcf_o.lc_dict["cs_cv"]:
+        txt += ('These out-of-sample predictions are generated by '
                 f'{mcf_o.lc_dict["cs_cv_k"]}-fold cross-validation.')
     else:
         txt += (f'\n{mcf_o.lc_dict["cs_share"]:5.2%} of the training data is '
                 ' used for local centering only.')
     txt += '\n\nRESULTS'
-    txt += f'\nOut-of-sample {mcf_o.report["lc_r2"]} '
+    txt += f'\nOut-of-sample fit for {mcf_o.report["lc_r2"]} '
     return txt + '\n' * empty_lines_end
 
 
@@ -667,9 +734,9 @@ def mcf_feature_selection(mcf_o, empty_lines_end):
             'specific variable the values of BOTH objective functions '
             ' (evaluated with out-of-bag data) are reduced by '
             f'less than {mcf_o.fs_dict["rf_threshold"]:5.2%}, '
-            'then the variable is removed. Care is take for variables that are '
-            'highly correlated with other variables, or dummies, or variables '
-            'that should not be removed for other reasons '
+            'then the variable is removed. Care is taken for variables that '
+            'are highly correlated with other variables, or dummies, or '
+            'variables that should not be removed for other reasons '
             '(computing heterogeneity or checking balancing).')
     other = mcf_o.fs_dict['other_sample']
     txt += '\nFeature selection is performed '
@@ -752,11 +819,11 @@ def mcf_general(mcf_o, empty_lines_end):
             'used.')
     txt += (f'\nLocal centering {"" if mcf_o.lc_dict["yes"] else "not "}is '
             'used.')
-    txt += (f'\nCommon support {"" if mcf_o.cs_dict["type"] > 0 else "not "}is '
-            'enforced.')
+    txt += (f'\nCommon support {"" if mcf_o.cs_dict["type"] > 0 else "not "}is'
+            ' enforced.')
 
     txt += '\n\nVARIABLES'
-    y_name = [y[:-3] if y[-3:] == '_LC' else y
+    y_name = [y[:-3] if y[-3:] == '_lc' else y
               for y in mcf_o.var_dict["y_name"]]
     out = 'Outcome' if len(y_name) == 1 else 'Outcomes'
     txt += f'\n{out}: {", ".join(y_name)}'
@@ -767,7 +834,7 @@ def mcf_general(mcf_o, empty_lines_end):
         txt += ('\nOrdered confounders: '
                 f' {", ".join(mcf_o.var_dict["x_name_ord"])}')
     if mcf_o.var_dict["x_name_unord"]:
-        var = [y[:-6] if y.endswith('_PRIME') else y
+        var = [y[:-6] if y.endswith('_prime') else y
                for y in mcf_o.var_dict["z_name_unord"]]
         txt += (f'\nUnordered (categorical) confounders: {", ".join(var)}')
     if mcf_o.var_dict["z_name_list"]:
@@ -778,12 +845,12 @@ def mcf_general(mcf_o, empty_lines_end):
                 'variables are discretized): '
                 f' {", ".join(mcf_o.var_dict["z_name_ord"])}')
     if mcf_o.var_dict["z_name_unord"]:
-        var = [y[:-6] if y.endswith('_PRIME') else y
+        var = [y[:-6] if y.endswith('_prime') else y
                for y in mcf_o.var_dict["z_name_unord"]]
         txt += ('\nUnordered heterogeneity variables: '
                 f' {", ".join(var)}')
     if mcf_o.var_dict["x_balance_name"] and mcf_o.p_dict['bt_yes']:
-        var = [y[:-6] if y.endswith('_PRIME') else y
+        var = [y[:-6] if y.endswith('_prime') else y
                for y in mcf_o.var_dict["x_balance_name"]]
         txt += f'\nVariables to check balancing: {", ".join(var)}'
     if mcf_o.var_dict["bgate_name"]:
@@ -879,12 +946,13 @@ def general(rep_o):
                 'been changed in several dimensions which are described in '
                 'Lechner (2018). The main changes relate to the objective '
                 'function as well as to the aggreation of effects. Lechner '
-                'and Mareckova (2024) provide the the asymptotic guarantees '
-                'for the MCF and compare the MCF in a large simulation studies '
-                'to competing approaches like the Generalized Random Forest '
-                '(GRF, Athey, Tibshirani, Wager, 2019) and Double Machine '
-                'Learning (DML, Chernozhukov, Chetverikov, Demirer, Duflo, '
-                'Hansen, Newey, Robins, 2018, Knaus, 2022). In this comparison '
+                'and Mareckova (2024) provide the asymptotic guarantees '
+                'for the MCF and compare the MCF, using a large simulation '
+                'study, to competing approaches like the Generalized Random '
+                'Forest (GRF, Athey, Tibshirani, Wager, 2019) and Double '
+                'Machine Learning (DML, Chernozhukov, Chetverikov, Demirer, '
+                'Duflo, Hansen, Newey, Robins, 2018, Knaus, 2022). '
+                'In this comparison '
                 'the MCF faired very well, in particular, but not only, for '
                 'heterogeneity estimation. Some operational issues of the MCF '
                 'are discussed in Bodory, Busshof, Lechner (2022). There are '
@@ -912,8 +980,8 @@ def general(rep_o):
                 'Evaluation under Unconfoundedness,  Econometrics Journal. '
                 '\n- Lechner, M. (2018): Modified Causal Forests for '
                 'Estimating Heterogeneous Causal Effects, arXiv.'
-                '\n- Lechner, M. (2023): Causal Machine Learning and its use '
-                'for public policy, Swiss Journal of  Economics & Statistics, '
+                '\n- Lechner, M. (2023): Causal Machine Learning and its Use '
+                'for Public Policy, Swiss Journal of  Economics & Statistics, '
                 '159:8.'
                 '\n- Lechner, M., J. Mareckova (2024): Comprehensive Causal '
                 'Machine Learning, arXiv.'
@@ -923,16 +991,16 @@ def general(rep_o):
                 '1228-1242.'
                 )
     if rep_o.sens_o is not None:
-        txt += ('\nSENSITIVITY' + '\nSensitivity analysis is currently '
+        txt += ('\n\nSENSITIVITY' + '\nSensitivity analysis is currently '
                 'experimental and not (yet) documented here.')
     if rep_o.blind_o is not None:
-        txt += ('\nBLIND IATEs' + '\nThe blinding of IATEs is currently '
+        txt += ('\n\nBLIND IATEs' + '\nThe blinding of IATEs is currently '
                 'experimental and not (yet) documented here.')
     if rep_o.opt_o is not None:
-        txt += ('\nOPTIMAL POLICY' + '\nThe optimal policy module '
-                'offers two algorithms that can be used to exploit fine '
+        txt += ('\nThe optimal policy module offers three '
+                '(basic) algorithms that can be used to exploit fine '
                 'grained knowledge about effect heterogeneity to obtain '
-                'optimal decision rules. The current version is implemented '
+                'decision rules. The current version is implemented '
                 'for discrete treatments only.'
                 '\n\nThe BEST_POLICY_SCORE algorithm is based on assigning '
                 'the treatment that has the highest impact at the '
@@ -945,6 +1013,19 @@ def general(rep_o):
                 'heterogeneity) and there is a certain danger of overfitting, '
                 'which could lead to an unsatisfactory out-of-training-sample '
                 'performance.'
+                '\n\nThe BPS_CLASSIFIER classifier algorithm runs a classifier '
+                'for each of the allocations obtained by the '
+                'BEST_POLICY_SCORE algorithm. One advantage of this '
+                'approach compared to the BEST_POLICY_SCORE algorithm is that '
+                'prediction of the allocation of (new) observations is fast '
+                'because it does not require to recompute the policy score (as '
+                'it is the case with the BEST_POLICY_SCORE algorithm). The '
+                'specific classifier is selected among four different '
+                'classifiers from scikit-learn, namely a simple neural '
+                'network, two classification random forests with minimum leaf '
+                'size of 2 and 5, and ADDABoost. The selection is a made '
+                'according to the out-of-sample performance of the Accuracy '
+                'Score of scikit-learn.'
                 '\n\nThe POLICY TREE algorithm builds optimal shallow decision '
                 'trees. While these trees are unlikely to lead to gloablly '
                 'optimal allocations, and are computationally much more '

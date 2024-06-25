@@ -106,7 +106,7 @@ def get_weights_mp(mcf_, data_df, forest_dic, reg_round, with_output=True):
                        else gen_dic['no_of_treat'])
         txt = mcf_sys.print_size_weight_matrix(
             weights, int_dic['weight_as_sparse'], no_of_treat)
-        ps.print_mcf(gen_dic, txt, summary=False)
+        ps.print_mcf(gen_dic, ' ' + txt, summary=False)
     weights_dic = {'weights': weights, 'y_dat_np': y_dat, 'x_bala_np': x_bala,
                    'cl_dat_np': cl_dat, 'w_dat_np': w_dat}
     return weights_dic

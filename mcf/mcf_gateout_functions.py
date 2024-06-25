@@ -11,6 +11,7 @@ from copy import copy, deepcopy
 from itertools import combinations
 from math import log10
 from os import listdir
+import warnings
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,6 +19,7 @@ import pandas as pd
 from scipy.stats import norm
 
 from mcf import mcf_estimation_functions as mcf_est
+from mcf.mcf_estimation_generic_functions import bandwidth_nw_rule_of_thumb
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
 from mcf import mcf_print_stats_functions as ps
@@ -576,6 +578,8 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
         z_values_l[zj_idx] = var_x_values[z_name]
         if gate_est_dic['smooth_yes']:
             z_smooth_l[zj_idx] = z_name in gate_est_dic['z_name_smooth']
+
+    warnings.filterwarnings('error', category=RuntimeWarning)
     for z_name_j, z_name in enumerate(var_dic['z_name']):
         z_name_ = ps.del_added_chars(z_name, prime=True)
         z_type = z_type_l[z_name_j]
@@ -594,7 +598,7 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
         if z_smooth:
             z_p = gate_est_dic['z_p'][:, z_name_j]
             z_p_clean = z_p[~np.isnan(z_p)]
-            bandw_z = mcf_est.bandwidth_nw_rule_of_thumb(z_p_clean)
+            bandw_z = bandwidth_nw_rule_of_thumb(z_p_clean)
             bandw_z = bandw_z * p_dic['gates_smooth_bandwidth']
         no_of_zval = len(z_values)
         gate_z = np.empty((no_of_zval, no_of_out, gate_est_dic['no_of_tgates'],
@@ -715,6 +719,7 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
                 ps.print_mcf(gen_dic, txt, summary=True, non_summary=False)
         if int_dic['with_output']:
             txt += '-' * 100
+    warnings.resetwarnings()
     if int_dic['with_output']:
         gate_tables_nice(p_dic, gate_est_dic['d_values'], gate_type=gate_type)
     return gate, gate_se, gate_diff, gate_se_diff, figure_list

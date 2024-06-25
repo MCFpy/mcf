@@ -19,7 +19,8 @@ def make_fair_iates(mcf_, data_df, with_output=None):
     blind_dic = mcf_.blind_dict
     potout_dic = {}
     mcf_.gen_dict['with_output'] = mcf_.int_dict['with_output'] = False
-    mcf_.p_dict['atet'] = mcf_.p_dict['gatet'] = mcf_.p_dict['cbgate'] = False
+    mcf_.p_dict['atet'] = mcf_.p_dict['gatet'] = False
+    mcf_.p_dict['cbgate'] = False
     mcf_.p_dict['bt_yes'] = False
     mcf_.p_dict['bgate'] = mcf_.p_dict['bt_yes'] = False
     mcf_.p_dict['cluster_std'] = mcf_.p_dict['gates_smooth'] = False
@@ -28,7 +29,7 @@ def make_fair_iates(mcf_, data_df, with_output=None):
     mcf_.p_dict['se_boot_iate'] = False
     mcf_.int_dict['return_iate_sp'] = True
     if len(mcf_.var_dict['y_name']) > 1:
-        raise ValueError('Blinded method runs only with a single outcome')
+        raise ValueError('Blinded method runs only with a single outcome.')
     # Labels for the dictionary with the results
     polscore_labels_dic = ['pol_score_weight' + str(weight)
                            for weight in blind_dic['weights_of_blind']]
@@ -44,7 +45,7 @@ def make_fair_iates(mcf_, data_df, with_output=None):
     mcf_.p_dict['iate'] = True
     if with_output:
         print('\n' + 'Computing unblinded (standard) potential outcomes')
-    results_dic = mcf_.predict(data_df)
+    results_dic, _ = mcf_.predict(data_df)
     data_all_df = results_dic['iate_data_df']
     data_df = data_all_df[var_all]
     potout_dic[polscore_labels_dic[0]], polscore_names = pols_names_from_res(
@@ -148,7 +149,7 @@ def ate_for_blinded(mcf_, row_no, data_reference_df, data_not_blind_df,
     """Compute ate for blinding adjustment for single observation."""
     data_index_df = data_index_df_fct(row_no, data_reference_df,
                                       data_not_blind_df)
-    results_dic = mcf_.predict(data_index_df)
+    results_dic, _ = mcf_.predict(data_index_df)
     ate = np.zeros(no_of_treat)
     ate[1:] = results_dic['ate'][0, 0, :no_of_treat-1].squeeze()
     ate_ret = ate_np[row_no, :] + ate
@@ -206,8 +207,8 @@ def check_fair_vars(mcf_, with_output):
     var_policy = mcf_.blind_dict['var_x_policy_name']
 
     # Add uncategorized variables to list of protected variables
-    all_names = remove_end_str(list(x_type.keys()), 'CATV')
-    all_names = remove_end_str(all_names, '_PRIME')
+    all_names = remove_end_str(list(x_type.keys()), 'catv')
+    all_names = remove_end_str(all_names, '_prime')
     add_vars_to_blind = [var for var in all_names
                          if var not in var_not_blind and var not in var_blind
                          and var not in var_policy]
@@ -218,28 +219,28 @@ def check_fair_vars(mcf_, with_output):
     # Split into ordered and unordered variables
     var_blind_ord = [var for var in var_blind
                      if ((var in x_type and x_type[var] == 0)
-                         or (var + 'CATV') in x_type)]
+                         or (var + 'catv') in x_type)]
     var_blind_unord = [var for var in var_blind
                        if ((var in x_type and x_type[var] > 0)
-                           or (var + '_PRIME') in x_type)]
+                           or (var + '_prime') in x_type)]
     var_not_blind_ord = [var for var in var_not_blind
                          if ((var in x_type and x_type[var] == 0)
-                             or (var + 'CATV') in x_type)]
+                             or (var + 'catv') in x_type)]
     var_not_blind_unord = [var for var in var_not_blind
                            if ((var in x_type and x_type[var] > 0)
-                               or (var + '_PRIME') in x_type)]
+                               or (var + '_prime') in x_type)]
     var_policy_ord = [var for var in var_policy
                       if ((var in x_type and x_type[var] == 0)
-                          or (var + 'CATV') in x_type)]
+                          or (var + 'catv') in x_type)]
     var_policy_unord = [var for var in var_policy
                         if ((var in x_type and x_type[var] > 0)
-                            or (var + '_PRIME') in x_type)]
-    var_blind_ord = remove_end_str(var_blind_ord, 'CATV')
-    var_not_blind_ord = remove_end_str(var_not_blind_ord, 'CATV')
-    var_policy_ord = remove_end_str(var_policy_ord, 'CATV')
-    var_blind_unord = remove_end_str(var_blind_unord, '_PRIME')
-    var_not_blind_unord = remove_end_str(var_not_blind_unord, '_PRIME')
-    var_policy_unord = remove_end_str(var_policy_unord, '_PRIME')
+                            or (var + '_prime') in x_type)]
+    var_blind_ord = remove_end_str(var_blind_ord, 'catv')
+    var_not_blind_ord = remove_end_str(var_not_blind_ord, 'catv')
+    var_policy_ord = remove_end_str(var_policy_ord, 'catv')
+    var_blind_unord = remove_end_str(var_blind_unord, '_prime')
+    var_not_blind_unord = remove_end_str(var_not_blind_unord, '_prime')
+    var_policy_unord = remove_end_str(var_policy_unord, '_prime')
 
     # Print
     if with_output:
@@ -248,14 +249,14 @@ def check_fair_vars(mcf_, with_output):
             var_blind_unord, var_policy_ord, var_policy_unord)
 
 
-def remove_end_str(var_list, str_to_remove='_PRIME'):
+def remove_end_str(var_list, str_to_remove='_prime'):
     """Remove ending that have been added by the mcf estimation programme."""
     var_list_red = []
     for var in var_list:
-        if var.endswith('CATV'):
+        if var.endswith('catv'):
             var_list_red.append(var[:-4])
             continue
-        if var.endswith('_PRIME'):
+        if var.endswith('_prime'):
             var_list_red.append(var[:-6])
             continue
         if var.endswith(str_to_remove):
@@ -287,10 +288,10 @@ def print_variable_output(mcf_, var_blind=None, var_policy=None):
     for var in x_type:
         ordered = 'ordered' if x_type[var] == 0 else 'unordered'
         if ordered == 'ordered':
-            if var.endswith('CATV'):
+            if var.endswith('catv'):
                 var = var[:-4]
         else:
-            if var.endswith('_PRIME'):
+            if var.endswith('_prime'):
                 var = var[:-6]
         if var in var_blind:
             if var in mcf_.blind_dict['var_x_protected_name']:

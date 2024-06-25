@@ -26,6 +26,15 @@ def policy_tree_allocation(optp_, data_df):
     var_dic, ot_dic, pt_dic = optp_.var_dict, optp_.other_dict, optp_.pt_dict
     po_np = data_df[var_dic['polscore_name']].to_numpy()
     no_obs = len(po_np)
+    if k := len(optp_.var_x_type) > 30:
+        txt_warning = ('\n\nWARNING\n'
+                       f'WARNING \n{k} features specified for optimal policy '
+                       'tree. '
+                       '\nWARNING Consider reducing this number by substantive '
+                       'reasoning or checking variable importance statistics '
+                       '\nWARNING\n\n')
+    else:
+        txt_warning = ''
     if ot_dic['restricted']:
         max_by_treat = np.int64(
             np.floor(no_obs * np.array(ot_dic['max_shares'])))
@@ -46,7 +55,6 @@ def policy_tree_allocation(optp_, data_df):
     tree_levels = 2 if pt_dic['depth_tree_2'] > 1 else 1
     data_df_list = [data_df]   # Put df in list for use of iterators
     level_2_dic = {'level_1_tree': None, 'level_2_tree_list': []}
-
     for tree_number in range(tree_levels):  # Iterate over levels
         for idx, data_tmp_df in enumerate(data_df_list):  # Iterate over leaves
             optp_local = get_adjusted_optp(optp_, tree_number, tree_levels)
@@ -89,9 +97,10 @@ def policy_tree_allocation(optp_, data_df):
                 optp_.pt_dict['policy_tree'] = merge_tree_levels(
                     leaf_id_df_list, level_2_dic)
 
-    pt_alloc_np, _, _ = pred_policy_allocation(optp_, data_df)
+    pt_alloc_np, _, _, pt_alloc_txt, tree_info_dic = pred_policy_allocation(
+        optp_, data_df)
     allocation_df = pd.DataFrame(data=pt_alloc_np, columns=('Policy Tree',))
-    return allocation_df
+    return allocation_df, pt_alloc_txt + txt_warning, tree_info_dic
 
 
 def policy_tree_prediction_only(optp_, data_df):
@@ -99,11 +108,11 @@ def policy_tree_prediction_only(optp_, data_df):
     # Check if all variables used from training are included
     x_type, x_values = optp_.var_x_type, optp_.var_x_values
     # Some consistency check of the data
-    var_up = [name.upper() for name in data_df.columns]
-    data_df.columns = var_up
-    all_included = all(var in var_up for var in x_type.keys())
+    var_low = [name.casefold() for name in data_df.columns]
+    data_df.columns = var_low
+    all_included = all(var in var_low for var in x_type.keys())
     if not all_included:
-        miss_var = [var for var in x_type.keys() if var not in var_up]
+        miss_var = [var for var in x_type.keys() if var not in var_low]
         raise ValueError('Not all features used for training included in '
                          f'Missing variables{miss_var} ')
     for name, val in enumerate(x_type):
@@ -114,9 +123,9 @@ def policy_tree_prediction_only(optp_, data_df):
                 raise ValueError(f'The following values of {name} were not '
                                  'contained in the prediction data:'
                                  f' {no_in_val}')
-    pt_alloc_np, _, _ = pred_policy_allocation(optp_, data_df)
+    pt_alloc_np, _, _, pt_alloc_txt, _ = pred_policy_allocation(optp_, data_df)
     allocation_df = pd.DataFrame(data=pt_alloc_np, columns=('Policy Tree',))
-    return allocation_df
+    return allocation_df, pt_alloc_txt
 
 
 def pred_policy_allocation(optp_, data_df):
@@ -180,9 +189,10 @@ def pred_policy_allocation(optp_, data_df):
             pt_dic['policy_tree'], x_indx, data_df_x, leaf,
             polscore_is_index=True)
     predicted_treatment = pred_treat_fct(treat, indx_in_leaf, total_obs)
-    if gen_dic['with_output']:
-        opt_pt_add.describe_tree(optp_, splits_seq, treat, obs)
-    return predicted_treatment, indx_in_leaf, terminal_leafs_id
+    text, tree_dic = (opt_pt_add.describe_tree(optp_, splits_seq, treat, obs)
+                      if gen_dic['with_output'] else (None, None))
+
+    return predicted_treatment, indx_in_leaf, terminal_leafs_id, text, tree_dic
 
 
 def two_leafs_info(tree, polscore_df, x_df, leaf, polscore_is_index=False):
@@ -599,7 +609,7 @@ def get_data_from_tree(optp_local, data_df, tree):
     leaf_data_df_list, leaf_id_list = [], []
     optp_local.pt_dict[('policy_tree')] = tree
     optp_local.gen_dict['with_output'] = False
-    _, idx_in_leaf, leaf_id = pred_policy_allocation(optp_local, data_df)
+    _, idx_in_leaf, leaf_id, _, _ = pred_policy_allocation(optp_local, data_df)
     for idx, id_ in zip(idx_in_leaf, leaf_id):
         for idx_left_right in idx:
             leaf_id_list.append(id_)

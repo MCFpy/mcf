@@ -124,10 +124,11 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
         mcf_.cs_dict = cs_dic   # Update instance with cut-off prob's
         # Descriptive stats
         if gen_dic['with_output']:
+            titel_ = 'Training - fill mcf with y data'
             file_list_jpeg, file_list_d_jpeg = plot_support(mcf_, pred_cs_np,
-                                                            d_cs_np)
+                                                            d_cs_np, titel_)
             descriptive_stats_on_off_support(mcf_, pred_fy_np, fill_y_mcf_df,
-                                             'Training - fill mcf with y data')
+                                             titel_)
         # Reduce samples
         fill_y_mcf_df, _ = on_off_support_df(mcf_, pred_fy_np, fill_y_mcf_df)
     else:  # Reduce prediction sample
@@ -191,8 +192,8 @@ def descriptive_stats_on_off_support(mcf_, probs_np, data_df, titel=''):
                 'display.max_rows', 500, 'display.max_columns', 500,
                 'display.expand_frame_repr', True, 'display.width', 150,
                 'chop_threshold', 1e-13):
-            all_var_names = [name.upper() for name in data_df.columns]
-            if d_name[0].upper() in all_var_names:
+            all_var_names = [name.casefold() for name in data_df.columns]
+            if d_name[0].casefold() in all_var_names:
                 d_keep = keep_df[d_name]
                 d_delete = delete_df[d_name]
                 d_keep_count = d_keep.value_counts(sort=False)
@@ -235,21 +236,21 @@ def descriptive_stats_on_off_support(mcf_, probs_np, data_df, titel=''):
             ps.print_mcf(gen_dic, txt, summary=False)
             ps.print_mcf(gen_dic, data_df[x_name].describe().transpose(),
                          summary=False)
-            if d_name[0].upper() in all_var_names:
+            if d_name[0].casefold() in all_var_names:
                 mean_by_treatment(data_df[d_name], data_df[x_name], gen_dic,
                                   summary=False)
             txt = '\n' + '-' * 100 + '\nData ON support' + '\n' + '-' * 100
             ps.print_mcf(gen_dic, txt, summary=False)
             ps.print_mcf(gen_dic, keep_df[x_name].describe().transpose(),
                          summary=False)
-            if d_name[0].upper() in all_var_names and len(keep_df) > 5:
+            if d_name[0].casefold() in all_var_names and len(keep_df) > 5:
                 mean_by_treatment(keep_df[d_name], keep_df[x_name], gen_dic,
                                   summary=False)
             txt = '\n' + '-' * 100 + '\nData OFF support' + '\n' + '-' * 100
             ps.print_mcf(gen_dic, txt, summary=False)
             ps.print_mcf(gen_dic, delete_df[x_name].describe().transpose(),
                          summary=False)
-            if d_name[0].upper() in all_var_names and len(delete_df) > 5:
+            if d_name[0].casefold() in all_var_names and len(delete_df) > 5:
                 mean_by_treatment(delete_df[d_name], delete_df[x_name],
                                   gen_dic, summary=False)
         check_if_too_many_deleted(mcf_, obs_keep, obs_del)
@@ -285,7 +286,7 @@ def on_off_support_df(mcf_, probs_np, data_df):
     return data_on_df, data_off_df
 
 
-def plot_support(mcf_, probs_np, d_np):
+def plot_support(mcf_, probs_np, d_np, titel_data=None):
     """Histogrammes for distribution of treatment probabilities for overlap."""
     cs_dic, int_dic = mcf_.cs_dict, mcf_.int_dict
     lower, upper = cs_dic['cut_offs']['lower'], cs_dic['cut_offs']['upper']
@@ -328,15 +329,20 @@ def plot_support(mcf_, probs_np, d_np):
             _, bins, _ = axs_d.hist(dat, bins='auto', histtype='bar',
                                     label=labels[idx], color=color_list[idx],
                                     alpha=0.5, density=True)
-            bins_all.append(bins)
+            bins_all.append(bins.copy())
             sigma = np.std(dat)
             fit_line = ((1 / (np.sqrt(2 * np.pi) * sigma))
                         * np.exp(-0.5 * (1 / sigma
                                          * (bins - np.mean(dat)))**2))
             axs_d.plot(bins, fit_line, '--', color=color_list[idx],
                        label='Smoothed ' + labels[idx])
-            fit_line_all.append(fit_line)
+            fit_line_all.append(fit_line.copy())
         axs.set_title(titel)
+        if titel_data is not None:
+            fig.text(0, 0, "Data: " + titel_data, ha='left',
+                     fontsize=int_dic['fontsize'])
+            fig_d.text(0, 0, "Data: " + titel_data, ha='left',
+                       fontsize=int_dic['fontsize'])
         axs.set_xlabel('Treatment probability')
         axs.set_ylabel('Observations')
         axs.set_xlim([0, 1])
@@ -351,9 +357,8 @@ def plot_support(mcf_, probs_np, d_np):
         mcf_sys.delete_file_if_exists(file_name_csv)
         fig.savefig(file_name_jpeg, dpi=int_dic['dpi'])
         fig.savefig(file_name_pdf, dpi=int_dic['dpi'])
-        save_list = [data_hist, labels]
-        save_df = pd.DataFrame(save_list)
-        save_df = save_df.fillna(value='NaN')
+        padded_arrays = padded_array_from_list(data_hist)
+        save_df = pd.DataFrame(padded_arrays, columns=labels)
         save_df.to_csv(file_name_csv, index=False)
         axs_d.set_title(titel)
         axs_d.set_xlabel('Treatment probability')
@@ -368,9 +373,13 @@ def plot_support(mcf_, probs_np, d_np):
         mcf_sys.delete_file_if_exists(file_name_jpeg_d)
         mcf_sys.delete_file_if_exists(file_name_pdf_d)
         mcf_sys.delete_file_if_exists(file_name_csv_d)
-        save_list = [fit_line_all, bins_all, labels]
-        save_df = pd.DataFrame(save_list)
-        save_df = save_df.fillna(value='NaN')
+        np_list = [*fit_line_all, *bins_all]
+        label_list = [
+            *['line_' + lab for lab in labels],
+            *['bin_' + lab for lab in labels],
+            ]
+        padded_arrays = padded_array_from_list(np_list)
+        save_df = pd.DataFrame(padded_arrays, columns=label_list)
         save_df.to_csv(file_name_csv_d, index=False)
         fig_d.savefig(file_name_jpeg_d, dpi=int_dic['dpi'])
         fig_d.savefig(file_name_pdf_d, dpi=int_dic['dpi'])
@@ -379,6 +388,16 @@ def plot_support(mcf_, probs_np, d_np):
         else:
             plt.close()
     return file_list_jpeg, file_list_d_jpeg
+
+
+def padded_array_from_list(list_of_arrays):
+    """Create arrays of equal length."""
+    max_length = max(len(arr) for arr in list_of_arrays)
+    padded_arrays = np.concatenate(
+        [np.pad(arr, (0, max_length - len(arr)),
+                mode='constant', constant_values=np.nan).reshape(-1, 1)
+         for arr in list_of_arrays], axis=1)
+    return padded_arrays
 
 
 def get_cut_off_probs(mcf_, probs_np, d_np):

@@ -17,19 +17,31 @@ from mcf import mcf_print_stats_functions as ps
 def describe_tree(optp_, splits_seq, treat, obs=None, score_val=None):
     """Describe leaves of policy tree."""
     gen_dic, ot_dic = optp_.gen_dict, optp_.other_dict
-    txt = '\n' + '-' * 100 + '\nLeaf information for estimated policy tree'
+    txt = '\n' + '-' * 100 + '\nLeaf information for estimated policy tree '
+    txt += f'\n\nDepth of 1st tree: {optp_.pt_dict["depth_tree_1_adj"]}, '
+    txt += f'depth of 2nd tree: {optp_.pt_dict["depth_tree_2_adj"]}, '
+    txt += f'total depth: {optp_.pt_dict["total_depth_adj"]}'
     txt += '\n' + '- ' * 50
+    tree_dic = {}
     for i, splits in enumerate(splits_seq):
         for j in range(2):
+            leaf_key = 'Leaf' + str(i) + str(j)
+            tree_dic[leaf_key] = {}
             txt += f'\nLeaf {i:d}{j:d}:  '
             for splits_dic in splits[j]:
+                tree_dic[leaf_key]['splitvariable'] = splits_dic['x_name']
+                tree_dic[leaf_key]['splitvariable_type'] = splits_dic['x_type']
                 txt += f'{splits_dic["x_name"]:4s}'
                 if splits_dic['x_type'] == 'unord':
                     if splits_dic['left or right'] == 'left':
                         txt += ' In:     '
+                        tree_dic[leaf_key]['split_type'] = 'values are in set'
                     else:
                         txt += ' Not in: '
+                        tree_dic[leaf_key]['split_type'] = (
+                            'values are not in set')
                     values_to_print = np.sort(splits_dic['cut-off or set'])
+                    tree_dic[leaf_key]['cut-off or set'] = values_to_print
                     for s_i in values_to_print:
                         if isinstance(s_i, int) or (
                                 (s_i - np.round(s_i)) < 0.00001):
@@ -39,9 +51,13 @@ def describe_tree(optp_, splits_seq, treat, obs=None, score_val=None):
                 else:
                     if splits_dic['left or right'] == 'left':
                         txt += ' <='
+                        tree_dic[leaf_key]['split_type'] = 'values are <= than'
                     else:
                         txt += ' > '
+                        tree_dic[leaf_key]['split_type'] = 'values are > than'
                     txt += f'{splits_dic["cut-off or set"]:8.3f} '
+                    tree_dic[leaf_key]['cut-off or set'] = splits_dic[
+                        'cut-off or set']
             txt += f'\nAlloc Treatment: {treat[i][j]:3d} '
             if obs is not None:
                 txt += f'  Obs: {obs[i][j]:6d}  '
@@ -51,12 +67,17 @@ def describe_tree(optp_, splits_seq, treat, obs=None, score_val=None):
                        - ot_dic['costs_of_treat'][treat[i][j]])
                 txt += (f'Avg.score-costs: {tmp:7.3f} ')
             txt += ('\n' + '- ' * 50)
+    txt += ('\nNOTE: Splitpoints displayed for ordered variables are '
+            'midpoints between observable values (e.g., 0.5 for a variable '
+            'with values of 0 and 1).')
     ps.print_mcf(gen_dic, txt, summary=True)
+    return txt, tree_dic
 
 
 def automatic_cost(optp_, data_df):
     """Compute costs that fulfill constraints."""
-    gen_dic, var_dic, ot_dic = optp_.gen_dict, optp_.var_dict, optp_.other_dict
+    gen_dic, var_dic = optp_.gen_dict, optp_.var_dict
+    ot_dic = optp_.other_dict
     obs = len(data_df)
     if gen_dic['with_output']:
         print('\nSearching cost values that fulfill constraints')
@@ -69,7 +90,9 @@ def automatic_cost(optp_, data_df):
         costs_of_treat = np.zeros(gen_dic['no_of_treat'])
     std_ps = np.std(data_ps.reshape(-1))
     step_size = 0.02
-    while True:
+    iterations = 0
+    max_iterations = 1000
+    while iterations < max_iterations:
         treatments = np.argmax(data_ps - costs_of_treat, axis=1)
         values, count = np.unique(treatments, return_counts=True)
         if len(count) == gen_dic['no_of_treat']:
@@ -82,7 +105,11 @@ def automatic_cost(optp_, data_df):
         diff[diff < 0] = 0
         if not np.any(diff > 0):
             break
+        elif iterations % 100 == 0:
+            step_size /= 2
+            print('Iterations: ', iterations, diff.transpose())
         costs_of_treat += diff / obs * std_ps * step_size
+        iterations += 1
 
     alloc = np.int16(alloc)
     costs_of_treat_update = costs_of_treat * ot_dic['costs_of_treat_mult']

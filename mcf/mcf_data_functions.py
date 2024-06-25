@@ -168,7 +168,7 @@ def clean_data(mcf_, data_df, train=True):
         if mcf_.p_dict['cluster_std']:
             namen_to_inc = gp.add_var_names(namen_to_inc,
                                             var_dic['cluster_name'])
-# TODO
+
     namen_to_inc = gp.include_org_variables(namen_to_inc[:], data_df.columns)
     data_df, var_dic['id_name'] = clean_reduce_data(
         data_df, namen_to_inc, gen_dic, var_dic['id_name'],
@@ -178,16 +178,24 @@ def clean_data(mcf_, data_df, train=True):
     return data_df, (obs, obs_del,)
 
 
-def clean_reduce_data(data_df, names_to_inc, gen_dic, id_name,
+def clean_reduce_data(data_df, names_to_inc_, gen_dic, id_name_,
                       descriptive_stats=None, add_missing_vars=False):
     """Remove obs. with missings and variables not needed."""
     shape = data_df.shape
-    data_df.columns = [var.upper() for var in data_df.columns]
-    if id_name is None or id_name == []:
-        id_name = ['ID_MCF']
-    if not isinstance(id_name, (list, tuple)):
-        id_name = [id_name]
-    if id_name[0].upper() not in data_df.columns:
+    data_df.columns = [var.casefold() for var in data_df.columns]
+    names_to_inc = [var.casefold() for var in names_to_inc_]
+    if id_name_ is None or id_name_ == []:
+        id_name_ = 'id_mcf'
+        # Do not use names that already exist
+        while True:
+            if id_name_ in list(data_df.columns):
+                id_name_ += 'x'
+            else:
+                break
+    if not isinstance(id_name_, (list, tuple)):
+        id_name_ = [id_name_]
+    id_name = [var.casefold() for var in id_name_]
+    if id_name[0] not in data_df.columns:
         data_df[id_name[0]] = np.arange(len(data_df))
     if add_missing_vars:
         add_df = add_missing_vars_fct(data_df.columns, names_to_inc,
@@ -324,7 +332,7 @@ def create_xz_variables(mcf_, data_df, train=True):
         unique_val_dict = data_train_dic['unique_values_dict']
         z_new_name_dict = data_train_dic['z_new_name_dict']
         z_new_dic_dict = data_train_dic['z_new_dic_dict']
-    data_df.columns = data_df.columns.str.upper()
+    data_df.columns = data_df.columns.str.casefold()
     temp_df = data_df.replace({False: 0, True: 1})
     data_df = temp_df
     if gen_dic['with_output']:
@@ -393,7 +401,7 @@ def create_xz_variables(mcf_, data_df, train=True):
                                     labels=False)
                     if train:
                         cont_name = data_s.name
-                        new_name = cont_name + "CATV"
+                        new_name = cont_name + 'catv'
                         # z_name_ord_new.extend([new_name])
                     else:
                         new_name = z_new_name_dict[z_name]
@@ -497,6 +505,12 @@ def create_xz_variables(mcf_, data_df, train=True):
                 unique_val = data_df[variable].unique()
                 unique_val.sort()  # unique_val: Sorted from smallest to large
                 k = len(unique_val)
+                if k < 3:
+                    raise ValueError(f'{variable} has only {k}'
+                                     ' different values. Remove it from the '
+                                     'list of unorderd variables and add it '
+                                     'to the list of ordered variables.')
+
                 # Recode categorical variables by running integers such that
                 # groups of them can be efficiently translated into primes
                 prime_values = gp.primes_list(k)
@@ -506,8 +520,8 @@ def create_xz_variables(mcf_, data_df, train=True):
                         'likely reason: Continuous variables coded as'
                         ' unordered. Program stopped.')
             else:
-                variable = variable[:-6]   # Remove _PRIME from variable name
-                prime_values = prime_values_dict[variable + '_PRIME']  # List
+                variable = variable[:-6]   # Remove _prime from variable name
+                prime_values = prime_values_dict[variable + '_prime']  # List
                 unique_val = unique_val_dict[variable]
                 unique_val_pred = data_df[variable].unique()
                 bad_vals = list(np.setdiff1d(unique_val_pred, unique_val))
@@ -523,7 +537,7 @@ def create_xz_variables(mcf_, data_df, train=True):
                                'These obervations will be removed from '
                                'prediction data.')
                         ps.print_mcf(gen_dic, txt, summary=True)
-            prime_variable = data_df[variable].name + '_PRIME'
+            prime_variable = data_df[variable].name + '_prime'
             data_df[prime_variable] = data_df[variable].replace(
                     unique_val, prime_values)
             if train:
@@ -573,7 +587,7 @@ def create_xz_variables(mcf_, data_df, train=True):
         var_dic['id_name'] = [var_dic['id_name']]
     if not var_dic['id_name'] or isinstance(var_dic['id_name'][0], str):
         # Add identifier to data
-        var_dic['id_name'] = ['ID_MCF']
+        var_dic['id_name'] = ['id_mcf']
         # data_df[var_dic['id_name'][0]] = np.arange(len(data_df))
         data_df.loc[:, var_dic['id_name'][0]] = np.arange(len(data_df))
     if gen_dic['with_output'] and int_dic['descriptive_stats'] and train:
@@ -586,7 +600,7 @@ def create_xz_variables(mcf_, data_df, train=True):
         'unique_values_dict': unique_val_dict,
         'z_new_name_dict': z_new_name_dict, 'z_new_dic_dict': z_new_dic_dict
         }
-    mcf_.var_dict = mcf_.var_dict
+    mcf_.var_dict = var_dic
     mcf_.var_x_type,  mcf_.var_x_values = var_x_type, var_x_values
     mcf_.gen_dict = gen_dic
     return data_df
@@ -731,8 +745,8 @@ def get_treat_info(mcf_):
     return d_name, d_values, no_of_treat
 
 
-def data_frame_vars_upper(data_df):
+def data_frame_vars_lower(data_df):
     """Make sure all variables in dataframe are capitalized."""
-    var_names = [var.upper() for var in data_df.columns]
+    var_names = [var.casefold() for var in data_df.columns]
     data_df.columns = var_names
     return data_df, var_names

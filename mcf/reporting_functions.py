@@ -46,6 +46,11 @@ def report_optpol(pdf, rep_o, idx1):
     idx2 = 1
     pdf.print_section((idx1,), "Optimal Policy",
                       rep_o.text['opt_general'], 'blue')
+    if rep_o.opt_o.report['fairscores']:
+        pdf.print_section((idx1, idx2),
+                          "Optimal Policy: Protected variables (fairness)",
+                          rep_o.text['opt_fairness'], 'blue')
+        idx2 += 1
     if rep_o.opt_o.report['training']:
         pdf.print_section((idx1, idx2), "Optimal Policy: Training",
                           rep_o.text['opt_training'], 'blue')
@@ -113,7 +118,7 @@ def report_mcf_core(pdf, rep_o, idx1):
                       rep_o.text['mcf_ate'][0], 'greenP')
     for idx, table_df in enumerate(rep_o.text['mcf_ate'][1]):
         y_name = rep_o.mcf_o.var_dict['y_name'][idx]
-        if len(y_name) > 3 and y_name[-3:] == '_LC':
+        if len(y_name) > 3 and y_name[-3:] == '_lc':
             y_name = y_name[:-3]
         table_df.columns = [name.replace('p_val', 'p-value')
                             for name in table_df.columns]
@@ -133,15 +138,16 @@ def report_mcf_core(pdf, rep_o, idx1):
         pdf.print_section((idx1, idx2, idx3, idx4), "BGATE",
                           rep_o.text['mcf_bgate'][2], 'greenP')
         pdf.add_figure_row(title, rep_o.text['mcf_bgate'][0],
-                           width=70, height=60, note=rep_o.text['mcf_bgate'][1])
+                           width=70, height=60,
+                           note=rep_o.text['mcf_bgate'][1])
         idx4 += 1
     if rep_o.mcf_o.p_dict['cbgate']:
         title = 'CBGATE'
         pdf.print_section((idx1, idx2, idx3, idx4), "CBGATE",
                           'All covariates are balanced.', 'greenP')
         pdf.add_figure_row(title, rep_o.text['mcf_cbgate'][0],
-                           width=70, height=60, note=rep_o.text['mcf_cbgate'][1]
-                           )
+                           width=70, height=60,
+                           note=rep_o.text['mcf_cbgate'][1])
         idx4 += 1
     if rep_o.mcf_o.p_dict['iate']:
         pdf.print_section((idx1, idx2, idx3, idx4), "IATE",
@@ -209,8 +215,9 @@ def create_text(rep_o):
         rep_o.text['mcf_descriptives'] = content.mcf_descriptives(
             rep_o.mcf_o, empty_lines_end)
         if rep_o.mcf_o.fs_dict["yes"]:
-            rep_o.text['mcf_feature_selection'] = content.mcf_feature_selection(
-                rep_o.mcf_o, empty_lines_end)
+            rep_o.text['mcf_feature_selection'
+                       ] = content.mcf_feature_selection(
+                            rep_o.mcf_o, empty_lines_end)
         if rep_o.mcf_o.cs_dict["type"] > 0:
             rep_o.text['mcf_t_common_support'] = content.mcf_common_support(
                 rep_o.mcf_o, empty_lines_end - 1, train=True)
@@ -270,6 +277,9 @@ def create_text(rep_o):
                 rep_o.opt_o, empty_lines_end)
         if rep_o.opt_o.report['evaluation']:
             rep_o.text['opt_evaluation'] = content.opt_evaluation(rep_o.opt_o)
+        if rep_o.opt_o.report['fairscores']:
+            rep_o.text['opt_fairness'] = content.opt_fairness(rep_o.opt_o,
+                                                              empty_lines_end)
 
     if rep_o.sens_o is not None:
         rep_o.text['sensitivity'] = content.sensitivity(rep_o.sens_o,

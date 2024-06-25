@@ -14,7 +14,8 @@ from mcf import mcf_cuda_functions as mcf_c
 
 
 def mcf_mse(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat, treat_values,
-            w_yes=False, splitting=False, cuda=False):
+            w_yes=False, splitting=False, cuda=False,
+            compare_only_to_zero=False):
     """Compute average mse for the data passed. Based on different methods.
 
     Parameters
@@ -30,6 +31,7 @@ def mcf_mse(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat, treat_values,
     w_yes : Boolean. Weighted estimation.
     splitting : Boolean. Default is False.
     cuda : Boolean. Use cuda if True.
+    compare_only_to_zero : Boolean. Use reduced MSE matrix.
 
     Returns
     -------
@@ -43,21 +45,22 @@ def mcf_mse(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat, treat_values,
     if cuda and len(y_dat) > min_obs_for_cuda:
         mse_mce, treat_shares, no_of_obs_by_treat = mcf_mse_cuda(
             y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
-            treat_values, w_yes, splitting)
+            treat_values, w_yes, splitting, compare_only_to_zero)
     else:
         if w_yes or mtot in (2, 3):
             mse_mce, treat_shares, no_of_obs_by_treat = mcf_mse_not_numba(
                 y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
-                treat_values, w_yes, splitting)
+                treat_values, w_yes, splitting, compare_only_to_zero)
         else:
             mse_mce, treat_shares, no_of_obs_by_treat = mcf_mse_numba(
                 y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat,
-                np.array(treat_values, dtype=np.int8))
+                np.array(treat_values, dtype=np.int8), compare_only_to_zero)
     return mse_mce, treat_shares, no_of_obs_by_treat
 
 
 def mcf_mse_cuda(y_dat_np, y_nn_np, d_dat_np, w_dat_np, n_obs, mtot,
-                 no_of_treat, treat_values_list, w_yes, splitting=False):
+                 no_of_treat, treat_values_list, w_yes, splitting=False,
+                 compare_only_to_zero=False):
     """Compute average mse for the data passed (cuda).
 
     Parameters
@@ -105,7 +108,7 @@ def mcf_mse_cuda(y_dat_np, y_nn_np, d_dat_np, w_dat_np, n_obs, mtot,
             treat_shares[m_idx] = n_m / n_obs
         if mtot in (1, 3, 4):
             mse_mce[m_idx, m_idx] = mse_m
-        if mtot != 3:
+        if (mtot != 3) and (m_idx == 0 or not compare_only_to_zero):
             mce_ml = 0
             for v_idx in range(m_idx + 1, no_of_treat):
                 if mtot == 2:  # Variance of effects mtot = 2
@@ -125,7 +128,8 @@ def mcf_mse_cuda(y_dat_np, y_nn_np, d_dat_np, w_dat_np, n_obs, mtot,
                         w_ml = w_dat[d_ml].reshape(-1)
                         if splitting and (no_of_treat == 2):
                             mce_ml = ((mean_t_w(y_nn_m, w_ml, dim=0))
-                                      * (mean_t_w(y_nn_l, w_ml, dim=0)) * (-1))
+                                      * (mean_t_w(y_nn_l, w_ml, dim=0))
+                                      * (-1))
                         else:
                             mce_ml = mean_t_w(
                                 (y_nn_m - mean_t_w(y_nn_m, w_ml, dim=0))
@@ -198,7 +202,8 @@ def tensors_to_gpu(y_dat_np, y_nn_np, d_dat_np, w_dat_np, treat_values_list,
 
 
 def mcf_mse_not_numba(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
-                      treat_values, w_yes, splitting=False):
+                      treat_values, w_yes, splitting=False,
+                      compare_only_to_zero=False):
     """Compute average mse for the data passed. Based on different methods.
 
     CURRENTLY ONLY USED FOR WEIGHTED.
@@ -242,14 +247,14 @@ def mcf_mse_not_numba(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
             treat_shares[m_idx] = n_m / n_obs
         if mtot in (1, 3, 4):
             mse_mce[m_idx, m_idx] = mse_m
-        if mtot != 3:
+        if (mtot != 3) and (m_idx == 0 or not compare_only_to_zero):
             mce_ml = 0
             for v_idx in range(m_idx + 1, no_of_treat):
                 if mtot == 2:  # Variance of effects mtot = 2
                     d_l = d_dat == treat_values[v_idx]   # d_l is Boolean
                     if w_yes:
-                        y_l_mean = np.average(y_dat[d_l], weights=w_dat[d_l],
-                                              axis=0)
+                        y_l_mean = np.average(y_dat[d_l],
+                                              weights=w_dat[d_l], axis=0)
                     else:
                         y_l_mean = np.average(y_dat[d_l], axis=0)
                     mce_ml = (y_m_mean - y_l_mean)**2
@@ -273,8 +278,8 @@ def mcf_mse_not_numba(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
                                                      axis=0)),
                                 weights=w_ml, axis=0)
                     else:
-                        aaa = np.average(y_nn_m, axis=0) * np.average(y_nn_l,
-                                                                      axis=0)
+                        aaa = (np.average(y_nn_m, axis=0)
+                               * np.average(y_nn_l, axis=0))
                         bbb = np.dot(y_nn_m, y_nn_l) / len(y_nn_m)
                         mce_ml = bbb - aaa
                 mse_mce[m_idx, v_idx] = mce_ml
@@ -282,7 +287,8 @@ def mcf_mse_not_numba(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
 
 
 @njit
-def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat, treat_values):
+def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat, treat_values,
+                  compare_only_to_zero):
     """Compute average mse for the data passed. Based on different methods.
 
        WEIGHTED VERSION DOES NOT YET WORK. TRY with next Numba version.
@@ -325,7 +331,7 @@ def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat, treat_values):
         if mtot in (1, 3, 4):
             treat_shares[m_idx] = n_m / n_obs
             mse_mce[m_idx, m_idx] = mse_m
-        if mtot != 3:
+        if (mtot != 3) and (m_idx == 0 or not compare_only_to_zero):
             mce_ml = 0
             for v_idx in range(m_idx + 1, no_of_treat):
                 d_l = d_dat == treat_values[v_idx]   # d_l is Boolean
@@ -359,9 +365,9 @@ def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat, treat_values):
 
 
 @njit
-def compute_mse_mce(mse_mce, mtot, no_of_treat):
+def compute_mse_mce(mse_mce, mtot, no_of_treat, compare_only_to_zero):
     """Sum up MSE parts for use in splitting rule and else."""
-    if no_of_treat > 4:
+    if no_of_treat > 4 and not compare_only_to_zero:
         if mtot in (1, 4):
             mse = no_of_treat * np.trace(mse_mce) - mse_mce.sum()
         elif mtot == 2:
@@ -376,7 +382,7 @@ def compute_mse_mce(mse_mce, mtot, no_of_treat):
             else:
                 mse_a = mse_mce[m_idx, m_idx]
             mse += mse_a
-            if mtot != 3:
+            if (mtot != 3) and (m_idx == 0 or not compare_only_to_zero):
                 for v_idx in range(m_idx+1, no_of_treat):
                     mce += mse_mce[m_idx, v_idx]
         mse -= 2 * mce
@@ -403,14 +409,15 @@ def mcf_penalty(shares_l, shares_r):
 
 
 @njit
-def get_avg_mse_mce(mse_mce, obs_by_treat, mtot, no_of_treat):
+def get_avg_mse_mce(mse_mce, obs_by_treat, mtot, no_of_treat,
+                    compare_only_to_zero):
     """Bring MSE_MCE matrix in average form."""
     mse_mce_avg = mse_mce.copy()
     for m_idx in range(no_of_treat):
         if obs_by_treat[m_idx] > 0:
             mse_mce_avg[m_idx, m_idx] = (mse_mce[m_idx, m_idx]
                                          / obs_by_treat[m_idx])
-        if mtot != 3:
+        if (mtot != 3) and (m_idx == 0 or not compare_only_to_zero):
             for v_idx in range(m_idx+1, no_of_treat):
                 if obs_by_treat[m_idx] + obs_by_treat[v_idx] > 0:
                     mse_mce_avg[m_idx, v_idx] = mse_mce[m_idx, v_idx] / (
@@ -420,13 +427,14 @@ def get_avg_mse_mce(mse_mce, obs_by_treat, mtot, no_of_treat):
 
 @njit
 def add_rescale_mse_mce(mse_mce, obs_by_treat, mtot, no_of_treat,
-                        mse_mce_add_to, obs_by_treat_add_to):
+                        mse_mce_add_to, obs_by_treat_add_to,
+                        compare_only_to_zero):
     """Rescale MSE_MCE matrix and update observation count."""
     mse_mce_sc = np.zeros((no_of_treat, no_of_treat))
     obs_by_treat_new = obs_by_treat + obs_by_treat_add_to
     for m_idx in range(no_of_treat):
         mse_mce_sc[m_idx, m_idx] = mse_mce[m_idx, m_idx] * obs_by_treat[m_idx]
-        if mtot != 3:
+        if (mtot != 3) and (m_idx == 0 or not compare_only_to_zero):
             for v_idx in range(m_idx+1, no_of_treat):
                 mse_mce_sc[m_idx, v_idx] = mse_mce[m_idx, v_idx] * (
                     obs_by_treat[m_idx] + obs_by_treat[v_idx])
@@ -436,7 +444,7 @@ def add_rescale_mse_mce(mse_mce, obs_by_treat, mtot, no_of_treat,
 
 @njit
 def add_mse_mce_split(mse_mce_l, mse_mce_r, obs_by_treat_l, obs_by_treat_r,
-                      mtot, no_of_treat):
+                      mtot, no_of_treat, compare_only_to_zero):
     """Sum up MSE parts of use in splitting rule."""
     mse_mce = np.zeros((no_of_treat, no_of_treat))
     obs_by_treat = obs_by_treat_l + obs_by_treat_r
@@ -446,7 +454,7 @@ def add_mse_mce_split(mse_mce_l, mse_mce_r, obs_by_treat_l, obs_by_treat_r,
                 (mse_mce_l[m_idx, m_idx] * obs_by_treat_l[m_idx]
                  + mse_mce_r[m_idx, m_idx] * obs_by_treat_r[m_idx])
                 / obs_by_treat[m_idx])
-        if mtot != 3:
+        if (mtot != 3) and (m_idx == 0 or not compare_only_to_zero):
             for v_idx in range(m_idx+1, no_of_treat):
                 n_ml_l = obs_by_treat_l[m_idx] + obs_by_treat_l[v_idx]
                 n_ml_r = obs_by_treat_r[m_idx] + obs_by_treat_r[v_idx]

@@ -34,6 +34,10 @@ def print_dic_values(mcf_, summary=False, train=None):
     dic_name_list = ['int_dict', 'gen_dict', 'dc_dict', 'ct_dict',
                      'fs_dict', 'cs_dict', 'lc_dict', 'cf_dict',
                      'p_dict', 'post_dict', 'var_dict']
+    if mcf_.sens_dict is not None:
+        dic_list.append('sens_dict')
+    if mcf_.blind_dict is not None:
+        dic_list.append('blind_dict')
     if not train:
         dic_list.extend([mcf_.var_x_type, mcf_.var_x_values])
         dic_name_list.extend(['var_x_type', 'var_x_values'])
@@ -101,6 +105,8 @@ def print_dic(dic, dic_name, gen_dic, summary=False):
     print_mcf(gen_dic, '\n' + dic_name, '\n' + '- ' * 50, summary=summary)
     for keys, values in dic.items():
         if isinstance(values, (list, tuple)):
+            if not values:
+                values = ['Not available']
             if len(values) < 20:
                 sss = [str(x) for x in values]
             else:
@@ -116,7 +122,7 @@ def print_timing(gen_dic, title, text, time_diff, summary=False):
     print_str += f'{title} executed at: {datetime.now()}\n' + '- ' * 50
     for i in range(0, len(text), 1):
         print_str += '\n' + f'{text[i]} {timedelta(seconds=time_diff[i])}'
-    print_str += '\n' + '-' * 100
+    print_str += '\n'  # + '-' * 100
     print_mcf(gen_dic, print_str, summary=summary)
     return print_str
 
@@ -473,7 +479,7 @@ def print_iate(iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic):
                           + '(weights not censored)\n' + str_l)
         for o_idx in range(no_outcomes):
             y_name = var_dic["y_name"][o_idx]
-            if len(y_name) > 3 and y_name[-3:] == '_LC':
+            if len(y_name) > 3 and y_name[-3:] == '_lc':
                 y_name = y_name[:-3]
             string = f'\nOutcome variable: {y_name}\n'
             print_str_short += string
@@ -599,8 +605,8 @@ def stars(pval):
 
 def del_added_chars(name, prime=False, catv=False):
     """Remove added indicators for primes and categoricals for printing."""
-    if prime and name.endswith('_PRIME'):
+    if prime and name.endswith('_prime'):
         name = name[:-6]
-    elif catv and name.endswith('CATV'):
+    elif catv and name.endswith('catv'):
         name = name[:-4]
     return name

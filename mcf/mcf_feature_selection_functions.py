@@ -51,8 +51,8 @@ def feature_selection(mcf_, data_df):
     # Create dummies
     all_names = var_x_type.keys()
     # Remove all covariates that are discretized for GATE estimation
-    x_cat_names = [name + 'CATV'
-                   for name in all_names if name + 'CATV' in all_names]
+    x_cat_names = [name + 'catv'
+                   for name in all_names if name + 'catv' in all_names]
     x_names = [name for name in all_names if name not in x_cat_names]
     x_names_org = x_names.copy()
     names_unordered = []

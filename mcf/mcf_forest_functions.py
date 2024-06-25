@@ -206,7 +206,7 @@ def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
     x_values: List of lists. Values of variable (if few or categorical)
     x_ind : List of INT. Identifier of variables
     x_ai_ind : List of INT. 1 if variable is included in every split
-    ..._dict : Dict. Control parameters
+    ...dict : Dict. Control parameters
     boot : INT. Counter for bootstrap replication (currently not used)
     ....
     cuda : Boolean. If True, use CUDA for MSE calculations (if available).
@@ -231,7 +231,7 @@ def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
         indices = list(rng.choice(n_obs, size=n_train, replace=False))
     indices_oob = np.delete(np.arange(n_obs), indices, axis=0)
     tree_empty = mcf_fo_asdict.make_default_tree_dict(
-        np.max(cf_dic['n_min_values']), len(x_i), indices, indices_oob)
+        np.min(cf_dic['n_min_values']), len(x_i), indices, indices_oob)
     # build trees for all m,n combinations
     grid_for_m = mcf_gp.check_if_iterable(cf_dic['m_values'])
     grid_for_n_min = mcf_gp.check_if_iterable(cf_dic['n_min_values'])
@@ -415,7 +415,8 @@ def best_m_n_min_alpha_reg(forest, gen_dic, cf_dic):
                                     mcf_fo_obj.add_rescale_mse_mce(
                                         leaf_float_2, leaf_int[9],
                                         cf_dic['mtot'], no_of_treat,
-                                        mse_mce_tree, obs_t_tree)
+                                        mse_mce_tree, obs_t_tree,
+                                        cf_dic['compare_only_to_zero'])
                                     )
                 if n_lost > 0:
                     if no_of_treat is None or leaf_float_2_dim1:
@@ -425,9 +426,11 @@ def best_m_n_min_alpha_reg(forest, gen_dic, cf_dic):
                             trees_without_oob[j] += 1
                 if no_of_treat is not None and not leaf_float_2_dim1:
                     mse_mce_tree = mcf_fo_obj.get_avg_mse_mce(
-                        mse_mce_tree, obs_t_tree, cf_dic['mtot'], no_of_treat)
+                        mse_mce_tree, obs_t_tree, cf_dic['mtot'], no_of_treat,
+                        cf_dic['compare_only_to_zero'])
                     tree_mse = mcf_fo_obj.compute_mse_mce(
-                        mse_mce_tree, cf_dic['mtot'], no_of_treat)
+                        mse_mce_tree, cf_dic['mtot'], no_of_treat,
+                        cf_dic['compare_only_to_zero'])
                 mse_oob[j] += tree_mse     # Add MSE to MSE of forest j
         if np.any(trees_without_oob) > 0:
             for j, trees_without_oob_j in enumerate(trees_without_oob):
@@ -505,6 +508,7 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
     pen_mult : Float. Penalty multiplier.
     rng : Numpy default random number generator object.
     cuda : Boolean. Use cuda if True.
+    compare_only_to_zero : Boolean. Use reduced MSE matrix if True.
 
     Returns
     -------
@@ -538,9 +542,16 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
     if not terminal:
         obs_min = max([round(leaf_size_train * alpha_reg), n_min])
         best_mse = inf   # Initialisation: Infinity as default values
-        for _ in range(3):   # Repeat if drawn x have no variation
+        total_attempts = 5
+        all_vars = False
+        for idx in range(total_attempts):
+            if idx == 0:
+                x_ind_idx = x_ind.copy()
+            if idx == total_attempts - 1:
+                all_vars = True
             x_ind_split = mcf_fo_add.rnd_variable_for_split(
-                x_ind, x_ai_ind, cf_dic, mmm, rng)
+                x_ind_idx, x_ai_ind, cf_dic, mmm, rng, all_vars=all_vars,
+                first_attempt=idx == 0)
             x_type_split = x_type[x_ind_split].copy()
             x_values_split = [x_values[v_idx].copy() for v_idx in x_ind_split]
             # Check if split is possible ... sequential order to minimize costs
@@ -550,10 +561,20 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
              terminal, terminal_x, x_no_varia) = term_or_data(
                  data_train, data_oob, y_i, d_i, d_grid_i,
                  x_i[x_ind_split], no_of_treat, with_d_oob=with_d_oob)
-            if not terminal_x:
+            if terminal:  # No variation in d or/and y, game over.
                 break
+            if not terminal_x:  # Variation in x, find splits
+                break
+            if idx == 0:
+                x_already_used = []
+            x_already_used.extend(x_ind_split)
+            if len(x_already_used) >= len(x_ind):
+                break
+            x_ind_avai = x_ind_idx[:]
+            x_ind_idx = [ind for ind in x_ind_avai if ind not in x_already_used]
+
         if terminal_x:
-            terminal = True  # No variation in drawn X. Splitting stops.
+            terminal = True  # No variation in X. Splitting stops.
     if not terminal:
         if mtot in (1, 4):
             y_nn = data_train[:, y_nn_i]
@@ -674,15 +695,19 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                     # compute objective functions given particular method
                     mse_mce_l, shares_l, obs_by_treat_l = mcf_fo_obj.mcf_mse(
                         y_dat[leaf_l], y_nn_l, d_dat_l, w_l, n_l, mtot,
-                        no_of_treat, d_values, w_yes, False, cuda)
+                        no_of_treat, d_values, w_yes, False, cuda,
+                        cf_dic['compare_only_to_zero'])
                     mse_mce_r, shares_r, obs_by_treat_r = mcf_fo_obj.mcf_mse(
                         y_dat[leaf_r], y_nn_r, d_dat_r, w_r, n_r, mtot,
-                        no_of_treat, d_values, w_yes, False, cuda)
+                        no_of_treat, d_values, w_yes, False, cuda,
+                        cf_dic['compare_only_to_zero'])
                     mse_mce = mcf_fo_obj.add_mse_mce_split(
                         mse_mce_l, mse_mce_r, obs_by_treat_l,
-                        obs_by_treat_r, mtot, no_of_treat)
-                    mse_split = mcf_fo_obj.compute_mse_mce(mse_mce, mtot,
-                                                           no_of_treat)
+                        obs_by_treat_r, mtot, no_of_treat,
+                        cf_dic['compare_only_to_zero'])
+                    mse_split = mcf_fo_obj.compute_mse_mce(
+                        mse_mce, mtot, no_of_treat,
+                        cf_dic['compare_only_to_zero'])
                     # add penalty for this split
                     if ((cf_dic['mtot'] == 1) or ((cf_dic['mtot'] == 4)
                                                   and (rng.random() > 0.5))):
@@ -746,9 +771,10 @@ def update_tree(
             mse_mce, _, obs_oob_list = mcf_fo_obj.mcf_mse(
                 data_oob_parent[:, y_i], y_nn, d_oob, w_oob, n_oob,
                 cf_dic['mtot'], no_of_treat, d_values, gen_dic['weighted'],
-                False, cuda)
-            obj_fct_oob = mcf_fo_obj.compute_mse_mce(mse_mce, cf_dic['mtot'],
-                                                     no_of_treat)
+                False, cuda, cf_dic['compare_only_to_zero'])
+            obj_fct_oob = mcf_fo_obj.compute_mse_mce(
+                mse_mce, cf_dic['mtot'], no_of_treat,
+                cf_dic['compare_only_to_zero'])
             obs_oob = np.sum(obs_oob_list)
         tree['leaf_info_float'][parent_idx, 2] = obj_fct_oob
         tree['leaf_info_int'][parent_idx, 9] = obs_oob
@@ -854,11 +880,14 @@ def get_split_values(y_dat, w_dat, x_dat, x_type, x_values, leaf_size,
             value_equal = np.isclose(x_dat, val)
             if np.any(value_equal):  # Position of empty cells do not matter
                 if w_yes:
+                    # y_mean_by_cat[v_idx] = np.average(
+                    #    y_dat[value_equal], weights=w_dat[value_equal], axis=0)
                     y_mean_by_cat[v_idx] = np.average(
-                        y_dat[value_equal], weights=w_dat[value_equal], axis=0)
+                        y_dat[value_equal], weights=w_dat[value_equal])
                 else:
-                    y_mean_by_cat[v_idx] = np.average(
-                        y_dat[value_equal], axis=0)
+                    # y_mean_by_cat[v_idx] = np.average(
+                    #     y_dat[value_equal], axis=0)
+                    y_mean_by_cat[v_idx] = np.average(y_dat[value_equal])
                 used_values.append(v_idx)
         x_vals_np = x_vals_np[used_values]
         sort_ind = np.argsort(y_mean_by_cat[used_values])
@@ -924,7 +953,8 @@ def term_or_data(data_tr_ns, data_oob_ns, y_i, d_i, d_grid_i, x_i_ind_split,
 
 
 def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
-                treat_values, w_yes, cont=False, cuda=False):
+                treat_values, w_yes, cont=False, cuda=False,
+                compare_only_to_zero=False):
     """Compute OOB values for a tree.
 
     Parameters
@@ -940,6 +970,7 @@ def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
     w_yes : INT.
     cont : Boolean. Default is False.
     cuda : Boolean. MSE computation with Cuda if True. Default is False.
+    compare_only_to_zero : Boolean. Reduced covariance matrix.
 
     Returns
     -------
@@ -971,11 +1002,12 @@ def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
                 mtot, no_of_treat, treat_values, w_yes, cont, cuda)
             mse_mce_tree, obs_t_tree = mcf_fo_obj.add_rescale_mse_mce(
                 mse_mce_leaf, obs_by_treat_leaf, mtot, no_of_treat,
-                mse_mce_tree, obs_t_tree)
+                mse_mce_tree, obs_t_tree, compare_only_to_zero)
         else:
             n_lost += n_l
         n_total += n_l
     mse_mce_tree = mcf_fo_obj.get_avg_mse_mce(mse_mce_tree, obs_t_tree, mtot,
-                                              no_of_treat)
-    oob_tree = mcf_fo_obj.compute_mse_mce(mse_mce_tree, mtot, no_of_treat)
+                                              no_of_treat, compare_only_to_zero)
+    oob_tree = mcf_fo_obj.compute_mse_mce(mse_mce_tree, mtot, no_of_treat,
+                                          compare_only_to_zero)
     return oob_tree

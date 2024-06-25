@@ -70,7 +70,7 @@ def int_init(cuda=None, del_forest=None, descriptive_stats=None, dpi=None,
              with_output=None, p_ate_no_se_only=None):
     """Initialise dictionary of parameters of internal variables."""
     dic = {}
-    if cuda is False:
+    if cuda is not True:
         dic['cuda'] = False
     else:
         dic['cuda'] = is_available()
@@ -574,7 +574,8 @@ def cs_update_train(mcf_):
     mcf_.cs_dict = cs_dic
 
 
-def lc_init(cs_cv=None, cs_cv_k=None, cs_share=None, undo_iate=None, yes=None):
+def lc_init(cs_cv=None, cs_cv_k=None, cs_share=None, undo_iate=None, yes=None,
+            estimator=None):
     """Initialise dictionary with parameters of local centering, CS and CV."""
     # General parameters for crossvalidation or using a new sample
     dic = {}
@@ -585,6 +586,26 @@ def lc_init(cs_cv=None, cs_cv_k=None, cs_share=None, undo_iate=None, yes=None):
     # local centering
     # dic['cs_cv'] corresponds to cnew_dict['l_centering_new_sample']
     dic['yes'] = yes is not False
+    ok_estimators = ('RandomForest', 'RandomForestNminl5',
+                     'RandomForestNminls5',
+                     'SupportVectorMachine', 'SupportVectorMachineC2',
+                     'SupportVectorMachineC4',
+                     'AdaBoost', 'AdaBoost100', 'AdaBoost200',
+                     'GradBoost', 'GradBoostDepth6',  'GradBoostDepth12',
+                     'LASSO',
+                     'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger',
+                     'Mean', 'automatic')
+    if estimator is None:
+        dic['estimator'] = 'RandomForest'
+    else:
+        ok_estimators_cfold = [name.casefold() for name in ok_estimators]
+        try:
+            position = ok_estimators_cfold.index(estimator.casefold())
+            dic['estimator'] = ok_estimators[position]
+        except ValueError:
+            print('Estimator specified for local centering is not '
+                  f'valid.\nSpecified estimator {estimator}.'
+                  f'\nAllowed estimators: {" ".join(ok_estimators)}')
     dic['uncenter_po'] = undo_iate is not False
     if not dic['yes']:
         dic['uncenter_po'] = False
@@ -594,12 +615,13 @@ def lc_init(cs_cv=None, cs_cv_k=None, cs_share=None, undo_iate=None, yes=None):
 
 
 def cf_init(alpha_reg_grid=None, alpha_reg_max=None, alpha_reg_min=None,
-            boot=None, chunks_maxsize=None, nn_main_diag_only=None,
-            m_grid=None, m_share_max=None, m_share_min=None,
-            m_random_poisson=None, match_nn_prog_score=None, mce_vart=None,
-            vi_oob_yes=None, n_min_grid=None, n_min_max=None, n_min_min=None,
-            n_min_treat=None, p_diff_penalty=None, subsample_factor_eval=None,
-            subsample_factor_forest=None, random_thresholds=None):
+            boot=None, chunks_maxsize=None, compare_only_to_zero=None,
+            nn_main_diag_only=None, m_grid=None, m_share_max=None,
+            m_share_min=None, m_random_poisson=None, match_nn_prog_score=None,
+            mce_vart=None, vi_oob_yes=None, n_min_grid=None, n_min_max=None,
+            n_min_min=None, n_min_treat=None, p_diff_penalty=None,
+            subsample_factor_eval=None, subsample_factor_forest=None,
+            random_thresholds=None):
     """Initialise dictionary with parameters of causal forest building."""
     dic = {}
     (dic['alpha_reg_grid'], dic['alpha_reg_max'], dic['alpha_reg_min'],
@@ -608,6 +630,7 @@ def cf_init(alpha_reg_grid=None, alpha_reg_max=None, alpha_reg_min=None,
     dic['boot'] = 1000 if boot is None or boot < 1 else round(boot)
     dic['match_nn_prog_score'] = match_nn_prog_score is not False
     dic['nn_main_diag_only'] = nn_main_diag_only is True
+    dic['compare_only_to_zero'] = compare_only_to_zero is True
     # Select grid for number of parameters
     if m_share_min is None or not 0 < m_share_min <= 1:
         dic['m_share_min'] = 0.1
@@ -674,11 +697,11 @@ def cf_update_train(mcf_, data_df):
             base_level + (max(cf_dic['n_train'] - base_level, 0) ** 0.8)
             / (mcf_.gen_dict['no_of_treat'] - 1))
     # Effective sample sizes per chuck
-    no_of_chucks = int(np.ceil(cf_dic['n_train'] / cf_dic['chunks_maxsize']))
+    no_of_chuncks = int(np.ceil(cf_dic['n_train'] / cf_dic['chunks_maxsize']))
     # Actual number of chucks could be smaller if lot's of data is deleted in
     # common support adjustment
-    cf_dic['n_train_eff'] = np.int32(cf_dic['n_train'] / no_of_chucks)
-    obs_by_treat_eff = np.int32(obs_by_treat / no_of_chucks)
+    cf_dic['n_train_eff'] = np.int32(cf_dic['n_train'] / no_of_chuncks)
+    obs_by_treat_eff = np.int32(obs_by_treat / no_of_chuncks)
 
     # size of subsampling samples         n/2: size of forest sample
     cf_dic['subsample_share_forest'] = sub_size(
@@ -811,7 +834,7 @@ def p_init(gen_dic, ate_no_se_only=None, cbgate=None, atet=None, bgate=None,
     else:
         choice_based_sampling, choice_based_probs = False, 1
     if ci_level is None or not 0.5 < ci_level < 0.99999999:
-        ci_level = 0.90
+        ci_level = 0.95
     cluster_std = (cluster_std is True) or gen_dic['panel_data']
     cond_var = cond_var is not False
     gates_minus_previous = gates_minus_previous is True
@@ -904,7 +927,7 @@ def p_update_pred(mcf_, data_df):
               if isinstance(var_dic['d_name'], (list, tuple))
               else var_dic['d_name'])
     # Capitalise all variable names
-    data_df = data_df.rename(columns=lambda x: x.upper())
+    data_df = data_df.rename(columns=lambda x: x.casefold())
     # Check if treatment is included
     if gen_dic['d_type'] == 'continuous':
         p_dic['d_in_pred'] = False
@@ -940,8 +963,9 @@ def p_update_pred(mcf_, data_df):
 
 def post_init(p_dic, bin_corr_threshold=None, bin_corr_yes=None,
               est_stats=None, kmeans_no_of_groups=None, kmeans_max_tries=None,
-              kmeans_replications=None, kmeans_yes=None, random_forest_vi=None,
-              relative_to_first_group_only=None, plots=None):
+              kmeans_replications=None, kmeans_yes=None, k_means_single=None,
+              random_forest_vi=None, relative_to_first_group_only=None,
+              plots=None):
     """Initialise dictionary with parameters of post estimation analysis."""
     est_stats = est_stats is not False
     if not p_dic['iate']:
@@ -952,6 +976,7 @@ def post_init(p_dic, bin_corr_threshold=None, bin_corr_yes=None,
     plots = plots is not False
     relative_to_first_group_only = relative_to_first_group_only is not False
     kmeans_yes = kmeans_yes is not False
+    k_means_single = k_means_single is True
     if kmeans_replications is None or kmeans_replications < 0:
         kmeans_replications = 10
     else:
@@ -967,7 +992,8 @@ def post_init(p_dic, bin_corr_threshold=None, bin_corr_yes=None,
         'est_stats': est_stats, 'kmeans_no_of_groups': kmeans_no_of_groups,
         'kmeans_max_tries': kmeans_max_tries,
         'kmeans_replications': kmeans_replications, 'kmeans_yes': kmeans_yes,
-        'random_forest_vi': random_forest_vi, 'plots': plots,
+        'k_means_single': k_means_single, 'random_forest_vi': random_forest_vi,
+        'plots': plots,
         'relative_to_first_group_only': relative_to_first_group_only,
         'add_pred_to_data_file': add_pred_to_data_file}
     return dic
@@ -1105,7 +1131,7 @@ def interpol_weights(ct_grid_dr, ct_grid_w, ct_grid_w_val, precision_of_treat):
 def grid_name(d_name, add_name):
     """Help for initialisation."""
     grid_name_tmp = d_name[0] + str(add_name)
-    grid_name_l = [grid_name_tmp.upper()]
+    grid_name_l = [grid_name_tmp.casefold()]
     return grid_name_l
 
 

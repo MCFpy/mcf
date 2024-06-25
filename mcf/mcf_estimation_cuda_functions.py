@@ -14,7 +14,7 @@ from mcf import mcf_cuda_functions as mcf_c
 from mcf import mcf_print_stats_functions as ps
 
 
-def weight_var_cuda(w0_dat, y0_dat, cl_dat, gen_dic, p_dic, norm=True,
+def weight_var_cuda(w0_dat, y0_dat, cl_dat, gen_dic, p_dic, normalize=True,
                     w_for_diff=None, weights=None, bootstrap=0,
                     keep_some_0=False, se_yes=True, keep_all=False,
                     precision=32):
@@ -43,13 +43,13 @@ def weight_var_cuda(w0_dat, y0_dat, cl_dat, gen_dic, p_dic, norm=True,
         if not gen_dic['weighted']:
             weights = None
         w_dat, y_dat, _, _ = aggregate_cluster_pos_w_cuda(
-            cl_dat, w_dat, y_dat, norma=norm, sweights=weights,
+            cl_dat, w_dat, y_dat, norma=normalize, sweights=weights,
             precision=precision)
         if w_for_diff is not None:
             w_dat = w_dat - w_for_diff
     if not p_dic['iate_se']:
         keep_some_0, bootstrap = False, 0
-    if norm:
+    if normalize:
         sum_w_dat = torch.abs(torch.sum(w_dat))
         if not ((-1e-15 < sum_w_dat < 1e-15)
                 or (1-1e-10 < sum_w_dat < 1+1e-10)):
@@ -118,7 +118,7 @@ def weight_var_cuda(w0_dat, y0_dat, cl_dat, gen_dic, p_dic, norm=True,
                     idx_cl = torch.randint(0, high=obs, size=(obs,),
                                            generator=g_cuda)
                 w_b = w_dat2[idx].clone()
-                if norm:
+                if normalize:
                     sum_w_b = torch.abs(torch.sum(w_b))
                     if not ((-1e-15 < sum_w_dat < 1e-15)
                             or (1-1e-10 < sum_w_dat < 1+1e-10)):

@@ -312,7 +312,7 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         if iate_m_ate_flag:
                             ret = mcf_est_cuda.weight_var_cuda(
                                 w_diff, y_dat[:, o_idx], cl_dat, gen_dic,
-                                p_dic, norm=False, weights=w_dat,
+                                p_dic, normalize=False, weights=w_dat,
                                 bootstrap=se_boot_iate, se_yes=iate_se_flag,
                                 keep_all=int_dic['keep_w0'],
                                 precision=precision)
@@ -339,7 +339,7 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         if iate_m_ate_flag:
                             ret = mcf_est_cuda.weight_var_cuda(
                                 w_diff, y_dat[:, o_idx], None, gen_dic, p_dic,
-                                norm=False, weights=w_dat,
+                                normalize=False, weights=w_dat,
                                 bootstrap=se_boot_iate, se_yes=iate_se_flag,
                                 keep_all=int_dic['keep_w0'],
                                 precision=precision)
@@ -370,7 +370,8 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                     if iate_m_ate_flag:
                         ret = mcf_est_cuda.weight_var_cuda(
                             w_diff, y_dat[:, o_idx], cl_dat, gen_dic, p_dic,
-                            norm=False, weights=w_dat, bootstrap=se_boot_iate,
+                            normalize=False, weights=w_dat,
+                            bootstrap=se_boot_iate,
                             se_yes=iate_se_flag, keep_all=int_dic['keep_w0'],
                             precision=precision)
                 else:
@@ -388,7 +389,8 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                     if iate_m_ate_flag:
                         ret = mcf_est_cuda.weight_var_cuda(
                             w_diff, y_dat[:, o_idx], None, gen_dic, p_dic,
-                            norm=False, weights=w_dat, bootstrap=se_boot_iate,
+                            normalize=False, weights=w_dat,
+                            bootstrap=se_boot_iate,
                             se_yes=iate_se_flag, keep_all=int_dic['keep_w0'],
                             precision=precision)
                 if iate_m_ate_flag:

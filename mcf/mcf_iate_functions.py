@@ -8,6 +8,8 @@ Contains the functions needed for computing the IATE.
 @author: MLechner
 -*- coding: utf-8 -*-
 """
+import warnings
+
 import numpy as np
 import pandas as pd
 import ray
@@ -731,7 +733,7 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         if iate_m_ate_flag:
                             ret = mcf_est.weight_var(
                                 w_diff, y_dat[:, o_idx], cl_dat, gen_dic,
-                                p_dic, norm=False, weights=w_dat,
+                                p_dic, normalize=False, weights=w_dat,
                                 bootstrap=se_boot_iate, se_yes=iate_se_flag,
                                 keep_all=int_dic['keep_w0'])
                     else:
@@ -757,7 +759,7 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         if iate_m_ate_flag:
                             ret = mcf_est.weight_var(
                                 w_diff, y_dat[:, o_idx], None, gen_dic, p_dic,
-                                norm=False, weights=w_dat,
+                                normalize=False, weights=w_dat,
                                 bootstrap=se_boot_iate, se_yes=iate_se_flag,
                                 keep_all=int_dic['keep_w0'])
                     if iate_m_ate_flag:
@@ -786,7 +788,8 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                     if iate_m_ate_flag:
                         ret = mcf_est.weight_var(
                             w_diff, y_dat[:, o_idx], cl_dat, gen_dic, p_dic,
-                            norm=False, weights=w_dat, bootstrap=se_boot_iate,
+                            normalize=False, weights=w_dat,
+                            bootstrap=se_boot_iate,
                             se_yes=iate_se_flag, keep_all=int_dic['keep_w0'])
                 else:
                     if o_idx == 0:
@@ -803,7 +806,8 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                     if iate_m_ate_flag:
                         ret = mcf_est.weight_var(
                             w_diff, y_dat[:, o_idx], None, gen_dic, p_dic,
-                            norm=False, weights=w_dat, bootstrap=se_boot_iate,
+                            normalize=False, weights=w_dat,
+                            bootstrap=se_boot_iate,
                             se_yes=iate_se_flag, keep_all=int_dic['keep_w0'])
                 if iate_m_ate_flag:
                     pot_y_m_ate_i[t_idx, o_idx] = ret[0]
@@ -915,6 +919,7 @@ def iate_func2_for_mp(idx, no_of_out, pot_y_i, pot_y_var_i, pot_y_m_ate_i,
         iate_se_i = iate_p_i = None
     iterator = 2 if iate_m_ate_flag else 1
     compute_comparison_label = True
+    warnings.filterwarnings('error', category=RuntimeWarning)
     for o_i in range(no_of_out):
         for jdx in range(iterator):
             if jdx == 0:
@@ -936,4 +941,5 @@ def iate_func2_for_mp(idx, no_of_out, pot_y_i, pot_y_var_i, pot_y_m_ate_i,
             else:
                 (iate_i[o_i, :, jdx], _, _, _) = ret[:4]
             compute_comparison_label = False
+    warnings.resetwarnings()
     return idx, iate_i, iate_se_i, iate_p_i, effect_list

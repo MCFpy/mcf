@@ -18,8 +18,9 @@ from mcf import mcf_general_sys as mcf_sys
 from mcf import mcf_print_stats_functions as ps
 
 
-def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, cf_dic, mmm, rng):
-    """Generate variables to be used for split.
+def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, cf_dic, mmm, rng,
+                           all_vars=False, first_attempt=True):
+    """Find variables used for splitting.
 
     Parameters
     ----------
@@ -29,12 +30,19 @@ def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, cf_dic, mmm, rng):
     c_dict : Dict. Parameters
     mmm : Number of variables to draw.
     rng : default random number generator.
+    all_vars : Boolean, optional.
+         Use all variables for splitting. Default is False.
+    first_attempt: Boolean, optional.
+         Default is True.
 
     Returns
     -------
     x_i_for_split : List of indices in x of splitting variables.
 
     """
+    if all_vars:
+        return x_ind_pos.tolist()
+
     qqq = len(x_ind_pos)
     if cf_dic['m_random_poisson'] and mmm > cf_dic['m_random_poisson_min']:
         m_l = 1 + rng.poisson(lam=mmm-1, size=1)
@@ -44,7 +52,7 @@ def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, cf_dic, mmm, rng):
             m_l = qqq
     else:
         m_l = mmm
-    if len(x_ai_ind_pos) == 0:
+    if len(x_ai_ind_pos) == 0 or not first_attempt:
         x_i_for_split = rng.choice(x_ind_pos, m_l, replace=False)
         x_i_for_split_list = x_i_for_split.tolist()
     else:

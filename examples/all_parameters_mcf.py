@@ -9,59 +9,74 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economic Research
 University of St. Gallen, Switzerland
 
-Version: 0.5.0
+Version: 0.6.0
 
 This is an example to show how to use the mcf with full specification of all
 its keywords. It may be seen as an add on to the published mcf documentation.
 
 """
 import os
-import pickle
 
-import pandas as pd
-
+from mcf.example_data_functions import example_data
 from mcf.mcf_functions import ModifiedCausalForest
 from mcf.reporting import McfOptPolReport
 
 # ------------------ NOT parameters of the ModifiedCausalForest ---------------
-#  Define data to be used in this example
+#  Define path to be used in this example
 APPLIC_PATH = os.getcwd() + '/example'
-DATPATH = APPLIC_PATH + '/data'
-TRAINDATA = 'data_y_d_x_1000.csv'
-#  Training data must contain outcome, treatment and features.
 
-PREDDATA = 'data_x_1000.csv'
-#  Prediction data must contain features. Treated effects on the treated
-#  additionally require treatment information.
+# ---------------------- Generate artificial data ------------------------------
 
-#  Define which methods of the OptimalPolicy class will be run
-TRAIN = True                # Train the mcf
-PREDICT = True               # Predict effects using trained mcf
-ANALYSE = True             # Analyse estimated IATES from predictions
-SENSITIVITY = True           # Perform sensitivity analysis
-REPORTING = True             # Create summary report of results as pdf
+# Parameters to generate artificial data (DataFrame) for this example
+TRAIN_OBS = 1000         # Number of observations of training data.
+#                          Training data is used to train the causal forest.
+#                          Training data must contain outcome, treatment
+#                          and features. Default is 1000.
 
-# --- Many or few variables?
-VAR_MANY = False            # Related to specification used in this example.
-#                               False: Few features. True: Many features.
+PRED_OBS = 1000          # Number of observations of prediction data.
+#                          Prediction data is used to compute the effects.
+#                          Prediction data must contain features. Treatment
+#                          effects on the treated additionally require
+#                          treatment information. Default is 1000.
+
+PREDDATA_IS_TRAINDATA = False  # If True, the same data will be used
+#                                for training and prediction (in this case,
+#                                PRED_OBS is ignored).
+
+NO_FEATURES = 20         # Number of features. Will generate different types of
+#                          features (continuous, dummies, ordered, unordered)
+
+NO_TREATMENTS = 3        # Number of treatments
+
+training_df, prediction_df, name_dict = example_data(
+    obs_y_d_x_iate=TRAIN_OBS,
+    obs_x_iate=PRED_OBS,
+    no_features=NO_FEATURES,
+    no_treatments=NO_TREATMENTS,
+    seed=12345,
+    type_of_heterogeneity='WagerAthey',
+    descr_stats=True)
+
+if PREDDATA_IS_TRAINDATA:
+    prediction_df = None
 
 # ------------------ Parameters of the ModifiedCausalForest -------------------
-#   Whenever, None is specified, parameter will set to default values.
+#   Whenever None is specified, parameter will be set to default values.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 GEN_OUTPATH = APPLIC_PATH + '/output'
 #   Path were the output is written too (text, estimated effects, etc.)
-#   If this None, a */out directory below the current directory is used.
+#   If this is None, a */out directory below the current directory is used.
 #   If specified directory does not exist, it will be created.
 #   OUTPATH is passed to ModifiedCausalForest.
 
-GEN_OUTFILETEXT = 'mcf.py.0.5.0'
+GEN_OUTFILETEXT = 'mcf.py.0.6.0'
 #   File for text output. If gen_outfiletext is None, 'txtFileWithOutput' is
 #   used. *.txt file extension will be added by the programme.
 
 #   ------------------------------------------------------------------------
 #   The following parameters are all used to initialise ModifiedCausalForest.
 #   ------------------------------------------------------------------------
-#   Convention: Internally all variable names will be capitalized (including
+#   Convention: Internally all variable names are set to lowercase (including
 #   those in the DataFrames provided by user). Therefore, avoid having
 #   variables in the data with names that differ only with respect to
 #   capitalization.
@@ -71,45 +86,31 @@ GEN_OUTFILETEXT = 'mcf.py.0.5.0'
 #      predict and analyse methods: x_name_ord or x_name_unord
 #   All other variables are optional.
 
-VAR_D_NAME = 'D0_1_12'   # Name of treatment variable
+VAR_D_NAME = name_dict['d_name']   # Name of treatment variable
 GEN_D_TYPE = 'discrete'  # Type of treatment: 'discrete' (default)
 #                                              or 'continuous'
 
-# Outcome variables:
+# Outcome variables
 #    Single variable (string) or several variables (list of string)
-VAR_Y_NAME = 'y'
+VAR_Y_NAME = name_dict['y_name']
 
-VAR_Y_TREE_NAME = 'y'     # Variable to build trees (not needed for pred)
-#   if None or [], the first variable in y_name is used to build trees.
+VAR_Y_TREE_NAME = name_dict['y_name']     # Variable to build trees.
+#   If None or [], the first variable in y_name is used to build trees.
 
-#   Features, predictors, independent variables, confounders: ordered
-if VAR_MANY:
-    VAR_X_NAME_ORD = ['cont' + str(i) for i in range(120)]
-    for i in range(10):
-        VAR_X_NAME_ORD.append('dum' + str(i))
-    for i in range(10):
-        VAR_X_NAME_ORD.append('ord' + str(i))
-else:
-    VAR_X_NAME_ORD = ['cont' + str(i) for i in range(5)]
-    for i in range(3):
-        VAR_X_NAME_ORD.append('dum' + str(i))
-    for i in range(3):
-        VAR_X_NAME_ORD.append('ord' + str(i))
-
-#   Features, predictors, independent variables: unordered, categorial
-if VAR_MANY:
-    VAR_X_NAME_UNORD = ['cat' + str(i) for i in range(10)]
-else:
-    VAR_X_NAME_UNORD = ['cat' + str(i) for i in range(2)]
+#   Features
+VAR_X_NAME_ORD = name_dict['x_name_ord']   # Ordered (including dummy variables)
+VAR_X_NAME_UNORD = name_dict['x_name_unord']   # Unordered
 
 
 #   Identifier
-VAR_ID_NAME = 'ID'
+VAR_ID_NAME = name_dict['id_name']
 #   If None (default) or []: Identifier will be added the data.
 
 #   Cluster and panel identifiers (default is no variable)
-VAR_CLUSTER_NAME = 'cluster'  # Name of variable defining clusters if used
-VAR_W_NAME = 'weight'         # Name of weight, if weighting option is used
+VAR_CLUSTER_NAME = name_dict['cluster_name']  # Name of variable defining
+#                                               clusters if used.
+VAR_W_NAME = name_dict['weight_name']         # Name of weight, if weighting
+#                                               option is used.
 
 # Names of variables always checked on when deciding next split
 VAR_X_NAME_ALWAYS_IN_ORD = []
@@ -123,32 +124,19 @@ VAR_X_NAME_ALWAYS_IN_UNORD = []
 #   Ordered variables with many values (put discrete variables with only few
 #   values in categories below). They are discretized as well as treated as
 #   continuous for GATE estimation.
+VAR_Z_NAME_LIST = name_dict['x_name_ord'][:2]
 
-if VAR_MANY:
-    VAR_Z_NAME_LIST = ['cont0', 'cont2']
-else:
-    VAR_Z_NAME_LIST = 'cont0'
-
-#   Discrete Variables with few values (each value defines a unique stratum)
-
-#   Ordered variables
-if VAR_MANY:
-    VAR_Z_NAME_ORD = ['dum0', 'dum2', 'ord0', 'ord2']
-else:
-    VAR_Z_NAME_ORD = ['ord0', 'dum0']
+# Ordered variables with few values
+VAR_Z_NAME_ORD = name_dict['x_name_ord'][-2:]
 
 #   Unordered variables
-if VAR_MANY:
-    VAR_Z_NAME_UNORD = ['cat0', 'cat2']
-else:
-    VAR_Z_NAME_UNORD = 'cat0'
-
+VAR_Z_NAME_UNORD = name_dict['x_name_unord'][:2]
 
 # Variable to balance the GATEs on. Only relevant if P_BGATE is True. The
-# distribution of these variables that kept constant when a BGATE is computed.
+# distribution of these variables is kept constant when a BGATE is computed.
 # The default (or None) is to use the other heterogeneity variables if there
 # are any for balancing.
-VAR_BGATE_NAME = ['cont4', 'dum0', 'ord0']
+VAR_BGATE_NAME = name_dict['x_name_ord'][3:5]
 
 #   Variables that cannot be removed by feature selection. Default is no
 #   variable.
@@ -158,14 +146,8 @@ VAR_X_NAME_REMAIN_UNORD = []
 #   Variables for balancing tests (cannot be removed by feature selection).
 #   Treatment specific descriptive statistics will only be printed for those
 #   variables.
-if VAR_MANY:
-    VAR_X_BALANCE_NAME_ORD = ['cont0', 'cont1', 'cont2', 'cont3', 'cont4',
-                              'cont5', 'cont6', 'cont7', 'cont8', 'cont9',
-                              'dum0', 'dum1', 'ord0', 'ord1']
-    VAR_X_BALANCE_NAME_UNORD = ['cat0', 'cat1']
-else:
-    VAR_X_BALANCE_NAME_ORD = ['cont0', 'Cont10']
-    VAR_X_BALANCE_NAME_UNORD = 'cat0'
+VAR_X_BALANCE_NAME_ORD = name_dict['x_name_ord'][:2]
+VAR_X_BALANCE_NAME_UNORD = name_dict['x_name_unord'][:2]
 
 # --------------------- End of variables section ------------------------------
 
@@ -189,7 +171,7 @@ DC_CLEAN_DATA = None         # if True (default), remove all rows with missing
 #      observations & unnecessary variables from DataFrame.
 
 #   ------------- Training the causal forest -------------------------------
-CF_BOOT = None                 # Number of Causal Trees. Default is 1000.
+CF_BOOT = None               # Number of Causal Trees. Default is 1000.
 
 #   Estimation methods
 CF_MCE_VART = None  # Splitting rule
@@ -202,17 +184,26 @@ CF_P_DIFF_PENALTY = None   # Penalty function
 #   mce_vart == 0: Irrelevant
 #   mce_vart == 1: Multiplier of penalty (in terms of var(y))
 #                  0: no penalty
-#                  def: 2*((n*subsam_share)**0.9)/(n*subsam_share)*
+#                  default (or None):
+#                      2*((n*subsam_share)**0.9)/(n*subsam_share)*
 #                      sqrt(no_of_treatments*(no_of_treatments-1)/2).
 #                      Increase if balancing tests indicate bad balance.
-#   mce_vart == 2: Multiplier of penalty (in terms of value of MSE(y) value
-#                  function without splits) for penalty.
+#   mce_vart == 2: Default (or None): Multiplier of penalty (in terms of value
+#                  of MSE(y) value function without splits) for penalty.
 #                  0: no penalty
 #                  def: 100*4*(n*f_c.subsam_share)^0.8)/(n*f_c.subsam_share).
 #                       Increase if balancing tests indicate bad balance.
 #   mce_vart == 3: Probability of using p-score (0-1)
-#                  default is 0.5. Increase if balancing tests indicate bad
+#                  Default is 0.5. Increase if balancing tests indicate bad
 #                  balance.
+CF_COMPARE_ONLY_TO_ZERO = None      # If True, the computation of the MCE
+#   ignores all elements not related to the first treatment (which usually is
+#   the control group). This speeds up computation and may be attractive when
+#   interest is only in the comparisons of each treatment to the control group,
+#   and not among each other. This may also be attractive for optimal policy
+#   analysis based on using estimated potential outcomes normalized by the
+#   potential outcome of the control group (i.e., IATEs of treatments vs.
+#   control group). Default is False.
 
 #   Subsampling
 CF_SUBSAMPLE_FACTOR_FOREST = None   # Size of subsampling sample to build tree
@@ -234,7 +225,7 @@ CF_SUBSAMPLE_FACTOR_EVAL = None   # Size of subsampling sample to evaluate tree
 #   up computations and reduces demand on memory.
 
 #   Matching step to find neighbor for mce computation
-CF_MATCH_NN_PROG_SCORE = None   # False: Use Mahalanobis matching
+CF_MATCH_NN_PROG_SCORE = None   # False: Use Mahalanobis matching.
 #                                 True:  Use prognostic scores (default).
 
 CF_NN_MAIN_DIAG_ONLY = None    # Only if match_nn_prog_score = False
@@ -282,8 +273,12 @@ CF_ALPHA_REG_GRID = None     # number of grid values (def: 1).
 CF_M_SHARE_MIN = None        # minimum share of variables (0-1); def = 0.1
 CF_M_SHARE_MAX = None        # maximum share of variables (0-1); def = 0.6
 #   Number of variables used for splitting = share * total # of variable
+#   If variables randomly selected for splitting do not show any variation in
+#   leaf considered for splitting, then all variables will be used for that
+#   split.
 CF_M_GRID = None
-#   Number of grid values logarithmically spaced including m_min m_max (def: 2)
+#   Number of grid values logarithmically spaced, including m_min m_max.
+#   Default is 1..
 #   If M_GRID == 1: m_share = (M_SHARE_MIN+M_SHARE_MAX)/2
 #   If grid is used, optimal value is determined by out-of-bag estimation of
 #   objective function.
@@ -291,16 +286,20 @@ CF_M_RANDOM_POISSON = None
 #   True: number of randomly selected variables is stochastic for each split,
 #   drawn from a Poisson distribution.
 #   Grid gives mean value of 1 + poisson distribution (m-1).
-#   Default is True if M > 10, otherwise False (to avoid getting to few
+#   Default is True if M > 10, otherwise False (to avoid getting too few
 #   variables that not have enough variation)
 #   If grid is used, optimal value is determined by out-of-bag estimation of
 #   objective function.
 
 #   Randomly split training data for large samples in chunks and take average
 #   to improve scalability.
-CF_CHUNKS_MAXSIZE = None  # Maximum allowed number of observations per block.
+CF_CHUNKS_MAXSIZE = None  # Maximum number of observations allowed per block.
+#   If smaller than sample size --> random splitting
 #   If larger than sample size, no random splitting.
-#   Default: 75000 + (number of observations - 75000)**0.8/ (no_of_treatment-1)
+#   Default: 75000 + (number of observations - 75000)**0.8/ (# of treatments-1)
+#   Random splitting may reduces computation time and memory demand.
+#   If no random splitting desired, set CF_CHUNKS_MAXSIZE to a value larger than
+#   sample size.
 
 #   Variable importance for causal forest
 CF_VI_OOB_YES = None
@@ -317,8 +316,11 @@ FS_OTHER_SAMPLE_SHARE = None  # If FS_OTHER_SAMPLE: share of sample (def: 0.33)
 FS_RF_THRESHOLD = None   # Threshold in terms of relative loss of variable
 #                          importanance in % (default is 1).
 
-#   - Which data to use to compute local centering & common support adjustment
-LC_CS_CV = None        # True: Use crossvalidation (default).  False: Use
+# How to compute local centering (estimator choice and prediction)
+# & common support adjustment
+LC_CS_CV = None        # True: Use crossvalidation (default).
+#  False (estimator choice in local centering): Use LC_CS_SHARE for testing.
+#  False (common support and local centering): Use
 #  random subsample of the data that will then not be used for training the CF.
 LC_CS_SHARE = None  # Share of data used for estimating E(y|x).
 #                     0.1-0.9 (def = 0.25)
@@ -326,6 +328,20 @@ LC_CS_CV_K = None   # if LC_CS_CV: # of folds used in crossvalidation (def: 5).
 
 #   ------------- Local centering -----------------------------------------
 LC_YES = None               # Local centering. Default is True.
+LC_ESTIMATOR = None             # The estimator used for local centering.
+
+#   Possible choices are scikit-learn's regression methods
+#  'RandomForest', 'RandomForestNminl5', 'RandomForestNminls5'
+#  'SupportVectorMachine', 'SupportVectorMachineC2', 'SupportVectorMachineC4',
+#  'AdaBoost', 'AdaBoost100', 'AdaBoost200',
+#  'GradBoost', 'GradBoostDepth6',  'GradBoostDepth12',
+#  'LASSO', 'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger',
+#  'Mean'. (Mean is included if other estimators are not useful.)
+#  If set to 'automatic', the estimator with the lowest out-of-sample
+#  mean squared error (MSE) is selected. Whether this selection is based on
+#  cross-validation or a test sample is governed by LC_CS_CV.
+#  The default (or None) is 'RandomForest'.
+
 LC_UNCENTER_PO = None       # Predicted potential outcomes for individual data
 #   points (IATEs) re-adjusted for local centering are added to data output.
 #   Default is True.
@@ -338,7 +354,7 @@ CS_TYPE = None
 #   2: Enforce minimum and maximum probabilities for all obs and all probs-1
 #   observations off support are removed.
 #   Out-of-bag predictions are used to avoid overfitting (which would lead to a
-#   too large reduction in the number of observations). Default is 1.
+#   too large reduction in the number of observations). Default (None) is 1.
 CS_ADJUST_LIMITS = None
 #   IF CS_TYPE > 0:  > 0 or None (default); 0: No adjustment
 #   max *= 1+SUPPORT_ADJUST_LIMITS, min *= 1-SUPPORT_ADJUST_LIMITS
@@ -404,7 +420,7 @@ P_MAX_WEIGHT_SHARE = None  # Maximum share of any weight, 0 <= 1, default=0.05
 #    be somewhat above this threshold.
 
 P_CI_LEVEL = None     # 0 < 1: Confidence level for bounds used in plots.
-#                              Default is 0.90.
+#                              Default is 0.95.
 
 #   Weight based inference
 P_COND_VAR = None   # False: Variance estimation uses var(wy).
@@ -489,6 +505,8 @@ POST_BIN_CORR_THRESHOLD = None  # Minimum threshhold of absolute correlation
 POST_PLOTS = None      # Plots of estimated treatment effects. Default is True.
 POST_KMEANS_YES = None  # Using k-means clustering to analyse
 #                         patterns in the estimated effects. Default is True.
+POST_K_MEANS_SINGLE = None   # If True, clustering is also with respect to
+#                              all single effects. Default is False.
 POST_KMEANS_NO_OF_GROUPS = None  # post_kmeans_yes is True: # of clusters
 #   to be build: Integer, list or tuple (or None --> default).
 #   Default: List of 5 values: [a, b, c, d, e]; c = 5 to 10; depending on n;
@@ -536,7 +554,7 @@ SENS_REFERENCE_POPULATION = None
 # ----- Internal variables: Change these variables only if you know what you do
 
 _INT_CUDA = None                 # Use CUDA based GPU if available on hardware.
-#                                  Default is True.
+#                                  Experimental feature. Default is False.
 _INT_REPLICATION = None          # True does not allow multiprocessing in
 #   local centering, feature selection, and common support. Default is False.
 _INT_REPORT = None              # True: Provide information for McfOptPolReports
@@ -631,6 +649,8 @@ _INT_KEEP_W0 = None            # Keep all zeros weights when computing
 #              Seed for the random selection of the reference data.
 #              Default is 123456.
 # ---------------------------------------------------------------------------
+if not os.path.exists(APPLIC_PATH):
+    os.makedirs(APPLIC_PATH)
 
 # For convenience the mcf parameters are collected and passed as a dictionary.
 # Of course, they can also be passed as single parameters (or not at all, in
@@ -640,6 +660,7 @@ params = {
     'cf_alpha_reg_grid': CF_ALPHA_REG_GRID,
     'cf_alpha_reg_max': CF_ALPHA_REG_MAX, 'cf_alpha_reg_min': CF_ALPHA_REG_MIN,
     'cf_boot': CF_BOOT, 'cf_chunks_maxsize': CF_CHUNKS_MAXSIZE,
+    'cf_compare_only_to_zero': CF_COMPARE_ONLY_TO_ZERO,
     'cf_n_min_grid': CF_N_MIN_GRID,
     'cf_n_min_max': CF_N_MIN_MAX, 'cf_n_min_min': CF_N_MIN_MIN,
     'cf_n_min_treat': CF_N_MIN_TREAT,
@@ -667,6 +688,7 @@ params = {
     'gen_outfiletext': GEN_OUTFILETEXT, 'gen_outpath': GEN_OUTPATH,
     'gen_output_type': GEN_OUTPUT_TYPE,
     'lc_cs_cv': LC_CS_CV, 'lc_cs_cv_k': LC_CS_CV_K, 'lc_cs_share': LC_CS_SHARE,
+    'lc_estimator': LC_ESTIMATOR,
     'lc_uncenter_po': LC_UNCENTER_PO, 'lc_yes': LC_YES,
     'post_bin_corr_threshold': POST_BIN_CORR_THRESHOLD,
     'post_bin_corr_yes': POST_BIN_CORR_YES, 'post_est_stats': POST_EST_STATS,
@@ -674,6 +696,7 @@ params = {
     'post_kmeans_max_tries': POST_KMEANS_MAX_TRIES,
     'post_kmeans_replications': POST_KMEANS_REPLICATIONS,
     'post_kmeans_yes': POST_KMEANS_YES,
+    'post_k_means_single': POST_K_MEANS_SINGLE,
     'post_random_forest_vi': POST_RANDOM_FOREST_VI,
     'post_relative_to_first_group_only': POST_RELATIVE_TO_FIRST_GROUP_ONLY,
     'post_plots': POST_PLOTS,
@@ -739,83 +762,22 @@ params_sensitivity = {
     'sens_reference_population': SENS_REFERENCE_POPULATION
      }
 
-PICKLE_FILE_NAMET = DATPATH + '/mymcftrain.pickle'
-PICKLE_FILE_NAMEP = DATPATH + '/mymcfpredict.pickle'
-PICKLE_FILE_NAMEP2 = DATPATH + '/mymcfpredict2.pickle'
-PICKLE_FILE_NAMES = DATPATH + '/mymcfsensitivity.pickle'
 
+mymcf = ModifiedCausalForest(**params)
 
-def save_load(file_name, object_to_save=None, save=True, output=True):
-    """Save and load objects via pickle."""
-    if save:
-        if os.path.exists(file_name):
-            os.remove(file_name)
-        with open(file_name, "wb+") as file:
-            pickle.dump(object_to_save, file)
-        object_to_load = None
-        text = '\nObject saved to '
-    else:
-        with open(file_name, "rb") as file:
-            object_to_load = pickle.load(file)
-        text = '\nObject loaded from '
-    if output:
-        print(text + file_name)
-    return object_to_load
+tree_df, fill_y_df, _ = mymcf.train(training_df)  # Returns not used here
 
+results, _ = mymcf.predict(prediction_df)
 
-if TRAIN:
-    mymcf = ModifiedCausalForest(**params)
-    train_df = pd.read_csv(DATPATH + '/' + TRAINDATA)
-    tree_df, fill_y_df = mymcf.train(train_df)  # Returns not used here
-    save_load(PICKLE_FILE_NAMET, object_to_save=mymcf, save=True, output=True)
+results_with_cluster_id_df, _ = mymcf.analyse(results)
 
-if PREDICT:
-    if not TRAIN:
-        mymcf = save_load(
-            PICKLE_FILE_NAMET, object_to_save=None, save=False, output=True)
-    if TRAINDATA == PREDDATA:
-        pred_df = fill_y_df
-    else:
-        pred_df = pd.read_csv(DATPATH + '/' + PREDDATA)
-    results = mymcf.predict(pred_df)
-    save_load(PICKLE_FILE_NAMEP, object_to_save=(mymcf, results), save=True,
-              output=True)
-if ANALYSE:
-    if not PREDICT:
-        (mymcf, results) = save_load(
-            PICKLE_FILE_NAMEP, object_to_save=None, save=False, output=True)
-    results_with_cluster_id_df = mymcf.analyse(results)
+params['gen_outpath'] = GEN_OUTPATH + 'sensitivity'
+mymcf_sens = ModifiedCausalForest(**params)
+params_sensitivity['results'] = results
+results_all_dict, _ = mymcf_sens.sensitivity(training_df, **params_sensitivity)
 
-if SENSITIVITY:
-    if not PREDICT:
-        (_, results) = save_load(
-            PICKLE_FILE_NAMEP, object_to_save=None, save=False, output=True)
-    params['gen_outpath'] = GEN_OUTPATH + 'sensitivity'
-    mymcf_sens = ModifiedCausalForest(**params)
-    if not TRAIN:
-        train_df = pd.read_csv(DATPATH + '/' + TRAINDATA)
-    if not PREDICT:
-        pred_df = pd.read_csv(DATPATH + '/' + PREDDATA)
-
-    params_sensitivity['results'] = results
-    results_all_dict = mymcf_sens.sensitivity(train_df, **params_sensitivity)
-
-if TRAIN or PREDICT or ANALYSE:
-    save_load(PICKLE_FILE_NAMEP2, object_to_save=mymcf, save=True, output=True)
-else:
-    mymcf = save_load(PICKLE_FILE_NAMEP2, object_to_save=None, save=False,
-                      output=True)
-if SENSITIVITY:
-    save_load(PICKLE_FILE_NAMES, object_to_save=mymcf_sens, save=True,
-              output=True)
-else:
-    mymcf_sens = save_load(PICKLE_FILE_NAMES, object_to_save=None, save=False,
-                           output=True)
-
-if REPORTING:
-    my_report = McfOptPolReport(mcf=mymcf, mcf_sense=mymcf_sens, mcf_blind=None,
-                                )
-    my_report.report()
+my_report = McfOptPolReport(mcf=mymcf, mcf_sense=mymcf_sens, mcf_blind=None)
+my_report.report()
 
 print('End of computations.\n\nThanks for using the ModifiedCausalForest.'
       ' \n\nYours sincerely\nMCF \U0001F600')

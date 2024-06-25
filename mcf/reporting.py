@@ -3,38 +3,39 @@ from mcf import reporting_functions as rep
 
 class McfOptPolReport:
     """
-    .. versionadded:: 0.5.0
-        Provides reports about the main specification choices and most 
-        important results of the :class:`~mcf_functions.ModifiedCausalForest` and
-        :class:`~optpolicy_functions.OptimalPolicy` estimations.
+    .. versionadded:: 0.6.0
+        Provides reports about the main specification choices and most
+        important results of the :class:`~mcf_functions.ModifiedCausalForest`
+        and :class:`~optpolicy_functions.OptimalPolicy` estimations.
 
     Parameters
     ----------
         mcf : Instance of the ModifiedCausalForest class or None, optional
-            Contains all information needed for reports. The default is None. 
-            
+            Contains all information needed for reports. The default is None.
+
         mcf_blind : Instance of the ModifiedCausalForest class or None, optional
             Contains all information from blinded IATE analysis needed for
-            reports. The default is None.      
-            
+            reports. The default is None.
+
         mcf_sense : Instance of the ModifiedCausalForest class or None, optional
             Contains all information from sensitivity analysis needed for
             reports. The default is None.
-            
+
         optpol : Instance of the OptimalPolicy class or None, optional
             Contains all information from the optimal policy analysis needed
             for reports. The default is None.
-            
+
         outputpath : String or None, optional
-            Path to write the pdf file that is created with the :meth:`~McfOptPolReport.report`
-            method. If None, then an '/out' subdirectory of the current working
-            directory is used. If the latter does not exist, it is created.
-            
+            Path to write the pdf file that is created with the
+            :meth:`~McfOptPolReport.report` method. If None, then an
+            '/out' subdirectory of the current working directory is used.
+            If the latter does not exist, it is created.
+
         outputfile : String or None, optional
-            Name of the pdf file that is created by the :meth:`~McfOptPolReport.report` method.
-            If None, 'Reporting' is used as name. Any name will always appended
-            by string that contains the day and time (measured when the
-            programme ends).
+            Name of the pdf file that is created by the
+            :meth:`~McfOptPolReport.report` method. If None, 'Reporting' is
+            used as name. Any name will always appended by string that contains
+            the day and time (measured when the programme ends).
 
     <NOT-ON-API>
 
@@ -87,12 +88,15 @@ class McfOptPolReport:
         self.text = {}
 
     def report(self):
-        """Create a PDF report using instances of the :class:`~mcf_functions.ModifiedCausalForest` and 
-        :class:`~optpolicy_functions.OptimalPolicy` classes and saves the file to a user provided location.
+        """Create a PDF report using instances of the
+        :class:`~mcf_functions.ModifiedCausalForest` and
+        :class:`~optpolicy_functions.OptimalPolicy` classes and saves the file
+        to a user provided location.
 
         Returns
         -------
-        None.
+        outpath : String
+            Name and Location of file in which pdf output is saved.
 
         """
         # Step one: Fill the dictionaries
@@ -101,4 +105,4 @@ class McfOptPolReport:
         # Step two: Connect the text and figures save as pdf
         rep.create_pdf_file(self)
         print(f'\nReport printed: {self.gen_dict["outfilename"]}\n')
-
+        return self.gen_dict['outfilename']

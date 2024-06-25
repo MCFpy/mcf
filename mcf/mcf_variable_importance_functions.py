@@ -480,7 +480,8 @@ def get_oob_mcf_b(data, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k, single,
     oob_tree = mcf_fo.oob_in_tree(
         obs_in_leaf, y_dat, y_nn, d_dat, w_dat, cf_dic['mtot'],
         gen_dic['no_of_treat'], gen_dic['d_values'], gen_dic['weighted'],
-        cont=gen_dic['d_type'] == 'continuous', cuda=cuda)
+        cont=gen_dic['d_type'] == 'continuous', cuda=cuda,
+        compare_only_to_zero=cf_dic['compare_only_to_zero'])
     return oob_tree
 
 
@@ -499,9 +500,9 @@ def determine_partner_k(x_name):
     no_of_vars = len(x_name)
     partner_k = [None] * (no_of_vars + 1)
     x_partner_name = [None] * (no_of_vars + 1)
-    for idx, val in enumerate(x_name):  # check if it ends with CATV & remove
+    for idx, val in enumerate(x_name):  # check if it ends with catv & remove
         if len(val) > 4:
-            if val.endswith('CATV'):
+            if val.endswith('catv'):
                 x_partner_name[idx+1] = val[:-4]
     for idx, val in enumerate(x_name):
         for jdx, jval in enumerate(x_partner_name):

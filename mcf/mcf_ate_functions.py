@@ -9,6 +9,7 @@ Contains the functions needed for computing the ATE.
 -*- coding: utf-8 -*-
 """
 from copy import deepcopy
+import warnings
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -311,6 +312,7 @@ def ate_effects_print(mcf_, effect_dic, y_pred_lc, balancing_test=False):
     ate_se = np.empty_like(ate)
     if balancing_test and gen_dic['with_output']:
         ate_t = np.empty_like(ate)
+    warnings.filterwarnings('error', category=RuntimeWarning)
     for o_idx, out_name in enumerate(y_name):
         if gen_dic['with_output']:
             txt += f'\nOutcome variable: {out_name}'
@@ -347,6 +349,7 @@ def ate_effects_print(mcf_, effect_dic, y_pred_lc, balancing_test=False):
                 if continuous and not balancing_test and a_idx == 0:
                     dose_response_figure(out_name, var_dic['d_name'][0], est,
                                          stderr, d_values[1:], int_dic, p_dic)
+    warnings.resetwarnings()
     if balancing_test and gen_dic['with_output']:
         average_t = np.mean(ate_t)
         txt += '\nVariables investigated for balancing test:'

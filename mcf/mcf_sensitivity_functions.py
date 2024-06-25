@@ -17,7 +17,7 @@ from sklearn.metrics import silhouette_score
 
 from mcf import mcf_ate_functions as mcf_ate
 from mcf import mcf_data_functions as mcf_data
-from mcf import mcf_estimation_functions as mcf_est
+from mcf.mcf_estimation_generic_functions import moving_avg_mean_var
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_init_functions as mcf_init
 from mcf import mcf_print_stats_functions as ps
@@ -58,7 +58,7 @@ def sensitivity_analysis(mcf_, train_df, predict_df, with_output, iate_df=None,
                 d_probs_str = [str(round(p * 100, 2)) + '%' for p in d_probs]
                 ps.print_mcf(mcf_.gen_dict,
                              f'\nSensitivity - Scenario: {scenario}, '
-                             f'Replication: {repl}, '
+                             f'Replication: {repl+1}, '
                              'Simulated treatment shares: '
                              f'{", ".join(d_probs_str)}',
                              summary=True)
@@ -76,11 +76,13 @@ def sensitivity_analysis(mcf_, train_df, predict_df, with_output, iate_df=None,
                 # No common support check if iate from main estimation available
             mcf_repl.gen_dict['with_output'] = False
             mcf_repl.int_dict['with_output'] = False
-            mcf_repl.gen_dict['verbose'] = mcf_repl.int_dict['verbose'] = False
+            mcf_repl.gen_dict['verbose'] = False
+            mcf_repl.int_dict['verbose'] = False
 
             # Estimate and predict
             mcf_repl.train(train_placebo_df)
-            results_repl.append(mcf_repl.predict(predict_df))
+            results_tmp, _ = mcf_repl.predict(predict_df)
+            results_repl.append(results_tmp)
         results_all_dict[scenario] = deepcopy(results_repl)
     results_avg_dict = average_sens_results(mcf_repl, results_all_dict)
     if with_output:
@@ -175,7 +177,7 @@ def plot_iate(mcf_, data_df, iate_df, name_iate):
     iate_sim = iate_sim[sorted_ind]
     iate_est = iate_est[sorted_ind]
     k = np.round(mcf_.p_dict['knn_const'] * np.sqrt(len(iate_sim)) * 2)
-    iate_sim = mcf_est.moving_avg_mean_var(iate_sim, k, False)[0]
+    iate_sim = moving_avg_mean_var(iate_sim, k, False)[0]
 
     file_name = mcf_.gen_dict['outpath'] + '/' + name_iate + 'plac_est.'
     file_name_jpeg = file_name + 'jpeg'
@@ -254,7 +256,7 @@ def print_output_gate(mcf_, results_avg_dict, scenario):
                         if idx == 0:
                             txt += '\n' + '- ' * 50
                         if len(mcf_.var_dict['y_name']) > 1 or idx == 0:
-                            txt += f'\nScenario: {scenario} {gate.upper()} '
+                            txt += f'\nScenario: {scenario} {gate.casefold()} '
                             txt += '(sensitivity) Outcome variable: '
                             txt += f'{out_name}'
                         else:
@@ -415,7 +417,7 @@ def get_treat_probs_del_treat(mcf_, data_df, with_output):
     """Estimate treatment probabilities in training data."""
     mcf_copy = deepcopy(mcf_)
     mcf_copy.gen_dict['with_output'] = False
-    data_df, _ = mcf_data.data_frame_vars_upper(data_df)
+    data_df, _ = mcf_data.data_frame_vars_lower(data_df)
     data_df = mcf_data.check_recode_treat_variable(mcf_copy, data_df)
 
     # Initialise again with data information (only relevant for simulation,

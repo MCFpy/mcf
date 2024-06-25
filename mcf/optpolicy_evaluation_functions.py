@@ -18,14 +18,21 @@ from mcf import mcf_print_stats_functions as ps
 from mcf import mcf_variable_importance_functions as mcf_vi
 
 
-def evaluate(optp_, data_df, allocation_df, d_ok, polscore_desc_ok, desc_var):
+def evaluate_fct(optp_, data_df, allocation_df, d_ok, polscore_ok,
+                 polscore_desc_ok, desc_var):
     """Evalute allocations."""
     var_dic, gen_dic = optp_.var_dict, optp_.gen_dict
+    # len_scores = optp_.number_scores
     allocations = allocation_df.columns
     results_dic = {}
     population = ['All', 'Switchers'] if d_ok else ['All']
     value, index = value_to_index_dic_fct(allocation_df['random'].to_numpy())
-    scores = data_df[var_dic['polscore_name']].to_numpy()
+
+    if polscore_ok:
+        scores = data_df[var_dic['polscore_name']].to_numpy()
+    else:
+        scores = None
+
     if polscore_desc_ok:
         scores_add = data_df[var_dic['polscore_desc_name']].to_numpy()
         no_of_vars = np.int16(np.around(scores_add.shape[1]
@@ -40,28 +47,35 @@ def evaluate(optp_, data_df, allocation_df, d_ok, polscore_desc_ok, desc_var):
         for alloc_name in allocations:
             alloc_np = np.int16(np.round(allocation_df[alloc_name].to_numpy()))
             if pop == 'Switchers':
+                if alloc_name == 'observed':
+                    continue
                 switcher = alloc_np != np.int16(np.round(
                     allocation_df['observed'].to_numpy()))
                 alloc_ = alloc_np[switcher]
-                scores_ = scores[switcher]
+                if polscore_ok:
+                    scores_ = scores[switcher]
                 if polscore_desc_ok:
                     scores_add_ = scores_add[switcher]
             else:
                 alloc_, scores_, = alloc_np, scores
                 scores_add_ = scores_add
+            len_scores = len(scores_) if polscore_ok else len(scores_add_)
             indices_ = alloc_.copy()
             for idx, val in enumerate(value):
                 indices_ = np.where(alloc_ == val, index[idx], indices_)
-            score_sel = scores_[np.arange(len(scores_)), indices_]
-            score_sel_new_df = pd.DataFrame(
-                score_sel, columns=(var_dic['polscore_name'][0]+'alloc',))
+            if polscore_ok:
+                score_sel = scores_[np.arange(len_scores), indices_]
+                score_sel_new_df = pd.DataFrame(
+                    score_sel, columns=(var_dic['polscore_name'][0]+'alloc',))
+            else:
+                score_sel_new_df = None
             if polscore_desc_ok:
                 scores_add_sel = np.zeros((len(scores_add_), no_of_vars))
                 score_all_sel_name = []
                 for idx, val_idx in enumerate(scores_add_idx):
                     scores_add_k = scores_add_[:, val_idx]
                     scores_add_sel[:, idx] = scores_add_k[
-                        np.arange(len(scores_)), indices_]
+                        np.arange(len_scores), indices_]
                     score_all_sel_name.append(
                         var_dic['polscore_desc_name'][val_idx[0]]+'alloc')
                 score_add_df = pd.DataFrame(scores_add_sel,
@@ -82,6 +96,8 @@ def evaluate(optp_, data_df, allocation_df, d_ok, polscore_desc_ok, desc_var):
                     alloc_np = np.int16(
                         np.round(allocation_df[alloc_name].to_numpy()))
                     if pop == 'Switchers':
+                        if alloc_name == 'observed':
+                            continue
                         switcher = alloc_np != np.int16(np.round(
                             allocation_df['observed'].to_numpy()))
                         alloc_ = alloc_np[switcher]
@@ -94,7 +110,7 @@ def evaluate(optp_, data_df, allocation_df, d_ok, polscore_desc_ok, desc_var):
                     if pop == 'Switchers':
                         txt += ' for switchers'
                     txt += '\n' + '-' * 100
-                    summary = not (alloc_name == 'random_rest')
+                    summary = not alloc_name == 'random_rest'
                     ps.print_mcf(gen_dic, txt, summary=summary)
                     ps.statistics_by_treatment(
                         gen_dic, data_new_df_, [alloc_name], desc_var,
@@ -111,23 +127,31 @@ def evaluation_of_alloc(optp_, results_dic, pop, alloc_name, score_sel_new_df,
     if desc_new_var_df is not None:
         desc_var = desc_new_var_df.columns
     txt = ''
+    score_ok = False if score_sel_new_df is None else True
     if titel:
-        scorevar = score_sel_new_df.columns
-        txt += ('\n' + '-' * 100 + '\n' + 'Mean of variables /'
-                ' treatment shares' + ' ' * 6 + f'{scorevar[0]:10}')
+        if score_ok:
+            scorevar = score_sel_new_df.columns
+            txt += ('\n' + '-' * 100 + '\n' + 'Mean of variables /'
+                    ' treatment shares' + ' ' * 6 + f'{scorevar[0]:10}')
+        else:
+            txt += ('\n' + '-' * 100 + '\n' + 'Mean of variables /'
+                    ' treatment shares')
+
         if desc_new_var_df is not None:
             for var in desc_var:
                 txt += f' {var:10s}'
+
         txt += ''.join([f'{s:8d}' for s in optp_.gen_dict['d_values']])
         txt += '\n'
     name = pop + ' ' + alloc_name
-    mean1 = score_sel_new_df.mean().to_list()
-    txt += f'{name:40} {mean1[0]:10.2f}'
-    local_dic[name] = mean1
+    mean1 = score_sel_new_df.mean().to_list() if score_ok else []
+    if score_ok:
+        txt += f'{name:40} {mean1[0]:10.4f}'
+        local_dic[name] = mean1
     if desc_new_var_df is not None:
         for var in desc_var:
             mean = desc_new_var_df[var].mean()
-            txt += f' {mean:10.2f}'
+            txt += f' {mean:10.4f}'
             local_dic[var] = mean
     local_dic['treatment share'] = get_treat_shares(allocation,
                                                     optp_.gen_dict['d_values'])
@@ -135,7 +159,7 @@ def evaluation_of_alloc(optp_, results_dic, pop, alloc_name, score_sel_new_df,
     txt += ' ' * 6 + ''.join(treat_shares_s)
     if optp_.gen_dict['with_output']:
         ps.print_mcf(optp_.gen_dict, txt, summary=True)
-    results_new_dic[alloc_name] = local_dic.copy()
+    results_new_dic[name] = local_dic.copy()
     return results_new_dic
 
 

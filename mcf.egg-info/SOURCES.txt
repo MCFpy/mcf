@@ -2,12 +2,14 @@ LICENSE
 README.txt
 setup.py
 mcf/__init__.py
+mcf/example_data_functions.py
 mcf/mcf_ate_functions.py
 mcf/mcf_common_support_functions.py
 mcf/mcf_cuda_functions.py
 mcf/mcf_data_functions.py
 mcf/mcf_estimation_cuda_functions.py
 mcf/mcf_estimation_functions.py
+mcf/mcf_estimation_generic_functions.py
 mcf/mcf_fair_iate_functions.py
 mcf/mcf_feature_selection_functions.py
 mcf/mcf_forest_add_functions.py
@@ -29,9 +31,11 @@ mcf/mcf_print_stats_functions.py
 mcf/mcf_sensitivity_functions.py
 mcf/mcf_variable_importance_functions.py
 mcf/mcf_weight_functions.py
+mcf/optpolicy_bb_cl_functions.py
 mcf/optpolicy_bb_functions.py
 mcf/optpolicy_data_functions.py
 mcf/optpolicy_evaluation_functions.py
+mcf/optpolicy_fair_functions.py
 mcf/optpolicy_functions.py
 mcf/optpolicy_init_functions.py
 mcf/optpolicy_pt_add_functions.py

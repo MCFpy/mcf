@@ -9,31 +9,32 @@ import numpy as np
 import pandas as pd
 
 
-def black_box_allocation(optp_, data_df, bb_rest_variable):
+def black_box_allocation(optp_, data_df, bb_rest_variable, seed=234356):
     """Compute various Black-Box allocations and return to main programme."""
-    rng = np.random.default_rng(234356)
+    rng = np.random.default_rng(seed)
     var_dic, ot_dic = optp_.var_dict, optp_.other_dict
     po_np = data_df[var_dic['polscore_name']].to_numpy()
     no_obs, no_treat = po_np.shape
     largest_gain = largest_gain_fct(po_np)
     allocations_df = pd.DataFrame(data=largest_gain,
-                                  columns=('bb_unrestricted',))
+                                  columns=('bb',))
     if ot_dic['restricted']:
         max_by_cat = np.int64(
             np.floor(no_obs * np.array(ot_dic['max_shares'])))
         random_rest = random_rest_fct(no_treat, no_obs, max_by_cat, rng)
-        allocations_df['random_rest'] = random_rest
+        allocations_df['bb_restrict_random'] = random_rest
         largest_gain_rest = largest_gain_rest_fct(
             po_np, no_treat, no_obs, max_by_cat, largest_gain)
-        allocations_df['largest_gain_rest'] = largest_gain_rest
+        allocations_df['bb_restrict_largest_gain'] = largest_gain_rest
         largest_gain_rest_random_order = largest_gain_rest_random_order_fct(
             po_np, no_treat, no_obs, max_by_cat, largest_gain, rng)
-        allocations_df['largest_gain_rest_random_order'
+        allocations_df['bb_restrict_largest_gain_random_order'
                        ] = largest_gain_rest_random_order
         if bb_rest_variable:
             largest_gain_rest_other_var = largest_gain_rest_other_var_fct(
                 po_np, no_treat, max_by_cat, var_dic, largest_gain, data_df)
-            name = 'largest_gain_rest_' + '_'.join(var_dic['bb_restrict_name'])
+            name = 'bb_restrict_largest_gain_' + '_'.join(
+                var_dic['bb_restrict_name'])
             allocations_df[name] = largest_gain_rest_other_var
     return allocations_df
 
@@ -53,7 +54,7 @@ def random_rest_fct(no_treat, no_obs, max_by_cat, rng, max_attempts=10):
             max_by_cat_draw = max_by_cat[draw]  # pylint: disable=E1136
             if so_far_by_cat[draw] <= max_by_cat_draw:
                 so_far_by_cat[draw] += 1
-                alloc[idx] = draw
+                alloc[idx] = draw[0]
                 break
     return alloc
 

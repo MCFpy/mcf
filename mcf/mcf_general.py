@@ -160,8 +160,9 @@ def adjust_var_name(var_to_check, var_names):
     """
     if var_to_check not in var_names:
         for name in var_names:
-            if (var_to_check.upper() == name.upper()) or (
-                    var_to_check.lower() == name.lower()):
+            if ((var_to_check.upper() == name.upper())
+                or (var_to_check.lower() == name.lower())
+                    or (var_to_check.casefold() == name.casefold())):
                 var_to_check = name
                 break
     return var_to_check
@@ -171,7 +172,7 @@ def cleaned_var_names(var_name):
     """Clean variable names.
 
     Cleaning variable by removing empty list and zero and None and putting
-    everything to upper case & removing duplicates
+    everything to lower case & removing duplicates
 
     Parameters
     ----------
@@ -189,7 +190,7 @@ def cleaned_var_names(var_name):
     if any(s is isinstance(s, (tuple, list)) for s in var_name):
         raise ValueError(f'{var_name} must be a list or tuple. It seems '
                          ' that it is list/tuple of lists/tuples.')
-    var_name1 = [s.upper() for s in var_name]
+    var_name1 = [s.casefold() for s in var_name]
     var_name2 = []
     for var in var_name1:
         if (var not in var_name2) and (var != '0') and (var != 0) and (
@@ -269,7 +270,7 @@ def recode_if_all_prime(values, name):
     new_name = name
     if is_prime:
         values_l = primeposition(values_l, start_with_1=False)
-        if name is not None and name.endswith('_PRIME'):
+        if name is not None and name.endswith('_prime'):
             new_name = name[:-6] + '(mayberec0)'
     return values_l, new_name
 
@@ -575,11 +576,11 @@ def include_org_variables(names, names_in_data):
     new_names = names[:]
     for name in names:
         if len(name) > 4:
-            if name.endswith('CATV') and name[:-4] in names_in_data:
+            if name.endswith('catv') and name[:-4] in names_in_data:
                 if name[:-4] not in names:
                     new_names.append(name[:-4])
             if len(name) > 6:
-                if name.endswith('_PRIME') and name[:-6] in names_in_data:
+                if name.endswith('_prime') and name[:-6] in names_in_data:
                     if name[:-6] not in names:
                         new_names.append(name[:-6])
     return new_names

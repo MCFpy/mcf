@@ -12,7 +12,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.5.0
+Version: 0.6.0
 
 This is an example to show the optimal policy package can be implemented with
 a minimum number of specification (it could be even more further simplified
@@ -23,8 +23,7 @@ method-specific parameters redundant).
 """
 import os
 
-import pandas as pd
-
+from mcf.example_data_functions import example_data
 from mcf.optpolicy_functions import OptimalPolicy
 from mcf.reporting import McfOptPolReport
 
@@ -32,48 +31,43 @@ from mcf.reporting import McfOptPolReport
 # ------------- NOT passed to OptimalPolicy -----------------------------------
 #  Define data to be used in this example
 APPLIC_PATH = os.getcwd() + '/example'
-DATPATH = APPLIC_PATH + '/data'
-TRAINDATA = 'data_x_ps_1_1000.csv'
-#  'best_policy_score': Training data must contain policy scores.
-#  'policy tree': Training data must contain policy scores and features.
-PREDDATA = 'data_x_ps_2_1000.csv'
-#  'best_policy_score': Prediction data must contain policy scores.
-#  'policy tree': Prediction data must contain features that are used in
-#                 training. Policy scores are not required.
 
-METHODS = ('best_policy_score', 'policy tree',)  # Tuple used to set GEN_METHOD
+training_df, prediction_df, name_dict = example_data()
+
+# ------------- Methods used in Optimal Policy Module --------------------------
+METHODS = ('best_policy_score', 'policy tree',)
+#  Tuple used to set GEN_METHOD in this example
 #  Currently valid methods are: 'best_policy_score', 'policy tree',
-#     'policy tree old'
+#  'policy tree old'
 
-# -------- All what follows are parameters of the ModifiedCausalForest --------
-#   Whenever, None is specified, parameter will set to default values.
+# -------- All what follows are parameters of the OptimalPolicy --------
+#   Whenever None is specified, parameter be will set to default values.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-VAR_POLSCORE_NAME = ('YLC0_pot', 'YLC1_pot', 'YLC2_Pot', 'YLC3_Pot')
+VAR_POLSCORE_NAME = ('y_pot0', 'y_pot1', 'y_pot2')
 #   Treatment specific variables to measure the value of individual treatments.
 #   This is ususally the estimated potential outcome or any other score related
 
-VAR_X_NAME_ORD = ('CONT0',)  # Alternatively specify VAR_X_NAME_UNORD
+VAR_X_NAME_ORD = ('x_cont0',)  # Alternatively specify VAR_X_NAME_UNORD
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-train_df = pd.read_csv(DATPATH + '/' + TRAINDATA)
-pred_df = pd.read_csv(DATPATH + '/' + PREDDATA)
+if not os.path.exists(APPLIC_PATH):
+    os.makedirs(APPLIC_PATH)
 
 for method in METHODS:
     myoptp = OptimalPolicy(gen_method=method,
                            var_polscore_name=VAR_POLSCORE_NAME,
                            var_x_name_ord=VAR_X_NAME_ORD)
 
-    alloc_train_df = myoptp.solve(train_df, data_title=TRAINDATA)
+    alloc_train_df, _, _ = myoptp.solve(training_df, data_title='training')
 
-    results_eva_train = myoptp.evaluate(alloc_train_df, train_df,
-                                        data_title=TRAINDATA)
+    results_eva_train, _ = myoptp.evaluate(alloc_train_df, training_df,
+                                           data_title='training')
 
-    alloc_pred_df = myoptp.allocate(pred_df, data_title=PREDDATA)
+    alloc_pred_df, _ = myoptp.allocate(prediction_df, data_title='prediction')
 
-    results_eva_pred = myoptp.evaluate(alloc_pred_df, pred_df,
-                                       data_title=PREDDATA)
+    results_eva_pred, _ = myoptp.evaluate(alloc_pred_df, prediction_df,
+                                          data_title='prediction')
     my_report = McfOptPolReport(
         optpol=myoptp, outputfile='Report_OptP_' + method)
     my_report.report()

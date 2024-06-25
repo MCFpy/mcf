@@ -16,6 +16,8 @@ import ray
 
 from mcf import mcf_ate_functions as mcf_ate
 from mcf import mcf_estimation_functions as mcf_est
+from mcf.mcf_estimation_generic_functions import bandwidth_nw_rule_of_thumb
+from mcf.mcf_estimation_generic_functions import kernel_proc
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
 from mcf import mcf_print_stats_functions as ps
@@ -160,7 +162,7 @@ def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
         z_values, z_smooth = z_values_l[z_name_j], z_smooth_l[z_name_j]
         if z_smooth:
             kernel = 1  # Epanechikov
-            bandw_z = mcf_est.bandwidth_nw_rule_of_thumb(z_p[:, z_name_j])
+            bandw_z = bandwidth_nw_rule_of_thumb(z_p[:, z_name_j])
             bandw_z = bandw_z * p_dic['gates_smooth_bandwidth']
         else:
             kernel = bandw_z = None
@@ -398,10 +400,10 @@ def ref_data_bgate(data_df, z_name, int_dic, p_dic, eva_values, bgate_name):
     no_eval, obs, txt = len(eva_values), len(data_df), ''
     if z_name in bgate_name:
         bgate_name.remove(z_name)
-    if z_name.endswith('CATV') and z_name[:-4] in bgate_name:
+    if z_name.endswith('catv') and z_name[:-4] in bgate_name:
         bgate_name.remove(z_name[:-4])
-    if z_name + 'CATV' in bgate_name:  # the continuous variable
-        bgate_name.remove(z_name + 'CATV')
+    if z_name + 'catv' in bgate_name:  # the continuous variable
+        bgate_name.remove(z_name + 'catv')
     if not bgate_name:
         raise ValueError('BGATE {z_name}: No variables left for balancing.')
     if obs/no_eval > 10:  # Save computation time by using random samples
@@ -519,7 +521,7 @@ def addsmoothvars(data_df, var_dic, var_x_values, p_dic):
 
     """
     smooth_yes, z_name = False, var_dic['z_name']
-    z_name_add = [name[:-4] for name in z_name if (name.endswith('CATV')
+    z_name_add = [name[:-4] for name in z_name if (name.endswith('catv')
                                                    and (len(name) > 4))]
     if z_name_add:
         smooth_yes = True
@@ -653,7 +655,7 @@ def gate_zj(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
                                 w_ate, w10, w01)
                             ret2 = mcf_est.weight_var(
                                 w_diff_cont, y_dat[:, o_idx], cl_dat, gen_dic,
-                                p_dic, norm=False, weights=w_dat,
+                                p_dic, normalize=False, weights=w_dat,
                                 bootstrap=p_dic['se_boot_gate'],
                                 keep_all=int_dic['keep_w0'])
                             y_pot_mate_zj[a_idx, ti_idx, o_idx] = ret2[0]
@@ -671,7 +673,7 @@ def gate_zj(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
                     if int_dic['with_output']:
                         ret2 = mcf_est.weight_var(
                             w_diff, y_dat[:, o_idx], cl_dat,
-                            gen_dic, p_dic, norm=False, weights=w_dat,
+                            gen_dic, p_dic, normalize=False, weights=w_dat,
                             bootstrap=p_dic['se_boot_gate'],
                             keep_all=int_dic['keep_w0'])
                         y_pot_mate_zj[a_idx, t_idx, o_idx] = ret2[0]
@@ -774,7 +776,7 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
                                 w_ate, w10, w01)
                             ret2 = mcf_est.weight_var(
                                 w_diff_cont, y_dat[:, o_idx], cl_dat, gen_dic,
-                                p_dic, norm=False, weights=w_dat,
+                                p_dic, normalize=False, weights=w_dat,
                                 bootstrap=p_dic['se_boot_gate'],
                                 keep_all=int_dic['keep_w0'])
                             y_pot_mate_zj[a_idx, ti_idx, o_idx] = ret2[0]
@@ -792,7 +794,7 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
                     if int_dic['with_output']:
                         ret2 = mcf_est.weight_var(
                             w_diff, y_dat[:, o_idx], cl_dat, gen_dic,
-                            p_dic, norm=False, weights=w_dat,
+                            p_dic, normalize=False, weights=w_dat,
                             bootstrap=p_dic['se_boot_gate'],
                             keep_all=int_dic['keep_w0'])
                         y_pot_mate_zj[a_idx, t_idx, o_idx] = ret2[0]
@@ -834,7 +836,7 @@ def get_w_rel_z(z_dat, z_val, weights_all, smooth_it, bandwidth=1, kernel=1,
 
     """
     if smooth_it:
-        w_z_val = mcf_est.kernel_proc((z_dat - z_val) / bandwidth, kernel)
+        w_z_val = kernel_proc((z_dat - z_val) / bandwidth, kernel)
         relevant_data_points = w_z_val > 1e-10
         w_z_val = w_z_val[relevant_data_points]
         w_z_val = w_z_val / np.sum(w_z_val) * len(w_z_val)  # Normalise

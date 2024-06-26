@@ -114,23 +114,28 @@ Example
 
 .. code-block:: python
 
+   from mcf.example_data_functions import example_data
+   from mcf.optpolicy_functions import OptimalPolicy
+   
+   # Generate example data using the built-in function `example_data()`
+   training_df, prediction_df, name_dict = example_data()
+   
    my_policy_tree = OptimalPolicy(
-       var_d_name="d",
-       var_polscore_name=["Y_LC0_un_lc_pot", "Y_LC1_un_lc_pot", "Y_LC2_un_lc_pot"],
-       var_x_name_ord=["x1", "x2"],
-       gen_method="policy tree", 
-       # Standard errors of effects relative to treatment zero
-       var_effect_vs_0_se = ('YLC1vs0_iate_se', 'YLC2vs0_iate_se', 'YLC3vs0_iate_se'), 
+       var_d_name="treat",
+       var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
+       var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
+       gen_method="policy tree",
+       #  Effects of treatment relative to treatment zero
+       var_effect_vs_0 = ['iate1vs0', 'iate2vs0'], 
        # Minimum leaf size
-       pt_min_leaf_size = None, 
+       pt_min_leaf_size = None,
        # Maximum share allowed for each treatment (as many elements as treatment (d))
        other_max_shares = (1,1,1),
        # Treatment specific costs
-       other_costs_of_treat = None, 
+       other_costs_of_treat = None,
        # Multiplier of automatically determined cost values
        other_costs_of_treat_mult = None
        )
-
 
 
 Computational speed 
@@ -167,15 +172,13 @@ Example
 .. code-block:: python
 
    my_policy_tree = OptimalPolicy(
-       var_d_name="d",
-       var_polscore_name=["Y_LC0_un_lc_pot", "Y_LC1_un_lc_pot", "Y_LC2_un_lc_pot"],
-       var_x_name_ord=["x1", "x2"],
+       var_d_name="treat",
+       var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
+       var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
        gen_method="policy tree",
        # Depth of 1st optimal tree (Default is 3)
-       pt_depth_tree_1 = 2, 
+       pt_depth_tree_1 = 2,
        # Depth of 2nd optimal tree (Default is 1)
-       pt_depth_tree_2 = 0, 
+       pt_depth_tree_2 = 0,
        # Number of evaluation points for continuous variables
-       pt_no_of_evalupoints = 100
-       )
-
+       pt_no_of_evalupoints = 100)

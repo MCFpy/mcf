@@ -184,7 +184,7 @@ You can extract these, for example, using:
 
     results_dict.get('iate_data_df')['outcome_lc0_pot']
 
-The columns ``outcome_lc1vs0_iate``, ``outcome_lc2vs0_iate``, and ``outcome_lc2vs1_iate` give you the estimated :math:`\textrm{IATE's}`. As before, these contrast the respective treatment levels.
+The columns ``outcome_lc1vs0_iate``, ``outcome_lc2vs0_iate``, and ``outcome_lc2vs1_iate`` give you the estimated :math:`\textrm{IATE's}`. As before, these contrast the respective treatment levels.
 
 .. code-block:: python
 

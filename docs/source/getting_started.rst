@@ -99,13 +99,13 @@ We recommend you specify your preferred location for the output folder using the
 Training a Modified Causal Forest
 -----------------------------------
 
-Next we will train the Modified Causal Forest on the *train_mcf_df* data using the :py:meth:`~mcf_functions.ModifiedCausalForest.train` method:
+Next we will train the Modified Causal Forest on the ``train_mcf_df`` data using the :py:meth:`~mcf_functions.ModifiedCausalForest.train` method:
 
 .. code-block:: python
 
     my_mcf.train(training_df)
 
-Now we are ready to estimate heterogeneous treatment effects on the *pred_mcf_train_pt_df* data using the :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method.
+Now we are ready to estimate heterogeneous treatment effects on the ``pred_mcf_train_pt_df`` data using the :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method.
 
 .. code-block:: python
 

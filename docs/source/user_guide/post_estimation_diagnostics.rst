@@ -12,21 +12,26 @@ To conduct *any* post-estimation diagnostics, the parameter ``post_est_stats`` o
 
 .. code-block:: python
 
-    from mcf import ModifiedCausalForest
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
     from mcf import McfOptPolReport
-
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
+    
     my_mcf = ModifiedCausalForest(
-            var_y_name="y",
-            var_d_name="d",
-            var_x_name_ord=["x1", "x2", "female"],
-            var_x_name_unord=["occupation"],
+            var_y_name="outcome",
+            var_d_name="treat",
+            var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
+            var_x_name_unord=["x_unord0"],
             # Enable post-estimation diagnostics
             post_est_stats=True
         )
-
-    my_mcf.train(df)
-    results = my_mcf.predict(df)
-
+    
+    my_mcf.train(training_df)
+    results, _  = my_mcf.predict(prediction_df)
+    
     post_estimation_diagnostics = my_mcf.analyse(results)
 
 The easiest way to to inspect the results of the post-estimation diagnostics, is to read the PDF-report that can be generated using the class :py:class:`~reporting.McfOptPolReport`:
@@ -64,23 +69,27 @@ To analyze heterogeneity in different groups (clusters), you can conduct :math:`
 
 .. code-block:: python
 
-    from mcf import ModifiedCausalForest
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
     from mcf import McfOptPolReport
-
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
     my_mcf = ModifiedCausalForest(
-            var_y_name="y",
-            var_d_name="d",
-            var_x_name_ord=["x1", "x2", "female"],
-            var_x_name_unord=["occupation"],
+            var_y_name="outcome",
+            var_d_name="treat",
+            var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
+            var_x_name_unord=["x_unord0"],
             post_est_stats=True,
             # Perform k-means clustering
             post_kmeans_yes=True
         )
-
-    my_mcf.train(df)
-    results = my_mcf.predict(df)
-
-    post_estimation_diagnostics = my_mcf.analyse(results)
+    
+    my_mcf.train(training_df)
+    results, _  = my_mcf.predict(prediction_df)
+    
+    post_estimation_diagnostics, _ = my_mcf.analyse(results)
 
 The report obtained through the class :py:class:`~reporting.McfOptPolReport` will contain descriptive statistics of the :math:`\text{IATE's}`, the potential outcomes and the features for each cluster. 
 
@@ -144,14 +153,18 @@ Example
 
 .. code-block:: python
 
-    from mcf import ModifiedCausalForest
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
     from mcf import McfOptPolReport
-
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
     my_mcf = ModifiedCausalForest(
-            var_y_name="y", 
-            var_d_name="d",
-            var_x_name_ord=["x1", "x2", "female"],
-            var_x_name_unord=["occupation"],
+            var_y_name="outcome",
+            var_d_name="treat",
+            var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
+            var_x_name_unord=["x_unord0"],
             p_ci_level=0.95,
             # Parameters for post-estimation diagnostics
             post_est_stats=True,
@@ -165,16 +178,16 @@ Example
             post_random_forest_vi=True,
             post_plots=True
         )
-
-    my_mcf.train(df)
-    results = my_mcf.predict(df)
-
+    
+    my_mcf.train(training_df)
+    results, _  = my_mcf.predict(prediction_df)
+    
     # Compute the post-estimation diagnostics
-    post_estimation_diagnostics = my_mcf.analyse(results)
-
+    post_estimation_diagnostics, _ = my_mcf.analyse(results)
+    
     # Access cluster memberships (column 'IATE_Cluster')
     post_estimation_diagnostics["iate_data_df"]
-
+    
     # Produce a PDF-report with the results, including post-estimation diagnostics
     mcf_report = McfOptPolReport(mcf=my_mcf, outputfile='Modified-Causal-Forest_Report')
     mcf_report.report()

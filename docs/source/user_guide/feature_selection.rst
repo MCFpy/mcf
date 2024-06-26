@@ -35,15 +35,20 @@ Example
 
 .. code-block:: python
 
-    from mcf import ModifiedCausalForest
-
-    ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
+    my_mcf = ModifiedCausalForest(
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
         # Parameters for feature selection:
         fs_yes=True,
         fs_other_sample=True,
         fs_other_sample_share=0.1,
         fs_rf_threshold=0.5
     )
+       

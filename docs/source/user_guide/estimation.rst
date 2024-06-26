@@ -36,10 +36,16 @@ Another way to access the estimated :math:`\textrm{ATE's}` is through the output
 
 .. code-block:: python
 
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2"]
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1"]
     )
     my_mcf.gen_dict["outpath"]
 
@@ -60,10 +66,16 @@ Example
 
 .. code-block:: python
 
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1"],
         # Estimate IATE's but not their standard errors
         p_iate = True,
         p_iate_se = False
@@ -77,15 +89,22 @@ The average treatment effects for the treated are estimated by the :py:meth:`~mc
 
 .. code-block:: python
 
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1"],
         # Estimating ATET's
         p_atet = True
     )
-    my_mcf.train(my_data)
-    results = my_mcf.predict(my_data)
+    
+    my_mcf.train(training_df)
+    results, _ = my_mcf.predict(prediction_df)
 
 The :math:`\textrm{ATET's}` are, similar to the :math:`\textrm{ATE's}`, stored in the `"ate"` entry of the dictionary returned by the :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method. This entry will then contain both the estimated :math:`\textrm{ATET's}` as well as the :math:`\textrm{ATE's}`. The output that is printed to the console during prediction will present you a table with all estimated :math:`\textrm{ATE's}` and :math:`\textrm{ATET's}`, which should give you a good idea of the structure of the `"ate"` entry in the result dictionary.
 
@@ -114,15 +133,22 @@ Group average treatment effects are estimated by the :py:meth:`~mcf_functions.Mo
 
 .. code-block:: python
 
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
+        var_y_name="outcome",
+        var_d_name="treat",
         # define binary variables as ordered for faster performance
-        var_x_name_ord=["x1", "x2", "female"],
+        var_x_name_ord=["x_cont0", "x_cont1"],
         # Specify the unordered heterogeneity variable 'female' for GATE estimation
-        var_z_name_unord=["occupation"]
+        var_z_name_unord=["x_unord0"]
     )
-    results = my_mcf.predict(my_data)
+    my_mcf.train(training_df)
+    results = my_mcf.predict(training_df)
 
 You can access the estimated :math:`\textrm{GATE's}` and their standard errors through their corresponding entries in the dictionary that is returned by the :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method:
 
@@ -145,11 +171,11 @@ To estimate the :math:`\textrm{GATE's}` for subpopulations defined by treatment 
 .. code-block:: python
 
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2", "female"],
-        var_z_name_unord=["occupation"],
-        # Estimate the GATE's for 'female' by treatment status
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1"],
+        var_z_name_unord=["x_unord0"],
+        # Estimate the GATE's for var_z_name_unord by treatment status
         p_gatet = True
     )
 
@@ -159,15 +185,15 @@ smooth the distribution of the variable. The smoothing procedure evaluates the e
 .. code-block:: python
 
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2", "female"],
-        # Specify the continuous heterogeneity variable 'age' for GATE estimation
-        var_z_name_list=["age"],
-        # Smoothing the distribution of the continuous variable 'age' for GATE estimation
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1"],
+        # Specify the continuous heterogeneity variable for GATE estimation
+        var_z_name_list=["x_ord0"],
+        # Smoothing the distribution of the continuous variable for GATE estimation
         p_gates_smooth = True,
-        # The number of evaluation points is set to 40 
-        p_gates_smooth_no_evalu_points = 40 
+        # The number of evaluation points is set to 40
+        p_gates_smooth_no_evalu_points = 40
     )
 
 Instead of smoothing continuous heterogeneity variables, you can also discretize them and estimate GATE's for the resulting categories. This can be done by setting the parameter ``p_gates_smooth`` of the class :py:class:`~mcf_functions.ModifiedCausalForest` to False. The maximum number of categories for discretizing continuous variables can be specified through the parameter ``p_max_cats_z_vars``.
@@ -175,16 +201,17 @@ Instead of smoothing continuous heterogeneity variables, you can also discretize
 .. code-block:: python
 
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2", "female"],
-        # Specify the continuous heterogeneity variable 'age' for GATE estimation
-        var_z_name_list=["age"],
-        # Discretizing the continuous variable 'age' for GATE estimation
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1"],
+        # Specify the continuous heterogeneity variable for GATE estimation
+        var_z_name_list=["x_ord0"],
+        # Discretizing the continuous variable for GATE estimation
         p_gates_smooth = False,
-        # The maximum number of categories for discretizing 'age' is set to 5
+        # The maximum number of categories for discretizing is set to 5
         p_max_cats_z_vars = 5
     )
+
 
 Below you find a list of the discussed parameters that are relevant for the estimation of :math:`\textrm{GATE's}`. Please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` for more details or additional parameters on :math:`\textrm{GATE}` estimation.
 
@@ -222,9 +249,10 @@ Example
 .. code-block:: python
 
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2", "female"],
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1"],
         # Truncate weights to an upper threshold of 0.01
         p_max_weight_share = 0.01
     )
+

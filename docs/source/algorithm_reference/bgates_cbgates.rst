@@ -56,27 +56,38 @@ Examples
 
 .. code-block:: python
 
-    my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
-        # Variables to balance the GATEs on
-        var_bgate_name=["age"], 
-        # Estimate a balanced GATE in selected features
-        p_bgate=True,  
-        # Random samples to speed up the programme
-        p_bgate_sample_share = None
-    )
+   from mcf.example_data_functions import example_data
+   from mcf.mcf_functions import ModifiedCausalForest
+   
+   # Generate example data using the built-in function `example_data()`
+   training_df, prediction_df, name_dict = example_data()
+   
+   my_mcf = ModifiedCausalForest(
+       var_y_name="outcome",
+       var_d_name="treat",
+       var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
+       # Variables to balance the GATEs on
+       var_bgate_name=["x_unord0"],
+       # Estimate a balanced GATE in selected features
+       p_bgate=True,
+       # Random samples to speed up the programme
+       p_bgate_sample_share = None
+   )
+   
+   my_mcf.train(training_df)
+   results, _ = my_mcf.predict(prediction_df)
 
 
 .. code-block:: python
 
-    my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
-        var_bgate_name=["age"], 
-        # Estimate a GATE that is balanced in all other features
-        p_cbgate=True 
-    )
-
+   my_mcf = ModifiedCausalForest(
+       var_y_name="outcome",
+       var_d_name="treat",
+       var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
+       var_bgate_name=["x_unord0"],
+       # Estimate a GATE that is balanced in all other features
+       p_cbgate=True
+   )
+   
+   my_mcf.train(training_df)
+   results, _ = my_mcf.predict(prediction_df)

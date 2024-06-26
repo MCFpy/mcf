@@ -85,93 +85,87 @@ To demonstrate how to use **mcf**, let's simulate some data and apply the Modifi
 
     import numpy as np
     import pandas as pd
-
+    
+    from mcf.example_data_functions import example_data
     from mcf import ModifiedCausalForest
     from mcf import OptimalPolicy
     from mcf import McfOptPolReport
-
-    def simulate_data(n: int, seed: int) -> pd.DataFrame:
-        """
-        Simulate data with treatment 'd', outcome 'y', an unordered control
-        variable 'occupation' with three unique values, and three ordered 
-        controls 'x1', 'x2', and 'female'.
-
-        Parameters:
-        - n (int): Number of observations in the simulated data.
-        - seed (int): Seed for the random number generator.
-
-        Returns:
-        pd.DataFrame: Simulated data in a Pandas DataFrame.
-
-        """
-        rng = np.random.default_rng(seed)
-
-        d = rng.integers(low=0, high=1, size=n, endpoint=True)  
-        occupation = rng.choice([1, 2, 3], size=n)  
-        female = rng.integers(low=0, high=1, size=n, endpoint=True)
-        x_ordered = rng.normal(size=(n, 2))
-        y = (x_ordered[:, 0] +
-            x_ordered[:, 1] * (d == 1) +
-            x_ordered[:, 1] * (d == 2) +
-            0.5 * female +
-            0.5 * occupation +  
-            rng.normal(size=n))
-
-        data = {"y": y, "d": d, "female": female, "occupation": occupation}  
-
-        for i in range(x_ordered.shape[1]):
-            data["x" + str(i + 1)] = x_ordered[:, i]
-
-        return pd.DataFrame(data)
-
-    df = simulate_data(n=100, seed=1234)
-
-    # Create an instance of class ModifiedCausalForest:
+    
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
+    # Create an instance of the Modified Causal Forest model
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        # define binary variables as ordered for faster performance
-        var_x_name_ord=["x1", "x2", "female"],
-        var_x_name_unord=["occupation"],
-        _int_show_plots=False
+        var_y_name="outcome",  # Outcome variable
+        var_d_name="treat",    # Treatment variable
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],  # Ordered covariates
+        var_x_name_unord=["x_unord0"],  # Unordered covariate
+        _int_show_plots=False  # Disable plots for faster performance
     )
-
-    # Train the Modified Causal Forest on the simulated data and predict treatment
-    # effects in-sample:
-    my_mcf.train(df)
-    results = my_mcf.predict(df)
-
-    # The 'results' dictionary contains the estimated treatment effects:
-    print(results.keys())
-
-    print(results["ate"])  # Average Treatment Effect (ATE)
-    print(results["ate_se"])  # Standard Error (SE) of the ATE
-
-    # DataFrame with Individualized Treatment Effects (IATE) and potential outcomes
-    print(results["iate_data_df"])
-
-
-    # Create an instance of class OptimalPolicy:
+    
+    # Train the Modified Causal Forest on the training data
+    my_mcf.train(training_df)
+    # Predict treatment effects using the model on prediction data
+    results = my_mcf.predict(prediction_df)
+    
+    # The `results` object is a tuple with two elements:
+    # 1. A dictionary containing all estimates
+    results[0]
+    # 2. A string with the path to the results location
+    results[1] 
+       
+    # Extract the dictionary of estimates
+    results_dict = results[0]
+    
+    # Access the Average Treatment Effect (ATE)
+    ate_array = results_dict.get('ate')
+    print("Average Treatment Effect (ATE):\n", ate_array)
+    
+    # Access the Standard Error of the ATE
+    ate_se_array = results_dict.get('ate_se')
+    print("\nStandard Error of ATE:\n", ate_se_array)
+    
+    # Access the Individualized Treatment Effects (IATE)
+    iate_array = results_dict.get('iate')
+    print("\nIndividualized Treatment Effects (IATE):\n", iate_array)
+    
+    # Access the DataFrame of Individualized Treatment Effects
+    iate_df = results_dict.get('iate_data_df')
+    print("\nDataFrame of Individualized Treatment Effects:\n", iate_df)
+    
+    
+    # Create an instance of the OptimalPolicy class:
     my_optimal_policy = OptimalPolicy(
-        var_d_name="d",
-        var_polscore_name=["Y_LC0_un_lc_pot", "Y_LC1_un_lc_pot"],
-        var_x_name_ord=["x1", "x2", "female"],
-        var_x_name_unord=["occupation"]
+        var_d_name="treat",
+        var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
+        var_x_name_unord=["x_unord0"]
         )
-
+    
     # Learn an optimal policy rule using the predicted potential outcomes
-    alloc_df = my_optimal_policy.solve(results["iate_data_df"])
-
-    # Evaluate the optimal policy rule on the simulated data:
-    my_optimal_policy.evaluate(alloc_df, results["iate_data_df"])
-
-    # Compare the optimal policy rule to the observed and a random allocation:
-    print(alloc_df)
-
-    # Produce a PDF-report that summarises the most important results
-    my_report = McfOptPolReport(mcf=my_mcf, optpol=my_optimal_policy,
+    alloc_train_df, _, _ = my_optimal_policy.solve(training_df, data_title='training')
+    
+    # Evaluate the optimal policy rule on the training data:
+    results_eva_train, _ = my_optimal_policy.evaluate(alloc_train_df, training_df,
+                                               data_title='training')
+    
+    # Allocate observations to treatment state using the prediction data
+    alloc_pred_df, _ = my_optimal_policy.allocate(prediction_df, data_title='prediction')
+    
+    # Evaluate allocation with potential outcome data.
+    results_eva_pred, _ = my_optimal_policy.evaluate(alloc_pred_df, prediction_df,
+                                              data_title='prediction')
+        
+    # Allocation DataFrame for the training set
+    print(alloc_train_df)
+    
+    # Produce a PDF-report that summarises the results
+    my_report = McfOptPolReport(mcf=my_mcf, 
+                                optpol=my_optimal_policy,
                                 outputfile='mcf_report')
     my_report.report()
+
 
 For a more detailed example, see the :doc:`getting_started` section.
 

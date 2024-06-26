@@ -12,7 +12,7 @@ This guide will walk you through using the **mcf** package to
 Example data
 ^^^^^^^^^^^^^^^^
 
-First, we will use the :py:meth:`example_data` function which generates synthetic datasets for training and prediction. It creates training (*train_df*) and prediction (*pred_df*) DataFrames with a specified number of observations, features, and treatments, allowing for various heterogeneity types ('linear', 'nonlinear', 'quadratic', 'WagerAthey'). 
+First, we will use the :py:meth:`example_data` function which generates synthetic datasets for training and prediction. It creates training (``train_df``) and prediction (``pred_df``) DataFrames with a specified number of observations, features, and treatments, allowing for various heterogeneity types ('linear', 'nonlinear', 'quadratic', 'WagerAthey'). 
 By default, it produces 1000 observations for both training and prediction, with 20 features and 3 treatments. The function also returns ``name_dict``, a dictionary containing the names of variable groups. For more details, visit the :doc:`python_api`.
 
 .. code-block:: python

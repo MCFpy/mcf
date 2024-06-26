@@ -179,16 +179,19 @@ The estimated :math:`\textrm{IATE's}`, together with the predicted potential out
 
 Let us build on the previous example with three treatment levels, 0, 1, and 2. The columns :py:meth:`outcome_lc0_pot`, :py:meth:`outcome_lc1_pot`, and :py:meth:`outcome_lc2_pot` represent the *predicted* potential outcomes under the respective treatment level.
 You can extract these, for example, using:
+
 .. code-block:: python
 
     results_dict.get('iate_data_df')['outcome_lc0_pot']
 
 The columns :py:meth:`outcome_lc1vs0_iate`, :py:meth:`outcome_lc2vs0_iate`, and :py:meth:`outcome_lc2vs1_iate` give you the estimated :math:`\textrm{IATE's}`. As before, these contrast the respective treatment levels.
+
 .. code-block:: python
 
     results_dict.get('iate_data_df')['outcome_lc1vs0_iate']
 
 To see what estimates you have access to for your specific estimation, you can check the keys of the :math:`\textrm{ATE's}` dictionary:
+
 .. code-block:: python
 
     results_dict.get('iate_data_df').keys()

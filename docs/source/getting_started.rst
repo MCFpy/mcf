@@ -52,9 +52,8 @@ as follows:
         _int_show_plots=False  # Disable plots for faster performance
     )
 
-
 Accessing and customizing output location
-=========================================
+------------------------------------------
 
 The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder where these results are stored.
 Any method you are using, returns the location of these output files as last return (the reporting method returns the full file name of the pdf file in addition). 
@@ -65,6 +64,9 @@ Manually, you can find the location of the output folder by accessing the `"outp
     my_mcf.gen_dict["outpath"]
 
 We recommend you specify your preferred location for the output folder using the ``gen_outpath`` parameter of the class :py:class:`~mcf_functions.ModifiedCausalForest`.
+
+Frequently used parameters
+--------------------------
 
 Below you find a selected list of optional parameters that are often used to initialize a Modified Causal Forest. For a more detailed description of these parameters, please refer to the documentation of :py:class:`~mcf_functions.ModifiedCausalForest`.
 

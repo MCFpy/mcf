@@ -26,14 +26,18 @@ The results of the balancing tests are part of the txt-file in the output folder
 
 .. code-block:: python
 
-    from mcf import ModifiedCausalForest
-
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord="x"
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord="x_cont0"
         )
-
+    
     my_mcf.gen_dict["outpath"]
 
 Example
@@ -41,21 +45,25 @@ Example
 
 .. code-block:: python
 
-    from mcf import ModifiedCausalForest
-
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2", "female"],
-        var_x_name_unord=["occupation"],
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
+        var_x_name_unord=["x_unord0"],
         # Parameters for balancing tests:
         p_bt_yes=True,
-        var_x_balance_name_ord=["x1", "x2", "female"],
-        var_x_balance_name_unord=["occupation"]
+        var_x_balance_name_ord=["x_cont0", "x_cont1", "x_ord1"],
+        var_x_balance_name_unord=["x_unord0"]
     )
     
-    my_mcf.train(df)
-    results = my_mcf.predict(df)
+    my_mcf.train(training_df)
+    results, _ = my_mcf.predict(prediction_df)
 
 
 Sensitivity checks

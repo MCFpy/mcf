@@ -148,7 +148,7 @@ Group average treatment effects are estimated by the :py:meth:`~mcf_functions.Mo
         var_z_name_unord=["x_unord0"]
     )
     my_mcf.train(training_df)
-    results = my_mcf.predict(training_df)
+    results, _ = my_mcf.predict(training_df)
 
 You can access the estimated :math:`\textrm{GATE's}` and their standard errors through their corresponding entries in the dictionary that is returned by the :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method:
 

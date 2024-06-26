@@ -39,19 +39,20 @@ General
 Changes concerning all classes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-   - Variable names are case insensitive in the package. So far this has been
-     achieved by converting all names to uppercase. This is now changed by
-     converting names to lowercase using the casefold() methods which is more
-     robust than the upper() and lower() methods.
-   - If variables with only two different values are passed as 'unordered' a
-     value error is raised. These variables should appear in the category of
-     'ordered' variables.  
+- **Variable names are case insensitive in the package**
+
+    - So far this has been achieved by converting all names to uppercase. This is now changed by converting names to lowercase using the casefold() methods which is more robust than the upper() and lower() methods.
+    
+- **New value error**
+
+    - If variables with only two different values are passed as 'unordered' a value error is raised. These variables should appear in the category of 'ordered' variables.  
 
 Changes concerning all methods
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-   - All methods return the location of the output files on the computer as last
-     return (the reporting method is an exception as it returns the full file
-     name of the pdf file, not just the location).
+
+- **Location of the output files**
+
+    - All methods return the location of the output files on the computer as last return (the reporting method is an exception as it returns the full file name of the pdf file, not just the location).
 
 Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -59,38 +60,47 @@ Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
 Bug fixes
 +++++++++
 
-- Local centering using classifiers is disabled (implementation was incorrect for discrete outcomes with less than 10 values).
-- Data used to build common support plots are now properly created as DataFrames (instead of lists) and stored in csv files (as before).
+    - Local centering using classifiers is disabled (implementation was incorrect for discrete outcomes with less than 10 values).
+    - Data used to build common support plots are now properly created as DataFrames (instead of lists) and stored in csv files (as before).
 
 Change of default values
 +++++++++++++++++++++++++++
 
--   p_ci_level: The default significance levels used for the width of computing confidence intervals is changed from 90% to the more conventional 95%.
-- _int_cuda: As the gains in speed (on respective servers that run cuda) are currently slow, this experimental feature defaults to False.
+    - **p_ci_level**: The default significance levels used for the width of computing confidence intervals is changed from 90% to the more conventional 95%.
+    - **_int_cuda**: As the gains in speed (on respective servers that run cuda) are currently slow, this experimental feature defaults to False.
 
 
 Additional features and new keywords
 +++++++++++++++++++++++++++++++++++++++++
 
-- New keyword: post_k_means_single 
-    - If True, clustering is also with respect to all single effects. Default is False. 
-    - Setting post_k_means_single to True allows k-means clustering of IATEs also with respect to the single IATEs (in addition to jointly clustering on all relevant IATEs)
-- New keyword: cf_compare_only_to_zero 
-    - If True, the computation of the MSE (and MCE) ignores all elements not related to the first treatment. 
-    - When setting cf_compare_only_to_zero to True, the computation of the MSE (and MCE) ignores all elements not related to the first treatment (which usually is the control group). This speeds up computation and may be attractive when interest is only in the comparisons of each treatment to the control group and not among each other. This may also be attractive for optimal policy analysis based on using potential outcomes normalized by the potential outcome of the control group (i.e., IATEs of treatments vs. control group). Default is False.
+- **New keyword: post_k_means_single**
 
-- New keyword: lc_estimator
+    - If True, clustering is also with respect to all single effects. Default is False.
+    - Setting **post_k_means_single** to True allows k-means clustering of IATEs also with respect to the single IATEs (in addition to jointly clustering on all relevant IATEs)
+
+- **New keyword: cf_compare_only_to_zero**
+
+    - If True, the computation of the MSE (and MCE) ignores all elements not related to the first treatment. 
+    - When setting **cf_compare_only_to_zero** to True, the computation of the MSE (and MCE) ignores all elements not related to the first treatment (which usually is the control group). This speeds up computation and may be attractive when interest is only in the comparisons of each treatment to the control group and not among each other. This may also be attractive for optimal policy analysis based on using potential outcomes normalized by the potential outcome of the control group (i.e., IATEs of treatments vs. control group). Default is False.
+
+- **New keyword: lc_estimator**
+
     - The estimation method used for local centering can be specified.
     - Possible choices are scikit-learn's regression methods: 'RandomForest', 'RandomForestNminl5','RandomForestNminls5', 'SupportVectorMachine', 'SupportVectorMachineC2', 'SupportVectorMachineC4', 'AdaBoost', 'AdaBoost100', 'AdaBoost200', 'GradBoost', 'GradBoostDepth6',  'GradBoostDepth12',  'LASSO',  'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger', 'Mean'.
     - If set to 'automatic', the estimator with the lowest out-of-sample mean squared error (MSE) is selected.Whether this selection is based on cross-validation  or a test sample is governed by the keyword lc_cs_cv. 'Mean' is included for the cases when none of the  methods have out-of-sample explanatory power. The default is 'RandomForest'.
 
 Changes in the implementation of train method :py:meth:`~mcf_functions.ModifiedCausalForest.train`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
--  Building the forest: If variables randomly selected for splitting do not show any variation in the leaf considered for splitting, then up to 3 additional random draws are tried using variables not yet used  for splitting. If there is still no variation, then all remaining  variables will be tried for this potential split. This increases computation time somewhat, but leads to smaller leaves.
+
+-  **Building the forest**
+
+    - If variables randomly selected for splitting do not show any variation in the leaf considered for splitting, then up to 3 additional random draws are tried using variables not yet used  for splitting. If there is still no variation, then all remaining  variables will be tried for this potential split. This increases computation time somewhat, but leads to smaller leaves.
 
 Changes in the implementation of train method :py:meth:`~mcf_functions.ModifiedCausalForest.predict`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-- Clustering predictions with Kmeans algorithm: When the smallest cluster is smaller than 1% of the sample, this case is now  discouraged when determining the optimal number of clusters with scikit-learn's silhouette_score.
+- **Clustering predictions with Kmeans algorithm**
+
+    - When the smallest cluster is smaller than 1% of the sample, this case is now  discouraged when determining the optimal number of clusters with scikit-learn's silhouette_score.
 
 Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -98,32 +108,37 @@ Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
 Bug fixes
 +++++++++
 
-- Bug removed when reporting results for policy trees (when treatment state was available in evaluation data).
-- Maximum number of iterations (1000) for automatic cost search added to avoid that the cost-search algorithm does not converge.
+    - Bug removed when reporting results for policy trees (when treatment state was available in evaluation data).
+    - Maximum number of iterations (1000) for automatic cost search added to avoid that the cost-search algorithm does not converge.
 
 Removed features 
 +++++++++++++++++++++
 
-- 'policy tree old' has been removed from the list of available methods (keyword: gen_method).
+    - 'policy tree old' has been removed from the list of available methods (keyword: gen_method).
 
 Additional features 
 ++++++++++++++++++++
 
--  New method: fairscores(*args, *keyws)
+-  **New method: fairscores(*args, *keyws)**
+
     - This fairness method is experimental. It is a preview of what  will be discussed in the paper by Bearth, Lechner, Mareckova, and   Muny (2024): Explainable Optimal Policy with Protected Variables.  The main idea is to adjust the policy scores in a way such that the resulting optimal allocation will not depend on the protected  variables.
+
        - The following keywords are new and related to this adjustment:
-          - fair_regression_method : String (or None), optional. Regression method to adjust scores w.r.t. protected variables. Available methods are 'RandomForest', 'RandomForestNminl5', 'RandomForestNminls5', 'SupportVectorMachine',    'SupportVectorMachineC2', 'SupportVectorMachineC4', 'AdaBoost',     'AdaBoost100', 'AdaBoost200', 'GradBoost', 'GradBoostDepth6',    'GradBoostDepth12', 'LASSO', 'NeuralNet', 'NeuralNetLarge',     'NeuralNetLarger', 'Mean'. If 'automatic', an optimal methods       will be chosen based on 5-fold cross-validation in the training      data. If a method is specified it will be used for all scores       and all adjustments. If 'automatic', every policy score might be       adjusted with a different method. 'Mean' is included for cases in        which regression methods have no explanatory power.           Default is 'RandomForest'.
-          - fair_type : String (or None), optional.    Method to chose the type of correction for the policy scores.       'Mean':  Mean dependence of the policy score on protected var's       is removed by residualisation. 'MeanVar':  Mean dependence and         heteroscedasticity is removed by residualisation and rescaling.      Default (or None) is 'MeanVar'.
-          - var_protected_ord_name : List or tuple of strings (nor None),                             optional.     Names of ordered variables for which their influence will be         removed on the policy scores.
-          - var_protected_unord_name : List or tuple of strings (nor None),           optional.     Names of unordered variables for which their influence will be removed on the policy scores.
 
--  Solve method has an additional return (2nd position)
-    - result_dic : Dictionary that contains additional information about the   trained allocation rule.              Currently, the only entry is a dictionary decribing the      terminal leaves of the policy tree (or None if the  policy has been selected as allocation method).
+          - **fair_regression_method** : String (or None), optional. Regression method to adjust scores w.r.t. protected variables. Available methods are 'RandomForest', 'RandomForestNminl5', 'RandomForestNminls5', 'SupportVectorMachine',    'SupportVectorMachineC2', 'SupportVectorMachineC4', 'AdaBoost', 'AdaBoost100', 'AdaBoost200', 'GradBoost', 'GradBoostDepth6', 'GradBoostDepth12', 'LASSO', 'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger', 'Mean'. If 'automatic', an optimal methods will be chosen based on 5-fold cross-validation in the training data. If a method is specified it will be used for all scores and all adjustments. If 'automatic', every policy score might be adjusted with a different method. 'Mean' is included for cases in which regression methods have no explanatory power. Default is 'RandomForest'.
+          - **fair_type** : String (or None), optional. Method to chose the type of correction for the policy scores. 'Mean':  Mean dependence of the policy score on protected var's is removed by residualisation. 'MeanVar':  Mean dependence and heteroscedasticity is removed by residualisation and rescaling. Default (or None) is 'MeanVar'.
+          - **var_protected_ord_name** : List or tuple of strings (nor None), optional. Names of ordered variables for which their influence will be removed on the policy scores.
+          - **var_protected_unord_name** : List or tuple of strings (nor None),optional. Names of unordered variables for which their influence will be removed on the policy scores.
 
-- Solve method has a new algorithm named 'bps_classifier'.
-    - The   bps_classifier classifier algorithm runs a classifier for each of the    allocations obtained by the 'best_policy_score' algorithm. One    advantage compared of this approach compared to the     'best_policy_score' algorithm is that the prediction of the allocation      for new observations is fast as it does not require to recompute the    policy score (as it is case with the 'best_policy_score' algorithm).       The classifier is selected among four different classifiers offered by  sci-kit learn, namely a simple neural network, two classification   random forests with minimum leaf size of 2 and 5, and ADDABoost. The   selection is a made according to the out-of-sample performance on    scikit-learns Accuracy Score.
+-  **Solve method has an additional return (2nd position)**
 
-- Some additional explanations to the output of the policy tree (including   a warning if there are more than 30 features for the policy trees) have  been added.
+    - **result_dic** : Dictionary that contains additional information about the trained allocation rule. Currently, the only entry is a dictionary decribing the terminal leaves of the policy tree (or None if the policy has been selected as allocation method).
+
+- **Solve method has a new algorithm named 'bps_classifier'**
+
+    - The **bps_classifier** classifier algorithm runs a classifier for each of the allocations obtained by the 'best_policy_score' algorithm. One advantage compared of this approach compared to the     'best_policy_score' algorithm is that the prediction of the allocation for new observations is fast as it does not require to recompute the policy score (as it is case with the 'best_policy_score' algorithm). The classifier is selected among four different classifiers offered by  sci-kit learn, namely a simple neural network, two classification random forests with minimum leaf size of 2 and 5, and ADDABoost. The selection is a made according to the out-of-sample performance on scikit-learns Accuracy Score.
+
+- Some additional explanations to the output of the policy tree (including a warning if there are more than 30 features for the policy trees) have been added.
 
 Changes concerning the class :py:class:`~mcf_functions.McfOptPolReport`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -150,27 +165,27 @@ General
 Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Bug fixes
+- **Bug fixes**
 
     - OOB values were not available for tuning forests.
 
-- Performance improvements
+- **Performance improvements**
 
     - Several parts have been optimized that led to limited speed increases and reduced memory consumption.
     - Some GPU capabilities have been added (based on Pytorch tensors; therefore Pytorch needs to be installed in addition even if the GPU is not used). Currently, GPU (if available) is used only to speed up Mahalanobis matching prior to training the causal forest (note that the default is NOT to use Mahalanobis matching, but to use matching based on the prognostic score instead; partly on computational grounds).
 
-- Name change of keywords
+- **Name change of keywords**
 
     - ``gen_replication`` --> ``_int_replication``
     - ``p_amgate`` --> ``p_cbgate``
     - ``p_gmate_no_evalu_points`` --> ``p_gates_no_evalu_points``
     - ``p_gmate_sample_share`` --> ``p_bgate_sample_share``
 
-- New keyword
+- **New keyword**
 
     - ``_int_cuda`` : Boolean (or None). Use CUDA based GPU if available on hardware. Default is True.
 
-- Sensitivity analysis
+- **Sensitivity analysis**
 
     - The method :py:meth:`~mcf_functions.ModifiedCausalForest.sensitivity` has the new keyword ``results``. Here the standard output dictionary from the :meth:`~mcf_functions.ModifiedCausalForest.predict` method is expected. If this dictionary contains estimated IATEs, the same data as in the :meth:`~mcf_functions.ModifiedCausalForest.predict` method will be used, IATEs are computed under the no effect (basic) scenario and these IATEs are compared to the IATEs contained in the results dictionary. 
     - If the dictionary does not contain estimated IATEs, passing it has no consequence.
@@ -179,26 +194,41 @@ Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
 Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Bug fixes: Single variables can be passed as strings without leading to errors.
-- General performance improvements: Several parts have been optimized that led to limited increases and reduced memory consumption.
+- **Bug fixes**
 
-- Change of names of keywords (to use the same names as in the :py:class:`~mcf_functions.ModifiedCausalForest` class)
+    - Single variables can be passed as strings without leading to errors.
+
+- **General performance improvements**
+
+    - Several parts have been optimized that led to limited increases and reduced memory consumption.
+
+- **Change of names of keywords**
+
+    (to use the same names as in the :py:class:`~mcf_functions.ModifiedCausalForest` class)
 
     - ``var_x_ord_name`` --> ``var_x_name_ord``
     - ``var_x_unord_name`` --> ``var_x_name_unord``
 
-- Change of default values
+- **Change of default values**
 
     - The default of ``pt_enforce_restriction`` is set to False.
     - The previous default of ``pt_min_leaf_size`` is now multiplied by the smallest allowed treatment if (and only if) treatment shares are restricted.
 
-- "policy tree eff" becomes the standard method for policy trees and is renamed as "policy tree".
-- Change of default value for ``gen_variable_importance``. New default is True.
+- **Method for policy trees**
 
-- There are several changes to speed up the computation of policy trees.
+    - "policy tree eff" becomes the standard method for policy trees and is renamed as "policy tree".
+
+- **Change of default value for ``gen_variable_importance``**
+
+    - Change of default value** for ``gen_variable_importance``. New default is True.
+
+- **Changes to speed up the computation of policy trees**
 
     - New keyword: ``_int_xtr_parallel`` Parallelize to a larger degree to make sure all CPUs are busy for most of the time. Only used for "policy tree" and only used if ``_int_parallel_processing`` > 1 (or None). Default is True.
-- There is the new option to build a new optimal policy trees based on the data in each leaf of the (first) optimal policy tree. Although this second tree will also be optimal, the combined tree is no longer optimal. The advantage is a huge speed increase, i.e. a 3+1 tree computes much, much faster than a 4+0 tree, etc. This increased capabilities require a change in keywords:
+
+- **New option to build a new optimal policy trees**  
+
+    There is the new option to build a new optimal policy trees based on the data in each leaf of the (first) optimal policy tree. Although this second tree will also be optimal, the combined tree is no longer optimal. The advantage is a huge speed increase, i.e. a 3+1 tree computes much, much faster than a 4+0 tree, etc. This increased capabilities require a change in keywords:
 
     - Deleted keyword: ``pt_depth_tree``
     - New keywords

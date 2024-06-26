@@ -9,67 +9,19 @@ This guide will walk you through using the **mcf** package to
 - learn an optimal policy rule based on a Policy Tree
 
 
-Simulating data
+Example data
 ^^^^^^^^^^^^^^^^
 
-First, we'll create some synthetic data to showcase the functionality of the **mcf** package. Our example will involve a scenario with three possible treatments, represented by the values 0, 1, and 2.
+First, we'll use the example_data function which generates synthetic datasets for training and prediction. It creates training (train_df) and prediction (pred_df) DataFrames with a specified number of observations, features, and treatments, allowing for various heterogeneity types ('linear', 'nonlinear', 'quadratic', 'WagerAthey'). 
+By default, it produces 1000 observations for both training and prediction, with 20 features and 3 treatments. The function also returns name_dict, a dictionary containing the names of variable groups. For more details, visit the :doc:`python_api`.
 
 .. code-block:: python
 
-    import numpy as np
-    import pandas as pd
-    from mcf import ModifiedCausalForest
-    from mcf import OptimalPolicy
-    from mcf import McfOptPolReport
-
-    def simulate_data(n: int, seed: int) -> pd.DataFrame:
-        """
-        Simulate data with treatment 'd', outcome 'y', an unordered control
-        variable 'occupation' with three unique values, and three ordered
-        controls 'x1', 'x2', and 'female'.
+    from mcf.example_data_functions import example_data
     
-        Parameters:
-        - n (int): Number of observations in the simulated data.
-        - seed (int): Seed for the random number generator.
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
     
-        Returns:
-        pd.DataFrame: Simulated data in a Pandas DataFrame.
-    
-        """
-        rng = np.random.default_rng(seed)
-    
-        d = rng.integers(low=0, high=1, size=n, endpoint=True)  
-        occupation = rng.choice([1, 2, 3], size=n) 
-        female = rng.integers(low=0, high=1, size=n, endpoint=True)
-        x_ordered = rng.normal(size=(n, 2))
-        y = (x_ordered[:, 0] +
-            x_ordered[:, 1] * (d == 1) +
-            x_ordered[:, 1] * (d == 2) +
-            0.5 * female +
-            0.5 * occupation +  
-            rng.normal(size=n))
-    
-        data = {"y": y, "d": d, "female": female, "occupation": occupation} 
-    
-        for i in range(x_ordered.shape[1]):
-            data["x" + str(i + 1)] = x_ordered[:, i]
-    
-        return pd.DataFrame(data)
-    
-    df = simulate_data(n=1000, seed=1234)
-
-To estimate both a Modified Causal Forest and an Optimal Policy Tree, we will use a simple sample splitting approach, dividing the simulated data into three equally sized parts:
-
-1. *train_mcf_df*: Used to train the Modified Causal Forest.
-2. *pred_mcf_train_pt_df*: Used to the predict the heterogeneous treatment effects and to train the Optimal Policy Tree.
-3. *evaluate_pt_df*: Used to evaluate the Optimal Policy Tree.
-
-.. code-block:: python
-
-    indices = np.array_split(df.index, 3)
-    train_mcf_df, pred_mcf_train_pt_df, evaluate_pt_df = (df.iloc[ind] for ind in indices)
-
-
 Estimating heterogeneous treatment effects
 ------------------------------------------
 
@@ -83,13 +35,23 @@ as follows:
 
 .. code-block:: python
 
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
+    from mcf.optpolicy_functions import OptimalPolicy
+    from mcf.reporting import McfOptPolReport
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
+    # Create an instance of the Modified Causal Forest model
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2", "female"],
-        var_x_name_unord=["occupation"],
-        _int_show_plots=False # Suppress the display of diagnostic plots during estimation
+        var_y_name="outcome",  # Outcome variable
+        var_d_name="treat",    # Treatment variable
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],  # Ordered covariates
+        var_x_name_unord=["x_unord0"],  # Unordered covariate
+        _int_show_plots=False  # Disable plots for faster performance
     )
+
 
 Accessing and customizing output location
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -138,13 +100,13 @@ Next we will train the Modified Causal Forest on the *train_mcf_df* data using t
 
 .. code-block:: python
 
-    my_mcf.train(train_mcf_df)
+    my_mcf.train(training_df)
 
 Now we are ready to estimate heterogeneous treatment effects on the *pred_mcf_train_pt_df* data using the :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method.
 
 .. code-block:: python
 
-    results = my_mcf.predict(pred_mcf_train_pt_df)
+    results, _ = my_mcf.predict(prediction_df)
 
 
 Accessing results
@@ -198,12 +160,6 @@ You can use the :py:meth:`~mcf_functions.ModifiedCausalForest.analyse` method to
 
     my_mcf.analyse(results)
 
-Finally, for out-of-sample evaluation, apply the :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method to the data held out for evaluation:
-
-.. code-block:: python
-
-    oos_results = my_mcf.predict(evaluate_pt_df)
-
     
 Learning an optimal policy rule
 -------------------------------
@@ -232,14 +188,16 @@ as follows:
 
 .. code-block:: python
 
-    my_policy_tree = OptimalPolicy(
-        var_d_name="d", 
-        var_polscore_name=["Y_LC0_un_lc_pot", "Y_LC1_un_lc_pot"],
-        var_x_name_ord=["x1", "x2", "female"],
-        var_x_name_unord=["occupation"],
-        gen_method="policy tree",
+    # Create an instance of the OptimalPolicy class:
+    my_optimal_policy = OptimalPolicy(
+        var_d_name="treat",
+        var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
+        var_x_name_unord=["x_unord0"],
+        gen_method="best_policy_score", 
         pt_depth_tree_1=2
         )
+
 
 Note that the ``pt_depth_tree_1`` parameter specifies the depth of the (first) policy tree. For demonstration purposes we set it to 2. In practice, you should choose a larger value which will increase the computational burden. See the :doc:`User guide <user_guide/optimal-policy_example>` and the :doc:`Algorithm reference <algorithm_reference/optimal-policy_algorithm>` for more detailed explanations.
 
@@ -257,22 +215,22 @@ To find the Optimal Policy Tree, we use the :py:meth:`~optpolicy_functions.Optim
 .. code-block:: python
 
     train_pt_df = results["iate_data_df"]
-    alloc_df = my_policy_tree.solve(train_pt_df)
+    alloc_train_df, _, _ = my_optimal_policy.solve(training_df, data_title='training')
 
 The returned DataFrame contains the optimal allocation rule for the training data.
 
 .. code-block:: python
 
-    print(alloc_df.head())
+    print(alloc_train_df)
 
 Next, we can use the :py:meth:`~optpolicy_functions.OptimalPolicy.evaluate` method to evaluate this allocation rule. This will return a dictionary holding the results of the evaluation. As a side-effect, the DataFrame with the optimal allocation is augmented with columns that contain the observed treatment and a random allocation of treatments.
 
 .. code-block:: python
 
-    pt_eval = my_policy_tree.evaluate(alloc_df, train_pt_df)
+    results_eva_train, _ = my_optimal_policy.evaluate(alloc_train_df, training_df,
+                                           data_title='training')
 
-    print(pt_eval)
-    print(alloc_df.head())
+    print(results_eva_train)
 
 Overview of results
 ~~~~~~~~~~~~~~~~~~~~~
@@ -291,7 +249,7 @@ Additionally, you can access the results programmatically. The `report` attribut
 
 .. code-block:: python
 
-    dictionary_of_results = my_policy_tree.report
+    dictionary_of_results = my_optimal_policy.report
     print(dictionary_of_results.keys())
     evaluation_list = dictionary_of_results['evalu_list']
     print("Evaluation List: ", evaluation_list)
@@ -301,18 +259,16 @@ to the DataFrame holding the potential outcomes, treatment variable and the feat
 
 .. code-block:: python
 
-    oos_df = oos_results["iate_data_df"]
-    oos_alloc_df = my_policy_tree.allocate(oos_df)
+    alloc_pred_df, _ = my_optimal_policy.allocate(prediction_df, data_title='prediction')
 
 To evaluate this allocation rule, again apply the :py:meth:`~optpolicy_functions.OptimalPolicy.allocate` method similar to above.
 
 .. code-block:: python
 
-    oos_eval = my_policy_tree.evaluate(oos_alloc_df, oos_df)
+    results_eva_pred, _ = my_optimal_policy.evaluate(alloc_pred_df, prediction_df,
+                                      data_title='prediction')
 
-    print(oos_eval)
-    print(oos_alloc_df.head())
-
+    print(results_eva_pred)
 
 Next steps
 ----------

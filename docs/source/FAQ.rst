@@ -101,3 +101,11 @@ Troubleshooting
 
   The documentation is the best place to start. It provides a detailed explanation of all features and how to use them. If you're still having trouble, consider opening an `issue <https://github.com/MCFpy/mcf/issues>`__ on the GitHub repository.
 
+- **I am getting an error during the Common Support Analysis, what can I do?**
+
+  Are you sure the variables specified under 'var_x_name_unord' are discrete unordered ones? You might have provided a continuous ordered variable, but a discrete unordered one is expected. This raises a ValueError of the form:
+
+   ::
+   
+      ValueError: Found array with 0 sample(s) (shape=(0, 1001)) while a minimum of 1 is required by RandomForestClassifier.
+

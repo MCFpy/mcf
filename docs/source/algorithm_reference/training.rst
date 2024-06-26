@@ -59,14 +59,21 @@ Example
 
 .. code-block:: python
 
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
+    
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
         # Determine splitting rule when growing trees
-        cf_mce_vart = 3, 
+        cf_mce_vart = 3,
         # Determine penalty function
-        cf_p_diff_penalty = 3, 
+        cf_p_diff_penalty = 3,
         # Determine method of nearest neighbour matching
         cf_match_nn_prog_score = True
     )
@@ -159,9 +166,9 @@ Example
 .. code-block:: python
 
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
         # Number of trees
         cf_boot = 500,
         # Maximum share of variables used at each new split of tree
@@ -177,4 +184,5 @@ Example
         # Number of parallel processes
         gen_mp_parallel=None
     )
+
 

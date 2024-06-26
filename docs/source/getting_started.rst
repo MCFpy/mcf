@@ -12,8 +12,8 @@ This guide will walk you through using the **mcf** package to
 Example data
 ^^^^^^^^^^^^^^^^
 
-First, we'll use the example_data function which generates synthetic datasets for training and prediction. It creates training (train_df) and prediction (pred_df) DataFrames with a specified number of observations, features, and treatments, allowing for various heterogeneity types ('linear', 'nonlinear', 'quadratic', 'WagerAthey'). 
-By default, it produces 1000 observations for both training and prediction, with 20 features and 3 treatments. The function also returns name_dict, a dictionary containing the names of variable groups. For more details, visit the :doc:`python_api`.
+First, we will use the :py:meth:`example_data` function which generates synthetic datasets for training and prediction. It creates training (*train_df*) and prediction (*pred_df*) DataFrames with a specified number of observations, features, and treatments, allowing for various heterogeneity types ('linear', 'nonlinear', 'quadratic', 'WagerAthey'). 
+By default, it produces 1000 observations for both training and prediction, with 20 features and 3 treatments. The function also returns ``name_dict``, a dictionary containing the names of variable groups. For more details, visit the :doc:`python_api`.
 
 .. code-block:: python
 
@@ -52,19 +52,6 @@ as follows:
         _int_show_plots=False  # Disable plots for faster performance
     )
 
-Accessing and customizing output location
-------------------------------------------
-
-The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder where these results are stored.
-Any method you are using, returns the location of these output files as last return (the reporting method returns the full file name of the pdf file in addition). 
-Manually, you can find the location of the output folder by accessing the `"outpath"` entry of the `gen_dict` attribute of your Modified Causal Forest:
-
-.. code-block:: python
-
-    my_mcf.gen_dict["outpath"]
-
-We recommend you specify your preferred location for the output folder using the ``gen_outpath`` parameter of the class :py:class:`~mcf_functions.ModifiedCausalForest`.
-
 Frequently used parameters
 --------------------------
 
@@ -96,6 +83,18 @@ Below you find a selected list of optional parameters that are often used to ini
     | ``var_id_name``                  | Individual identifier.                                                                                            |
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
 
+Accessing and customizing output location
+------------------------------------------
+
+The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder where these results are stored.
+Any method you are using, returns the location of these output files as last return (the reporting method returns the full file name of the pdf file in addition). 
+Manually, you can find the location of the output folder by accessing the ``outpath`` entry of the ``gen_dict`` attribute of your Modified Causal Forest:
+
+.. code-block:: python
+
+    my_mcf.gen_dict["outpath"]
+
+We recommend you specify your preferred location for the output folder using the ``gen_outpath`` parameter of the class :py:class:`~mcf_functions.ModifiedCausalForest`.
 
 Training a Modified Causal Forest
 -----------------------------------
@@ -136,6 +135,7 @@ The :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method returns a ``re
 - A string with the path to the location of the results.
 
 .. code-block:: python
+
     results[1]
 
 The latter contains a dictionary with the estimation results. To get an overview, start by extracting the dictionary:
@@ -143,7 +143,7 @@ The latter contains a dictionary with the estimation results. To get an overview
 .. code-block:: python
     results_dict = results[0]
 
-Now, have a look at the keys of the dictionary:
+Now, we can have a look at the keys of the dictionary:
 
 .. code-block:: python
 
@@ -224,13 +224,13 @@ Learning an optimal policy rule
 
 Let's explore how to learn an optimal policy rule using the :py:class:`~optpolicy_functions.OptimalPolicy` class of the **mcf** package. To get started we need a Pandas DataFrame that holds the estimated potential outcomes (also called policy scores), the treatment variable and the features on which we want to base the decision tree.
 
-As you may recall, we estimated the potential outcomes in the previous section. They are stored as columns in the *"iate_data_df"* entry of the results dictionary:
+As you may recall, we estimated the potential outcomes in the previous section. They are stored as columns in the ``iate_data_df`` entry of the results dictionary:
 
 .. code-block:: python
 
     print(results["iate_data_df"].head())
 
-The column names are explained in the `iate_names_dic` entry of the results dictionary. The uncentered potential outcomes are stored in columns with the suffix *_un_lc_pot*.
+The column names are explained in the ``iate_names_dic`` entry of the results dictionary. The uncentered potential outcomes are stored in columns with the suffix ``_un_lc_pot``.
 
 .. code-block:: python
 

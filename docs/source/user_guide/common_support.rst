@@ -13,10 +13,17 @@ When common support adjustments are enabled, the **mcf** package will display st
 
 .. code-block:: python
 
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
+    
     my_mcf = ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord="x",
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord="x_cont0",
         cs_type=1
     )
     my_mcf.gen_dict["outpath"]
@@ -63,34 +70,38 @@ Examples
 
 .. code-block:: python
 
-    from mcf import ModifiedCausalForest
-
-    ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
-        # Turn common support adjustments off:
-        cs_type=0
-    )
-
-    ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
+    
+    my_mcf = ModifiedCausalForest(
+            var_y_name="outcome",
+            var_d_name="treat",
+            var_x_name_ord=["x_cont0", "x_cont1"],
+            # Turn common support adjustments off:
+            cs_type=0)
+        
+    
+    my_mcf = ModifiedCausalForest(
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
         # Use automatic common support adjustments
         cs_type=1,
         # Offset the cut-off limits: Multiply the upper cut-off by 1.1 and the
         # lower cut-off by 0.9:
         cs_adjust_limits=0.1,
         # Raise an exception if more than 25% of the observations are dropped:
-        cs_max_del_train=0.25
-    )
-
-    ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
+        cs_max_del_train=0.25)
+        
+        
+    my_mcf = ModifiedCausalForest(
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
         # Use common support adjustments and specify cut-off probabilities manually:
         cs_type=2,
-        cs_min_p=0.05
-    )
+        cs_min_p=0.05)

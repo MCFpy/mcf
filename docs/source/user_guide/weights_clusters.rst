@@ -41,23 +41,29 @@ Examples
 
 .. code-block:: python
 
-    from mcf import ModifiedCausalForest
-
-    ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_functions import ModifiedCausalForest
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
+    my_mcf = ModifiedCausalForest(
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
         # Parameters for sampling weights:
-        var_w_name="sampling_weight",
+        var_w_name="weight",
         gen_weighted=True
     )
-
-    ModifiedCausalForest(
-        var_y_name="y",
-        var_d_name="d",
-        var_x_name_ord=["x1", "x2"],
+    
+    
+    my_mcf = ModifiedCausalForest(
+        var_y_name="outcome",
+        var_d_name="treat",
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
         # Parameters for clustering:
-        var_cluster_name="cluster_id",
+        var_cluster_name="cluster",
         gen_panel_data=True,
         gen_panel_in_rf=True
     )
+        

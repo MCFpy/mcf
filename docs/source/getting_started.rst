@@ -125,7 +125,7 @@ The simplest way to get an overview of your results is to read the PDF-report th
 
 Next, we describe ways to access the results programmatically:
 
-The :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method returns a :py:meth:`results` tuple. This includes:
+The :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method returns a ``results`` tuple. This includes:
 
 - A dictionary containing all estimates.
 
@@ -167,7 +167,7 @@ These contrasts are aligned the standard errors of the estimated :math:`\textrm{
     ate_se_array = results_dict.get('ate_se')
     print("\nStandard Error of ATE:\n", ate_se_array)
 
-The estimated :math:`\textrm{IATE's}`, together with the predicted potential outcomes, are stored as columns of a Pandas DataFrame which you can access from the :py:meth:`results` tuple:
+The estimated :math:`\textrm{IATE's}`, together with the predicted potential outcomes, are stored as columns of a Pandas DataFrame which you can access from the ``results`` tuple:
 
 .. code-block:: python
 
@@ -177,14 +177,14 @@ The estimated :math:`\textrm{IATE's}`, together with the predicted potential out
     # print all the IATEs
     print("\nIndividualized Treatment Effects (IATE):\n", iate_array)
 
-Let us build on the previous example with three treatment levels, 0, 1, and 2. The columns :py:meth:`outcome_lc0_pot`, :py:meth:`outcome_lc1_pot`, and :py:meth:`outcome_lc2_pot` represent the *predicted* potential outcomes under the respective treatment level.
+Let us build on the previous example with three treatment levels, 0, 1, and 2. The columns ``outcome_lc0_pot``, ``outcome_lc1_pot``, and ``outcome_lc2_pot`` represent the *predicted* potential outcomes under the respective treatment level.
 You can extract these, for example, using:
 
 .. code-block:: python
 
     results_dict.get('iate_data_df')['outcome_lc0_pot']
 
-The columns :py:meth:`outcome_lc1vs0_iate`, :py:meth:`outcome_lc2vs0_iate`, and :py:meth:`outcome_lc2vs1_iate` give you the estimated :math:`\textrm{IATE's}`. As before, these contrast the respective treatment levels.
+The columns ``outcome_lc1vs0_iate``, ``outcome_lc2vs0_iate``, and ``outcome_lc2vs1_iate` give you the estimated :math:`\textrm{IATE's}`. As before, these contrast the respective treatment levels.
 
 .. code-block:: python
 
@@ -197,7 +197,7 @@ To see what estimates you have access to for your specific estimation, you can c
     results_dict.get('iate_data_df').keys()
 
 
-Note that, if you specify the methods as in the provided example files, you have  access to all the elements discussed above directly from the :py:meth:`results` DataFrame. For example,
+Note that, if you specify the methods as in the provided example files, you have  access to all the elements discussed above directly from the ``results`` DataFrame. For example,
 
 .. code-block:: python
     # use the .predict() method as shown in the example files
@@ -206,7 +206,7 @@ Note that, if you specify the methods as in the provided example files, you have
     # access a potential outcome
     results.get('iate_data_df')['outcome_lc1vs0_iate']
 
-Here, :py:meth:`results` essentially plays the same role as :py:meth:`results_dict` explained previously. These are two equivalent ways to access your results.
+Here, ``results`` essentially plays the same role as ``results_dict`` explained previously. These are two equivalent ways to access your results.
 
 
 Post-estimation

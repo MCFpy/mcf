@@ -12,14 +12,24 @@ This guide will walk you through using the **mcf** package to
 Example data
 ^^^^^^^^^^^^^^^^
 
-First, we will use the :py:function:`example_data` function which generates synthetic datasets for training and prediction. It creates training (``train_df``) and prediction (``pred_df``) DataFrames with a specified number of observations, features, and treatments, and allows for different heterogeneity types ('linear', 'nonlinear', 'quadratic', 'WagerAthey'). The function also returns ``name_dict``, a dictionary containing the names of variable groups. With the parameter ``obs_y_d_x_iate`` we specify the number of observations for the training data and with the ``obs_x_iate`` parameter we do this for the prediction data. By ``no_features`` we set the number of features of different type to generate. The ``no_treatments``specifies the number of treatments. Let us generate 1500 observations for both training and prediction, with 10 features and 3 treatments. By default, :py:meth:`example_data` produces 1000 observations for both training and prediction, with 20 features and 3 treatments. For more details and further parameters that you can specify, visit the :doc:`python_api`.
+First, we will use the :py:function:`example_data` function to generate synthetic datasets for training and prediction. This functions creates training (``train_df``) and prediction (``pred_df``) DataFrames with a specified number of observations, features, and treatments, and allows for different heterogeneity types ('linear', 'nonlinear', 'quadratic', 'WagerAthey'). The function also returns ``name_dict``, a dictionary containing the names of variable groups. You can define some features of the generated data by using the following parameters:
+
+- ``obs_y_d_x_iate`` , the number of observations for the training data 
+- ``obs_x_iate`` , the number of observations for the prediction data
+- ``no_features`` , the number of features of different type to generate
+- ``no_treatments`` , the number of treatments
+- ``type_of_heterogeneity`` , different types of heterogeneity
+
+For more details, visit the :doc:`python_api`. 
+
+By default, :py:meth:`example_data` produces 1000 observations for both training and prediction, with 20 features, and 3 treatments. Let us change this slightly and generate 1500 training and prediction observations for 10 features and 3 treatments.
 
 .. code-block:: python
 
     from mcf.example_data_functions import example_data
     
     # Generate example data using the built-in function `example_data()`
-    training_df, prediction_df, name_dict = example_data(
+    train_df, predict_df, name_dict = example_data(
                                             obs_y_d_x_iate=1500,
                                             obs_x_iate=1500,
                                             no_features=10,

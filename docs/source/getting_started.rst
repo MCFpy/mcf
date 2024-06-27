@@ -12,15 +12,18 @@ This guide will walk you through using the **mcf** package to
 Example data
 ^^^^^^^^^^^^^^^^
 
-First, we will use the :py:meth:`example_data` function which generates synthetic datasets for training and prediction. It creates training (``train_df``) and prediction (``pred_df``) DataFrames with a specified number of observations, features, and treatments, allowing for various heterogeneity types ('linear', 'nonlinear', 'quadratic', 'WagerAthey'). 
-By default, it produces 1000 observations for both training and prediction, with 20 features and 3 treatments. The function also returns ``name_dict``, a dictionary containing the names of variable groups. For more details, visit the :doc:`python_api`.
+First, we will use the :py:meth:`example_data` function which generates synthetic datasets for training and prediction. It creates training (``train_df``) and prediction (``pred_df``) DataFrames with a specified number of observations, features, and treatments, and allows for different heterogeneity types ('linear', 'nonlinear', 'quadratic', 'WagerAthey'). The function also returns ``name_dict``, a dictionary containing the names of variable groups. With the parameter ``obs_y_d_x_iate`` we specify the number of observations for the training data and with the ``obs_x_iate`` parameter we do this for the prediction data. By ``no_features`` we set the number of features of different type to generate. The ``no_treatments``specifies the number of treatments. Let us generate 1500 observations for both training and prediction, with 10 features and 3 treatments. By default, :py:meth:`example_data` produces 1000 observations for both training and prediction, with 20 features and 3 treatments. For more details and further parameters that you can specify, visit the :doc:`python_api`.
 
 .. code-block:: python
 
     from mcf.example_data_functions import example_data
     
     # Generate example data using the built-in function `example_data()`
-    training_df, prediction_df, name_dict = example_data()
+    training_df, prediction_df, name_dict = example_data(
+                                            obs_y_d_x_iate=1500,
+                                            obs_x_iate=1500,
+                                            no_features=10,
+                                            no_treatments=3)
     
 Estimating heterogeneous treatment effects
 ------------------------------------------

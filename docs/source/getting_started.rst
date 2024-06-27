@@ -12,7 +12,7 @@ This guide will walk you through using the **mcf** package to
 Example data
 ^^^^^^^^^^^^^^^^
 
-First, we will use the :py:function:`example_data` function to generate synthetic datasets for training and prediction. This functions creates training (``train_df``) and prediction (``pred_df``) DataFrames with a specified number of observations, features, and treatments, and allows for different heterogeneity types ('linear', 'nonlinear', 'quadratic', 'WagerAthey'). The function also returns ``name_dict``, a dictionary containing the names of variable groups. You can define some features of the generated data by using the following parameters:
+First, we will use the :py:meth:`example_data` function to generate synthetic datasets for training and prediction. This functions creates training (``training_df``) and prediction (``prediction_df``) DataFrames with a specified number of observations, features, and treatments, and allows for different heterogeneity types ('linear', 'nonlinear', 'quadratic', 'WagerAthey'). The function also returns ``name_dict``, a dictionary containing the names of variable groups. You can define some features of the generated data by using the following parameters:
 
 - ``obs_y_d_x_iate`` , the number of observations for the training data 
 - ``obs_x_iate`` , the number of observations for the prediction data
@@ -29,7 +29,7 @@ By default, :py:meth:`example_data` produces 1000 observations for both training
     from mcf.example_data_functions import example_data
     
     # Generate example data using the built-in function `example_data()`
-    train_df, predict_df, name_dict = example_data(
+    training_df, prediction_df, name_dict = example_data(
                                             obs_y_d_x_iate=1500,
                                             obs_x_iate=1500,
                                             no_features=10,

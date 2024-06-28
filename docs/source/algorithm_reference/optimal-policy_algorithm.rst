@@ -1,79 +1,145 @@
-Policy Tree algorithm
+Optimal Policy class
 =====================
 
-To determine the policy allocation, you may choose between two methods:
+The evaluation of the IATEs makes it possible to detect potential heterogeneous effects across sub-groups of the population.
+If heterogeneity is observed, certain individuals may either benefit or not from a particular treatment. 
+To address this, the mcf introduces the :py:class:`~optpolicy_functions.OptimalPolicy` class.
+
+To determine the policy allocation, you may choose between three methods:
+
+- **Policy Tree**: This method follows `Zhou, Athey, and Wager (2022) <https://doi.org/10.1287/opre.2022.2271>`_ 
+- **Blackbox Rule**: This method conducts Black Box allocations which are obtained by using the scores directly (potentially subject to restrictions).
+- **Best Score**: This is an experimental feature for the moment and bases on the upcoming paper Bearth, Lechner, Mareckova, and Muny (2024). This will be discussed further soon.
 
 - **Policy Tree**: This method follows `Zhou, Athey, and Wager (2022) <https://doi.org/10.1287/opre.2022.2271>`_ . To opt for this method, set ``gen_method`` to 'policy tree'. The implemented `policy tree` are optimal trees where all possible trees are checked if they lead to a better performance. If restrictions are specified, then they are incorporated into treatment specific cost parameters. 
 
 - **Blackbox Rule**: To use this method, set ``gen_method`` to `best_policy_score`. which conducts Black Box allocations which are obtained by using the scores directly (potentially subject to restrictions). **Note** this is the default method. 
 
 
-Optimal Policy Tree
--------------------
+Policy allocation algorithms
+=================================
 
-The :py:class:`~optpolicy_functions.OptimalPolicy` class is designed to discover the optimal policy tree in a computationally efficient and tractable way. While the basic logic follows `Zhou, Athey, and Wager (2022) <https://doi.org/10.1287/opre.2022.2271>`_ , the details of the programmatic implementation differ. 
-For instance, in contrast to policytree, the optpoltree allows you to consider constraints regarding the maximal shares of treated observations, treatment costs and different policy scores.
-
-
-Implementation
+Algorithm 1: Policy Tree
 -----------------------------
 
-The :py:class:`~optpolicy_functions.OptimalPolicy` class explores the space of all viable policy trees and picks the optimal one. This optimal tree maximizes the value function, computed as the sum of individual-specific policy scores, by assigning observations to treatments within terminal nodes.
+To opt for this method, set ``gen_method`` to ``policy tree``.
 
-Given a fixed choice of previous partitions, the problem of finding an optimal solution simplifies to solving two subproblems: 
+This method is a tree-search algorithm designed to construct a policy tree.
+The implemented policy tree is the optimal tree among all possible trees, found by checking if for which leads to a better performance.
+The optimal tree maximises the value function (or welfare), computed as the sum of the individual policy scores, such as potential outcomes or IATEs, by assigning all observations in a terminal leaf node to a single treatment.
+If restrictions are specified, then they are incorporated into treatment specific cost parameters.
 
-- Finding optimal left and right subtrees. 
+While the basic logic follows `Zhou, Athey, and Wager (2022) <https://doi.org/10.1287/opre.2022.2271>`_ , the details of the programmatic implementation differ. 
+For instance, in contrast to policytree, the optpoltree allows you to consider constraints regarding the maximal shares of treated observations, treatment costs, and different policy scores.
 
-Once we have reached a terminal node, we are no longer allowed to perform splits of the feature space and the treatment which maximises the score of all observations in the respective leaf is chosen. 
+Inputs
+------
 
-This recursive approach breaks down the problem into smaller, more manageable subproblems, easing the overall solution.
+- $({(X_i, \hat{\Theta}_i(j))}_{i=1}^{n})$: A set of observations where $(X_i)$ represents the features of the $(i)$-th observation and $(\hat{\Theta}_i(j))$ represents the potential outcome for each observation \(i\) for each treatment \(j\).
+- $(L)$: An integer indicating the depth of the tree plus one.
+- $p_1$: The number of ordered features.
+- $p_2$: The number of unordered features.
+
+Outputs
+-------
+
+- $(R)$: The reward, which is the maximum cumulative potential outcome.
+- $(\mathcal{T})$: The policy tree constructed through the algorithm.
+
+Purpose
+-------
+
+The algorithm aims to construct a policy tree that maximizes the cumulative potential outcome by selecting the best treatments at each node and splitting the data in a way that optimally partitions it based on the features.
+This process is akin to building a decision tree, where each node represents a decision (a split based on a feature) and the leaves represent the final decision (the best treatment).
+The goal is to maximize the overall outcome, making the best possible decisions at each step.
+
+Steps
+-----
+Here is a step-by-step explanation of how the Policy Tree works:
+
+1. **Case 1:**
+   If $(L = 1)$, no further splits are possible and the algorithm returns the maximum sum of potential outcomes across all treatments and the treatment that achieves this maximum.
+   Essentially, the algorithm computes the best possible treatment without further splitting. It does this by summing the potential outcomes for each treatment across all observations and selecting the treatment that maximizes this sum.
+
+2. **Case 2:**
+   If $(L > 1)$, initialize the reward $(R)$ to negative infinity and the tree $(\mathcal{T})$ to empty. Loop over all features $(m = 1, 2, \ldots, p_1 + p_2)$:
+
+   - For each feature, consider all possible split points:
+     - Split the data into two sets: left and right, based on the split value.
+     - Recursively apply the tree search algorithm to both sets, reducing the depth $(L)$ by 1.
+     - Compute the rewards for the left and right splits.
+     - If the sum of the rewards from the left and right splits exceeds the current maximum reward $(R)$, update $(R)$ and $(\mathcal{T})$ to reflect the new best split.
+
+   After considering all features and all possible splits, return the best reward and the corresponding policy tree.
+    Essentially, in this case, The algorithm explores potential splits of the data by looping over all features. 
+    For each feature, it considers sorted values of ordered features or unique categories of categorical features as potential split points.
+    For each split point, it divides the data into left and right subsets and applies the tree search recursively on these subsets with depth \(L - 1\).
+    The rewards from the left and right recursive calls are summed to determine the effectiveness of the split.
+    If a new split yields a higher reward than the current best, the algorithm updates the reward and the structure of the policy tree.
+
+Example
+-------
+
+.. code-block:: python
+        
+    from mcf.example_data_functions import example_data
+    from mcf.optpolicy_functions import OptimalPolicy
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
+    my_policy_tree = OptimalPolicy(
+        var_d_name="treat",
+        var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
+        # Select the Policy Tree method
+        gen_method="policy tree"
+        )
+
+Algorithm 2: Best Policy Score
+==============================
+
+To use this method, set ``gen_method`` to ``best_policy_score``. Note this is the default method.
+
+This method simply assigns units to the treatment with the highest estimated potential outcome. 
+This algorithm is computationally cheap, yet it lacks clear interpretability for the allocation rules. 
+This may make it difficult for policymakers to adopt it.
+
+Example
+-------
+       
+.. code-block:: python
+        
+    from mcf.example_data_functions import example_data
+    from mcf.optpolicy_functions import OptimalPolicy
+
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+
+    # Create an instance of the OptimalPolicy class:
+    my_optimal_policy = OptimalPolicy(
+        var_d_name='treat',
+        var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
+        var_x_name_ord=['x_cont0', 'x_cont1', 'x_ord1'],
+        var_x_name_unord=['x_unord0'],
+        # Select the Best Policy Score method
+        gen_method='best_policy_score',
+        pt_depth_tree_1=2
+        )
 
 
-Notation
-----------------------------
+Algorithm 3: bps Classifier
+===========================
 
-Before we delve into the solution method to find the optimal policy tree (Tree-search Exact Algorithm), let's introduce some notation:
+To use this method, set ``gen_method`` to ``bps_classifier``.
 
-- :math:`i=1, \ldots, n`: are :math:`n` observations
-- :math:`p_1`: number of ordered features 
-- :math:`p_2`: number of unordered features
-- :math:`M`: number of treatments
-- :math:`\hat{\Theta}_i`: vector of estimated policy scores, the potential outcomes, for the :math:`M+1` distinct potential outcomes are stacked for each observation :math:`i`.
-- :math:`\hat{\Theta}_i(d)`: potential outcome for observation :math:`i` for treatment :math:`d`.
-- :math:`L`: depth of the tree, which equals the number of splitting nodes plus one.
+This method bases on the upcoming paper Bearth, Lechner, Mareckova, and Muny (2024). This is an experimental feature for the moment and will be further discussed soon. 
 
-With this notation, we can now describe the Tree-Search Exact algorithm.
+On a high level, this method uses the allocations obtained by 'best_policy_score' and trains classifiers. 
+The output will be a decision rule that depends on features only and does not require knowledge of the policy scores.
 
 
-Tree-search Exact Algorithm
------------------------------
-
-The Tree-search Exact algorithm can be described as follows:
-
-1. If :math:`L = 1`:
-
-   - Choose :math:`j^* \in \{0, 1, \ldots, M\}`, which maximizes :math:`\sum_i \hat{\Theta}_i(j)` and return the corresponding reward = :math:`\sum_{\forall i} \hat{\Theta}_i(j^*)`.
-
-2. Else:
-
-   - Initialize reward = :math:`-\infty`, and an empty tree = :math:`\emptyset` for all :math:`m = 1, \ldots, p_1 + p_2`.
-
-   - Pick the m-th feature; for ordered features return the unique values observed and sorted; if unordered return the unique categories to derive all possible splits.
-
-      a. Then, for all possible splitting values of the m-th feature split the sample accordingly into a sample_left and sample_right.
-   
-      b. :math:`(\text{reward left}, \text{tree left}) = \text{Tree-search}(\text{sample left}, L-1)`.
-   
-      c. :math:`(\text{reward right}, \text{tree right}) = \text{Tree-search}(\text{sample right}, L-1)`.
-
-   - If :math:`\text{reward left} + \text{reward right} > \text{reward}`:
-
-        a. :math:`\text{reward} = \text{reward left} + \text{reward right}`.
-   
-        b. :math:`\text{tree} = \text{Tree-search}(m, \text{splitting value}, \text{tree left}, \text{tree right})`.
-
-
-Options for Optimal Policy Tree
+Options for the Optimal Policy Tree
 -----------------------------------
 
 You can personalize various parameters defined in the :py:class:`~optpolicy_functions.OptimalPolicy` class. 

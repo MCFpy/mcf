@@ -12,7 +12,7 @@ This guide will walk you through using the **mcf** package to
 Example data
 ^^^^^^^^^^^^^^^^
 
-First, we will use the :py:meth:`example_data` function to generate synthetic datasets for training and prediction. This functions creates training (``training_df``) and prediction (``prediction_df``) DataFrames with a specified number of observations, features, and treatments, and allows for different heterogeneity types ('linear', 'nonlinear', 'quadratic', 'WagerAthey'). The function also returns ``name_dict``, a dictionary containing the names of variable groups. You can define some features of the generated data by using the following parameters:
+First, we will use the :py:meth:`example_data` function to generate synthetic datasets for training and prediction. This functions creates training (``training_df``) and prediction (``prediction_df``) DataFrames with a specified number of observations, features, and treatments, and allows for different heterogeneity types (``'linear'``, ``'nonlinear'``, ``'quadratic'``, ``'WagerAthey'``). The function also returns ``name_dict``, a dictionary containing the names of variable groups. You can define some features of the generated data by using the following parameters:
 
 - ``obs_y_d_x_iate`` , the number of observations for the training data 
 - ``obs_x_iate`` , the number of observations for the prediction data
@@ -171,7 +171,7 @@ In the multiple treatment setting there is more than one average treatment effec
     ate_array = results_dict.get('ate')
     print("Average Treatment Effect (ATE):\n", ate_array)
 
-For instance, if you have a treatment levels 0, 1, and 2, you will see an entry of the form *[[[0.1, 0.3, 0.5]]]*. Here, the first entry, 0.1, specifies the treatment contrast between treatment level 1 and treatment level 0. The second entry, 0.3, specifies the treatment contrast between treatment level 2 and treatment level 0. The third entry specifies the treatment contrast between level 1 and 2.
+For instance, if you have a treatment levels 0, 1, and 2, you will see an entry of the form [[[0.1, 0.3, 0.5]]]. Here, the first entry, 0.1, specifies the treatment contrast between treatment level 1 and treatment level 0. The second entry, 0.3, specifies the treatment contrast between treatment level 2 and treatment level 0. The third entry specifies the treatment contrast between level 1 and 2.
 
 These contrasts are aligned the standard errors of the estimated :math:`\textrm{ATE's}`, which you can access and print running:
 

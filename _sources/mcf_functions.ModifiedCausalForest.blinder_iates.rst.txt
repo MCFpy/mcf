@@ -1,0 +1,6 @@
+﻿mcf\_functions.ModifiedCausalForest.blinder\_iates
+==================================================
+
+.. currentmodule:: mcf_functions
+
+.. automethod:: ModifiedCausalForest.blinder_iates

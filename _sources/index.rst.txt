@@ -1,0 +1,201 @@
+Modified Causal Forests
+=======================
+
+Welcome to the documentation of **mcf**, the Python package implementing the Modified Causal Forest introduced by `Lechner (2018) <https://doi.org/10.48550/arXiv.1812.09487>`_. This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, mcf offers the capability to learn optimal policy allocations.
+
+If you're new to the **mcf** package, we recommend following these steps:
+
+- `Installation Guide`_: Learn how to install mcf on your system.
+- `Usage Example`_: Explore a simple example to quickly understand how to apply mcf to your data.
+- :doc:`getting_started`: Dive into a more detailed example to get a better feel for working with mcf.
+
+For those seeking further information:
+
+- The :doc:`user_guide` offers explanations on additional features of the mcf package and provides several example scripts.
+- Check out the :doc:`python_api` for details on interacting with the mcf package.
+- The :doc:`algorithm_reference` provides a technical description of the methods used in the package.
+
+.. _installation-guide:
+
+Installation Guide
+------------------
+
+The current version of **mcf** is compatible with **Python 3.11**. You can install mcf from PyPI using:
+
+.. code-block:: bash
+
+    pip install mcf
+
+For a smoother experience and to avoid conflicts with other packages, we strongly recommend using a virtual environment based on **conda**. 
+
+You can manage conda environments either via the command line or a graphical interface. 
+The command line offers a compatible solution for all operating systems, making it our recommended choice. However, the graphical interface is more user-friendly.
+
+If you prefer to use the command line, first install conda as described `here <https://docs.conda.io/projects/conda/en/latest/user-guide/install/>`__. Next follow the steps below in your Anaconda Prompt (Windows) or terminal (macOS and Linux):
+
+1. Set up and activate a conda environment named *mcf-env*:
+
+  .. code-block:: bash
+
+      conda create -n mcf-env
+
+  .. code-block:: bash
+
+      conda activate mcf-env
+
+2. Install Python **3.11**:
+
+  .. code-block:: bash
+
+      conda install Python="3.11"
+
+3. Finally, install **mcf** in this environment using **pip**:
+
+  .. code-block:: bash
+
+      pip install mcf
+
+
+
+If you prefer a graphical interface, you can:
+
+1. Install Anaconda distribution including Anaconda navigator by downloading it `here <https://docs.anaconda.com/free/navigator/install/>`__.
+
+2. Set up an environment, follow the guide `here <https://docs.anaconda.com/free/navigator/getting-started/#managing-environments>`__ and make sure you choose **Python=3.11.8** for your environment.
+
+3. Install the **mcf** package by using pip install in your IDE console:
+
+  .. code-block:: bash
+
+      pip install mcf
+
+An alternative to the step above is to install the **mcf** package using this guide `here <https://docs.anaconda.com/free/navigator/getting-started/#managing-packages>`__.
+
+Note: It is recommended to prioritize ``conda install`` for package installations before using ``pip install``. On a Windows machine, if you plan to use Spyder as your IDE, make sure to execute ``conda install spyder`` before proceeding with ``pip install mcf`` to reduce the risk of errors during installation.
+
+
+.. _usage-example:
+
+Usage Example
+-------------
+
+To demonstrate how to use **mcf**, we will use the :py:func:`~example_data_functions.example_data` function to generate synthetic datasets for training and prediction, and subsequently apply the :py:class:`~mcf_functions.ModifiedCausalForest`. 
+
+.. code-block:: python
+
+    import numpy as np
+    import pandas as pd
+    
+    from mcf.example_data_functions import example_data
+    from mcf import ModifiedCausalForest
+    from mcf import OptimalPolicy
+    from mcf import McfOptPolReport
+    
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
+    # Create an instance of the Modified Causal Forest model
+    my_mcf = ModifiedCausalForest(
+        var_y_name="outcome",  # Outcome variable
+        var_d_name="treat",    # Treatment variable
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],  # Ordered covariates
+        var_x_name_unord=["x_unord0"],  # Unordered covariate
+        _int_show_plots=False  # Disable plots for faster performance
+    )
+    
+    # Train the Modified Causal Forest on the training data
+    my_mcf.train(training_df)
+    # Predict treatment effects using the model on prediction data
+    results = my_mcf.predict(prediction_df)
+    
+    # The `results` object is a tuple with two elements:
+    # 1. A dictionary containing all estimates
+    results[0]
+    # 2. A string with the path to the results location
+    results[1] 
+       
+    # Extract the dictionary of estimates
+    results_dict = results[0]
+    
+    # Access the Average Treatment Effect (ATE)
+    ate_array = results_dict.get('ate')
+    print("Average Treatment Effect (ATE):\n", ate_array)
+    
+    # Access the Standard Error of the ATE
+    ate_se_array = results_dict.get('ate_se')
+    print("\nStandard Error of ATE:\n", ate_se_array)
+    
+    # Access the Individualized Treatment Effects (IATE)
+    iate_array = results_dict.get('iate')
+    print("\nIndividualized Treatment Effects (IATE):\n", iate_array)
+    
+    # Access the DataFrame of Individualized Treatment Effects
+    iate_df = results_dict.get('iate_data_df')
+    print("\nDataFrame of Individualized Treatment Effects:\n", iate_df)
+    
+    
+    # Create an instance of the OptimalPolicy class:
+    my_optimal_policy = OptimalPolicy(
+        var_d_name="treat",
+        var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
+        var_x_name_unord=["x_unord0"]
+        )
+    
+    # Learn an optimal policy rule using the predicted potential outcomes
+    alloc_train_df, _, _ = my_optimal_policy.solve(training_df, data_title='training')
+    
+    # Evaluate the optimal policy rule on the training data:
+    results_eva_train, _ = my_optimal_policy.evaluate(alloc_train_df, training_df,
+                                               data_title='training')
+    
+    # Allocate observations to treatment state using the prediction data
+    alloc_pred_df, _ = my_optimal_policy.allocate(prediction_df, data_title='prediction')
+    
+    # Evaluate allocation with potential outcome data.
+    results_eva_pred, _ = my_optimal_policy.evaluate(alloc_pred_df, prediction_df,
+                                              data_title='prediction')
+        
+    # Allocation DataFrame for the training set
+    print(alloc_train_df)
+    
+    # Produce a PDF-report that summarises the results
+    my_report = McfOptPolReport(mcf=my_mcf, 
+                                optpol=my_optimal_policy,
+                                outputfile='mcf_report')
+    my_report.report()
+
+
+For a more detailed example, see the :doc:`getting_started` section.
+
+Source code and contributing
+-----------------------------
+
+The Python source code is available on `GitHub <https://github.com/MCFpy/mcf>`_. If you have questions, want to report bugs, or have feature requests, please use the `issue tracker <https://github.com/MCFpy/mcf/issues>`__.
+
+References
+----------
+
+- Bodory H, Busshoff H, Lechner M. **High Resolution Treatment Effects Estimation: Uncovering Effect Heterogeneities with the Modified Causal Forest**. *Entropy*. 2022; 24(8):1039. `Read Paper <https://doi.org/10.3390/e24081039>`__
+
+- Lechner M. **Modified Causal Forests for Estimating Heterogeneous Causal Effects**. 2018. `Read Paper <https://doi.org/10.48550/arXiv.1812.09487>`__
+
+- Lechner M, Mareckova J. **Modified Causal Forest**. 2022. `Read Paper <https://doi.org/10.48550/arXiv.2209.03744>`__
+
+- Lechner M, Mareckova J **Comprehensive Causal Causal Machine Learning**. 2024 `Read Paper <https://doi.org/10.48550/arXiv.2405.10198>`__
+
+License
+-------
+
+**mcf** is distributed under the `MIT License <https://github.com/MCFpy/mcf?tab=MIT-1-ov-file#readme>`__.
+
+.. toctree::
+   :hidden:
+
+   getting_started.rst
+   user_guide.rst
+   algorithm_reference.rst
+   python_api.rst
+   FAQ.rst
+   changelog.rst

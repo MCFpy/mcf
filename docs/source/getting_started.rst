@@ -22,7 +22,7 @@ First, we will use the :py:func:`~example_data_functions.example_data` function 
 
 For more details, visit the :doc:`python_api`. 
 
-By default, :py:func:`~example_data_functions.example_data` produces 1000 observations for both training and prediction, with 20 features, and 3 treatments. Let us change this slightly and generate 1500 training and prediction observations for 10 features and 3 treatments.
+By default, the :py:func:`~example_data_functions.example_data` produces 1000 observations for both training and prediction, with 20 features, and 3 treatments. Let us change this slightly and generate 1500 training and prediction observations for 10 features and 3 treatments.
 
 .. code-block:: python
 

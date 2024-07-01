@@ -158,7 +158,7 @@ Alternatively, if restrictions are present and ``other_costs_of_treat`` is left 
    * - ``var_effect_vs_0_se``
      - Standard errors of effects relative to treatment zero. Dimension is equal to the number of treatments minus 1. Default is None.
    * - ``pt_min_leaf_size``
-     - Minimum leaf size. Leaves that are smaller will not be considered. A larger number reduces computation time and avoids some overfitting. Only relevant if ``gen_method`` is 'policy tree' or 'policy tree old'. Default is None.
+     - Minimum leaf size. Leaves that are smaller will not be considered. A larger number reduces computation time and avoids some overfitting. Only relevant if ``gen_method`` is ``policy tree``. Default is None.
    * - ``other_max_shares``
      - Maximum share allowed for each treatment. Note that the information must come as a tuple with as many entries as there are treatments. Default is None.
    * - ``other_costs_of_treat``

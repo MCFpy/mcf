@@ -9,8 +9,8 @@ To address this, the mcf introduces the :py:class:`~optpolicy_functions.OptimalP
 To determine an optimal policy allocation, you can choose between three methods:
 
 - **Policy Tree**: This method bases on a tree-search algorithm, designed to construct an optimal policy tree. 
-- **Blackbox Rule**: This method conducts Black Box allocations obtained by using the policy scores in a direct manner.
-- **Best Score**: This method is experimental; soon to be discussed further.
+- **Best Policy Score**: This method conducts allocations by directly using the policy scores.
+- **Best Policy Score Classifier**: This method is experimental; soon to be discussed further.
 
 Policy allocation algorithms
 ============================
@@ -123,14 +123,14 @@ Example
         )
 
 
-Algorithm 3: bps Classifier
----------------------------
+Algorithm 3: Best Policy Score Classifier
+-----------------------------------------
 
 To use this method, set ``gen_method`` to ``bps_classifier``.
 
 For the moment, this is an experimental feature and will soon be further discussed.
 
-On a high level, this method uses the allocations obtained by ``best_policy_score`` and trains classifiers. 
+On a high level, this method uses the allocations obtained by the previous Best Policy Score method and trains classifiers. 
 The output is a decision rule that depends on features only and does not require knowledge of the policy scores.
 
 
@@ -155,8 +155,6 @@ Alternatively, if restrictions are present and ``other_costs_of_treat`` is left 
 
    * - Keyword
      - Details
-   * - ``var_effect_vs_0_se``
-     - Standard errors of effects relative to treatment zero. Dimension is equal to the number of treatments minus 1. Default is None.
    * - ``pt_min_leaf_size``
      - Minimum leaf size. Leaves that are smaller will not be considered. A larger number reduces computation time and avoids some overfitting. Only relevant if ``gen_method`` is ``policy tree``. Default is None.
    * - ``other_max_shares``
@@ -184,8 +182,6 @@ Example
        var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
        var_x_name_ord=['x_cont0', 'x_cont1', 'x_ord1'],
        gen_method='policy tree',
-       #  Effects of treatment relative to treatment zero
-       var_effect_vs_0 = ['iate1vs0', 'iate2vs0'], 
        # Minimum leaf size
        pt_min_leaf_size = None,
        # Maximum share allowed for each treatment (as many elements as treatment (d))

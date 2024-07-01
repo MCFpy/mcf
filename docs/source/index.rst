@@ -79,7 +79,7 @@ Note: It is recommended to prioritize ``conda install`` for package installation
 Usage Example
 -------------
 
-To demonstrate how to use **mcf**, we will use the :py:func:`~example_data_functions.example_data` function to generate synthetic datasets for training and prediction, and subsequently apply the Modified Causal Forest. 
+To demonstrate how to use **mcf**, we will use the :py:func:`~example_data_functions.example_data` function to generate synthetic datasets for training and prediction, and subsequently apply the :py:class:`~mcf_functions.ModifiedCausalForest`. 
 
 .. code-block:: python
 

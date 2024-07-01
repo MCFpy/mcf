@@ -66,9 +66,9 @@ Here is a step-by-step explanation on how the Policy Tree works:
      - If the sum of the rewards from the left and right splits exceeds the current maximum reward :math:`(\mathcal{R})`, update :math:`(\mathcal{R})` and :math:`(\mathcal{T})` to reflect the new best split.
 
    After considering all features and all possible splits, return the best reward and the corresponding policy tree.
-    Essentially, in this case, The algorithm explores potential splits of the data by looping over all features. 
+    Essentially, the algorithm explores potential splits of the data by looping over all features. 
     For each feature, it considers sorted values of ordered features or unique categories of categorical features as potential split points.
-    For each split point, it divides the data into left and right subsets and applies the tree search recursively on these subsets with depth \(L - 1\).
+    For each split point, it divides the data into left and right subsets and applies the tree search recursively on these subsets with depth :math:`(L - 1)`.
     The rewards from the left and right recursive calls are summed to determine the effectiveness of the split.
     If a new split yields a higher reward than the current best, the algorithm updates the reward and the structure of the policy tree.
 
@@ -84,22 +84,21 @@ Example
     training_df, prediction_df, name_dict = example_data()
     
     my_policy_tree = OptimalPolicy(
-        var_d_name="treat",
+        var_d_name='treat',
         var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
-        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
+        var_x_name_ord=['x_cont0', 'x_cont1', 'x_ord1'],
         # Select the Policy Tree method
-        gen_method="policy tree"
+        gen_method='policy tree'
         )
 
 
 Algorithm 2: Best Policy Score
 ------------------------------
 
-To use this method, set ``gen_method`` to ``best_policy_score``. Note this is the default method.
+To use this method, set ``gen_method`` to ``best_policy_score``. **Note** that this is the default method.
 
-This method simply assigns units to the treatment with the highest estimated potential outcome. 
-This algorithm is computationally cheap, yet it lacks clear interpretability for the allocation rules. 
-This may make it difficult for policymakers to adopt it.
+Very simply, this method assigns units to the treatment with the highest estimated potential outcome. 
+This algorithm is computationally cheap, yet it lacks clear interpretability for the allocation rules, which makes it challenging for policymakers to adopt.
 
 Example
 ~~~~~~~
@@ -131,8 +130,8 @@ To use this method, set ``gen_method`` to ``bps_classifier``.
 
 For the moment, this is an experimental feature and will soon be further discussed.
 
-On a high level, this method uses the allocations obtained by 'best_policy_score' and trains classifiers. 
-The output will be a decision rule that depends on features only and does not require knowledge of the policy scores.
+On a high level, this method uses the allocations obtained by ``best_policy_score`` and trains classifiers. 
+The output is a decision rule that depends on features only and does not require knowledge of the policy scores.
 
 
 Options for Optimal Policy Tree
@@ -148,7 +147,7 @@ If the number of individuals who receive a specific treatment is constrained, yo
 
 When considering treatment costs, input them via ``other_costs_of_treat``.  When evaluating the reward, the aggregate costs (costs per unit times units) of the policy allocation are subtracted. If left as default (None), the program determines a cost vector that imply an optimal reward (policy score minus costs) for each individual, while guaranteeing that the restrictions as specified in ``other_max_shares`` are satisfied. This is only relevant when ``other_max_shares`` is specified.
 
-Alternatively, if restrictions are present and `other_costs_of_treat` is left to its default, you can specify `other_costs_of_treat_mult`. Admissible values for this parameter are either a scalar greater zero or a tuple with values greater zero. The tuple needs as many entries as there are treatments. The imputed cost vector is then multiplied by this factor.
+Alternatively, if restrictions are present and ``other_costs_of_treat`` is left to its default, you can specify ``other_costs_of_treat_mult``. Admissible values for this parameter are either a scalar greater zero or a tuple with values greater zero. The tuple needs as many entries as there are treatments. The imputed cost vector is then multiplied by this factor.
 
 .. list-table:: 
    :widths: 25 75
@@ -163,9 +162,9 @@ Alternatively, if restrictions are present and `other_costs_of_treat` is left to
    * - ``other_max_shares``
      - Maximum share allowed for each treatment. Note that the information must come as a tuple with as many entries as there are treatments. Default is None.
    * - ``other_costs_of_treat``
-     - Treatment specific costs. Subtracted from policy scores. None (when there are no constraints): 0 None (when are constraints): Costs will be automatically determined such as to enforce constraints in the training data by finding cost values that lead to an allocation (``best_policy_score``) that fulfils restrictions ``other_max_shares``. Default is None.
+     - Treatment specific costs. Subtracted from policy scores. None (when there are no constraints): 0 None (when there are constraints): Costs will be automatically determined such as to enforce constraints in the training data by finding cost values that lead to an allocation (``best_policy_score``) that fulfils restrictions ``other_max_shares``. Default is None.
    * - ``other_costs_of_treat_mult``
-     - Multiplier of automatically determined cost values. Use only when automatic costs violate the constraints given by ``other_max_shares``. This allows to increase (>1) or decrease (<1) the share of treated in particular treatment. Default is None.
+     - Multiplier of automatically determined cost values. Use only when automatic costs violate the constraints given by ``other_max_shares``. This allows to increase :math:`(>1)` or decrease :math:`(<1)` the share of treated in particular treatment. Default is None.
 
 Please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` for more details or additional parameters. 
 
@@ -181,10 +180,10 @@ Example
    training_df, prediction_df, name_dict = example_data()
    
    my_policy_tree = OptimalPolicy(
-       var_d_name="treat",
+       var_d_name='treat',
        var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
-       var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
-       gen_method="policy tree",
+       var_x_name_ord=['x_cont0', 'x_cont1', 'x_ord1'],
+       gen_method='policy tree',
        #  Effects of treatment relative to treatment zero
        var_effect_vs_0 = ['iate1vs0', 'iate2vs0'], 
        # Minimum leaf size
@@ -204,11 +203,11 @@ Additionally, you can control certain aspects of the algorithm which impact runn
 
 - **Tree Depth**: You can specify the depth of the trees via the keyword arguments ``pt_depth_tree_1`` and ``pt_depth_tree_2``. 
 
-  - ``pt_depth_tree_1`` defines the depth of the first optimal tree. The default is 3. Note that tree depth is defined such that a depth of 1 implies 2 leaves, a depth of 2 implies 4 leaves, a depth of 3 implies 8 leaves, etc.
+  - ``pt_depth_tree_1`` defines the depth of the first optimal tree. The default is 3. Tree depth is defined such that a depth of 1 implies 2 leaves, a depth of 2 implies 4 leaves, a depth of 3 implies 8 leaves, etc.
 
-  - ``pt_depth_tree_2`` defines the depth of the second optimal tree, which builds upon the strata obtained from the leaves of the first tree. **Note**: If ``pt_depth_tree_2`` is set to 0, the second tree is not built. The default is 1. Together with the default for ``pt_depth_tree_1``, this leads to a total tree of depth 4 (which is not optimal). Note that tree depth is defined in the same way as for ``pt_depth_tree_1``.
+  - ``pt_depth_tree_2`` defines the depth of the second optimal tree, which builds upon the strata obtained from the leaves of the first tree. If ``pt_depth_tree_2`` is set to 0, the second tree is not built. The default is 1. Together with the default for ``pt_depth_tree_1``, this leads to a total tree of depth 4 (which is not optimal). Tree depth is defined in the same way as for ``pt_depth_tree_1``.
 
-- **Number of Evaluation Points**: ``pt_no_of_evalupoints`` parameter specifies the number of evaluation points for continuous variables during the tree search. It determines how many of the possible splits in the feature space are considered. If the value of ``pt_no_of_evalupoints`` is smaller than the number of distinct values of a certain feature, the algorithm visits fewer splits, thus increasing computational efficiency. However, a lower value may also deviate more from the optimal splitting rule. This parameter is closely related to the approximation parameter of `Zhou, Athey, and Wager (2022) <https://doi.org/10.1287/opre.2022.2271>`_ . Lastly, note that this parameter is only relevant if ``gen_method`` is 'policy tree' or 'policy tree old'. The default value (or `None`) is 100.
+- **Number of Evaluation Points**: ``pt_no_of_evalupoints`` parameter specifies the number of evaluation points for continuous variables during the tree search. It determines how many of the possible splits in the feature space are considered. If the value of ``pt_no_of_evalupoints`` is smaller than the number of distinct values of a certain feature, the algorithm visits fewer splits, thus increasing computational efficiency. However, a lower value may also deviate more from the optimal splitting rule. This parameter is closely related to the approximation parameter of `Zhou, Athey, and Wager (2022) <https://doi.org/10.1287/opre.2022.2271>`_ . This parameter is only relevant if ``gen_method`` is ``policy tree``. The default value (or None) is 100.
 
 .. list-table:: 
    :widths: 30 70

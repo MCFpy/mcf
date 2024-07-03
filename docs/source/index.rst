@@ -176,8 +176,8 @@ The Python source code is available on `GitHub <https://github.com/MCFpy/mcf>`_.
 
 References
 ----------
-Theoretical backbone
-^^^^^^^^^^^^^^^^^^^^
+Conceptual foundation
+^^^^^^^^^^^^^^^^^^^^^
 - Lechner M (2018). **Modified Causal Forests for Estimating Heterogeneous Causal Effects**. `Read Paper <https://doi.org/10.48550/arXiv.1812.09487>`__
 - Lechner M, Mareckova J (2022). **Modified Causal Forest**. `Read Paper <https://doi.org/10.48550/arXiv.2209.03744>`__
 
@@ -193,15 +193,15 @@ Applications in diverse fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 - Audrino F, Chassot J, Huang C, Knaus M, Lechner M, Ortega JP (2022). **How does post-earnings announcement affect firms’ dynamics? New evidence from causal machine learning**. Forthcoming in *Journal of Financial Econometrics*. `Read paper <https://academic.oup.com/jfec/article/22/3/575/6640191>`__
 
-- Burlat H (2024). **Everybody’s got to learn sometime? A causal machine learning evaluation of training programmes for jobseekers in France**. *Labour Economics*. In Press. Paper102573. `Read paper <https://doi.org/10.1016/j.labeco.2024.102573>`__
+- Burlat H (2024). **Everybody’s got to learn sometime? A causal machine learning evaluation of training programmes for jobseekers in France**. *Labour Economics*. In Press. Paper 102573. `Read paper <https://doi.org/10.1016/j.labeco.2024.102573>`__
 
 - Cockx B, Michael L, Joost B (2023). **Priority to unemployed immigrants? A causal machine learning evaluation of training in Belgium**. *Labour Economics*. 80(102306). `Read paper <https://www.sciencedirect.com/science/article/pii/S0927537122001968>`__
 
 - Handouyahia A, Rikhi T, Awad G, Aouli E (2024). **Heterogeneous causal effects of labour market programs: A machine learning approach**. *Proceedings of Statistics Canada Symposium 2022*. `Read paper <https://www150.statcan.gc.ca/n1/pub/11-522-x/2022001/article/00017-eng.pdf>`__
 
-- Hodler R, Lechner M, and Raschky P (2023). **Institutions and the Resource Course: New Insights from Causal Machine Learning**. *PLoS ONE*. 18(6): e0284968*. `Read paper <https://doi.org/10.1371/journal.pone.0284968>`__
+- Hodler R, Lechner M, and Raschky P (2023). **Institutions and the Resource Course: New Insights from Causal Machine Learning**. *PLoS ONE*. 18(6): e0284968. `Read paper <https://doi.org/10.1371/journal.pone.0284968>`__
 
-- Zhu M (2023). **The Effect of Political Participation of Chinese Citizens on Government Satisfaction: Based on Modified Causal Forest**. *Procedia Computer Science*. 221. pp. 1044–1051. `Read paper <https://linkinghub.elsevier.com/retrieve/pii/S187705092300844X>`__
+- Zhu M (2023). **The Effect of Political Participation of Chinese Citizens on Government Satisfaction: Based on Modified Causal Forest**. *Procedia Computer Science*. 221: 1044–1051. `Read paper <https://linkinghub.elsevier.com/retrieve/pii/S187705092300844X>`__
 
 License
 -------

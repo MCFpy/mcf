@@ -184,6 +184,7 @@ Conceptual foundation
 Algorithm demonstrations
 ^^^^^^^^^^^^^^^^^^^^^^^^
 - Bodory H, Busshoff H, Lechner M (2022). **High Resolution Treatment Effects Estimation: Uncovering Effect Heterogeneities with the Modified Causal Forest**. *Entropy*. 24(8):1039. `Read Paper <https://doi.org/10.3390/e24081039>`__
+- Bodory H, Mascolo F, Lechner M (2024). **Enabling Decision Making with the Modified Causal Forest: Policy Trees for Treatment Assignment**. *Algorithms*. 17(7):318. `Read Paper <https://doi.org/10.3390/a17070318>`__
 
 Simulations
 ^^^^^^^^^^^

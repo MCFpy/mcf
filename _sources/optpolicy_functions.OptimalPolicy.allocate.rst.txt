@@ -1,0 +1,6 @@
+﻿optpolicy\_functions.OptimalPolicy.allocate
+===========================================
+
+.. currentmodule:: optpolicy_functions
+
+.. automethod:: OptimalPolicy.allocate

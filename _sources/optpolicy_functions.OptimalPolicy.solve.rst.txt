@@ -1,0 +1,6 @@
+﻿optpolicy\_functions.OptimalPolicy.solve
+========================================
+
+.. currentmodule:: optpolicy_functions
+
+.. automethod:: OptimalPolicy.solve

@@ -192,7 +192,7 @@ Simulations
 
 Applications in diverse fields
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-- Audrino F, Chassot J, Huang C, Knaus M, Lechner M, Ortega JP (2022). **How does post-earnings announcement affect firms’ dynamics? New evidence from causal machine learning**. Forthcoming in *Journal of Financial Econometrics*. `Read paper <https://academic.oup.com/jfec/article/22/3/575/6640191>`__
+- Audrino F, Chassot J, Huang C, Knaus M, Lechner M, Ortega JP (2022). **How does post-earnings announcement affect firms’ dynamics? New evidence from causal machine learning**. *Journal of Financial Econometrics*. `Read paper <https://academic.oup.com/jfec/article/22/3/575/6640191>`__
 
 - Burlat H (2024). **Everybody’s got to learn sometime? A causal machine learning evaluation of training programmes for jobseekers in France**. *Labour Economics*. In Press. Paper 102573. `Read paper <https://doi.org/10.1016/j.labeco.2024.102573>`__
 

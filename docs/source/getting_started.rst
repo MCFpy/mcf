@@ -154,6 +154,7 @@ The :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method returns a ``re
 The latter contains a dictionary with the estimation results. To get an overview, start by extracting the dictionary:
 
 .. code-block:: python
+
     results_dict = results[0]
 
 Now, we can have a look at the keys of the dictionary:

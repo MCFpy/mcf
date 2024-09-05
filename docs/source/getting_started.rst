@@ -122,7 +122,7 @@ Now we are ready to estimate heterogeneous treatment effects on the ``pred_mcf_t
 
 .. code-block:: python
 
-    results, _ = my_mcf.predict(prediction_df)
+    results = my_mcf.predict(prediction_df)
 
 
 Accessing results
@@ -137,9 +137,9 @@ The simplest way to get an overview of your results is to read the PDF-report th
 
 Next, we describe ways to access the results programmatically:
 
-The :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method returns a ``results`` tuple. This includes:
+The :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method returns a ``results`` diccionary. This includes:
 
-- A dictionary containing all estimates.
+- All estimates.
 
 .. code-block:: python
 
@@ -151,7 +151,7 @@ The :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method returns a ``re
 
     results[1]
 
-The latter contains a dictionary with the estimation results. To get an overview, start by extracting the dictionary:
+The former contains a dictionary with the estimation results. To get an overview, start by extracting the dictionary:
 
 .. code-block:: python
 

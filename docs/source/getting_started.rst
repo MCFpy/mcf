@@ -182,7 +182,7 @@ In the same way, you can access and print the standard errors of the respective 
     ate_se_array = results_dict.get('ate_se')
     print("\nStandard Error of ATE:\n", ate_se_array)
 
-The estimated :math:`\textrm{IATE's}`, together with the locally centered and uncentered potential outcomes, are stored as columns of a Pandas DataFrame that you have access to from the extracted ``results_dict`` dictionary. If you do not know the variable names of your specific estimation in advance, have a look at the keys of this dictionary:
+The estimated :math:`\textrm{IATE's}`, along with the locally centered and uncentered potential outcomes, are saved as columns in a Pandas DataFrame, which can be accessed from the ``results_dict`` dictionary. If you do not know the variable names of your estimation in advance, have a look at the keys of this dictionary:
 
 .. code-block:: python
 

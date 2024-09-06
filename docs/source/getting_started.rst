@@ -205,13 +205,13 @@ You can access these elements all at once or independently in the following ways
     df_po_uncentered = df.loc[:, df.columns.str.endswith('un_lc_pot')]
 
 
-To illustrate this, let us build on the previous example with three treatment levels, 0, 1, and 2. The columns ``outcome_lc0_pot``, ``outcome_lc1_pot``, and ``outcome_lc2_pot`` represent the *predicted* potential outcomes under the respective treatment level. You can extract these, for example, using:
+To illustrate this, let us build on the previous example with three treatment levels, 0, 1, and 2. The keys ``outcome_lc0_pot``, ``outcome_lc1_pot``, and ``outcome_lc2_pot`` represent the *predicted* and locally centered potential outcomes under the respective treatment level. Let us have a closer look at the first element, individually:
 
 .. code-block:: python
 
     results_dict.get('iate_data_df')['outcome_lc0_pot']
 
-The columns ``outcome_lc1vs0_iate``, ``outcome_lc2vs0_iate``, and ``outcome_lc2vs1_iate`` give you the estimated :math:`\textrm{IATE's}`. As above, these columns contrast the respective treatment levels.
+The columns ``outcome_lc1vs0_iate``, ``outcome_lc2vs0_iate``, and ``outcome_lc2vs1_iate`` store the estimated :math:`\textrm{IATE's}`. As above, these columns contrast the respective treatment levels and we inspect them individually as follows:
 
 .. code-block:: python
 

@@ -211,14 +211,16 @@ To see what estimates you have access to for your specific estimation, you can c
     results_dict.get('iate_data_df').keys()
 
 
-Note that, if you specify the methods as in the provided example files, you have  access to all the elements discussed above directly from the ``results`` DataFrame. For example,
+Note that, if you specify the methods as in the provided example files, you have access to all the elements discussed above directly from the ``results`` tuple. For example,
 
 .. code-block:: python
+
     # use the .predict() method as shown in the example files
     results, _ = my_mcf.predict(prediction_df)
 
     # access a potential outcome
     results.get('iate_data_df')['outcome_lc1vs0_iate']
+
 
 Here, ``results`` essentially plays the same role as ``results_dict`` explained previously. These are two equivalent ways to access your results.
 

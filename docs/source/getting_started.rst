@@ -174,7 +174,7 @@ In the multiple treatment setting there is more than one average treatment effec
 
 For instance, if you have treatment levels 0, 1, and 2, you will see an entry of the form [[[0.1, 0.3, 0.5]]]. Here, the first entry, 0.1, specifies the treatment contrast between treatment level 1 and treatment level 0. The second entry, 0.3, specifies the treatment contrast between treatment level 2 and treatment level 0. The third entry specifies the treatment contrast between level 1 and 2.
 
-These contrasts are aligned the standard errors of the estimated :math:`\textrm{ATE's}`, which you can access and print running:
+In the same way, you can access and print the standard errors of the respective :math:`\textrm{ATE's}` by running:
 
 .. code-block:: python
 

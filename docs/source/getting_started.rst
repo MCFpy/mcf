@@ -137,7 +137,7 @@ The simplest way to get an overview of your results is to read the PDF-report th
 
 Next, we describe ways to access the results programmatically:
 
-The :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method returns a ``results`` dictionary. This includes:
+The :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method returns a ``results`` tuple. This includes:
 
 - All estimates.
 

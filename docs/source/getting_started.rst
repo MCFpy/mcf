@@ -135,7 +135,8 @@ The simplest way to get an overview of your results is to read the PDF-report th
     mcf_report = McfOptPolReport(mcf=my_mcf, outputfile='Modified-Causal-Forest_Report')
     mcf_report.report()
 
-Next, we describe ways to access the results programmatically:
+
+You can also access all the results programmatically. Here's how to do it:
 
 The :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method returns a ``results`` tuple. This includes:
 
@@ -181,34 +182,42 @@ In the same way, you can access and print the standard errors of the respective 
     ate_se_array = results_dict.get('ate_se')
     print("\nStandard Error of ATE:\n", ate_se_array)
 
-The estimated :math:`\textrm{IATE's}`, together with the predicted potential outcomes, are stored as columns of a Pandas DataFrame which you can access from the ``results`` tuple:
+The estimated :math:`\textrm{IATE's}`, together with the locally centered and uncentered potential outcomes, are stored as columns of a Pandas DataFrame that you have access to from the extracted ``results_dict`` dictionary. If you do not know the variable names of your specific estimation in advance, have a look at the keys of this dictionary:
 
 .. code-block:: python
 
-    # extract the results
-    iate_array = results_dict.get('iate')
-    
-    # print all the IATEs
-    print("\nIndividualized Treatment Effects (IATE):\n", iate_array)
+    results_dict.get('iate_data_df').keys()
 
-Let us build on the previous example with three treatment levels, 0, 1, and 2. The columns ``outcome_lc0_pot``, ``outcome_lc1_pot``, and ``outcome_lc2_pot`` represent the *predicted* potential outcomes under the respective treatment level.
-You can extract these, for example, using:
+You can access these elements all at once or independently in the following ways:
+
+.. code-block:: python
+
+    # access all at once (the full DataFrame)
+    df = results_dict['iate_data_df']
+
+    # access only the IATEs
+    df_iate = df.loc[:, df.columns.str.endswith('_iate') ]  
+
+    # centered potential outcomes
+    df_po_centered = df.loc[:, (df.columns.str.endswith('pot')) &
+                                             ~df.columns.str.endswith('un_lc_pot')]
+    # uncentered potential outcomes
+    df_po_uncentered = df.loc[:, df.columns.str.endswith('un_lc_pot')]
+
+
+To illustrate this, let us build on the previous example with three treatment levels, 0, 1, and 2. The columns ``outcome_lc0_pot``, ``outcome_lc1_pot``, and ``outcome_lc2_pot`` represent the *predicted* potential outcomes under the respective treatment level. You can extract these, for example, using:
 
 .. code-block:: python
 
     results_dict.get('iate_data_df')['outcome_lc0_pot']
 
-The columns ``outcome_lc1vs0_iate``, ``outcome_lc2vs0_iate``, and ``outcome_lc2vs1_iate`` give you the estimated :math:`\textrm{IATE's}`. As before, these contrast the respective treatment levels.
+The columns ``outcome_lc1vs0_iate``, ``outcome_lc2vs0_iate``, and ``outcome_lc2vs1_iate`` give you the estimated :math:`\textrm{IATE's}`. As above, these columns contrast the respective treatment levels.
 
 .. code-block:: python
 
     results_dict.get('iate_data_df')['outcome_lc1vs0_iate']
 
-To see what estimates you have access to for your specific estimation, you can check the keys of the :math:`\textrm{ATE's}` dictionary:
 
-.. code-block:: python
-
-    results_dict.get('iate_data_df').keys()
 
 
 Note that, if you specify the methods as in the provided example files, you have access to all the elements discussed above directly from the ``results`` tuple. For example,

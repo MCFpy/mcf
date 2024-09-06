@@ -172,7 +172,7 @@ In the multiple treatment setting there is more than one average treatment effec
     ate_array = results_dict.get('ate')
     print("Average Treatment Effect (ATE):\n", ate_array)
 
-For instance, if you have a treatment levels 0, 1, and 2, you will see an entry of the form [[[0.1, 0.3, 0.5]]]. Here, the first entry, 0.1, specifies the treatment contrast between treatment level 1 and treatment level 0. The second entry, 0.3, specifies the treatment contrast between treatment level 2 and treatment level 0. The third entry specifies the treatment contrast between level 1 and 2.
+For instance, if you have treatment levels 0, 1, and 2, you will see an entry of the form [[[0.1, 0.3, 0.5]]]. Here, the first entry, 0.1, specifies the treatment contrast between treatment level 1 and treatment level 0. The second entry, 0.3, specifies the treatment contrast between treatment level 2 and treatment level 0. The third entry specifies the treatment contrast between level 1 and 2.
 
 These contrasts are aligned the standard errors of the estimated :math:`\textrm{ATE's}`, which you can access and print running:
 

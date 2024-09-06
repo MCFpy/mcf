@@ -165,7 +165,7 @@ Now, we can have a look at the keys of the dictionary:
 
 By default, the average treatment effects (:math:`\textrm{ATE's}`) as well as the individualized average treatment effects (:math:`\textrm{IATE's}`) are estimated. If these terms do not sound familiar, :doc:`here <user_guide/estimation>` you can learn more about the different kinds of heterogeneous treatment effects.
 
-In the multiple treatment setting there is more than one average treatment effect to consider. The following entry of the results dictionary lists the estimated treatment contrasts:
+In the multiple treatment setting there is more than one :math:`\textrm{ATE}` to consider. The following entry of the ``results_dict`` dictionary lists the estimated treatment contrasts:
 
 .. code-block:: python
 

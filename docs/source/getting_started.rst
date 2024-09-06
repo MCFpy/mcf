@@ -324,7 +324,7 @@ A great way to get an overview of the results is to read the PDF-report that can
 .. code-block:: python
 
     policy_tree_report = McfOptPolReport(
-        optpol = my_policy_tree,
+        optpol = my_optimal_policy,
         outputfile = 'Optimal-Policy_Report'
         )
     policy_tree_report.report()

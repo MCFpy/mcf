@@ -200,7 +200,8 @@ You can access these elements all at once or independently in the following ways
 
     # centered potential outcomes
     df_po_centered = df.loc[:, (df.columns.str.endswith('pot')) &
-                                             ~df.columns.str.endswith('un_lc_pot')]
+                               ~df.columns.str.endswith('un_lc_pot')]
+
     # uncentered potential outcomes
     df_po_uncentered = df.loc[:, df.columns.str.endswith('un_lc_pot')]
 

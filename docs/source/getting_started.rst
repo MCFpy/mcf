@@ -278,7 +278,7 @@ as follows:
         var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
         var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
         var_x_name_unord=["x_unord0"],
-        gen_method="best_policy_score", 
+        gen_method="policy tree", 
         pt_depth_tree_1=2
         )
 

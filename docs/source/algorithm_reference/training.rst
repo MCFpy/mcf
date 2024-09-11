@@ -104,7 +104,7 @@ In practical terms, a forest is estimated for all possible combinations of these
 
   - ``cf_m_grid`` this parameter determines the number of variables used at each new split of the tree. If grid is used, optimal value is determined by out-of-bag estimation of objective function. The default value is 1. **Note**: The finer the grid-search, the more forests are estimated, which slows down computation time. To identify the best values from the grid-search, the program implements the out-of-bag estimation of the chosen objective. The best performing forest based on its out-of-bag value of its objective function is taken for further computations.
 
-  - ``cf_n_min_min`` smallest minimum leaf size. The smaller the minimum leaf size. Decreasing this minimum leaf size prolongs computation time, as it prompts the tree to grow deeper. Particularly with extensive datasets, this augmentation in computation time can be significant
+  - ``cf_n_min_min`` smallest minimum leaf size. Decreasing this minimum leaf size prolongs computation time as it prompts the tree to grow deeper. This augmentation in computation time can be significant with extensive datasets.
 
   - ``cf_n_min_max`` largest minimum leaf size.  Similar to its counterpart, adjusting this parameter influences computation time.
 

@@ -200,9 +200,11 @@ Applications in diverse fields
 
 - Handouyahia A, Rikhi T, Awad G, Aouli E (2024). **Heterogeneous causal effects of labour market programs: A machine learning approach**. *Proceedings of Statistics Canada Symposium 2022*. `Read paper <https://www150.statcan.gc.ca/n1/pub/11-522-x/2022001/article/00017-eng.pdf>`__
 
+- Heiniger S, Koeniger W, Lechner M (2024). **The heterogeneous response of real estate prices during the Covid-19 pandemic**. *Journal of the Royal Statistical Society Series A: Statistics in Society*, 00, 1–24. `Read paper <https://doi.org/10.1093/jrsssa/qnae078>`__
+
 - Hodler R, Lechner M, and Raschky P (2023). **Institutions and the Resource Course: New Insights from Causal Machine Learning**. *PLoS ONE*. 18(6): e0284968. `Read paper <https://doi.org/10.1371/journal.pone.0284968>`__
 
-- Zhu M (2023). **The Effect of Political Participation of Chinese Citizens on Government Satisfaction: Based on Modified Causal Forest**. *Procedia Computer Science*. 221: 1044–1051. `Read paper <https://linkinghub.elsevier.com/retrieve/pii/S187705092300844X>`__
+- Zhu M (2023). **The Effect of Political Participation of Chinese Citizens on Government Satisfaction: Based on Modified Causal Forest**. *Procedia Computer Science*. 221, 1044–1051. `Read paper <https://linkinghub.elsevier.com/retrieve/pii/S187705092300844X>`__
 
 License
 -------

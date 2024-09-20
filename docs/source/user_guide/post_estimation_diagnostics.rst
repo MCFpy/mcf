@@ -140,6 +140,8 @@ Below is an overview of the above mentioned parameters related to post-estimatio
 +---------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``post_kmeans_replications``          | Only relevant if ``post_kmeans_yes`` is True. Determines the number of replications for :math:`k`-means clustering. Default: 10.                                                                                                                                      |
 +---------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| ``post_kmeans_min_size_share``        | Smallest share of cluster size allowed in %. Default (None) is 1.                                                                                                                                                                                                     |
++---------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``post_random_forest_vi``             | If True, the feature importance analysis is conduced. Default: True.                                                                                                                                                                                                  |
 +---------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``post_plots``                        | If True, post-estimation diagnostic plots are printed during runtime. Default: True.                                                                                                                                                                                  |
@@ -155,7 +157,7 @@ Example
 
     from mcf.example_data_functions import example_data
     from mcf.mcf_functions import ModifiedCausalForest
-    from mcf import McfOptPolReport
+    from mcf.reporting import McfOptPolReport
     
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()
@@ -176,7 +178,8 @@ Example
             post_kmeans_max_tries=1000,
             post_kmeans_replications=10,
             post_random_forest_vi=True,
-            post_plots=True
+            post_plots=True,
+            post_kmeans_min_size_share=1
         )
     
     my_mcf.train(training_df)

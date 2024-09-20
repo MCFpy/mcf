@@ -75,7 +75,9 @@ Example
         # Determine penalty function
         cf_p_diff_penalty = 3,
         # Determine method of nearest neighbour matching
-        cf_match_nn_prog_score = True
+        cf_match_nn_prog_score = True,
+        # Type of penalty function
+        cf_penalty_type='mse_d'
     )
 
 .. _computational-speed:
@@ -116,6 +118,7 @@ In practical terms, a forest is estimated for all possible combinations of these
 
   - ``p_choice_based_sampling`` this option allows choice-based sampling to speed up programme if treatment groups have very different sizes.
 
+  - ``cf_tune_all``: Tune all parameters. If True, all *_grid keywords will be set to 3. User specified values are respected if larger than 3. Default (or None) is False.
 
 - **Parallel Processing**: 
 
@@ -154,6 +157,8 @@ Adjusting these options can help to significantly reduce the computational time,
      - Enable the use of random thresholds in the decision trees. Default is None. 
    * - ``p_choice_based_sampling``
      -  Choice based sampling to speed up programme if treatment groups have different sizes. Default is False. 
+   * - ``cf_tune_all``
+     - Tune all parameters. If True, all *_grid keywords will be set to 3. User specified values are respected if larger than 3. Default (or None) is False.
    * - ``gen_mp_parallel``
      -  Number of parallel processes. Default is 80%.
 

@@ -36,14 +36,12 @@ Methods
       ModifiedCausalForest.train
       ModifiedCausalForest.predict
       ModifiedCausalForest.analyse
-      ModifiedCausalForest.blinder_iates
       ModifiedCausalForest.sensitivity
 
 .. autosummary:: 
     ~ModifiedCausalForest.train
     ~ModifiedCausalForest.predict
     ~ModifiedCausalForest.analyse
-    ~ModifiedCausalForest.blinder_iates
     ~ModifiedCausalForest.sensitivity
 
 

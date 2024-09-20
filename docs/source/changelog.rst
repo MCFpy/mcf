@@ -56,19 +56,22 @@ Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
 
     - ``post_k_means_single`` -> ``post_kmeans_single``
 
-- **New keyword: cf_tune_all**
+New keywords
++++++++++++++
+
+- **cf_tune_all**
 
     - Tune all parameters. If True, all *_grid keywords will be set to 3. User specified values are respected if larger than 3. Default is False.
 
-- **New keyword: ccf_penalty_type**
+- **cf_penalty_type**
 
     - Type of penalty function. 'mse_d':  MSE of treatment prediction in daughter leaf (new in 0.7.0).  'diff_d': Penalty as squared leaf difference (as in Lechner, 2018). Note that 'mse_d' that can also be used for tuning,  while (due to its computation), this is not possible for 'diff_d'. Default (or None) is 'mse_d'.
 
-- **New keyword: post_kmeans_min_size_share**
+- **post_kmeans_min_size_share**
 
     - Smallest share of cluster size allowed in % (0-33). Default (None) is 1.
 
-- **New keyword: post_tree**
+- **post_tree**
 
     - Regression trees (honest and standard) of Depth 2 to 5 are estimated to describe IATES(x). Default (or None) is True.
 
@@ -83,21 +86,37 @@ Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
                 - 'Quantiled': Removing dependence via an empirical version of the approach by Strack and Yang (2024).
                 - Default (or None) is 'Quantiled'.
 
-      - New keywords
-        - fair_consistency_test : Boolean.
-          Test for internally consistency.
-          The fairness corrections are applied independently to every policy
-          score (which usually is a potential outcome or an IATE(x) for each treatment
-          relative to some base treatment (i.e. comparing 1-0, 2-0, 3-0, etc.).
-          Thus, the IATE for the 2-1 comparison can be computed as IATE(2-0)-IATE(1-0).
-          This tests compares two ways to compute a fair score for the 2-1 (and all
-          other comparisons) which should give simular results:
-          a) Difference of two fair (!) scores
-          b) Difference of corresponding scores, subsequently made fair.
-          Note: Depending on the number of treatments, this test may be computationally
-                more expensive than the orginal fairness corrections.
-          Fairness adjustments are experimental.
-          The default is False
+New Keywords
+++++++++++++
+
+- **fair_consistency_test**: Boolean. Test for internal consistency. The fairness corrections are applied independently to every policy score (which usually is a potential outcome or an IATE(x) for each treatment relative to some base treatment, i.e., comparing 1-0, 2-0, 3-0, etc.). Thus, the IATE for the 2-1 comparison can be computed as IATE(2-0) - IATE(1-0). This test compares two ways to compute a fair score for the 2-1 (and all other comparisons), which should give similar results:
+
+  - **a)** Difference of two fair (!) scores
+  - **b)** Difference of corresponding scores, subsequently made fair.
+
+  Note: Depending on the number of treatments, this test may be computationally more expensive than the original fairness corrections. Fairness adjustments are experimental. The default is False.
+
+- **fair_protected_disc_method**, **fair_material_disc_method**: String
+  Parameters for discretization of features (necessary for 'Quantilized'). Method on how to perform the discretization for materially relevant and protected variables.
+
+  - **NoDiscretization**: Variables are not changed. If one of the features has more different values than `fair_protected_disc_method` / `fair_material_disc_method`, all protected / materially relevant features will formally be treated as continuous. The latter may become unreliable if their dimension is not small.
+  - **EqualCell**: Attempts to create equal cells for each variable. May be useful for a very small number of variables with few different values.
+  - **Kmeans**: Use Kmeans clustering algorithm to form homogeneous cells.
+
+  Fairness adjustments are experimental. The default (or None) is **Kmeans**.
+
+- **fair_protected_max_groups**, **fair_material_max_groups**: String.
+  Level of discretization of variables (only if needed). Number of groups of values of features that are materially relevant / protected. This keyword is currently only necessary for 'Quantilized'. Its meaning depends on `fair_protected_disc_method`, `fair_material_disc_method`:
+
+  - **EqualCell**: If more than 1 variable is included among the protected features, this restriction is applied to each variable.
+  - **Kmeans**: This is the number of clusters used by Kmeans.
+
+  Fairness adjustments are experimental. The default (or None) is 5.
+
+Changes concerning the class :py:class:`~mcf_functions.McfOptPolReport`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- **mcf_blind** is removed, because the method `blinder_iates` is deprecated.
 
 Version 0.6.0
 -------------
@@ -213,7 +232,7 @@ Additional features
 - Some additional explanations to the output of the policy tree (including a warning if there are more than 30 features for the policy trees) have been added.
 
 Changes concerning the class :py:class:`~mcf_functions.McfOptPolReport`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - The structure of the policy tree is added to the pdf file.
 
 

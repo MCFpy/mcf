@@ -79,12 +79,12 @@ Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - The method fairscores has been improved and expanded (for details, see the future paper by Bearth, Lechner, Mareckova, Muny, 2024). However, fairness adjustments are still experimental.
-        - Change in content of keyword:
-            - ``fair_type`` now captures 3 methods to perform score adjustments:
-                - 'Mean': Mean dependence of the policy score on protected variables is removed.
-                - 'MeanVar': Mean dependence and heteroscedasticity are removed.
-                - 'Quantiled': Removing dependence via an empirical version of the approach by Strack and Yang (2024).
-                - Default (or None) is 'Quantiled'.
+- Change in content of keyword:
+    - ``fair_type`` now captures 3 methods to perform score adjustments:
+        - 'Mean': Mean dependence of the policy score on protected variables is removed.
+        - 'MeanVar': Mean dependence and heteroscedasticity are removed.
+        - 'Quantiled': Removing dependence via an empirical version of the approach by Strack and Yang (2024).
+        - Default (or None) is 'Quantiled'.
 
 New Keywords
 ++++++++++++

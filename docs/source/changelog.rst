@@ -27,6 +27,62 @@ Changelog
 
     Note the absence of the tilde '~' in this case. 
 
+Version 0.7.0
+-------------
+
+Documentation
+~~~~~~~~~~~~~~
+
+- New section added with published (!) papers using the mcf. We will try to update this section with every release. Please feel free to inform us about your publications when they use the mcf.
+- New script with example on how to use the fairness correction in optimal policy: fairness_optpolicy.py. **This method is experimental.** A detailed description will be added in the next release.
+
+Changes concerning all classes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Speed increase by optimizing numba functions
+- Adjustments required by new Numpy version 2.0
+
+Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Small bug fixes.
+- Improved output.
+- A new, additional penalty function has been introduced based on the MSE of the propensity score computed in the split (causal) leaves. This penalty function favors splits that reduce selection bias. One advantage of this new penalty function is that it can be computed with the out-of-bag observations when tuning the forest (which was not possible with the existing penalty function). This change also required the introduction of a new keyword (cf_penalty_type; see below for details).
+- The method blinder_iates (reducing dependence of IATEs on protected variables) is deprecated and removed from the documentation. It will be fully removed in future versions. Use the method fairscores of the OptimalPolicy class instead. It is computationally more efficient and works better at removing the influence of protected variables on scores.
+- Change in k-means clustering of IATEs: If a cluster is smaller than required by post_kmeans_min_size_share, it will be merged with the cluster that has the closest centroid.
+- Additional tool added to describe IATEs(x) with the analyse() method: Shallow regression trees are trained in standard and honest form. Figures and out-of-sample accuracy measures (R-squared) of how they fit the IATEs are provided.
+
+- **Name change of keywords**
+
+    - ``post_k_means_single`` -> ``post_kmeans_single``
+
+- **New keyword: cf_tune_all**
+
+    - Tune all parameters. If True, all *_grid keywords will be set to 3. User specified values are respected if larger than 3. Default is False.
+
+- **New keyword: ccf_penalty_type**
+
+    - Type of penalty function. 'mse_d':  MSE of treatment prediction in daughter leaf (new in 0.7.0).  'diff_d': Penalty as squared leaf difference (as in Lechner, 2018). Note that 'mse_d' that can also be used for tuning,  while (due to its computation), this is not possible for 'diff_d'. Default (or None) is 'mse_d'.
+
+- **New keyword: post_kmeans_min_size_share**
+
+    - Smallest share of cluster size allowed in % (0-33). Default (None) is 1.
+
+- **New keyword: post_tree**
+
+    - Regression trees (honest and standard) of Depth 2 to 5 are estimated to describe IATES(x). Default (or None) is True.
+
+Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    - The method fairscores has been improved and expanded (for details, see the future paper by Bearth, Lechner, Mareckova, Muny, 2024). However, fairness adjustments are still experimental.
+        - Change in content of keyword:
+            - ``fair_type`` now captures 3 methods to perform score adjustments:
+                - 'Mean': Mean dependence of the policy score on protected variables is removed.
+                - 'MeanVar': Mean dependence and heteroscedasticity are removed.
+                - 'Quantiled': Removing dependence via an empirical version of the approach by Strack and Yang (2024).
+                - Default (or None) is 'Quantiled'.
+
 Version 0.6.0
 -------------
 

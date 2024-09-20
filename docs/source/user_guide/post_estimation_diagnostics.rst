@@ -146,6 +146,8 @@ Below is an overview of the above mentioned parameters related to post-estimatio
 +---------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``post_plots``                        | If True, post-estimation diagnostic plots are printed during runtime. Default: True.                                                                                                                                                                                  |
 +---------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| ``post_tree``                         | Regression trees (honest and standard) of Depth 2 to 5 are estimated to describe IATES(x). Default (or None) is True.                                                                                                                                                 |
++---------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 Please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` for more details.
 
@@ -179,7 +181,8 @@ Example
             post_kmeans_replications=10,
             post_random_forest_vi=True,
             post_plots=True,
-            post_kmeans_min_size_share=1
+            post_kmeans_min_size_share=1,
+            post_tree=True
         )
     
     my_mcf.train(training_df)

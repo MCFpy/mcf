@@ -75,13 +75,29 @@ Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
 Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    - The method fairscores has been improved and expanded (for details, see the future paper by Bearth, Lechner, Mareckova, Muny, 2024). However, fairness adjustments are still experimental.
+- The method fairscores has been improved and expanded (for details, see the future paper by Bearth, Lechner, Mareckova, Muny, 2024). However, fairness adjustments are still experimental.
         - Change in content of keyword:
             - ``fair_type`` now captures 3 methods to perform score adjustments:
                 - 'Mean': Mean dependence of the policy score on protected variables is removed.
                 - 'MeanVar': Mean dependence and heteroscedasticity are removed.
                 - 'Quantiled': Removing dependence via an empirical version of the approach by Strack and Yang (2024).
                 - Default (or None) is 'Quantiled'.
+
+      - New keywords
+        - fair_consistency_test : Boolean.
+          Test for internally consistency.
+          The fairness corrections are applied independently to every policy
+          score (which usually is a potential outcome or an IATE(x) for each treatment
+          relative to some base treatment (i.e. comparing 1-0, 2-0, 3-0, etc.).
+          Thus, the IATE for the 2-1 comparison can be computed as IATE(2-0)-IATE(1-0).
+          This tests compares two ways to compute a fair score for the 2-1 (and all
+          other comparisons) which should give simular results:
+          a) Difference of two fair (!) scores
+          b) Difference of corresponding scores, subsequently made fair.
+          Note: Depending on the number of treatments, this test may be computationally
+                more expensive than the orginal fairness corrections.
+          Fairness adjustments are experimental.
+          The default is False
 
 Version 0.6.0
 -------------

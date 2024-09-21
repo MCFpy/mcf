@@ -23,3 +23,4 @@ Optimal Policy
     :numbered:
 
     algorithm_reference/optimal-policy_algorithm
+    algorithm_reference/fairscores

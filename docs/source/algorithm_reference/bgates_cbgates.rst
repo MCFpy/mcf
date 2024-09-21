@@ -66,15 +66,15 @@ Examples
        var_y_name="outcome",
        var_d_name="treat",
        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
-       var_z_name_list=["x_unord0"],
+       var_z_name_list=["x_unord0", "x_ord1"],
        # Variables to balance the GATEs on
-       var_bgate_name=["x_unord0"],
+       var_bgate_name=["x_unord0", "x_ord1"],
        # Estimate a balanced GATE in selected features
        p_bgate=True,
        # Random samples to speed up the programme
        p_bgate_sample_share = None
    )
-
+   
    my_mcf.train(training_df)
    results, _ = my_mcf.predict(prediction_df)
 

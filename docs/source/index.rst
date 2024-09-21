@@ -20,7 +20,7 @@ For those seeking further information:
 Installation Guide
 ------------------
 
-The current version of **mcf** is compatible with **Python 3.11**. You can install mcf from PyPI using:
+The current version of **mcf** is compatible with **Python 3.12**. You can install mcf from PyPI using:
 
 .. code-block:: bash
 
@@ -43,11 +43,11 @@ If you prefer to use the command line, first install conda as described `here <h
 
       conda activate mcf-env
 
-2. Install Python **3.11**:
+2. Install Python **3.12**:
 
   .. code-block:: bash
 
-      conda install Python="3.11"
+      conda install Python="3.12"
 
 3. Finally, install **mcf** in this environment using **pip**:
 
@@ -61,7 +61,7 @@ If you prefer a graphical interface, you can:
 
 1. Install Anaconda distribution including Anaconda navigator by downloading it `here <https://docs.anaconda.com/free/navigator/install/>`__.
 
-2. Set up an environment, follow the guide `here <https://docs.anaconda.com/free/navigator/getting-started/#managing-environments>`__ and make sure you choose **Python=3.11.8** for your environment.
+2. Set up an environment, follow the guide `here <https://docs.anaconda.com/free/navigator/getting-started/#managing-environments>`__ and make sure you choose **Python=3.12.5** for your environment.
 
 3. Install the **mcf** package by using pip install in your IDE console:
 

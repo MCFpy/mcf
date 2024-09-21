@@ -9,3 +9,4 @@ This method can be configured using several parameters to control the type and e
 Specifically, allowing users to specify the type of fairness adjustment, the method for discretizing features, and the number of groups for discretization. 
 
 These features are experimental. 
+ 

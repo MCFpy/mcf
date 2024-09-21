@@ -1,12 +1,17 @@
-Fairness Extensions in OptimalPolicy
+Fairness Extensions in Optimal Policy
 ===========================================
 
-The OptimalPolicy class in the mcf module includes experimental features for fairness adjustments. 
+The :py:class:`~optpolicy_functions.OptimalPolicy` class in the **mcf** includes experimental features for fairness adjustments, accessible through the ``fairscores`` method. 
 These features are designed to ensure that policy scores are fair with respect to certain protected variables. 
 The fairness adjustments are based on the work by Bearth, Lechner, Mareckova, and Muny (2024).
 
 This method can be configured using several parameters to control the type and extent of fairness adjustments. 
-Specifically, allowing users to specify the type of fairness adjustment, the method for discretizing features, and the number of groups for discretization. 
 
-These features are experimental. 
- 
+Note
+------
+These features are experimental and may require further testing and validation. For more details or additional parameters, please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` documentation.
+
+Usage
+------
+To use the fairness adjustments, configure the :py:class:`~optpolicy_functions.OptimalPolicy` class with the appropriate parameters and call the ``fairscores`` method on your data. This will return a DataFrame with adjusted policy scores that account for fairness considerations.
+

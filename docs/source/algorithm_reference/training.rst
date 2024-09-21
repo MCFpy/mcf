@@ -187,7 +187,7 @@ Example
         # Largest minimum leaf size
         cf_n_min_max=None,
         # Number of parallel processes
-        gen_mp_parallel=None
+        gen_mp_parallel=None,
         # Tune all parameters
         cf_tune_all=True
     )

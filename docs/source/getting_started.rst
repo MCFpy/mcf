@@ -162,7 +162,8 @@ Now, we can have a look at the keys of the dictionary:
 
 .. code-block:: python
 
-    results_dict.keys()
+    keys = results_dict.get('iate_data_df').keys()
+    print("Keys in your dictionary:\n", keys)
 
 By default, the average treatment effects (:math:`\textrm{ATE's}`) as well as the individualized average treatment effects (:math:`\textrm{IATE's}`) are estimated. If these terms do not sound familiar, :doc:`here <user_guide/estimation>` you can learn more about the different kinds of heterogeneous treatment effects.
 

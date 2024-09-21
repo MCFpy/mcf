@@ -4,12 +4,13 @@ Modified Causal Forest - Python implementation
 
 Commercial and non-commercial use allowed as compatible with the license for
 Python and its modules (and Creative Commons Licence CC BY-SA).
+Appropriate credit must be given.
 
 Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.6.0
+Version: 0.7.0
 
 This is an example to show how a minimal specification of the mcf can be
 implemented that uses the same data from training and prediction.
@@ -39,7 +40,6 @@ VAR_X_NAME_UNORD = ('x_unord0',)
 # -----------------------------------------------------------------------------
 if not os.path.exists(APPLIC_PATH):
     os.makedirs(APPLIC_PATH)
-
 # -----------------------------------------------------------------------------
 mymcf = ModifiedCausalForest(var_d_name=VAR_D_NAME,
                              var_y_name=VAR_Y_NAME,

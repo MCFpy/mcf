@@ -23,7 +23,7 @@ from mcf import mcf_weight_functions as mcf_w
 
 class ModifiedCausalForest:
     """
-    Estimation of heterogenous treatment effects with the Modified Causal Forest
+    Estimation of treatment effects with the Modified Causal Forest.
 
     Parameters
     ----------
@@ -45,48 +45,55 @@ class ModifiedCausalForest:
 
     var_x_name_unord : String or List of strings (or None), optional
         Name of unordered features. Either ordered or unordered features
-        must be provided. Default is None.
+        must be provided.
+        Default is None.
 
     var_bgate_name :  String or List of strings (or None), optional
         Variables to balance the GATEs on. Only relevant if p_bgate is
         True. The distribution of these variables is kept constant when a
         BGATE is computed. None: Use the other heterogeneity variables
-        (var\_z\_ ...) (if there are any) for balancing. Default is None.
+        (var_z_...) (if there are any) for balancing. Default is None.
 
     var_cluster_name :  String or List of string (or None)
         Name of variable defining clusters. Only relevant if p_cluster_std
-        is True. Default is None.
+        is True.
+        Default is None.
 
-    var_id_name : String or List of string (or None)
-        Identifier. None: Identifier will be added to the data.
+    var_id_name : String or List of string (or None), optional
+        Name of identifier. None: Identifier will be added to the data.
         Default is None.
 
     var_x_balance_name_ord : String or List of strings (or None), optional
         Name of ordered variables to be used in balancing tests. Only
-        relevant if p_bt_yes is True. Default is None.
+        relevant if p_bt_yes is True.
+        Default is None.
 
     var_x_balance_name_unord : String or List of strings (or None),
                                optional
-        Name of Ordered variables to be used in balancing tests. Treatment
+        Name of ordered variables to be used in balancing tests. Treatment
         specific descriptive statistics are only printed for those
-        variables. Default is None.
+        variables.
+        Default is None.
 
     var_x_name_always_in_ord : String or List of strings (or None),
                                optional
-        Name of ordered variables that always checked on when deciding on
+        Name of ordered variables that are always checked on when deciding on
         the next split during tree building. Only relevant for
-        :meth:`~ModifiedCausalForest.train` method. Default is None.
+        :meth:`~ModifiedCausalForest.train` method.
+        Default is None.
 
     var_x_name_always_in_unord : String or List of strings (or None),
                                  optional
-        Name of Unordered variables that always checked on when deciding on
+        Name of unordered variables that always checked on when deciding on
         the next split during tree building. Only relevant for
-        :meth:`~ModifiedCausalForest.train`  method. Default is None.
+        :meth:`~ModifiedCausalForest.train`  method.
+        Default is None.
 
     var_x_name_remain_ord : String or List of strings (or None), optional
         Name of ordered variables that cannot be removed by feature
         selection. Only relevant for
-        :meth:`~ModifiedCausalForest.train` method. Default is None.
+        :meth:`~ModifiedCausalForest.train` method.
+        Default is None.
 
     var_x_name_remain_unord : String or List of strings (or None), optional
         Name of unordered variables that cannot be removed by feature
@@ -107,37 +114,43 @@ class ModifiedCausalForest:
     var_z_name_ord : String or List of strings (or None), optional
         Names of ordered variables with not so many values to define causal
         heterogeneity. If not already included in var_x_name_ord, they will
-        be added to the list of features. Default is None.
+        be added to the list of features.
+        Default is None.
 
     var_z_name_unord : String or List of strings (or None), optional
         Names of unordered variables with not so many values to define
         causal heterogeneity. If not already included in var_x_name_ord,
-        they will be added to the list of features. Default is None.
+        they will be added to the list of features.
+        Default is None.
 
     var_y_tree_name : String or List of string (or None), optional
-        Name of outcome variables to be used to build trees. This is only
-        relevant if many outcome variables are specified in var_y_name.
+        Name of outcome variables to be used to build trees. Only
+        relevant if multiple outcome variables are specified in var_y_name.
         Only relevant for :meth:`~ModifiedCausalForest.train` method.
         Default is None.
 
     cf_alpha_reg_grid : Integer (or None), optional
         Minimum remaining share when splitting leaf: Number of grid values.
         If grid is used, optimal value is determined by out-of-bag
-        estimation of objective function. Default (or None) is 1.
+        estimation of objective function.
+        Default (or None) is 1.
 
     cf_alpha_reg_max : Float (or None), optional
         Minimum remaining share when splitting leaf: Largest value of
-        grid (keep it below 0.2). Default (or None) is 0.15.
+        grid (keep it below 0.2).
+        Default (or None) is 0.15.
 
     cf_alpha_reg_min : Float (or None), optional
         Minimum remaining share when splitting leaf: Smallest value of
-        grid (keep it below 0.2). Default (or None) is 0.05.
+        grid (keep it below 0.2).
+        Default (or None) is 0.05.
 
     cf_boot : Integer (or None), optional
-        Number of Causal Trees. Default (or None) is 1000.
+        Number of Causal Trees.
+        Default (or None) is 1000.
 
     cf_chunks_maxsize : Integer (or None), optional
-        Randomly split training data in chunks and take average of the
+        Randomly split training data into chunks and take average of the
         estimated parameters to improve scalability (increases speed and
         reduces demand on memory, but may increase finite sample bias).
         If cf_chunks_maxsize is larger than sample size, there is no random
@@ -151,24 +164,25 @@ class ModifiedCausalForest:
         Default is None.
 
     cf_compare_only_to_zero : Boolean (or None), optional
-        If True, the computation of the MCE ignores all elements not
-        related to the first treatment (which usually is the control group). This
-        speeds up computation, should give better effect estimates, and may
-        be attractive when interest is only in the comparisons of each
-        treatment to the control group and not among each other. This may also
-        be attractive for optimal policy analysis based on using estimated
-        potential outcomes normalized by the estimated potential outcome of the
-        control group (i.e., IATEs of treatments vs. control group).
-        Default (or None) is False.
+       If True, the computation of the MCE ignores all elements not
+       related to the first treatment (which usually is the control group). This
+       speeds up computation, should give better effect estimates, and may
+       be attractive when interest is only in the comparisons of each
+       treatment to the control group and not among each other. This may also
+       be attractive for optimal policy analysis based on using estimated
+       potential outcomes normalized by the estimated potential outcome of the
+       control group (i.e., IATEs of treatments vs. control group).
+       Default (or None) is False.
 
     cf_n_min_grid : Integer (or None), optional
         Minimum leaf size: Number of grid values.
         If grid is used, optimal value is determined by out-of-bag
-        estimation of objective function. Default (or None) is 1.
+        estimation of objective function.
+        Default (or None) is 1.
 
     cf_n_min_max : Integer (or None), optional
         Minimum leaf size: Largest minimum leaf size.
-        If None:
+        If None :
 
         .. math::
 
@@ -195,7 +209,7 @@ class ModifiedCausalForest:
         There is no grid based tuning for this parameter.
         This parameter impacts the minimum leaf size which will be at least
         to :math:`\\text{n_min_treat} \\times \\text{number of treatments}`
-        None:
+        None :
 
         .. math::
 
@@ -205,8 +219,9 @@ class ModifiedCausalForest:
 
     cf_match_nn_prog_score : Boolean (or None), optional
         Choice of method of nearest neighbour matching.
-        True : Prognostic scores. False : Inverse of covariance matrix of
-        features. Default (or None) is True.
+        True : Prognostic scores. False: Inverse of covariance matrix of
+        features.
+        Default (or None) is True.
 
     cf_nn_main_diag_only : Boolean (or None), optional
         Nearest neighbour matching: Use main diagonal of covariance matrix
@@ -217,7 +232,8 @@ class ModifiedCausalForest:
         Number of variables used at each new split of tree: Number of grid
         values.
         If grid is used, optimal value is determined by out-of-bag
-        estimation of objective function. Default (or None) is 1.
+        estimation of objective function.
+        Default (or None) is 1.
 
     cf_m_random_poisson : Boolean (or None), optional
         Number of variables used at each new split of tree:
@@ -225,7 +241,8 @@ class ModifiedCausalForest:
         split, drawn from a Poisson distribution. Grid gives mean
         value of 1 + poisson distribution (m-1) (m is determined by
         cf_m_share parameters).
-        False : No additional randomisation. Default (or None) is True.
+        False : No additional randomisation.
+        Default (or None) is True.
 
     cf_m_share_max : Float (or None), optional
         Share of variables used at each new split of tree: Maximum.
@@ -243,20 +260,20 @@ class ModifiedCausalForest:
 
     cf_mce_vart : Integer (or None), optional
         Splitting rule for tree building:
-        0: mse's of regression only considered
-        1: mse+mce criterion (default)
-        2: -var(effect): heterogeneity maximising splitting rule of
-        Wager & Athey (2018)
-        3: randomly switching between outcome-mse+mce criterion
-        & penalty functions
+        0 : mse's of regression only considered.
+        1 : mse+mce criterion (default).
+        2 : -var(effect): heterogeneity maximising splitting rule of
+        Wager & Athey (2018).
+        3 : randomly switching between outcome-mse+mce criterion
+        & penalty functions.
         Default (or None) is 1.
 
     cf_p_diff_penalty : Integer (or None), optional
         Penalty function (depends on value of mce_vart):
-        mce_vart == 0: Irrelevant
-        mce_vart == 1: Multiplier of penalty (in terms of var(y))
-        0: no penalty
-        None:
+        mce_vart == 0 : Irrelevant.
+        mce_vart == 1 : Multiplier of penalty (in terms of var(y)).
+        0 : No penalty.
+        None :
 
         .. math::
 
@@ -264,16 +281,35 @@ class ModifiedCausalForest:
 
         mce_vart == 2: Multiplier of penalty (in terms of MSE(y) value
         function without splits) for penalty.
-        0: no penalty
-        None:
+        0: No penalty.
+        None :
 
         .. math::
 
             \\frac{100 \\times 4 \\times (n \\times \\text{f_c.subsam_share})^{0.8}}{n \\times \\text{f_c.subsam_share}}
 
-        mce_vart == 3: Probability of using p-score (0-1)
-        None: 0.5.
+        mce_vart == 3 : Probability of using p-score (0-1)
+        None : 0.5.
         Increase value if balancing tests indicate problems.
+        Default is None.
+
+    cf_penalty_type : String (or None), optional
+        Type of penalty function.
+        'mse_d':  MSE of treatment prediction in daughter leaf (new in 0.7.0)
+        'diff_d': Penalty as squared leaf difference (as in Lechner, 2018)
+        Note that an important advantage of 'mse_d' that it can also be used
+        for tuning (due to its computation, this is not possible for 'diff_d').
+        Default (or None) is 'mse_d'.
+
+    cf_random_thresholds : Integer (or None), optional
+        Use only a random selection of values for splitting (continuous
+        feature only; re-randomize for each splitting decision; fewer
+        thresholds speeds up programme but may lead to less accurate
+        results).
+        0 : No random thresholds.
+        > 0 : Number of random thresholds used for ordered variables.
+        None :
+        :math:`4 + \\text{number of training observations}^{0.2}`
         Default is None.
 
     cf_subsample_factor_forest : Float (or None), optional
@@ -287,29 +323,24 @@ class ModifiedCausalForest:
         :math:`S \\times \\text{cf_subsample_factor_forest}, \\text{is not larger than 80%.}` 
         Default (or None) is 1.
 
-    cf_subsample_factor_eval : Float or Boolean  (or None), optional
+    cf_subsample_factor_eval : Float or Boolean (or None), optional
         Size of subsampling sample used to populate tree.
-        False : No subsampling in evaluation subsample
-        True or None: :math:`(2 \\times \\text{subsample size})` used for
-        tree building (to avoid too many empty leaves)
-        Float (>0): Multiplier of subsample size used for tree building
+        False: No subsampling in evaluation subsample.
+        True or None: :math:(2 \\times \\text{subsample size}) used for
+            tree building (to avoid too many empty leaves).
+        Float (>0): Multiplier of subsample size used for tree building.
         In particular for larger samples, using subsampling in evaluation
         will speed up computations and reduces demand on memory.
         Tree-specific subsampling in evaluation sample increases speed
-        at which asymtotic bias disappears (at the expense of slower
+        at which the asymtotic bias disappears (at the expense of a slower
         disappearance of the variance; however, simulations so far show no
-        relevant impact). Default is None.
-
-    cf_random_thresholds : Integer (or None), optional
-        Use only a random selection of values for splitting (continuous
-        feature only; re-randomize for each splitting decision; fewer
-        thresholds speeds up programme but may lead to less accurate
-        results).
-        0: no random thresholds.
-        > 0: number of random thresholds used for ordered variables.
-        None:
-        :math:`4 + \\text{number of training observations}^{0.2}`
+        relevant impact).
         Default is None.
+
+    cf_tune_all : Boolean (or None), optional
+        Tune all parameters. If True, all *_grid keywords will be set to 3.
+        User specified values are respected if larger than 3.
+        Default (or None) is False.
 
     cf_vi_oob_yes : Boolean (or None), optional
         Variable importance for causal forest computed by permuting
@@ -333,18 +364,20 @@ class ModifiedCausalForest:
         Common support adjustment: Accounting for multiple treatments.
         None :
         :math:`(\\text{number of treatments} - 2) \\times 0.05`
-        If cs_type > 0 :
+        If cs_type > 0:
         :math:`\\text{upper limit} \\times = 1 + \\text{support_adjust_limits}`,
         :math:`\\text{lower limit} \\times = 1 - \\text{support_adjust_limits}`.
         The restrictiveness of the common support criterion increases with
         the number of treatments. This parameter allows to reduce this
-        restrictiveness. Default is None.
+        restrictiveness.
+        Default is None.
 
     cs_max_del_train : Float (or None), optional
         Common support adjustment: If share of observations in training
         data used that are off support is larger than cs_max_del_train
         (0-1), an exception is raised. In this case, user should change
-        input data. Default (or None) is 0.5.
+        input data.
+        Default (or None) is 0.5.
 
     cs_min_p : Float (or None), optional
         Common support adjustment: If cs_type == 2, observations are
@@ -353,32 +386,34 @@ class ModifiedCausalForest:
 
     cs_quantil : Float (or None), optional
         Common support adjustment: How to determine upper and lower bounds.
-        If CS_TYPE == 1 : 1 or None: min-max rule.
-        < 1 : respective quantil.
+        If CS_TYPE == 1: 1 or None : Min-max rule.
+        < 1 : Respective quantile.
         Default (or None) is 1.
 
     ct_grid_dr : Integer (or None), optional
         Number of grid point for discretization of continuous treatment
         (with 0 mass point; grid is defined in terms of quantiles of
-        continuous part of treatment): Dose response function.
+        continuous part of treatment) for dose response function.
         Default (or None) is 100.
 
     ct_grid_nn : Integer (or None), optional
         Number of grid point for discretization of continuous treatment
         (with 0 mass point; grid is defined in terms of quantiles of
-        continuous part of treatment): Neighbourhood matching.
+        continuous part of treatment) for neighbourhood matching.
         Default (or None) is 10.
 
     ct_grid_w : Integer (or None), optional
         Number of grid point for discretization of continuous treatment
         (with 0 mass point; grid is defined in terms of quantiles of
-        continuous part of treatment): Weights. Default (or None) is 10.
+        continuous part of treatment) for weights.
+        Default (or None) is 10.
 
     dc_clean_data : Boolean (or None), optional
         Clean covariates. Remove all rows with missing observations and
-        unnecessary variables from DataFrame. Default (or None) is True.
+        unnecessary variables from DataFrame.
+        Default (or None) is True.
 
-    dc_check_perfectcorr : Boolean (or None)
+    dc_check_perfectcorr : Boolean (or None), optional
         Screen and clean covariates: Variables that are perfectly
         correlated with each others will be deleted.
         Default (or None) is True.
@@ -389,7 +424,8 @@ class ModifiedCausalForest:
         deleted. Default (or None) is 10.
 
     dc_screen_covariates : Boolean (or None), optional
-        Screen and clean covariates. Default (or None) is True.
+        Screen and clean covariates.
+        Default (or None) is True.
 
     fs_yes : Boolean (or None), optional
         Feature selection before building causal forest: A feature is
@@ -402,21 +438,23 @@ class ModifiedCausalForest:
         compared to the test set prediction based on the full model.
         Exceptions: (i) If the correlation of two variables to be deleted
         is larger than 0.5, one of the two variables is kept.
-        (ii) Variables used to compute GATEs, BGATEs, CBGATEs. Nor are
-        variables removed if they are contained in 'var_x_name_remain_ord'
-        or 'var_x_name_remain_unord' or are needed otherwise.
+        (ii) Variables used to compute GATEs, BGATEs, CBGATEs.
+        Variables contained in 'var_x_name_remain_ord'
+        or 'var_x_name_remain_unord', or are needed otherwise, are not removed.
         If the number of variables is very large (and the space of
         relevant features is much sparser, then using feature selection is
         likely to improve computational and statistical properties of the
-        mcf etimator). Default (or None) is False.
+        mcf etimator).
+        Default (or None) is False.
 
     fs_rf_threshold : Integer or Float (or None), optional
         Feature selection: Threshold in terms of relative loss of variable
-        importance in %. Default (or None) is 1.
+        importance in %.
+        Default (or None) is 1.
 
     fs_other_sample : Boolean (or None), optional
-        True (default) : Random sample from training data used. These
-        observations will not be used for causal forest estimation.
+        True : Random sample from training data used. These
+        observations will not be used for causal forest.
         False : Use the same sample as used for causal forest estimation.
         Default (or None) is True.
 
@@ -433,22 +471,25 @@ class ModifiedCausalForest:
     gen_iate_eff : Boolean (or None), optional
         Additionally, compute more efficient IATE (IATE are estimated twice
         and averaged where role of tree_building and tree_filling sample is
-        exchanged; X-fitting). No inference is not attempted for these
-        parameters. Default (or None) is False.
+        exchanged; X-fitting). No inference is attempted for these
+        parameters.
+        Default (or None) is False.
 
     gen_mp_parallel : Integer (or None), optional
         Number of parallel processes (using ray on CPU). The smaller this
-        value is, the slower the programme, the smaller its demand on RAM.
-        None: 80% of logical cores. Default is None.
+        value is, the slower the programme, the smaller its demands on RAM.
+        None : 80% of logical cores.
+        Default is None.
 
     gen_outfiletext : String (or None), optional
         File for text output. (\*.txt) file extension will be added.
-        None: 'txtFileWithOutput'. Default is None.
+        None : 'txtFileWithOutput'.
+        Default is None.
 
     gen_outpath : String (or None), optional
         Path were the output is written too (text, estimated effects, etc.)
         If specified directory does not exist, it will be created.
-        None: An (\*/out) directory below the current directory is used.
+        None : An (\*/out) directory below the current directory is used.
         Default is None.
 
     gen_output_type : Integer (or None), optional
@@ -475,9 +516,10 @@ class ModifiedCausalForest:
         Vector Machines, and AdaBoost Regression based on their out-of-sample
         mean squared error. The method selection is either performed on the
         subsample used to build the forest ((1-lc_cs_share) for training,
-        lc_cs_share for test). Default (or None) is True.
+        lc_cs_share for test).
+        Default (or None) is True.
 
-    lc_estimator : String (or None)
+    lc_estimator : String (or None), optional
         The estimator used for local centering. Possible choices are
         scikit-learn's regression methods
         'RandomForest', 'RandomForestNminl5', 'RandomForestNminls5',
@@ -490,7 +532,8 @@ class ModifiedCausalForest:
         mean squared error (MSE) is selected. Whether this selection is based on
         cross-validation or a test sample is governed by the keyword lc_cs_cv.
         'Mean' is included for the cases when none of the methods have
-        explanatory power. Default (or None) is 'RandomForest'.
+        explanatory power.
+        Default (or None) is 'RandomForest'.
 
     lc_uncenter_po : Boolean (or None), optional
         Predicted potential outcomes are re-adjusted for local centering
@@ -499,8 +542,9 @@ class ModifiedCausalForest:
 
     lc_cs_cv : Boolean (or None), optional
         Data to be used for local centering & common support adjustment.
-        True : Crossvalidation. False : Random sample not to be used for
-        forest building. Default (or None) is True.
+        True : Crossvalidation.
+        False : Random sample not to be used for forest building.
+        Default (or None) is True.
 
     lc_cs_cv_k : Integer (or None), optional
         Data to be used for local centering & common support adjustment:
@@ -524,22 +568,26 @@ class ModifiedCausalForest:
 
     p_gates_no_evalu_points : Integer (or None), optional
         Number of evaluation points for discretized variables in (CB)(B)GATE
-        estimation. Default (or None) is 50.
+        estimation.
+        Default (or None) is 50.
 
     p_gates_smooth : Boolean (or None), optional
         Alternative way to estimate GATEs for continuous features. Instead
         of discretizing variable, its GATE is evaluated at
         p_gates_smooth_no_evalu_points. Since there are likely to be no
         observations, a local neighbourhood around the evaluation points is
-        considered. Default (or None) is True.
+        considered.
+        Default (or None) is True.
 
     p_gates_smooth_bandwidth : Float (or None), optional
         Multiplier for bandwidth used in (C)BGATE estimation with smooth
-        variables. Default is 1.
+        variables.
+        Default (or None) is 1.
 
     p_gates_smooth_no_evalu_points : Integer (or None), optional
         Number of evaluation points for discretized variables in GATE
-        estimation. Default (or None) is 50.
+        estimation.
+        Default (or None) is 50.
 
     p_gatet : Boolean (or None), optional
         Compute effects for specific treatment groups. Only possible if
@@ -548,7 +596,8 @@ class ModifiedCausalForest:
 
     p_bgate : Boolean (or None), optional
         Estimate a GATE that is balanced in selected features (as specified
-        in var_bgate_name. Default (or None) is False.
+        in var_bgate_name.
+        Default (or None) is False.
 
     p_cbgate : Boolean (or None), optional
         Estimate a GATE that is balanced in all other features.
@@ -558,7 +607,7 @@ class ModifiedCausalForest:
         Implementation of (C)BGATE estimation is very cpu intensive.
         Therefore, random samples are used to speed up the programme if
         there are number observations  / number of evaluation points > 10.
-        None:
+        None :
         If observation in prediction data (n) < 1000: 1
         If n >= 1000:
 
@@ -570,18 +619,21 @@ class ModifiedCausalForest:
 
     p_max_cats_z_vars : Integer (or None), optional
         Maximum number of categories for discretizing continuous z
-        variables. None: :math:`\\text{Number of observations}^{0.3}`
+        variables.
+        None : :math:`\\text{Number of observations}^{0.3}`
         Default is None.
 
     p_iate : Boolean (or None), optional
-        IATEs will be estimated. Default (or None) is True.
+        IATEs will be estimated.
+        Default (or None) is True.
 
     p_iate_se : Boolean (or None), optional
         Standard errors of IATEs will be estimated.
         Default (or None) is False.
 
     p_iate_m_ate : Boolean (or None), optional
-        IATEs minus ATE will be estimated. Default (or None) is False.
+        IATEs minus ATE will be estimated.
+        Default (or None) is False.
 
     p_ci_level : Float (or None), optional
         Confidence level for bounds used in plots.
@@ -589,11 +641,12 @@ class ModifiedCausalForest:
 
     p_cond_var : Boolean (or None), optional
         True : Conditional mean & variances are used.
-        False : Variance estimation uses :math:`wy_i = w_i \\times y_i` directly.
+        False : Variance estimation uses :math:`wy_i = w_i \\times y_i`
+        directly.
         Default (or None) is True.
 
     p_knn : Boolean (or None), optional
-      True : k-NN estimation. False : Nadaraya-Watson estimation.
+      True : k-NN estimation. False: Nadaraya-Watson estimation.
       Nadaray-Watson estimation gives a better approximaton of the
       variance, but k-NN is much faster, in particular for larger datasets.
       Default (or None) is True.
@@ -604,16 +657,19 @@ class ModifiedCausalForest:
 
     p_nw_bandw : Float (or None), optional
         Bandwidth for nw estimation: Multiplier of Silverman's optimal
-        bandwidth. Default (or None) is 1.
+        bandwidth.
+        Default (or None) is 1.
 
     p_nw_kern : Integer (or None), optional
-        Kernel for Nadaraya-Watson estimation: 1: Epanechikov
-        2: normal pdf. Default (or None) is 1.
+        Kernel for Nadaraya-Watson estimation.
+        1 : Epanechikov.
+        2 : Normal pdf.
+        Default (or None) is 1.
 
     p_max_weight_share : Float (or None), optional
         Truncation of extreme weights. Maximum share of any weight, 0 <,
         <= 1. Enforced by trimming excess weights and renormalisation for
-        each (BG,G,I,CBG)ATE separately. Because of renormalisattion, the
+        each (BG,G,I,CBG)ATE separately. Because of renormalisation, the
         final weights could be somewhat above this threshold.
         Default (or None) is 0.05.
 
@@ -625,22 +681,26 @@ class ModifiedCausalForest:
         Bootstrap of standard errors for ATE. Specify either a Boolean (if
         True, number of bootstrap replications will be set to 199) or an
         integer corresponding to the number of bootstrap replications (this
-        implies True). None: 199 replications p_cluster_std is True,
-        and False otherwise. Default is None.
+        implies True).
+        None : 199 replications p_cluster_std is True, and False otherwise.
+        Default is None.
 
     p_se_boot_gate : Integer or Boolean (or None), optional
         Bootstrap of standard errors for GATE. Specify either a Boolean (if
         True, number of bootstrap replications will be set to 199) or an
         integer corresponding to the number of bootstrap replications (this
-        implies True). None: 199 replications p_cluster_std is True,
-        and False otherwise. Default is None.
+        implies True).
+        None : 199 replications p_cluster_std is True, and False otherwise.
+        Default is None.
 
     p_se_boot_iate : Integer or Boolean (or None), optional
         Bootstrap of standard errors for IATE. Specify either a Boolean (if
         True, number of bootstrap replications will be set to 199) or an
         integer corresponding to the number of bootstrap replications (this
-        implies True). None: 199 replications p_cluster_std is True,
-        and False otherwise. Default is None.
+        implies True).
+        None : 199 replications p_cluster_std is True,
+        and False otherwise.
+        Default is None.
 
     p_bt_yes : Boolean (or None), optional
         ATE based balancing test based on weights. Relevance of this test
@@ -649,15 +709,18 @@ class ModifiedCausalForest:
 
     p_choice_based_sampling : Boolean (or None), optional
         Choice based sampling to speed up programme if treatment groups
-        have very different sizes. Default (or None) is False.
+        have very different sizes.
+        Default (or None) is False.
 
-    p_choice_based_probs : List of Floats (or None)
+    p_choice_based_probs : List of Floats (or None), optional
         Choice based sampling:  Sampling probabilities to be specified.
         These weights are used for (G,B,CB)ATEs only. Treatment information
-        must be available in prediction data. Default is None.
+        must be available in the prediction data.
+        Default is None.
 
-    p_ate_no_se_only : Boolean (or None)
-        Computes only the ATE without standard errors. Default is False.
+    p_ate_no_se_only : Boolean (or None),optional
+        Computes only the ATE without standard errors.
+        Default (or None) is False.
 
     post_est_stats : Boolean (or None), optional
         Descriptive Analyses of IATEs (p_iate must be True).
@@ -665,40 +728,51 @@ class ModifiedCausalForest:
 
     post_relative_to_first_group_only : Boolean (or None), optional
         Descriptive Analyses of IATEs: Use only effects relative to
-        treatment with lowest treatment value. Default (or None) is True.
+        treatment with lowest treatment value.
+        Default (or None) is True.
 
     post_bin_corr_yes : Boolean (or None), optional
         Descriptive Analyses of IATEs: Checking the binary correlations of
-        predictions with features. Default (or None) is True.
+        predictions with features.
+        Default (or None) is True.
 
     post_bin_corr_threshold : Float, optional
         Descriptive Analyses of IATEs: Minimum threshhold of absolute
-        correlation to be displayed. Default is 0.1.
+        correlation to be displayed.
+        Default (or None) is 0.1.
 
     post_kmeans_yes : Boolean (or None), optional
         Descriptive Analyses of IATEs: Using k-means clustering to analyse
-        patterns in the estimated effects. Default (or None) is True.
+        patterns in the estimated effects.
+        Default (or None) is True.
 
-    post_k_means_single : Boolean (or None), optional
+    post_kmeans_single : Boolean (or None), optional
         If True (and post_kmeans_yes is True), clustering is also with respect
         to all single effects. If False (and post_kmeans_yes is True),
         clustering is only with respect to all relevant IATEs jointly.
-        Default is False.
+        Default (or None) is False.
 
     post_kmeans_no_of_groups : Integer or List or Tuple (or None), optional
-        Descriptive Analyses of IATEs: Number of clusters to be build in
+        Descriptive Analyses of IATEs: Number of clusters to be built in
         k-means.
-        None: List of 5 values: [a, b, c, d, e]; c = 5 to 10;
+        None : List of 5 values: [a, b, c, d, e]; c = 5 to 10;
         depending on number of observations; c<7: a=c-2, b=c-1, d=c+1,
-        e=c+2, else a=c-4, b=c-2, d=c+2, e=c+4. Default is None.
+        e=c+2, else a=c-4, b=c-2, d=c+2, e=c+4.
+        Default is None.
 
     post_kmeans_max_tries : Integer (or None), optional
         Descriptive Analyses of IATEs: Maximum number of iterations of
-        k-means to achive convergence. Default (or None) is 1000.
+        k-means to achive convergence.
+        Default (or None) is 1000.
 
     post_kmeans_replications : Integer (or None), optional
         Descriptive Analyses of IATEs: Number of replications with random
-        start centers to avoid local extrema. Default (or None) is 10.
+        start centers to avoid local extrema.
+        Default (or None) is 10.
+
+    post_kmeans_min_size_share : Float (or None).
+        Smallest share observations for cluster size allowed in % (0-33).
+        Default (None) is 1 (%).
 
     post_random_forest_vi : Boolean (or None), optional
         Descriptive Analyses of IATEs: Variable importance measure of
@@ -707,16 +781,22 @@ class ModifiedCausalForest:
 
     post_plots : Boolean (or None), optional
         Descriptive Analyses of IATEs: Plots of estimated treatment
-        effects. Default (or None) is True.
+        effects.
+        Default (or None) is True.
+
+    post_tree : Boolean (or None), optional
+        Regression trees (honest and standard) of Depth 2 to 5
+        are estimated to describe IATES(x).
+        Default (or None) is True.
 
     p_knn_const : Boolean (or None), optional
         Multiplier of default number of observation used in moving
         average of :meth:`~ModifiedCausalForest.analyse` method.
         Default (or None) is 1.
 
-    _int_cuda : Boolean (or None).
-        Use CUDA based GPU if CUDA-compatible available on hardware
-        (experimental). Default is False.
+    _int_cuda : Boolean (or None), optional
+        Use CUDA based GPU if CUDA-compatible GPU is available on hardware
+        (experimental). Default (or None) is False.
 
     _int_descriptive_stats : Boolean (or None), optional
         Print descriptive stats if _int_with_output is True.
@@ -729,7 +809,8 @@ class ModifiedCausalForest:
         Internal variable, change default only if you know what you do.
 
     _int_dpi : Integer (or None), optional
-        dpi in plots. Default (or None) is 500.
+        Dpi in plots.
+        Default (or None) is 500.
         Internal variable, change default only if you know what you do.
 
     _int_fontsize : Integer (or None), optional
@@ -746,62 +827,71 @@ class ModifiedCausalForest:
         Discretise continuous variables: _int_max_cats_cont_vars is maximum
         number of categories for continuous variables. This speeds up the
         programme but may introduce some bias. None: No use of
-        discretisation to speed up programme. Default is None.
+        discretisation to speed up programme.
+        Default is None.
         Internal variable, change default only if you know what you do.
 
     _int_max_save_values : Integer (or None), optional
         Save value of features in table only if less than
-        _int_max_save_values different values. Default (or None) is 50.
+        _int_max_save_values different values.
+        Default (or None) is 50.
         Internal variable, change default only if you know what you do.
 
     _int_mp_ray_del : Tuple of strings (or None), optional
-        'refs': Delete references to object store.
-        'rest': Delete all other objects of Ray task.
-        'none': Delete no objects.
-        These 3 options can be combined. . Default  is ('refs',).
+        'refs' : Delete references to object store.
+        'rest' : Delete all other objects of Ray task.
+        'none' : Delete no objects.
+        These 3 options can be combined.
+        Default (or None) is ('refs',).
         Internal variable, change default only if you know what you do.
 
     _int_mp_ray_objstore_multiplier : Float (or None), optional
         Changes internal default values for  Ray object store. Change above
         1 if programme crashes because object store is full. Only relevant
-        if _int_mp_ray_shutdown is True. Default (or None) is 1.
+        if _int_mp_ray_shutdown is True.
+        Default (or None) is 1.
         Internal variable, change default only if you know what you do.
 
     _int_mp_ray_shutdown : Boolean (or None), optional
         When computing the mcf repeatedly like in Monte Carlo studies,
         setting _int_mp_ray_shutdown to True may be a good idea.
-        None: False if obs < 100000, True otherwise. Default is None.
+        None: False if obs < 100000, True otherwise.
+        Default is None.
         Internal variable, change default only if you know what you do.
 
     _int_mp_vim_type : Integer (or None), optional
         Type of multiprocessing when computing variable importance
         statistics:
-        1: variable based (fast, lots of memory),
-        2: bootstrap based (slower, less memory)
-        None: 1 if obs < 20000, 2 otherwise. Default is None.
+        1 : Variable based (fast, lots of memory).
+        2 : Bootstrap based (slower, less memory).
+        None: 1 if obs < 20000, 2 otherwise.
+        Default is None.
         Internal variable, change default only if you know what you do.
 
     _int_mp_weights_tree_batch : Integer (or None), optional
         Number of batches to split data in weight computation: The smaller
         the number of batches, the faster the programme and the more memory
-        is needed. None: Automatically determined. Default is None.
+        is needed.
+        None : Automatically determined.
+        Default is None.
         Internal variable, change default only if you know what you do.
 
     _int_mp_weights_type : Integer (or None), optional
         Type of multiprocessing when computing weights:
-        1 : groups-of-obs based (fast, lots of memory).
-        2 : tree based (takes forever, less memory).
+        1 : Groups-of-obs based (fast, lots of memory).
+        2 : Tree based (takes forever, less memory).
+        Value of 2 will be internally changed to 1 if multiprocessing.
         Default (or None) is 1.
         Internal variable, change default only if you know what you do.
-        Value of 2 will be internally changed to 1 if multiprocessing.
 
-    _int_output_no_new_dir : Boolean
-        Do not create a new directory when the path already exists. Default
-        is False.
+    _int_output_no_new_dir : Boolean (or None), optional
+        Do not create a new directory when the path already exists.
+        Default (or None) is False.
 
-    _int_report : Boolean
+    _int_report : Boolean (or None), optional
         Provide information for McfOptPolReports to construct informative
-        reports. Default is True.
+        reports.
+        Default (or None) is True.
 
     _int_return_iate_sp : Boolean (or None), optional
         Return all data with predictions despite _int_with_output is False
@@ -811,7 +901,8 @@ class ModifiedCausalForest:
 
     _int_replication : Boolean (or None), optional
         If True all scikit-learn based computations will NOT use multi-
-        processing. Default (or None) is False.
+        processing.
+        Default (or None) is False.
 
     _int_seed_sample_split : Integer (or None), optional
         Seeding is redone when building forest.
@@ -819,7 +910,8 @@ class ModifiedCausalForest:
         Internal variable, change default only if you know what you do.
 
     _int_share_forest_sample : Float (or None), optional
-        Share of sample used build forest. Default (or None) is 0.5.
+        Share of sample used build forest.
+        Default (or None) is 0.5.
         Internal variable, change default only if you know what you do.
 
     _int_verbose :  Boolean (or None), optional
@@ -828,12 +920,13 @@ class ModifiedCausalForest:
         Internal variable, change default only if you know what you do.
 
     _int_weight_as_sparse :  Boolean (or None), optional
-        Save weights matrix as sparse matrix. Default (or None) is True.
+        Save weights matrix as sparse matrix.
+        Default (or None) is True.
         Internal variable, change default only if you know what you do.
 
     _int_weight_as_sparse_splits : Integer (or None), optional
         Compute sparse weight matrix in several chuncks.
-        Default: None:
+        None :
 
         .. math::
 
@@ -843,7 +936,8 @@ class ModifiedCausalForest:
         Internal variable, change default only if you know what you do.
 
     _int_with_output : Boolean (or None), optional
-        Print output on txt file and/or console. Default (or None) is True.
+        Print output on txt file and/or console.
+        Default (or None) is True.
         Internal variable, change default only if you know what you do.
 
     _int_del_forest : Boolean (or None), optional
@@ -851,7 +945,7 @@ class ModifiedCausalForest:
         the trained instance of the class cannot be reused when calling
         :meth:`~ModifiedCausalForest.predict` with the same instance again,
         i.e. the forest has to be retrained when applied again.
-        Default is False.
+        Default (or None) is False.
 
     _int_keep_w0 : Boolean (or None), optional.
         Keep all zeros weights when computing standard errors (slows down
@@ -933,15 +1027,16 @@ class ModifiedCausalForest:
             var_y_tree_name=None, var_z_name_list=None,
             var_z_name_ord=None, var_z_name_unord=None,
             p_atet=False, p_gatet=False, p_bgate=False, p_cbgate=False,
-            cf_boot=1000,
             cf_alpha_reg_grid=1, cf_alpha_reg_max=0.15, cf_alpha_reg_min=0.05,
-            cf_chunks_maxsize=None, cf_compare_only_to_zero=False,
+            cf_boot=1000, cf_chunks_maxsize=None, cf_compare_only_to_zero=False,
             cf_n_min_grid=1, cf_n_min_max=None, cf_n_min_min=None,
             cf_n_min_treat=None, cf_nn_main_diag_only=False, cf_m_grid=1,
             cf_m_random_poisson=True, cf_m_share_max=0.6, cf_m_share_min=0.1,
-            cf_match_nn_prog_score=True, cf_mce_vart=1, cf_p_diff_penalty=None,
+            cf_match_nn_prog_score=True, cf_mce_vart=1,
+            cf_random_thresholds=None,
+            cf_p_diff_penalty=None, cf_penalty_type='mse_d',
             cf_subsample_factor_eval=None, cf_subsample_factor_forest=1,
-            cf_random_thresholds=None, cf_vi_oob_yes=False,
+            cf_tune_all=False, cf_vi_oob_yes=False,
             cs_adjust_limits=None, cs_max_del_train=0.5, cs_min_p=0.01,
             cs_quantil=1, cs_type=1,
             ct_grid_dr=100, ct_grid_nn=10, ct_grid_w=10,
@@ -967,10 +1062,11 @@ class ModifiedCausalForest:
             p_se_boot_iate=None, var_bgate_name=None, var_cluster_name=None,
             post_bin_corr_threshold=0.1, post_bin_corr_yes=True,
             post_est_stats=True, post_kmeans_no_of_groups=None,
-            post_kmeans_max_tries=1000, post_kmeans_replications=10,
-            post_kmeans_yes=True, post_k_means_single=False,
-            post_random_forest_vi=True,
+            post_kmeans_max_tries=1000, post_kmeans_min_size_share=None,
+            post_kmeans_replications=10, post_kmeans_single=False,
+            post_kmeans_yes=True, post_random_forest_vi=True,
             post_relative_to_first_group_only=True, post_plots=True,
+            post_tree=True,
             _int_cuda=False, _int_del_forest=False,
             _int_descriptive_stats=True, _int_dpi=500,
             _int_fontsize=2, _int_keep_w0=False, _int_no_filled_plot=20,
@@ -987,15 +1083,16 @@ class ModifiedCausalForest:
             ):
 
         self.int_dict = mcf_init.int_init(
-            cuda=_int_cuda, del_forest=_int_del_forest,
+            cuda=_int_cuda, cython=False,  # Cython turned off for now
+            del_forest=_int_del_forest,
             descriptive_stats=_int_descriptive_stats, dpi=_int_dpi,
-            fontsize=_int_fontsize, no_filled_plot=_int_no_filled_plot,
+            fontsize=_int_fontsize,
             max_save_values=_int_max_save_values, mp_ray_del=_int_mp_ray_del,
             mp_ray_objstore_multiplier=_int_mp_ray_objstore_multiplier,
             mp_weights_tree_batch=_int_mp_weights_tree_batch,
             mp_weights_type=_int_mp_weights_type,
-            return_iate_sp=_int_return_iate_sp,
-            replication=_int_replication,
+            no_filled_plot=_int_no_filled_plot,
+            return_iate_sp=_int_return_iate_sp, replication=_int_replication,
             seed_sample_split=_int_seed_sample_split,
             share_forest_sample=_int_share_forest_sample,
             show_plots=_int_show_plots, verbose=_int_verbose,
@@ -1041,9 +1138,10 @@ class ModifiedCausalForest:
             vi_oob_yes=cf_vi_oob_yes, n_min_grid=cf_n_min_grid,
             n_min_max=cf_n_min_max, n_min_min=cf_n_min_min,
             n_min_treat=cf_n_min_treat,
-            p_diff_penalty=cf_p_diff_penalty,
+            p_diff_penalty=cf_p_diff_penalty, penalty_type=cf_penalty_type,
             subsample_factor_eval=cf_subsample_factor_eval,
             subsample_factor_forest=cf_subsample_factor_forest,
+            tune_all=cf_tune_all,
             random_thresholds=cf_random_thresholds)
         p_dict = mcf_init.p_init(
             gen_dict,
@@ -1071,10 +1169,11 @@ class ModifiedCausalForest:
             kmeans_no_of_groups=post_kmeans_no_of_groups,
             kmeans_max_tries=post_kmeans_max_tries,
             kmeans_replications=post_kmeans_replications,
-            kmeans_yes=post_kmeans_yes, k_means_single=post_k_means_single,
+            kmeans_yes=post_kmeans_yes, kmeans_single=post_kmeans_single,
+            kmeans_min_size_share=post_kmeans_min_size_share,
             random_forest_vi=post_random_forest_vi,
             relative_to_first_group_only=post_relative_to_first_group_only,
-            plots=post_plots)
+            plots=post_plots, tree=post_tree)
         self.var_dict, self.gen_dict, self.p_dict = mcf_init.var_init(
             gen_dict, self.fs_dict, p_dict,
             bgate_name=var_bgate_name, cluster_name=var_cluster_name,
@@ -1597,12 +1696,13 @@ class ModifiedCausalForest:
             else:
                 results_plus_cluster = report['knn_table'] = None
             time_end_km = time()
-            if self.post_dict['random_forest_vi']:
-                mcf_post.random_forest_of_iate(self, results)
+            if self.post_dict['random_forest_vi'] or self.post_dict['tree']:
+                mcf_post.random_forest_tree_of_iate(self, results)
+
             time_string = [
                 'Correlational analysis and plots of IATE:       ',
                 'K-means clustering of IATE:                     ',
-                'Random forest analysis of IATE:                 ',
+                'Random forest / tree analysis of IATE:          ',
                 '\nTotal time post estimation analysis:            ']
             time_difference = [
                 time_end_corr - time_start, time_end_km - time_end_corr,
@@ -1630,6 +1730,10 @@ class ModifiedCausalForest:
             blind_seed=123456):
         """
         Compute IATEs that causally depend less on protected variables.
+
+        WARNING
+        This method is deprecated and will be removed in future
+        versions. Use the method fairscores of the OptimalPolicy class instead.
 
         Parameters
         ----------
@@ -1686,6 +1790,9 @@ class ModifiedCausalForest:
             Location of directory in which output is saved.
 
         """
+        raise Warning('This method of reducing dependence on protected '
+                      'variables is deprecated. Use the method '
+                      'fairscores of the OptimalPolicy class instead.')
         self.blind_dict = mcf_init.blind_init(
             var_x_protected_name=blind_var_x_protected_name,
             var_x_policy_name=blind_var_x_policy_name,

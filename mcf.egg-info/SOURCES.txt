@@ -35,6 +35,7 @@ mcf/optpolicy_bb_cl_functions.py
 mcf/optpolicy_bb_functions.py
 mcf/optpolicy_data_functions.py
 mcf/optpolicy_evaluation_functions.py
+mcf/optpolicy_fair_add_functions.py
 mcf/optpolicy_fair_functions.py
 mcf/optpolicy_functions.py
 mcf/optpolicy_init_functions.py

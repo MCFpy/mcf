@@ -87,9 +87,9 @@ def make_default_tree_dict(n_leaf_min, number_of_features, indices_train,
         'oob_indices': indices_oob,
         # 1D ndarray, indices of tree-specific OOB data
         'train_data_list': indices_train_all,
-        # Indices of data needed during tree building, will be removed use
+        # Indices of data needed during tree building, will be removed after use
         'oob_data_list': indices_oob_all,
-        # Indices of oob data needed during tree building, will be removed
+        # Indices of oob data needed during tree building, will be removed after
         # use
         'fill_y_indices_list': None,
         # list (dim: # of leaves) of leaf-specific indices (to be filled after

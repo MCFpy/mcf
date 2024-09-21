@@ -75,23 +75,85 @@ def opt_fairness(opt_o, empty_lines_end):
     """Text content for the fairness (protected variables) adjustment."""
     prot_vars = [*opt_o.var_dict['protected_ord_name'],
                  *opt_o.var_dict['protected_unord_name']]
-    txt = ('\nThis fairness module is experimental. It is a preview of what '
-           'will be discussed in the paper by Bearth, Lechner, Mareckova, and '
-           'Muny (2024): Explainable Optimal Policy with Protected Variables. '
-           'The main idea is to adjust the policy scores in a way such that '
-           'the resulting optimal allocation will not depend on the protected '
-           'variables. '
-           '\nCurrently the following methods are available for the '
-           'adjustments: '
-           '\n  Mean: Mean dependence of the policy score with protected '
-           'variables is removed.'
-           '\n  MeanVar: In addition to the mean dependence, '
-           'heteroscedasticity of the policy scores related to the '
-           'protected variables is removed as well.'
-           '\n')
+    mat_vars = [*opt_o.var_dict['material_ord_name'],
+                *opt_o.var_dict['material_unord_name']]
+    txt = (
+        '\nBACKGROUND'
+        '\nThis fairness module is experimental. It is a preview of what '
+        'will be analysed in the paper by Bearth, Lechner, Mareckova, and '
+        'Muny (2024): Explainable Optimal Policy with Protected Variables. '
+        'The main idea is to adjust the policy scores in a way such that '
+        'the resulting optimal allocation will not depend on the protected '
+        'features. '
+        '\nCurrently the following methods are available for the '
+        'adjustments: '
+        '\n(1)  Mean: Mean dependence of the policy score with protected '
+        'features is removed by residualisation.'
+        '\n(2)  MeanVar: In addition to the mean dependence, '
+        'heteroscedasticity of the policy scores related to the '
+        'protected features is removed by rescaling.'
+        '\n(3) Quantiled: insprired by the quantile based '
+        'approach suggested by Strack & Yang (2024), but extend to multiple '
+        'treatments and possibly continuous protected and / or materially '
+        'important features.'
+        'If there are many values of the materially relevant '
+        'features, features may be either discretized or treated as '
+        'continuous. If treated as continuous, the respective densities '
+        'needed to obtain the quantile '
+        'positions are estimated by kernel density estimation (scikit-learn) '
+        'within cells defined by the values of the protected features, if '
+        'protected features are discrete or discretized. If the protected '
+        'features are treated as continuous, respective conditional '
+        'densities are estimated. Since '
+        'the quality of the nonparametric estimators of these multivariate '
+        'densities is rapidly declining with the dimension of the '
+        'materially relevant variables, their dimension should be kept '
+        'as small as possible (or they should be discretized).'
+        '\n\nReference'
+        '\n-Strack, Philipp, and Kai Hao Yang (2024): Privacy Preserving '
+        'Signals, arXiv.'
+           )
 
-    txt += ('\nScores are adjusted for the following protected '
-            f'variables: {", ".join(prot_vars)}. ')
+    txt += ('\n\nIMPLEMENTATION '
+            f'\nProtected features: {", ".join(prot_vars)}. ')
+    txt += '\nProtected features are '
+    if opt_o.fair_dict['protected_disc_method'] == 'NoDiscretization':
+        txt += ('are treated as continous, i.e., their joint densities are '
+                'estimated. ')
+    else:
+        txt += 'discretized using '
+        if opt_o.fair_dict['protected_disc_method'] == 'EqualCell':
+            txt += ('equal cell sizes for each discrete feature of not more '
+                    f'than {opt_o.fair_dict["protected_disc_method"]} '
+                    'observations.'
+                    )
+        else:
+            txt += ('k-means++ clustering with '
+                    f'{opt_o.fair_dict["protected_disc_method"]} clusters. '
+                    )
+    if mat_vars:
+        txt += (
+            f'\nMaterially relevant features: {", ".join(mat_vars)}. '
+            '\nMaterially relevant features '
+            'may be correlated with the protected features. Therefore, '
+            'the adjusted scores may still show some correlation with the '
+            'protected features due to their correlation with the materially '
+            'relevant features. '
+            )
+        if opt_o.fair_dict['material_disc_method'] == 'NoDiscretization':
+            txt += ('are treated as continous, i.e., their joint densities are '
+                    'estimated. ')
+        else:
+            txt += 'discretized using '
+            if opt_o.fair_dict['material_disc_method'] == 'EqualCell':
+                txt += ('equal cell sizes for each discrete feature of not '
+                        f'more than {opt_o.fair_dict["material_disc_method"]} '
+                        'observations.'
+                        )
+            else:
+                txt += ('k-means++ clustering with '
+                        f'{opt_o.fair_dict["material_disc_method"]} clusters. '
+                        )
     txt += '\n' + opt_o.report['fairscores_delete_x_vars_txt']
     txt += '\n' + opt_o.report['fairscores_build_stats']
     txt += ('\n\nTo see whether the resulting decision rules are still '
@@ -279,7 +341,7 @@ def opt_training(opt_o, empty_lines_end=2):
         txt += (
             '\nThere are two different approximation methods for larger '
             'categorical variables. Since we build optimal trees, '
-            'for catorgical variables we need to check all possible '
+            'for categorical variables we need to check all possible '
             'combinations of the different values that lead to binary splits. '
             'This number could indeed be huge. Therefore, we compare only '
             f'{opt_o.pt_dict["no_of_evalupoints"]*2} different combinations. '
@@ -383,6 +445,13 @@ def opt_general(opt_o, empty_lines_end):
     else:
         txt += '\nTreatment shares are unrestricted.'
 
+    txt += '\n' * 2 + 'FAIRNESS'
+    if opt_o.fair_dict['fairscores_used']:
+        txt += ('\nFairness adjustments of scores performed prior to policy '
+                'learning.')
+    else:
+        txt += '\nNo fairness adjustments performed.'
+
     return txt + '\n' * empty_lines_end
 
 
@@ -409,7 +478,7 @@ def mcf_iate_analyse(mcf_o, empty_lines_end):
                      'the IATEs, potential outcomes, and the features in '
                      'these clusters, respectively.'
                      )
-        if mcf_o.post_dict['k_means_single']:
+        if mcf_o.post_dict['kmeans_single']:
             knn_text += ('There are also results for clustering according to '
                          'single effects only. These results are contained in '
                          'the respective *.txt-files.')
@@ -939,7 +1008,7 @@ def general(rep_o):
                 'level to very fine grained effects at the (almost) individual '
                 'level. Since effects at the highler levels are obtained from '
                 'lower level effects, all effects are internally consistent. '
-                'Recently the basic package has been appended for new average '
+                'Recently, the basic package has been appended for new average '
                 'effects as well as for an optimal policy module. '
                 'The basis of the MCF estimator is the the causal forest '
                 'suggested by Wager and Athey (2018). Their estimator has '
@@ -1002,6 +1071,8 @@ def general(rep_o):
                 'grained knowledge about effect heterogeneity to obtain '
                 'decision rules. The current version is implemented '
                 'for discrete treatments only.'
+                '\nThere is also an option for different '
+                'fairness adjustments.'
                 '\n\nThe BEST_POLICY_SCORE algorithm is based on assigning '
                 'the treatment that has the highest impact at the '
                 'unit (e.g., individual) level. If the treatment heterogeneity '
@@ -1032,9 +1103,9 @@ def general(rep_o):
                 'expensive, they have the advantage that the decision rule '
                 'is much easier to '
                 'understand and that some statistical properties are known, at '
-                'least for certain versions of such decision trees (e.g. Zhou, '
-                'Athey, Wager, 2023). The basic algorithmic implementation '
-                'follows '
+                'least for certain versions of such decision trees (e.g., '
+                'Zhou, Athey, Wager, 2023). The basic algorithmic '
+                'implementation follows '
                 'the recursive algorithm suggested by Zhou, Athey, Wager '
                 '(2023) with three (more substantial) deviations (=extensions).'
                 '\nExtension 1: Since using One Hot Encoding for categorical '
@@ -1042,7 +1113,7 @@ def general(rep_o):
                 'such variables with many different values when '
                 'building (shallow) trees (splitting one value against the '
                 'rest), a more sophisticated procedure is used that allows to '
-                'have with several values of the categorical variables on both '
+                'have several values of the categorical variables on both '
                 'sides of the split.'
                 '\nExtension 2: Constraints are allowed for. They are handled '
                 'in a sequential manner: First, an approximate '

@@ -63,7 +63,8 @@ def policy_tree_allocation(optp_, data_df):
             txt = f'\nCreating {level_str} level optimal policy tree'
             if tree_number == 1:
                 txt += f'. Leaf of first tree: {idx+1}'
-            ps.print_mcf(optp_.gen_dict, txt, summary=False)
+            if optp_.gen_dict['with_output']:
+                ps.print_mcf(optp_.gen_dict, txt, summary=False)
             while best_tree is None:
                 if optp_.gen_dict['method'] == 'policy tree':
                     best_tree, _, _ = opt_pt_eff.optimal_tree_eff_proc(
@@ -100,7 +101,10 @@ def policy_tree_allocation(optp_, data_df):
     pt_alloc_np, _, _, pt_alloc_txt, tree_info_dic = pred_policy_allocation(
         optp_, data_df)
     allocation_df = pd.DataFrame(data=pt_alloc_np, columns=('Policy Tree',))
-    return allocation_df, pt_alloc_txt + txt_warning, tree_info_dic
+    if pt_alloc_txt is None:
+        return allocation_df, '', tree_info_dic
+    else:
+        return allocation_df, pt_alloc_txt + txt_warning, tree_info_dic
 
 
 def policy_tree_prediction_only(optp_, data_df):

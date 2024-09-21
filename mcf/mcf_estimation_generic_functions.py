@@ -11,7 +11,8 @@ from math import sqrt, log2
 
 import numpy as np
 from numba import njit
-from scipy.stats import norm, skew
+import matplotlib.pyplot as plt
+from scipy.stats import norm, skew, mode
 from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
@@ -21,6 +22,7 @@ from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVR
+from sklearn import tree
 
 from mcf.mcf_print_stats_functions import del_added_chars
 
@@ -43,9 +45,10 @@ def moving_avg_mean_var(data, k, mean_and_var=True):
     k = int(k)
 
     if k >= obs:
-        mean = np.full(obs, np.mean(data))
+        mean_ = np.mean(data)
+        mean = np.full(obs, mean_)
         if mean_and_var:
-            var = np.full(obs, np.var(data))
+            var = np.full(obs, np.var(data, mean=mean_))  # New in 2.0.0)
     else:
         weights = np.ones(k) / k
 
@@ -239,6 +242,7 @@ def gini_coeff_pos(x_dat):
     return 0
 
 
+# New optimized function, 4.6.2024
 @njit
 def quadratic_form(vec, mat):
     """Quadratic form for Numpy: vec'mat*vec.
@@ -251,9 +255,25 @@ def quadratic_form(vec, mat):
     Returns
     -------
     Numpy Float. The Quadratic form.
-
     """
-    return vec @ (mat @ vec.T)
+    return np.dot(vec, np.dot(mat, vec))
+
+# Old function that worked fine.
+# @njit
+# def quadratic_form(vec, mat):
+#     """Quadratic form for Numpy: vec'mat*vec.
+
+#     Parameters
+#     ----------
+#     vec : 1D Numpy Array.
+#     mat : 2D quadratic Numpy Array.
+
+#     Returns
+#     -------
+#     Numpy Float. The Quadratic form.
+
+#     """
+#     return vec @ (mat @ vec.T)
 
 
 def random_forest_scikit(
@@ -999,3 +1019,122 @@ def classif_instance(method, parameters_dict):
 def printable_output(label, acc_score):
     """Create string to be printed later on."""
     return f'Best method: {label}      Accuracy score: {acc_score:5.2%}'
+
+
+def honest_tree_explainable(x_dat, y_dat, tree_type='regression',
+                            depth_grid=(2, 3, 4, 5), feature_names=None,
+                            title='',  seed=12356):
+    """Estimate an honest tree usable for explainability."""
+    # Cast x_data in float32 format to avoid trouble later on in honesty part
+    x_dat = x_dat.astype(np.float32)
+
+    # Avoid too small leaves
+    min_leaf = 0.01 / (max(depth_grid) * 2)  # Min leaf size as share of obs
+    # Split into training data and data used to show out-of-sample performance
+    x_train, x_oos, y_train, y_oos = train_test_split(
+        x_dat, y_dat, test_size=0.25, random_state=seed)
+
+    # Split training data for honest estimation
+    x_build, x_fill, y_build, y_fill = train_test_split(
+        x_train, y_train, test_size=0.5, random_state=seed)
+
+    plt_all, plt_h_all, fit_all, fit_h_all = [], [], [], []
+    for depth in depth_grid:
+
+        tree_parameters = {'random_state': seed,
+                           'max_depth': depth,
+                           'min_samples_leaf': min_leaf,
+                           }
+        if tree_type == 'regression':
+            tree_parameters['criterion'] = 'squared_error'
+            tree_inst = tree.DecisionTreeRegressor(**tree_parameters)
+        else:
+            tree_parameters['criterion'] = 'gini'
+            tree_inst = tree.DecisionTreeClassifier(**tree_parameters)
+
+        # Build tree
+        tree_inst.fit(x_build, y_build)
+        # Adjust final leaves for honesty
+        tree_inst_h = tree_gets_honest(tree_inst, x_fill, y_fill, tree_type)
+
+        # Plots of the tree
+        plot = plot_tree_fct(tree_inst, feature_names, depth, y_name=title)
+        plt_all.append(plot)
+        plot_h = plot_tree_fct(tree_inst_h, feature_names, depth, honest=True,
+                               y_name=title)
+        plt_h_all.append(plot_h)
+
+        y_pred = tree_inst.predict(x_oos)
+        y_pred_h = tree_inst_h.predict(x_oos)
+
+        if tree_type == 'regression':
+            fit_all.append(r2_score(y_oos, y_pred))
+            fit_h_all.append(r2_score(y_oos, y_pred_h))
+        else:
+            fit_all.append(accuracy_score(y_oos, y_pred))
+            fit_h_all.append(accuracy_score(y_oos, y_pred_h))
+    results_dict = {'plots': plt_all, 'plots_h': plt_h_all,
+                    'fit': fit_all, 'fit_h': fit_h_all
+                    }
+
+    results_dict['fit_title'] = ('R squared' if tree_type == 'regression'
+                                 else 'Accuracy score')
+    txt = '\n' * 2 + '-' * 100 + '\nTree based evaluation of ' + title
+    txt += '\n' + '- ' * 50
+    txt += '\nOut-of-sample fit for standard & honest tree '
+    txt += '(' + results_dict['fit_title'] + ')'
+    txt += '\n' + '- ' * 50
+    txt += '\nDepth     Standard tree      Honest tree'
+    for idx, depth in enumerate(depth_grid):
+        txt += f'\n{depth:5}' + ' ' * 5 + f'{results_dict["fit"][idx]:13.2%}'
+        txt += ' ' * 9 + f'{results_dict["fit_h"][idx]:8.2%}'
+    return results_dict, txt
+
+
+def tree_gets_honest(tree_inst, x_dat, y_dat, tree_type):
+    """Modify the tree instance w.r.t. leave predictins."""
+    # Apply the tree to the leaves data to get the indices of the leaf for
+    # each observation
+    tree_h = deepcopy(tree_inst)
+    leaf_indices = tree_h.apply(x_dat)
+    # Map each leaf index to the corresponding outputs and calculate mean
+    leaf_values = {}
+    leaf_samples = {}
+    for leaf in np.unique(leaf_indices):
+        mask = leaf_indices == leaf
+        # Update value with mean of samples falling into the leaf
+
+        if tree_type == 'regression':
+            leaf_values[leaf] = np.mean(y_dat[mask])
+        else:
+            leaf_values[leaf] = mode(y_dat[mask])[0]
+        if np.isnan(leaf_values[leaf]):
+            leaf_values[leaf] = np.mean(y_dat)
+        # Update samples with count of samples falling into the leaf
+        leaf_samples[leaf] = np.sum(mask)
+
+    # Modify tree attributes for each leaf node
+    for leaf in np.where(tree_h.tree_.children_left == -1)[0]:  # Find allleaves
+        if leaf in leaf_values:
+            # Set the node value to the new calculated mean
+            tree_h.tree_.value[leaf][0][0] = leaf_values[leaf]
+            # Set the samples to the count of samples in that leaf
+            tree_h.tree_.n_node_samples[leaf] = leaf_samples[leaf]
+
+    return tree_h
+
+
+def plot_tree_fct(tree_inst, feature_names, depth, honest=False, y_name=''):
+    """Plot the decision tree and return plot instance."""
+    # Set a large figure size to accommodate the full tree
+    fig, ax = plt.subplots(figsize=(20, 12))
+    tree.plot_tree(tree_inst, filled=False, feature_names=feature_names,
+                   rounded=True, ax=ax)
+    title = f'Decision Tree Structure for {y_name}: Depth {depth}'
+    if honest:
+        title = 'Honest ' + title
+        fig.text(0.5, 0.01,
+                 'Note: Only terminal leaves are updated with honest data.',
+                 ha='center', va='bottom', fontsize=12, color='black')
+    ax.set_title(title)
+    return fig

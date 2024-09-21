@@ -12,12 +12,12 @@ from copy import deepcopy
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from scipy.spatial.distance import cdist
 from scipy.stats import norm
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 
 from mcf import mcf_estimation_generic_functions as mcf_est_g
-from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
 from mcf import mcf_print_stats_functions as ps
 
@@ -65,6 +65,15 @@ def post_estimation_iate(mcf_, results):
     iate = data_df[iate_pot_name['names_iate']]
     x_name = delete_x_with_catv(var_x_type.keys())
     x_dat = data_df[x_name]
+
+    # Change _primes back to original values
+    if mcf_.data_train_dict is not None and len(
+            mcf_.data_train_dict) > 0:
+        x_dat = ps.change_name_value_df(
+            x_dat, mcf_.data_train_dict['prime_old_name_dict'],
+            mcf_.data_train_dict['prime_values_dict'],
+            mcf_.data_train_dict['unique_values_dict'])
+
     cint = norm.ppf(p_dic['ci_level'] + 0.5 * (1 - p_dic['ci_level']))
     if post_dic['bin_corr_yes']:
         txt += '\n' + '=' * 100 + '\nCorrelations of effects with ... in %'
@@ -100,6 +109,7 @@ def post_estimation_iate(mcf_, results):
                         for jdx in corr.keys():
                             txt += f'\n{jdx:<20} {corr[jdx]:>8.2%}'
                         txt += '\n' + '- ' * 50
+
                     corr = x_dat.corrwith(data_df[name_iate_t])
                     corr = corr.sort_values()
                     for jdx in corr.keys():
@@ -233,7 +243,6 @@ def post_estimation_iate(mcf_, results):
                         mcf_sys.delete_file_if_exists(file_name_pdf)
                         fig.savefig(file_name_jpeg, dpi=int_dic['dpi'])
                         fig.savefig(file_name_pdf, dpi=int_dic['dpi'])
-                    if post_dic['plots']:
                         plt.show()
                     else:
                         plt.close()
@@ -285,7 +294,6 @@ def post_estimation_iate(mcf_, results):
                     mcf_sys.delete_file_if_exists(file_name_pdf)
                     fig.savefig(file_name_jpeg, dpi=int_dic['dpi'])
                     fig.savefig(file_name_pdf, dpi=int_dic['dpi'])
-                if post_dic['plots']:
                     plt.show()
                 else:
                     plt.close()
@@ -314,9 +322,16 @@ def k_means_of_x_iate(mcf_, results_prev):
         y_pot = data_df[iate_pot_name['names_y_pot']]
     x_name = delete_x_with_catv(var_x_type.keys())
     x_dat = data_df[x_name]
+    # Change _primes back to original values
+    if mcf_.data_train_dict is not None and len(
+            mcf_.data_train_dict) > 0:
+        x_dat = ps.change_name_value_df(
+            x_dat, mcf_.data_train_dict['prime_old_name_dict'],
+            mcf_.data_train_dict['prime_values_dict'],
+            mcf_.data_train_dict['unique_values_dict'])
 
     iate_name_all = iate_pot_name['names_iate']
-    no_of_kmeans = len(iate_name_all) + 1 if post_dic['k_means_single'] else 1
+    no_of_kmeans = len(iate_name_all) + 1 if post_dic['kmeans_single'] else 1
     for val_idx in range(no_of_kmeans):
         if val_idx == 0:
             iate_names_cluster = iate_pot_name['names_iate'].copy()
@@ -335,25 +350,13 @@ def k_means_of_x_iate(mcf_, results_prev):
             txt += (f'({iate_names_cluster} only)')
         txt += '\n' + '-' * 100
         for cluster_no in post_dic['kmeans_no_of_groups']:
-            cluster_lab_tmp = KMeans(
-                n_clusters=cluster_no,
-                n_init=post_dic['kmeans_replications'], init='k-means++',
-                max_iter=post_dic['kmeans_max_tries'], algorithm='lloyd',
-                random_state=42, tol=1e-5, verbose=0, copy_x=True
-                ).fit_predict(iate_np)
-            smallest_cluster_size = np.min(np.bincount(cluster_lab_tmp))
-            n_min = len(cluster_lab_tmp)/100  # Clustersize should be > 1%
-            if smallest_cluster_size > n_min:
-                silhouette_avg = silhouette_score(iate_np, cluster_lab_tmp)
-                cluster_too_small = False
-            else:
-                silhouette_avg = -100000
-                cluster_too_small = True
+            (cluster_lab_tmp, silhouette_avg, merge) = kmeans_labels(
+                iate_np, post_dic, cluster_no)
             txt += (f'\nNumber of clusters: {cluster_no}   '
                     f'Average silhouette score: {silhouette_avg: 8.3f}')
-            if cluster_too_small:
-                txt += (f' Smallest cluster has only {smallest_cluster_size} '
-                        'observations. Average silhouette score set to -100000.'
+            if merge:
+                txt += (' Smallest cluster has too few observations. It was '
+                        'merged with with cluster with closest centroid.'
                         )
             if silhouette_avg > silhouette_avg_prev:
                 cluster_lab_np = np.copy(cluster_lab_tmp)
@@ -409,9 +412,14 @@ def k_means_of_x_iate(mcf_, results_prev):
         names_unordered = [xn for xn in var_x_type.keys()
                            if var_x_type[xn] > 0]
         if names_unordered:  # List is not empty
-            x_dummies = pd.get_dummies(x_dat, columns=names_unordered,
+            # Change names of *_primes back to original values
+            names_unordered_org = [
+                mcf_.data_train_dict['prime_old_name_dict'].get(item, item)
+                for item in names_unordered.copy()
+                ]
+            x_dummies = pd.get_dummies(x_dat, columns=names_unordered_org,
                                        dtype=int)
-            x_km = pd.concat([x_dat[names_unordered], x_dummies], axis=1)
+            x_km = pd.concat([x_dat[names_unordered_org], x_dummies], axis=1)
         else:
             x_km = x_dat
         cl_means = x_km.groupby(by=cl_group).mean(numeric_only=True)
@@ -434,9 +442,51 @@ def k_means_of_x_iate(mcf_, results_prev):
     return results, report_dic
 
 
-def random_forest_of_iate(mcf_, results):
+def kmeans_labels(iate_np, post_dic, no_of_clusters):
+    """Compute labels of clusters with kmeans."""
+    kmeans = KMeans(
+        n_clusters=no_of_clusters,
+        n_init=post_dic['kmeans_replications'], init='k-means++',
+        max_iter=post_dic['kmeans_max_tries'], algorithm='lloyd',
+        random_state=42, tol=1e-5, verbose=0, copy_x=True
+        )
+    cluster_labels = kmeans.fit_predict(iate_np)
+
+    # Identify too small clusters
+    min_size = post_dic['kmeans_min_size_share'] / 100 * len(cluster_labels)
+    unique_vals, counts = np.unique(cluster_labels, return_counts=True)
+    too_small = counts < min_size
+    if np.any(too_small):
+        small_clusters = unique_vals[too_small]
+        # Find closest cluster for merging
+        centroids = kmeans.cluster_centers_
+        for small_cluster in small_clusters:
+            distances = cdist(centroids[[small_cluster], :], centroids)
+            #  Ignore zero distance to itself
+            distances[np.isclose(distances, 0)] = np.inf
+            closest_cluster = distances.argmin()
+
+        # Merge clusters
+        cluster_labels[cluster_labels == small_cluster] = closest_cluster
+
+        # Relabel clusters so they are consecutive with no gaps
+        unique_new = np.unique(cluster_labels)
+        relabelled_labels = np.zeros_like(cluster_labels)
+        for i, u in enumerate(unique_new):
+            relabelled_labels[cluster_labels == u] = i
+        cluster_labels = relabelled_labels
+
+    silhouette = silhouette_score(iate_np, cluster_labels)
+
+    return cluster_labels, silhouette, np.any(too_small)
+
+
+def random_forest_tree_of_iate(mcf_, results):
     """Analyse IATEs by Random Forest."""
     gen_dic, var_x_type = mcf_.gen_dict, mcf_.var_x_type
+    random_forest = mcf_.post_dict['random_forest_vi']
+    tree = mcf_.post_dict['tree']
+
     if (mcf_.post_dict['relative_to_first_group_only']
             or gen_dic['d_type'] == 'continuous'):
         iate_pot_name = results['iate_names_dic'][1]
@@ -452,16 +502,34 @@ def random_forest_of_iate(mcf_, results):
     iate = data_df[iate_pot_name['names_iate']]
     x_name = x_dat.columns.tolist()
     dummy_group_names = []
-    txt = '\n' + '=' * 100 + '\nRandom Forest Analysis of IATES\n' + 50 * '- '
+    txt = '\n' + '=' * 100
+    txt += '\nRandom Forest and or Regress Tree Analysis of IATES\n'
+    txt += 50 * '- '
     ps.print_mcf(gen_dic, txt, summary=False)
     txt = ''
     if names_unordered:  # List is not empty
         dummy_names = []
-        replace_dict = dict(zip(mcf_gp.primes_list(1000),
-                                list(range(1000))))
-        for name in names_unordered:
-            x_t_d = x_dat[name].replace(replace_dict)
-            x_t_d = pd.get_dummies(x_t_d, prefix=name, dtype=int)
+        # replace_dict = dict(zip(mcf_gp.primes_list(1000),
+        #                         list(range(1000))))
+        if mcf_.data_train_dict is not None and len(
+                mcf_.data_train_dict) > 0:
+            x_dat = ps.change_name_value_df(
+                x_dat, mcf_.data_train_dict['prime_old_name_dict'],
+                mcf_.data_train_dict['prime_values_dict'],
+                mcf_.data_train_dict['unique_values_dict'])
+            names_unordered_org = [
+                mcf_.data_train_dict['prime_old_name_dict'].get(item, item)
+                for item in names_unordered.copy()
+                ]
+            x_name = [
+                mcf_.data_train_dict['prime_old_name_dict'].get(item, item)
+                for item in x_name.copy()
+                ]
+
+        for name in names_unordered_org:
+            # x_t_d = x_dat[name].replace(replace_dict)
+            # x_t_d = pd.get_dummies(x_t_d, prefix=name, dtype=int)
+            x_t_d = pd.get_dummies(x_dat[name], prefix=name, dtype=int)
             this_dummy_names = x_t_d.columns.tolist()
             dummy_names.extend(this_dummy_names[:])
             this_dummy_names.append(name)
@@ -471,25 +539,31 @@ def random_forest_of_iate(mcf_, results):
         txt += ('The following dummy variables have been created'
                 f'{dummy_names}')
     x_train = x_dat.to_numpy(copy=True)
-    txt += '\nFeatures used to build random forest'
+    txt += '\nFeatures used to build random forest and / or regression tree'
     txt += f'\n{x_dat.describe()}\n'
     ps.print_mcf(gen_dic, txt, summary=False)
     txt = '=' * 100
     for idx, y_name in enumerate(iate_pot_name['names_iate']):
         if gen_dic['d_type'] == 'continuous' and idx not in eva_points:
             continue
-        txt += f'\nPost estimation random forests for {y_name}'
         y_train = iate[y_name].to_numpy(copy=True)
-        (_, _, _, _, _, _, _, txt_rf) = mcf_est_g.random_forest_scikit(
-            x_train, y_train, None, x_name=x_name, y_name=y_name,
-            boot=mcf_.cf_dict['boot'], n_min=2, no_features='sqrt',
-            max_depth=None, workers=gen_dic['mp_parallel'], alpha=0,
-            var_im_groups=dummy_group_names, max_leaf_nodes=None,
-            pred_p_flag=False, pred_t_flag=True, pred_oob_flag=True,
-            with_output=True, variable_importance=True,
-            pred_uncertainty=False, pu_ci_level=mcf_.p_dict['ci_level'],
-            pu_skew_sym=0.5, var_im_with_output=True)
-        txt += txt_rf
+        if random_forest:
+            txt += f'\nPost estimation random forests for {y_name}'
+            (_, _, _, _, _, _, _, txt_rf) = mcf_est_g.random_forest_scikit(
+                x_train, y_train, None, x_name=x_name, y_name=y_name,
+                boot=mcf_.cf_dict['boot'], n_min=2, no_features='sqrt',
+                max_depth=None, workers=gen_dic['mp_parallel'], alpha=0,
+                var_im_groups=dummy_group_names, max_leaf_nodes=None,
+                pred_p_flag=False, pred_t_flag=True, pred_oob_flag=True,
+                with_output=True, variable_importance=True,
+                pred_uncertainty=False, pu_ci_level=mcf_.p_dict['ci_level'],
+                pu_skew_sym=0.5, var_im_with_output=True)
+            txt += txt_rf
+        if tree:
+            txt_tree = analyse_iate_tree(mcf_, x_train, y_train,
+                                         x_name=x_name, y_name=y_name)
+            txt += txt_tree + '\n' + '-' * 100 + '\n'
+
     ps.print_mcf(gen_dic, txt, summary=True)
 
 
@@ -508,3 +582,42 @@ def delete_x_with_catv(names_with_catv):
     """Delete variables which end with catv from list."""
     return [x_name for x_name in names_with_catv
             if not x_name.endswith('catv')]
+
+
+def analyse_iate_tree(mcf_, x_dat, y_dat, x_name=None, y_name=None, seed=1223):
+    """Use regression tree for increased explainability of IATE."""
+    results_dict, txt = mcf_est_g.honest_tree_explainable(
+        x_dat, y_dat, tree_type='regression',
+        depth_grid=mcf_.post_dict['tree_depths'], feature_names=x_name,
+        title=y_name, seed=seed)
+
+    if mcf_.post_dict['plots']:
+        for idx, plot in enumerate(results_dict['plots']):
+            # Standard tree
+            titel_f = 'Tree_D' + str(mcf_.post_dict['tree_depths'][idx]
+                                     ) + y_name
+            file_name_jpeg = (mcf_.p_dict['ate_iate_fig_pfad_jpeg']
+                              + '/' + titel_f + '.jpeg')
+            file_name_pdf = (mcf_.p_dict['ate_iate_fig_pfad_pdf']
+                             + '/' + titel_f + '.pdf')
+            mcf_sys.delete_file_if_exists(file_name_jpeg)
+            mcf_sys.delete_file_if_exists(file_name_pdf)
+            plot.savefig(file_name_jpeg, dpi=mcf_.int_dict['dpi'])
+            plot.savefig(file_name_pdf, dpi=mcf_.int_dict['dpi'])
+            plt.show(plot)
+            plt.close(plot)
+            # Honest Tree
+            titel_f = 'Hon_' + titel_f
+            file_name_jpeg = (mcf_.p_dict['ate_iate_fig_pfad_jpeg']
+                              + '/' + titel_f + '.jpeg')
+            file_name_pdf = (mcf_.p_dict['ate_iate_fig_pfad_pdf']
+                             + '/' + titel_f + '.pdf')
+            mcf_sys.delete_file_if_exists(file_name_jpeg)
+            mcf_sys.delete_file_if_exists(file_name_pdf)
+            plot_h = results_dict['plots_h'][idx]
+            plot_h.savefig(file_name_jpeg, dpi=mcf_.int_dict['dpi'])
+            plot_h.savefig(file_name_pdf, dpi=mcf_.int_dict['dpi'])
+            plt.show(plot_h)
+            plt.close(plot_h)
+
+    return txt

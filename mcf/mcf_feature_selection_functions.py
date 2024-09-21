@@ -129,8 +129,9 @@ def feature_selection(mcf_, data_df):
                      '=' * 100 + '\nFeature selection' + '\n' + '- ' * 50,
                      summary=True)
     if gen_dic['with_output']:
-        ps.print_mcf(gen_dic, f'\nFull score y: {score_y_full:6.3f} '
-                     f'Full score d: {score_d_full:6.3f} '
+        ps.print_mcf(gen_dic, f'\nScore for y based on all features:'
+                     ' {score_y_full:6.3f} '
+                     f'Score for d based on all features:: {score_d_full:6.3f} '
                      f'Threshold in %: {fs_dic["rf_threshold"]:4.2%}\n',
                      summary=False)
         with pd.option_context('display.max_rows', None,

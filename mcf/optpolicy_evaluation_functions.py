@@ -115,7 +115,8 @@ def evaluate_fct(optp_, data_df, allocation_df, d_ok, polscore_ok,
                     ps.statistics_by_treatment(
                         gen_dic, data_new_df_, [alloc_name], desc_var,
                         only_next=False, summary=summary, median_yes=False,
-                        std_yes=False, balancing_yes=False)
+                        std_yes=False, balancing_yes=False,
+                        data_train_dic=None)
     return results_dic
 
 

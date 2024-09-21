@@ -8,7 +8,7 @@ Created on Thu May 11 16:30:11 2023
 """
 from copy import deepcopy
 from functools import lru_cache
-from math import log, prod
+from math import log, prod, isnan
 
 import numpy as np
 from sympy.ntheory import primefactors
@@ -265,7 +265,7 @@ def recode_if_all_prime(values, name):
         List of positions of prime in list of consequative primes.
 
     """
-    values_l = [int(val) for val in values]   # list of integers
+    values_l = [int(val) if not isnan(val) else val for val in values]   # list of integers
     is_prime = set(values_l).issubset(primes_list())
     new_name = name
     if is_prime:

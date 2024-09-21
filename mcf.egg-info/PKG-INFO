@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mcf
-Version: 0.6.0
+Version: 0.7.0
 Summary: The Python package mcf implements the Modified Causal Forest introduced by Lechner (2018). This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, mcf offers the capability to learn optimal policy allocations.
 Home-page: https://mcfpy.github.io/mcf/#/
 Author: mlechner
@@ -10,16 +10,16 @@ Keywords: causal machine learning, heterogeneous treatment effects, causal fores
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE
-Requires-Dist: ray>=2.20.0
+Requires-Dist: ray>=2.36.0
 Requires-Dist: pandas>=2.2.2
-Requires-Dist: matplotlib>=3.9.0
-Requires-Dist: numba>=0.59.1
-Requires-Dist: sympy>=1.12
-Requires-Dist: scikit-learn>=1.5.0
-Requires-Dist: scipy>=1.13.1
-Requires-Dist: torch>=2.3.1
+Requires-Dist: matplotlib>=3.9.2
+Requires-Dist: numba>=0.60.0
+Requires-Dist: sympy>=1.13.3
+Requires-Dist: scikit-learn>=1.5.2
+Requires-Dist: scipy>=1.14.1
+Requires-Dist: torch>=2.4.1
 Requires-Dist: fpdf2>=2.7.9
 
 The Python package mcf implements the Modified Causal Forest introduced by Lechner (2018). This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, mcf offers the capability to learn optimal policy allocations.

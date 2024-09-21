@@ -4,12 +4,13 @@ Modified Causal Forest - Python implementation
 
 Commercial and non-commercial use allowed as compatible with the license for
 Python and its modules (and Creative Commons Licence CC BY-SA).
+Appropriate credit must be given.
 
 Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economic Research
 University of St. Gallen, Switzerland
 
-Version: 0.6.0
+Version: 0.7.0
 
 This is an example to show how to use the mcf with full specification of all
 its keywords. It may be seen as an add on to the published mcf documentation.
@@ -22,8 +23,6 @@ from mcf.mcf_functions import ModifiedCausalForest
 from mcf.reporting import McfOptPolReport
 
 # ------------------ NOT parameters of the ModifiedCausalForest ---------------
-#  Define path to be used in this example
-APPLIC_PATH = os.getcwd() + '/example'
 
 # ---------------------- Generate artificial data ------------------------------
 
@@ -60,16 +59,17 @@ training_df, prediction_df, name_dict = example_data(
 if PREDDATA_IS_TRAINDATA:
     prediction_df = None
 
+
 # ------------------ Parameters of the ModifiedCausalForest -------------------
 #   Whenever None is specified, parameter will be set to default values.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-GEN_OUTPATH = APPLIC_PATH + '/output'
+GEN_OUTPATH = os.getcwd() + '/example/output'
 #   Path were the output is written too (text, estimated effects, etc.)
 #   If this is None, a */out directory below the current directory is used.
 #   If specified directory does not exist, it will be created.
 #   OUTPATH is passed to ModifiedCausalForest.
 
-GEN_OUTFILETEXT = 'mcf.py.0.6.0'
+GEN_OUTFILETEXT = 'mcf.py.0.7.0'
 #   File for text output. If gen_outfiletext is None, 'txtFileWithOutput' is
 #   used. *.txt file extension will be added by the programme.
 
@@ -157,7 +157,7 @@ GEN_OUTPUT_TYPE = None      # 0: Output goes to terminal
 #                             2: Output goes to file and terminal (default)
 
 #   ------------- Multiprocessing ------------------------------------------
-GEN_MP_PARALLEL = None       # number of parallel processes  (>0)
+GEN_MP_PARALLEL = None       # Number of parallel processes  (>0)
 #   Default is to use 80% of logical cores (reduce if memory problems!)
 #   0, 1: no parallel computations
 
@@ -180,8 +180,8 @@ CF_MCE_VART = None  # Splitting rule
 #   2: -var(effect): heterogy maximising splitting rule of Wager & Athey (2018)
 #   3: randomly switching between outcome-mse+mce criterion & penalty functions
 #   Penalty function (depends on value of mce_vart)
-CF_P_DIFF_PENALTY = None   # Penalty function
-#   mce_vart == 0: Irrelevant
+CF_P_DIFF_PENALTY = None   # Muliplier of penalty function (or else)
+#   mce_vart == 0: Penalty irrelevant
 #   mce_vart == 1: Multiplier of penalty (in terms of var(y))
 #                  0: no penalty
 #                  default (or None):
@@ -196,6 +196,13 @@ CF_P_DIFF_PENALTY = None   # Penalty function
 #   mce_vart == 3: Probability of using p-score (0-1)
 #                  Default is 0.5. Increase if balancing tests indicate bad
 #                  balance.
+CF_PENALTY_TYPE = None     # Type of penalty function.
+#   'mse_d':  MSE of treatment prediction in daughter leaf (new in 0.7.0)
+#   'diff_d': Penalty as squared leaf difference (as in Lechner, 2018)
+#    Note that an important advantage of 'mse_d' that it can also be used
+#    for tuning (due to its computation, this is not possible for 'diff_d').
+#    Default (or None) is 'mse_d'.
+
 CF_COMPARE_ONLY_TO_ZERO = None      # If True, the computation of the MCE
 #   ignores all elements not related to the first treatment (which usually is
 #   the control group). This speeds up computation and may be attractive when
@@ -278,12 +285,17 @@ CF_M_SHARE_MAX = None        # maximum share of variables (0-1); def = 0.6
 #   split.
 CF_M_GRID = None
 #   Number of grid values logarithmically spaced, including m_min m_max.
-#   Default is 1..
+#   Default is 1.
 #   If M_GRID == 1: m_share = (M_SHARE_MIN+M_SHARE_MAX)/2
 #   If grid is used, optimal value is determined by out-of-bag estimation of
 #   objective function.
+
+CF_TUNE_ALL = None           # Tune all parameters.
+#   If True, all *_grid keywords will be set to 3. User specified values are
+#   respected if larger than 3. Default is False.
+
 CF_M_RANDOM_POISSON = None
-#   True: number of randomly selected variables is stochastic for each split,
+#   True: Number of randomly selected variables is stochastic for each split,
 #   drawn from a Poisson distribution.
 #   Grid gives mean value of 1 + poisson distribution (m-1).
 #   Default is True if M > 10, otherwise False (to avoid getting too few
@@ -328,7 +340,7 @@ LC_CS_CV_K = None   # if LC_CS_CV: # of folds used in crossvalidation (def: 5).
 
 #   ------------- Local centering -----------------------------------------
 LC_YES = None               # Local centering. Default is True.
-LC_ESTIMATOR = None             # The estimator used for local centering.
+LC_ESTIMATOR = None         # The estimator used for local centering.
 
 #   Possible choices are scikit-learn's regression methods
 #  'RandomForest', 'RandomForestNminl5', 'RandomForestNminls5'
@@ -505,18 +517,23 @@ POST_BIN_CORR_THRESHOLD = None  # Minimum threshhold of absolute correlation
 POST_PLOTS = None      # Plots of estimated treatment effects. Default is True.
 POST_KMEANS_YES = None  # Using k-means clustering to analyse
 #                         patterns in the estimated effects. Default is True.
-POST_K_MEANS_SINGLE = None   # If True, clustering is also with respect to
+POST_KMEANS_SINGLE = None   # If True, clustering is also with respect to
 #                              all single effects. Default is False.
 POST_KMEANS_NO_OF_GROUPS = None  # post_kmeans_yes is True: # of clusters
-#   to be build: Integer, list or tuple (or None --> default).
+#   to be built: Integer, list or tuple (or None --> default).
 #   Default: List of 5 values: [a, b, c, d, e]; c = 5 to 10; depending on n;
 #   c<7: a=c-2, b=c-1, d=c+1, e=c+2 else a=c-4, b=c-2, d=c+2, e=c+4
 POST_KMEANS_REPLICATIONS = None  # post_kmeans_yes is True: # of replications
 #   with random start centers to avoid local extrema. Default is 10.
 POST_KMEANS_MAX_TRIES = None     # post_kmeans_yes is True: maximum number
 #   of iterations in each replication to achive convergence. Default is 1000.
+POST_KMEANS_MIN_SIZE_SHARE = None  # Smallest share of cluster size allowed
+#                                    in % (0-33). Default (None) is 1.
 POST_RANDOM_FOREST_VI = None     # Variable importance measure of predictive
 #   random forest used to learn factors influencing IATEs. Default is True.
+
+POST_TREE = None     # Regression trees (honest and standard) of Depth 2 to 5
+#   are estimated to describe IATES(x). Default (or None) is True.
 
 #   ----------------- Sensitivity method (experimental) --------------
 SENS_CBGATE = None
@@ -624,33 +641,7 @@ _INT_DEL_FOREST = None     # Delete forests.
 _INT_KEEP_W0 = None            # Keep all zeros weights when computing
 #   standard errors (slows down computation). Default is False.
 
-#  --- Very experimental blinding method (not yet integrated in this example
-#                                         programme)
-#         blinder_iates : Compute 'standard' IATEs as well as those that are to
-#                       to a certain extent blinder than the original ones.
-#       New keywords of blinder_iates() menthod:
-#           blind_var_x_protected_name : List of strings (or None)
-#              Names of protected variables. Names that are
-#              explicitly denote as blind_var_x_unrestricted_name or as
-#              blind_var_x_policy_name and used to compute IATEs will be
-#              automatically added to this list. Default is None.
-#           blind_var_x_policy_name : List of strings (or None)
-#              Names of decision variables. Default is None.
-#           blind_var_x_unrestricted_name : List of strings (or None)
-#              Names of unrestricted variables. Default is None.
-#           blind_weights_of_blind : Tuple of float (or None)
-#              Weights to compute weighted means of blinded and unblinded
-#              IATEs. Between 0 and 1. 1 implies all weight goes to fully
-#                     blinded IATE. Default is None.
-#           blind_obs_ref_data : Integer (or None), optional
-#              Number of observations to be used for blinding. Runtime of
-#              programme is almost linear in this parameter. Default is 50.
-#           blind_seed : Integer, optional.
-#              Seed for the random selection of the reference data.
-#              Default is 123456.
 # ---------------------------------------------------------------------------
-if not os.path.exists(APPLIC_PATH):
-    os.makedirs(APPLIC_PATH)
 
 # For convenience the mcf parameters are collected and passed as a dictionary.
 # Of course, they can also be passed as single parameters (or not at all, in
@@ -669,10 +660,12 @@ params = {
     'cf_m_random_poisson': CF_M_RANDOM_POISSON,
     'cf_m_share_min': CF_M_SHARE_MIN,
     'cf_match_nn_prog_score': CF_MATCH_NN_PROG_SCORE,
-    'cf_mce_vart': CF_MCE_VART, 'cf_p_diff_penalty': CF_P_DIFF_PENALTY,
+    'cf_mce_vart': CF_MCE_VART,
+    'cf_random_thresholds': CF_RANDOM_THRESHOLDS,
+    'cf_p_diff_penalty': CF_P_DIFF_PENALTY, 'cf_penalty_type': CF_PENALTY_TYPE,
     'cf_subsample_factor_eval': CF_SUBSAMPLE_FACTOR_EVAL,
     'cf_subsample_factor_forest': CF_SUBSAMPLE_FACTOR_FOREST,
-    'cf_random_thresholds': CF_RANDOM_THRESHOLDS,
+    'cf_tune_all': CF_TUNE_ALL,
     'cf_vi_oob_yes': CF_VI_OOB_YES,
     'cs_adjust_limits': CS_ADJUST_LIMITS, 'cs_max_del_train': CS_MAX_DEL_TRAIN,
     'cs_min_p': CS_MIN_P, 'cs_quantil': CS_QUANTIL, 'cs_type': CS_TYPE,
@@ -696,10 +689,11 @@ params = {
     'post_kmeans_max_tries': POST_KMEANS_MAX_TRIES,
     'post_kmeans_replications': POST_KMEANS_REPLICATIONS,
     'post_kmeans_yes': POST_KMEANS_YES,
-    'post_k_means_single': POST_K_MEANS_SINGLE,
+    'post_kmeans_single': POST_KMEANS_SINGLE,
+    'post_kmeans_min_size_share': POST_KMEANS_MIN_SIZE_SHARE,
     'post_random_forest_vi': POST_RANDOM_FOREST_VI,
     'post_relative_to_first_group_only': POST_RELATIVE_TO_FIRST_GROUP_ONLY,
-    'post_plots': POST_PLOTS,
+    'post_plots': POST_PLOTS, 'post_tree': POST_TREE,
     'p_ate_no_se_only': P_ATE_NO_SE_ONLY, 'p_cbgate': P_CBGATE,
     'p_atet': P_ATET, 'p_bgate': P_BGATE, 'p_bt_yes': P_BT_YES,
     'p_choice_based_sampling': P_CHOICE_BASED_SAMPLING,
@@ -730,7 +724,8 @@ params = {
     'var_y_name': VAR_Y_NAME, 'var_y_tree_name': VAR_Y_TREE_NAME,
     'var_z_name_list': VAR_Z_NAME_LIST, 'var_z_name_ord': VAR_Z_NAME_ORD,
     'var_z_name_unord': VAR_Z_NAME_UNORD,
-    '_int_cuda': _INT_CUDA, '_int_del_forest': _INT_DEL_FOREST,
+    '_int_cuda': _INT_CUDA,
+    '_int_del_forest': _INT_DEL_FOREST,
     '_int_descriptive_stats': _INT_DESCRIPTIVE_STATS, '_int_dpi': _INT_DPI,
     '_int_fontsize': _INT_FONTSIZE, '_int_keep_w0': _INT_KEEP_W0,
     '_int_no_filled_plot': _INT_NO_FILLED_PLOT,
@@ -776,7 +771,7 @@ mymcf_sens = ModifiedCausalForest(**params)
 params_sensitivity['results'] = results
 results_all_dict, _ = mymcf_sens.sensitivity(training_df, **params_sensitivity)
 
-my_report = McfOptPolReport(mcf=mymcf, mcf_sense=mymcf_sens, mcf_blind=None)
+my_report = McfOptPolReport(mcf=mymcf, mcf_sense=mymcf_sens)
 my_report.report()
 
 print('End of computations.\n\nThanks for using the ModifiedCausalForest.'

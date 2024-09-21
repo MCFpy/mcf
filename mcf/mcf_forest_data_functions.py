@@ -294,7 +294,8 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
                   if gen_dic['d_type'] == 'continuous' else var_dic['d_name'])
         ps.statistics_by_treatment(
             gen_dic, data_new_df, d_name, var_dic['y_match_name'],
-            only_next=gen_dic['d_type'] == 'continuous', summary=False)
+            only_next=gen_dic['d_type'] == 'continuous', summary=False,
+            data_train_dic=mcf_.data_train_dict)
     return data_new_df, var_dic
 
 
@@ -402,16 +403,17 @@ def nn_neighbour_mcf2(y_dat, x_dat, d_dat, obs, cov_x_inv, treat_value,
 
     """
     mask = (d_dat == treat_value).reshape(-1)
-    x_t = x_dat[mask, :]
+    # x_t = x_dat[mask, :]
+    x_t = x_dat[mask]
     y_t = y_dat[mask]
     y_all = np.zeros_like(y_dat)
-    y_all[mask] = y_dat[mask]
-    # non_treat_idx = all_idx[~mask]
-    # n_obs = len(non_treat_idx)
+    y_all[mask] = y_t
+
     for i in range(obs):
         if treat_value != d_dat[i]:
-            diff = x_t - x_dat[i, :]
-            dist = np.sum((diff @ cov_x_inv) * diff, axis=1)
+            # x_diff = x_t - x_dat[i, :]
+            x_diff = x_t - x_dat[i]
+            dist = np.sum((x_diff @ cov_x_inv) * x_diff, axis=1)
             min_ind = np.where(dist <= (dist.min() + 1e-15))
             y_all[i] = np.mean(y_t[min_ind])
     return y_all, i_treat
@@ -443,7 +445,8 @@ def nn_neighbour_mcf2_parallel(y_dat, x_dat, d_dat, obs, cov_x_inv, treat_value,
     """
     # Currently, does not run if cov_x_inv is matrix (at least a larger one)
     mask = (d_dat == treat_value).reshape(-1)
-    x_t = x_dat[mask, :]
+    # x_t = x_dat[mask, :]
+    x_t = x_dat[mask]
     y_t = y_dat[mask]
     y_all = np.zeros_like(y_dat)
     y_all[mask] = y_dat[mask]
@@ -452,9 +455,10 @@ def nn_neighbour_mcf2_parallel(y_dat, x_dat, d_dat, obs, cov_x_inv, treat_value,
     n_obs = len(non_treat_idx)
     for idx in prange(n_obs):
         i = int(non_treat_idx[idx])
-        diff = x_t - x_dat[i, :]
-        diffcovinv = diff @ cov_x_inv
-        dist = np.sum(diffcovinv * diff, axis=1)
+        # x_diff = x_t - x_dat[i, :]
+        x_diff = x_t - x_dat[i]
+        diffcovinv = x_diff @ cov_x_inv
+        dist = np.sum(diffcovinv * x_diff, axis=1)
         min_ind = np.where(dist <= (dist.min() + 1e-15))
         y_all[i] = np.mean(y_t[min_ind])
     return y_all, i_treat

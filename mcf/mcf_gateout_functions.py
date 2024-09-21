@@ -9,7 +9,7 @@ Contains the functions needed for computing the GATEs.
 """
 from copy import copy, deepcopy
 from itertools import combinations
-from math import log10
+from math import log10, isnan
 from os import listdir
 import warnings
 
@@ -531,7 +531,7 @@ def tables(params):
                 stats_table.iloc[int(k_int / params['multiplier_rows']),
                                  l_int + 2 * params['number_of_combi']])
             d_f.iloc[int(k_int) + 1, l_int] = c_int
-        if d_f.index[k_int] == int(d_f.index[k_int]):  # No decimal if int.
+        if not isnan(d_f.index[k_int]) and d_f.index[k_int] == int(d_f.index[k_int]):  # No decimal if int.
             idx_list = d_f.index.tolist()
             d_f.index = idx_list[:k_int] + [int(d_f.index[k_int])] + \
                 idx_list[int(k_int) + 1:]

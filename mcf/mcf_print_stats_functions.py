@@ -62,7 +62,7 @@ def desc_by_treatment(mcf_, data_df, summary=False, stage=1):
     statistics_by_treatment(
         mcf_.gen_dict, data_df, d_name, variables_to_desc,
         only_next=mcf_.gen_dict['d_type'] == 'continuous',
-        summary=summary)
+        summary=summary, data_train_dic=mcf_.data_train_dict)
 
 
 def print_mcf(gen_dic, *strings, summary=False, non_summary=True):
@@ -150,11 +150,19 @@ def print_descriptive_df(gen_dic, data_df, varnames='all', summary=False):
 
 def statistics_by_treatment(gen_dic, data_df, treat_name, var_name,
                             only_next=False, summary=False, median_yes=True,
-                            std_yes=True, balancing_yes=True):
+                            std_yes=True, balancing_yes=True,
+                            data_train_dic=None):
     """Descriptive statistics by treatment status."""
     txt = '\n------------- Statistics by treatment status ------------------'
     print_mcf(gen_dic, txt, summary=summary)
     data = data_df[treat_name+var_name]
+    if data_train_dic is not None and len(data_train_dic) > 0:
+        data = change_name_value_df(data,
+                                    data_train_dic['prime_old_name_dict'],
+                                    data_train_dic['prime_values_dict'],
+                                    data_train_dic['unique_values_dict'])
+        var_name = [data_train_dic['prime_old_name_dict'].get(
+            item, item) for item in var_name.copy()]
     mean = data.groupby(treat_name).mean(numeric_only=True)
     std = data.groupby(treat_name).std()
     count = data.groupby(treat_name).count()
@@ -610,3 +618,19 @@ def del_added_chars(name, prime=False, catv=False):
     elif catv and name.endswith('catv'):
         name = name[:-4]
     return name
+
+
+def change_name_value_df(indata_df, in_out_name_dict, indata_value,
+                         outdata_value):
+    """Change names and values of primes back to original (discrete values."""
+    # Rename columns
+    # outdata_df = indata_df.rename(columns=in_out_name_dict, inplace=False)
+    outdata_df = indata_df.copy()
+    for (in_name, out_name) in in_out_name_dict.items():
+        if in_name in outdata_df.columns:
+            if out_name not in outdata_df.columns:
+                outdata_df[out_name] = outdata_df[in_name].replace(
+                    indata_value[in_name], outdata_value[out_name])
+            outdata_df = outdata_df.drop(in_name, axis=1)
+
+    return outdata_df

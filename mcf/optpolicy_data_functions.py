@@ -21,12 +21,10 @@ def prepare_data_fair(optp_, data_df):
     var_dic = optp_.var_dict
 
     # Recode all variables to lower case
-    if var_dic['protected_ord_name'] is not None:
-        var_dic['protected_ord_name'] = case_insensitve(
-            var_dic['protected_ord_name'].copy())
-    if var_dic['protected_unord_name'] is not None:
-        var_dic['protected_unord_name'] = case_insensitve(
-            var_dic['protected_unord_name'].copy())
+    var_dic['protected_ord_name'] = case_insensitve(
+        var_dic['protected_ord_name'].copy())
+    var_dic['protected_unord_name'] = case_insensitve(
+        var_dic['protected_unord_name'].copy())
     var_dic['polscore_name'] = case_insensitve(
         var_dic['polscore_name'].copy())
     data_df.columns = case_insensitve(data_df.columns.tolist())
@@ -38,35 +36,44 @@ def prepare_data_fair(optp_, data_df):
     protected_unord = var_available(
         var_dic['protected_unord_name'], list(data_df.columns),
         needed='must_have')
-    var_available(
-        var_dic['polscore_name'], list(data_df.columns),
+    material_ord = var_available(
+        var_dic['material_ord_name'], list(data_df.columns),
+        needed='must_have')
+    material_unord = var_available(
+        var_dic['material_unord_name'], list(data_df.columns),
         needed='must_have')
 
-    if (var_dic['protected_ord_name'] is None
-            and var_dic['protected_unord_name'] is None):
-        raise ValueError('Protected variables must be specified.')
+    if not (protected_ord or protected_unord):
+        raise ValueError('Neither ordered nor unordered protected features '
+                         'specified. Fairness adjustment is impossible '
+                         'without specifying at least one protected feature.')
+
+    prot_list = [*var_dic['protected_ord_name'],
+                 *var_dic['protected_unord_name']]
+    mat_list = [*var_dic['material_ord_name'], *var_dic['material_unord_name']]
+    common_elements = [elem for elem in prot_list if elem in mat_list]
+    if common_elements:
+        raise ValueError(f'Fairness adjustment: {" ".join(common_elements)} '
+                         'are included among protected and '
+                         'materially relevant features. This is logically '
+                         'inconsistent.')
+
+    var_available(var_dic['polscore_name'], list(data_df.columns),
+                  needed='must_have')
 
     if optp_.gen_dict['with_output']:
-        if (var_dic['protected_ord_name'] is not None
-                and var_dic['protected_unord_name'] is not None):
-            protected = [*var_dic['protected_ord_name'],
-                         *var_dic['protected_unord_name']]
-        elif var_dic['protected_ord_name'] is None:
-            protected = var_dic['protected_unord_name']
-        else:
-            protected = var_dic['protected_ord_name']
-        mcf_ps.print_mcf(
-            optp_.gen_dict,
-            ('\n' + '-' * 100
-             + '\nFairness adjusted score '
-             + f'(method: {optp_.fair_dict["adj_type"]})'
-             + '\n' + '- ' * 50
-             + f'\nProtected variables: {" ".join(protected)}'
-             + '\n' + '- ' * 50
-             ),
-            summary=True)
+        txt_print = ('\n' + '-' * 100
+                     + '\nFairness adjusted score '
+                     f'(method: {optp_.fair_dict["adj_type"]})'
+                     + '\n' + '- ' * 50
+                     + f'\nProtected features: {" ".join(prot_list)}'
+                     )
+        if mat_list:
+            txt_print += f'\nMaterially relevant features: {" ".join(mat_list)}'
+        txt_print += '\n' + '- ' * 50
+        mcf_ps.print_mcf(optp_.gen_dict, txt_print, summary=True)
 
-    # Delete protected variables from x_ord and x_unord and creade dummies
+    # Delete protected variables from x_ord and x_unord and create dummies
     del_x_var_list = []
     if protected_ord:
         del_x_var_list = [var for var in var_dic['x_ord_name']
@@ -90,23 +97,35 @@ def prepare_data_fair(optp_, data_df):
                                     columns=var_dic['protected_unord_name'],
                                     dtype=int)
         optp_.var_dict['protected_name'].extend(dummies_df.columns)
-        # Add dummies to data_df (if needed)
-        data_new_df = pd.concat((data_df, dummies_df), axis=1)
-    else:
-        data_new_df = data_df
+        # Add dummies to data_df
+        data_df = pd.concat((data_df, dummies_df), axis=1)
+
     if not (protected_ord or protected_unord):
         raise ValueError('No features available for fairness corrections.')
+
+    if material_ord:
+        optp_.var_dict['material_name'] = var_dic['material_ord_name'].copy()
+    else:
+        optp_.var_dict['material_name'] = []
+    if material_unord:
+        dummies_df = pd.get_dummies(data_df[var_dic['material_unord_name']],
+                                    columns=var_dic['material_unord_name'],
+                                    dtype=int)
+        optp_.var_dict['material_name'].extend(dummies_df.columns)
+        # Add dummies to data_df
+        data_df = pd.concat((data_df, dummies_df), axis=1)
+
     if del_x_var_list and optp_.gen_dict['with_output']:
         optp_.report['fairscores_delete_x_vars_txt'] = (
-            'The following variables cannot be used as decision variables '
-            'because they are protected (fairness): '
-            f'{", ".join(del_x_var_list)}')
+            'The following variables will not be used as decision variables '
+            'because they are specified as protected (fairness) by user: '
+            f'{", ".join(del_x_var_list)}.')
         mcf_ps.print_mcf(optp_.gen_dict,
                          optp_.report['fairscores_delete_x_vars_txt'],
                          summary=True)
     else:
         optp_.report['fairscores_delete_x_vars_txt'] = None
-    return data_new_df
+    return data_df
 
 
 def prepare_data_for_classifiers(data_df, var_dic, scaler=None,

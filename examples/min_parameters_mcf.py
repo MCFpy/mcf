@@ -4,12 +4,13 @@ Modified Causal Forest - Python implementation
 
 Commercial and non-commercial use allowed as compatible with the license for
 Python and its modules (and Creative Commons Licence CC BY-SA).
+Appropriate credit must be given.
 
 Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.6.0
+Version: 0.7.0
 
 This is an example to show how the mcf can be implemented relying completely on
 defaults. Note that usually in application it is very likely to be appropriate
@@ -27,7 +28,7 @@ from mcf.reporting import McfOptPolReport
 #  Define data to be used in this example
 APPLIC_PATH = os.getcwd() + '/example'
 
-# ---------------------- Generate artificial data -----------------------------
+# ---------------------- Generate artificial data ------------------------------
 
 training_df, prediction_df, name_dict = example_data()
 

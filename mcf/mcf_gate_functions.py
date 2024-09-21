@@ -236,10 +236,15 @@ def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
                     obs_larger += ret[8] / no_of_zval
                     w_censored_all += w_censored[zj_idx, a_idx, :]
                 if gate_type == 'GATE':
+                    if z_name in mcf_.data_train_dict['prime_values_dict']:
+                        z_name_label = mcf_.data_train_dict['prime_values_dict'
+                                                            ][z_name]
+                    else:
+                        z_name_label = z_name
                     txt_z_name += '\n' + '=' * 100
                     txt_z_name += (
                         '\nAnalysis of weights (normalised to add to 1): '
-                        f'{gate_type} for {z_name} '
+                        f'{gate_type} for {z_name_label} '
                         f'(stats are averaged over {no_of_zval} groups).')
                     if p_dic['gatet']:
                         txt += f'\nTarget population: {ref_pop_lab[a_idx]:<4}'

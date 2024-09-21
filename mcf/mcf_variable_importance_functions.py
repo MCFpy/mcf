@@ -54,7 +54,7 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
 
     """
     int_dic, gen_dic = mcf_.int_dict, mcf_.gen_dict
-    cuda = int_dic['cuda']
+    cuda, cython = int_dic['cuda'], int_dic['cython']
     if int_dic['with_output'] and int_dic['verbose']:
         txt = '\nVariable importance measures (OOB data)\nSingle variables'
         ps.print_mcf(gen_dic, txt, summary=True)
@@ -97,7 +97,8 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
         for jdx in range(number_of_oobs):
             oob_values[jdx], _ = get_oob_mcf(
                 data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
-                jdx, True, [], forest, False, partner_k[jdx], cuda)
+                jdx, True, [], forest, False, partner_k[jdx], cuda=cuda,
+                cython=cython)
             if int_dic['with_output'] and int_dic['verbose']:
                 gp.share_completed(jdx+1, number_of_oobs)
     else:  # Fast but needs a lot of memory because it copied a lot
@@ -105,8 +106,8 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
         if int_dic['ray_or_dask'] == 'ray':
             still_running = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
-                cf_dic, idx, True, [], forest_ref, True, partner_k[idx], cuda)
-                for idx in range(number_of_oobs)]
+                cf_dic, idx, True, [], forest_ref, True, partner_k[idx], cuda,
+                cython) for idx in range(number_of_oobs)]
             jdx = 0
             while len(still_running) > 0:
                 finished, still_running = ray.wait(still_running)
@@ -137,7 +138,7 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
             still_running = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
                 cf_dic, idx, False, ind_groups, forest_ref, True, partner_k,
-                cuda)
+                cuda, cython)
                 for idx in range(n_g)]
             idx = 0
             while len(still_running) > 0:
@@ -154,7 +155,7 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
                 oob_values[idx], _ = get_oob_mcf(
                     data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
                     cf_dic, idx, False, ind_groups, forest, False, partner_k,
-                    cuda)
+                    cuda, cython)
                 if int_dic['with_output'] and int_dic['verbose']:
                     gp.share_completed(idx+1, n_g)
         vim_g, txt = vim_print(mse_ref, np.array(oob_values), x_name,
@@ -174,7 +175,7 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
             still_running = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
                 cf_dic, idx, False, ind_groups, forest_ref, True, partner_k,
-                cuda)
+                cuda, cython)
                 for idx in range(n_g)]
             idx = 0
             while len(still_running) > 0:
@@ -191,7 +192,7 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
                 oob_values[idx], _ = get_oob_mcf(
                     data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
                     cf_dic, idx, False, ind_groups, forest, False, partner_k,
-                    cuda)
+                    cuda, cython)
                 if int_dic['with_output'] and int_dic['verbose']:
                     gp.share_completed(idx+1, n_g)
         vim_mg, txt = vim_print(mse_ref, np.array(oob_values), x_name,
@@ -357,16 +358,16 @@ def vim_print(mse_ref, mse_values, x_name, ind_list=0, with_output=True,
 @ray.remote
 def ray_get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
                     cf_dic, k, single, group_ind_list, forest, no_mp=False,
-                    partner_k=None, cuda=False):
+                    partner_k=None, cuda=False, cython=True):
     """Make function usable for Ray."""
     return get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
                        cf_dic, k, single, group_ind_list, forest, no_mp,
-                       partner_k, cuda)
+                       partner_k, cuda, cython)
 
 
 def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
                 k, single, group_ind_list, forest, no_mp=False,
-                partner_k=None, cuda=False):
+                partner_k=None, cuda=False, cython=True):
     """Get the OOB value of a forest.
 
     Parameters
@@ -411,7 +412,7 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
             oob_tree = get_oob_mcf_b(
                 data_np_oob, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k,
                 single, group_ind_list, forest[idx], partner_k=partner_k,
-                cuda=cuda)
+                cuda=cuda, cython=cython)
             oob_value += oob_tree
     else:
         if int_dic['mp_weights_tree_batch'] > 1:  # User defined # of batches
@@ -436,26 +437,29 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
                 forest_temp = forest[b_ind[0]:b_ind[-1]+1]
                 oob_value += get_oob_mcf_chuncks(
                     data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k,
-                    single, group_ind_list, forest_temp, b_ind, partner_k, cuda)
+                    single, group_ind_list, forest_temp, b_ind, partner_k, cuda,
+                    cython)
     oob_value = oob_value / cf_dic['boot']
     return oob_value, k
 
 
 def get_oob_mcf_chuncks(data, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k,
                         single, group_ind_list, tree_dics, index_list,
-                        partner_k=None, cuda=False):
+                        partner_k=None, cuda=False, cython=True):
     """Compute OOB value in chuncks."""
     oob_value = 0
     for idx, _ in enumerate(index_list):
         data_np_oob = data[tree_dics[idx]['oob_indices']]
         oob_value += get_oob_mcf_b(
             data_np_oob, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k,
-            single, group_ind_list, tree_dics[idx], partner_k, cuda)
+            single, group_ind_list, tree_dics[idx], partner_k, cuda=cuda,
+            cython=cython)
     return oob_value
 
 
 def get_oob_mcf_b(data, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k, single,
-                  group_ind_list, tree_dict, partner_k=None, cuda=False):
+                  group_ind_list, tree_dict, partner_k=None, cuda=False,
+                  cython=True):
     """Generate OOB contribution for single bootstrap."""
     x_dat, y_dat = data[:, x_i], data[:, y_i]
     y_nn = data[:, y_nn_i]
@@ -480,7 +484,7 @@ def get_oob_mcf_b(data, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k, single,
     oob_tree = mcf_fo.oob_in_tree(
         obs_in_leaf, y_dat, y_nn, d_dat, w_dat, cf_dic['mtot'],
         gen_dic['no_of_treat'], gen_dic['d_values'], gen_dic['weighted'],
-        cont=gen_dic['d_type'] == 'continuous', cuda=cuda,
+        cont=gen_dic['d_type'] == 'continuous', cuda=cuda, cython=cython,
         compare_only_to_zero=cf_dic['compare_only_to_zero'])
     return oob_tree
 
@@ -514,7 +518,8 @@ def determine_partner_k(x_name):
 
 
 def print_variable_importance(clas_obj, x_df, d_df, x_name, names_uo,
-                              unordered_dummy_names, gen_dic, summary=False):
+                              unordered_dummy_names, gen_dic, summary=False,
+                              name_label_dict=None):
     """Compute and print variable importance by permutation for CS."""
     x_train_df, x_test_df, d_train_df, d_test_df = train_test_split(
         x_df, d_df, test_size=0.25, random_state=42)
@@ -539,7 +544,10 @@ def print_variable_importance(clas_obj, x_df, d_df, x_name, names_uo,
         d_score = accuracy_score(d_test_np, d_pred_rnd, normalize=True)
         d_rel_diff = (score_d_full - d_score) / score_d_full
         vi_information[name] = [d_score, d_rel_diff*100]
-    ps.print_mcf(gen_dic, f'Full score d: {score_d_full:6.3f} ',
+    if name_label_dict is not None:
+        vi_information.rename(columns=name_label_dict, inplace=True)
+
+    ps.print_mcf(gen_dic, f'Score based on all features: {score_d_full:6.3f} ',
                  summary=summary)
     with pd.option_context('display.max_rows', None,
                            'display.expand_frame_repr', True,

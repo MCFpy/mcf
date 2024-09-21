@@ -4,12 +4,13 @@ Modified Causal Forest - Python implementation
 
 Commercial and non-commercial use allowed as compatible with the license for
 Python and its modules (and Creative Commons Licence CC BY-SA).
+Appropriate credit must be given.
 
 Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.6.0
+Version: 0.7.0
 
 This is an example to show how to combine the ModifiedCausalForest class and
 the OptimalPolicy class for joint estimation. Please note that there could be
@@ -135,4 +136,4 @@ my_report.report()
 
 
 print('End of computations.\n\nThanks for using ModifiedCausalForest and'
-      ' OptimalPolicy. \n\nYours sincerely\nMCF \U0001F600')
+      ' OptimalPolicy (beta). \n\nYours sincerely\nMCF \U0001F600')

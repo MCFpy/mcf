@@ -7,7 +7,6 @@ Created on Thu May 11 16:30:11 2023
 # -*- coding: utf-8 -*-
 """
 from copy import copy, deepcopy
-from math import inf
 from time import time
 
 import numpy as np
@@ -17,6 +16,7 @@ from mcf import mcf_forest_data_functions as mcf_fo_data
 from mcf import mcf_forest_add_functions as mcf_fo_add
 from mcf import mcf_forest_objfct_functions as mcf_fo_obj
 from mcf import mcf_forest_asdict_functions as mcf_fo_asdict
+# from mcf import mcf_forest_cy as mcf_cy
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
 from mcf import mcf_print_stats_functions as ps
@@ -96,7 +96,7 @@ def train_forest(mcf_, tree_df, fill_y_df):
 def build_forest(mcf_, tree_df):
     """Build MCF (not yet populated by w and outcomes)."""
     int_dic, gen_dic, cf_dic = mcf_.int_dict, mcf_.gen_dict, mcf_.cf_dict
-    cuda = int_dic['cuda']
+    cuda, cython = int_dic['cuda'], int_dic['cython']
     with_ray = (not int_dic['no_ray_in_forest_building']
                 and (int_dic['ray_or_dask'] == 'ray'))
     if not with_ray:
@@ -121,7 +121,7 @@ def build_forest(mcf_, tree_df):
             forest[idx] = build_tree_mcf(
                 data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
                 x_values, x_ind, x_ai_ind, gen_dic, cf_dic, mcf_.ct_dict, idx,
-                pen_mult, cuda)
+                pen_mult, cuda, cython)
             if int_dic['with_output'] and int_dic['verbose']:
                 mcf_gp.share_completed(idx+1, cf_dic['boot'])
     else:
@@ -141,7 +141,7 @@ def build_forest(mcf_, tree_df):
             still_running = [ray_build_tree_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i,
                 x_type, x_values, x_ind, x_ai_ind, gen_dic, cf_dic,
-                mcf_.ct_dict, boot, pen_mult, cuda)
+                mcf_.ct_dict, boot, pen_mult, cuda, cython)
                 for boot in range(cf_dic['boot'])]
             jdx = 0
             while len(still_running) > 0:
@@ -166,7 +166,8 @@ def build_forest(mcf_, tree_df):
             raise RuntimeError(f'Forest has wrong size: {len(forest)}'
                                'Bug in Multiprocessing.')
     # find best forest given the saved oob values
-    forest_final, m_n_final = best_m_n_min_alpha_reg(forest, gen_dic, cf_dic)
+    forest_final, m_n_final = best_m_n_min_alpha_reg(forest, gen_dic, cf_dic,
+                                                     int_dic['cython'])
     del forest    # Free memory
     # Describe final forest
     if int_dic['with_output']:
@@ -181,16 +182,16 @@ def build_forest(mcf_, tree_df):
 @ray.remote
 def ray_build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i,
                        x_type, x_values, x_ind, x_ai_ind, gen_dic, cf_dic,
-                       ct_dic, boot, pen_mult, cuda):
+                       ct_dic, boot, pen_mult, cuda, cython):
     """Prepare function for Ray."""
     return build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i,
                           x_type, x_values, x_ind, x_ai_ind, gen_dic, cf_dic,
-                          ct_dic, boot, pen_mult, cuda)
+                          ct_dic, boot, pen_mult, cuda, cython)
 
 
 def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
                    x_values, x_ind, x_ai_ind, gen_dic, cf_dic, ct_dic, boot,
-                   pen_mult, cuda):
+                   pen_mult, cuda, cython):
     """Build single trees for all values of tuning parameters.
 
     Parameters
@@ -210,6 +211,7 @@ def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
     boot : INT. Counter for bootstrap replication (currently not used)
     ....
     cuda : Boolean. If True, use CUDA for MSE calculations (if available).
+    cython : Boolean. Use Cython for speed gains.
 
     Returns
     -------
@@ -246,7 +248,7 @@ def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
                     data_np, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                     x_type, x_values, x_ind, x_ai_ind, cf_dic, gen_dic,
                     ct_dic['grid_nn_val'], m_idx, n_min, alpha_reg,
-                    deepcopy(tree_empty), pen_mult, rng, cuda)
+                    deepcopy(tree_empty), pen_mult, rng, cuda, cython)
                 j += 1
     return deepcopy(tree_all)
 
@@ -254,7 +256,7 @@ def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
 def build_single_tree(data, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                       x_type, x_values, x_ind, x_ai_ind, cf_dic, gen_dic,
                       ct_grid_nn_val, mmm, n_min, alpha_reg,
-                      tree_dict_global, pen_mult, rng, cuda):
+                      tree_dict_global, pen_mult, rng, cuda, cython):
     """Build single tree given random sample split.
 
     Parameters
@@ -275,9 +277,10 @@ def build_single_tree(data, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
     n_min : Int. Minimum leaf size.
     alpha_reg : Float. alpha regularity.
     tree_dict : Dict. Initial tree.
-    pen_mult: Float. Multiplier of penalty.
+    pen_mult : Float. Multiplier of penalty.
     rng : Default random number generator object.
     cuda : Boolean. If True, use CUDA for MSE calculations (if available).
+    cython : Boolean. Use Cython for speed gains.
 
     Returns
     -------
@@ -334,7 +337,8 @@ def build_single_tree(data, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
          split_n_oob_r, split_value) = next_split(
              data_leaf, data_oob_leaf, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
              x_type, x_values, x_ind, x_ai_ind, cf_dic, gen_dic,
-             ct_grid_nn_val, mmm, n_min, alpha_reg, pen_mult, rng, cuda)
+             ct_grid_nn_val, mmm, n_min, alpha_reg, pen_mult, rng,
+             cuda, cython)
         if terminal:
             leaf_id_daughters = None
         else:
@@ -353,12 +357,12 @@ def build_single_tree(data, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
              split_n_l, split_n_r, split_leaf_l, split_leaf_r,
              split_leaf_oob_l, split_leaf_oob_r, split_n_oob_l, split_n_oob_r,
              terminal, leaf_id_daughters, d_i, w_i, d_grid_i, y_nn_i, y_i,
-             ct_grid_nn_val, gen_dic, cf_dic, rng, cuda)
+             ct_grid_nn_val, gen_dic, cf_dic, rng, cuda, cython)
     tree_dict = mcf_fo_asdict.cut_back_empty_cells_tree(tree_dict)
     return tree_dict
 
 
-def best_m_n_min_alpha_reg(forest, gen_dic, cf_dic):
+def best_m_n_min_alpha_reg(forest, gen_dic, cf_dic, cython):
     """Get best forest for the tuning parameters m_try, n_min, alpha_reg.
 
     Parameters
@@ -428,6 +432,12 @@ def best_m_n_min_alpha_reg(forest, gen_dic, cf_dic):
                     mse_mce_tree = mcf_fo_obj.get_avg_mse_mce(
                         mse_mce_tree, obs_t_tree, cf_dic['mtot'], no_of_treat,
                         cf_dic['compare_only_to_zero'])
+                    if cython:
+                        raise ValueError('Cython currently not used.')
+                        # tree_mse = mcf_cy.compute_mse_mce_cy(
+                        #     mse_mce_tree, cf_dic['mtot'], no_of_treat,
+                        #     cf_dic['compare_only_to_zero'])
+
                     tree_mse = mcf_fo_obj.compute_mse_mce(
                         mse_mce_tree, cf_dic['mtot'], no_of_treat,
                         cf_dic['compare_only_to_zero'])
@@ -438,6 +448,9 @@ def best_m_n_min_alpha_reg(forest, gen_dic, cf_dic):
                     mse_oob[j] = mse_oob[j] * (
                         cf_dic['boot'] / (cf_dic['boot']
                                           - trees_without_oob_j))
+        # Change value of mse to infinity if OOB-based mse could not be computed
+        mse_oob = np.nan_to_num(mse_oob, np.inf)
+        mse_oob[mse_oob < 0.01 * np.mean(mse_oob)] = np.inf
         min_i = np.argmin(mse_oob)
         mse_oob = mse_oob / cf_dic['boot']
         cf_dic['n_min_values'] = mcf_gp.check_if_iterable(
@@ -486,7 +499,8 @@ def efficient_iate(mcf_, fill_y_df, tree_df, summary=False):
 
 def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                x_type, x_values, x_ind, x_ai_ind, cf_dic, gen_dic,
-               ct_grid_nn_val, mmm, n_min, alpha_reg, pen_mult, rng, cuda):
+               ct_grid_nn_val, mmm, n_min, alpha_reg, pen_mult, rng,
+               cuda, cython):
     """Find best next split of leaf (or terminate splitting for this leaf).
 
     Parameters
@@ -508,7 +522,7 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
     pen_mult : Float. Penalty multiplier.
     rng : Numpy default random number generator object.
     cuda : Boolean. Use cuda if True.
-    compare_only_to_zero : Boolean. Use reduced MSE matrix if True.
+    cython : Boolean. Use cython for faster usage.
 
     Returns
     -------
@@ -519,6 +533,9 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
     """
     terminal = split_done = False
     leaf_size_train = data_train.shape[0]
+    pen_mult_d = pen_mult if (
+        cf_dic['penalty_type'] == 'mse_d' and pen_mult > 0) else 0
+
     if leaf_size_train < (2 * n_min):
         terminal = True
     elif np.all(data_train[:, d_i] == data_train[0, d_i]):
@@ -541,7 +558,7 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
         d_bin_dat, continuous = None, False
     if not terminal:
         obs_min = max([round(leaf_size_train * alpha_reg), n_min])
-        best_mse = inf   # Initialisation: Infinity as default values
+        best_mse = np.inf
         total_attempts = 5
         all_vars = False
         for idx in range(total_attempts):
@@ -639,6 +656,21 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                     # Check if enough observations available
                     if (n_l < obs_min) or (n_r < obs_min):
                         continue
+                    # Next we check if any obs in each treatment
+                    d_dat_l = (d_bin_dat[leaf_l]
+                               if continuous else d_dat[leaf_l])
+                    if mcf_fo_add.not_enough_treated(
+                            continuous, cf_dic['n_min_treat'], d_dat_l,
+                            no_of_treat):
+                        continue
+                    leaf_r = np.invert(leaf_l)  # Reverses True to False
+                    d_dat_r = (d_bin_dat[leaf_r]
+                               if continuous else d_dat[leaf_r])
+                    if mcf_fo_add.not_enough_treated(
+                            continuous, cf_dic['n_min_treat'], d_dat_r,
+                            no_of_treat):
+                        continue
+
                     if x_type_split[j] == 0:
                         if d_cont_split:   # Treated and selected non-treated
                             treated_l_oob = np.invert(treat_0_oob
@@ -651,30 +683,7 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                         leaf_oob_l = np.isin(x_oob_j, split_values_unord_j)
                     n_oob_l = np.count_nonzero(leaf_oob_l)
                     n_oob_r = data_oob.shape[0] - n_oob_l
-                    # Next we check if any obs in each treatment
-                    d_dat_l = (d_bin_dat[leaf_l]
-                               if continuous else d_dat[leaf_l])
-                    if continuous or cf_dic['n_min_treat'] == 1:
-                        if len(np.unique(d_dat_l)) < no_of_treat:
-                            continue
-                    else:
-                        ret = np.unique(d_dat_l, return_counts=True)
-                        if len(ret[0]) < no_of_treat:
-                            continue
-                        if np.any(ret[1] < cf_dic['n_min_treat']):
-                            continue
-                    leaf_r = np.invert(leaf_l)  # Reverses True to False
-                    d_dat_r = (d_bin_dat[leaf_r]
-                               if continuous else d_dat[leaf_r])
-                    if continuous or cf_dic['n_min_treat'] == 1:
-                        if len(np.unique(d_dat_r)) < no_of_treat:
-                            continue   # Splits possible?
-                    else:
-                        ret = np.unique(d_dat_r, return_counts=True)
-                        if len(ret[0]) < no_of_treat:
-                            continue
-                        if np.any(ret[1] < cf_dic['n_min_treat']):
-                            continue
+
                     leaf_oob_r = np.invert(leaf_oob_l)
                     if mtot in (1, 4):
                         if continuous:
@@ -695,22 +704,30 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                     # compute objective functions given particular method
                     mse_mce_l, shares_l, obs_by_treat_l = mcf_fo_obj.mcf_mse(
                         y_dat[leaf_l], y_nn_l, d_dat_l, w_l, n_l, mtot,
-                        no_of_treat, d_values, w_yes, False, cuda,
-                        cf_dic['compare_only_to_zero'])
+                        no_of_treat, d_values, w_yes, False, cuda, cython,
+                        cf_dic['compare_only_to_zero'], pen_mult_d)
                     mse_mce_r, shares_r, obs_by_treat_r = mcf_fo_obj.mcf_mse(
                         y_dat[leaf_r], y_nn_r, d_dat_r, w_r, n_r, mtot,
-                        no_of_treat, d_values, w_yes, False, cuda,
-                        cf_dic['compare_only_to_zero'])
+                        no_of_treat, d_values, w_yes, False, cuda, cython,
+                        cf_dic['compare_only_to_zero'], pen_mult_d)
                     mse_mce = mcf_fo_obj.add_mse_mce_split(
                         mse_mce_l, mse_mce_r, obs_by_treat_l,
                         obs_by_treat_r, mtot, no_of_treat,
                         cf_dic['compare_only_to_zero'])
+                    if cython:
+                        raise ValueError('Cython currently not used.')
+                        # mse_split = mcf_cy.compute_mse_mce_cy(
+                        #     mse_mce, mtot, no_of_treat,
+                        #     cf_dic['compare_only_to_zero'])
+
                     mse_split = mcf_fo_obj.compute_mse_mce(
                         mse_mce, mtot, no_of_treat,
                         cf_dic['compare_only_to_zero'])
-                    # add penalty for this split
-                    if ((cf_dic['mtot'] == 1) or ((cf_dic['mtot'] == 4)
-                                                  and (rng.random() > 0.5))):
+                    # add penalty for this split if 'diff_d'
+                    if cf_dic['penalty_type'] == 'diff_d' and (
+                            (cf_dic['mtot'] == 1) or ((cf_dic['mtot'] == 4)
+                                                      and (rng.random() > 0.5))
+                            ):
                         penalty = mcf_fo_obj.mcf_penalty(shares_l, shares_r)
                         mse_split = mse_split + pen_mult * penalty
                     if mse_split < best_mse:
@@ -742,7 +759,7 @@ def update_tree(
         split_n_l, split_n_r, split_leaf_l, split_leaf_r, split_leaf_oob_l,
         split_leaf_oob_r, split_n_oob_l, split_n_oob_r, terminal,
         leaf_id_daughters, d_i, w_i, d_grid_i, y_nn_i, y_i, ct_grid_nn_val,
-        gen_dic, cf_dic, rng, cuda):
+        gen_dic, cf_dic, rng, cuda, cython):
     """Assign values obtained from splitting to parent & daughter leaves."""
     tree = deepcopy(tree_dict_global)
     if gen_dic['d_type'] == 'continuous':
@@ -771,7 +788,13 @@ def update_tree(
             mse_mce, _, obs_oob_list = mcf_fo_obj.mcf_mse(
                 data_oob_parent[:, y_i], y_nn, d_oob, w_oob, n_oob,
                 cf_dic['mtot'], no_of_treat, d_values, gen_dic['weighted'],
-                False, cuda, cf_dic['compare_only_to_zero'])
+                False, cuda, cython, cf_dic['compare_only_to_zero'])
+            if cython:
+                raise ValueError('Cython currently not used.')
+                # obj_fct_oob = mcf_cy.compute_mse_mce_cy(
+                #     mse_mce, cf_dic['mtot'], no_of_treat,
+                #     cf_dic['compare_only_to_zero'])
+
             obj_fct_oob = mcf_fo_obj.compute_mse_mce(
                 mse_mce, cf_dic['mtot'], no_of_treat,
                 cf_dic['compare_only_to_zero'])
@@ -880,13 +903,9 @@ def get_split_values(y_dat, w_dat, x_dat, x_type, x_values, leaf_size,
             value_equal = np.isclose(x_dat, val)
             if np.any(value_equal):  # Position of empty cells do not matter
                 if w_yes:
-                    # y_mean_by_cat[v_idx] = np.average(
-                    #    y_dat[value_equal], weights=w_dat[value_equal], axis=0)
                     y_mean_by_cat[v_idx] = np.average(
                         y_dat[value_equal], weights=w_dat[value_equal])
                 else:
-                    # y_mean_by_cat[v_idx] = np.average(
-                    #     y_dat[value_equal], axis=0)
                     y_mean_by_cat[v_idx] = np.average(y_dat[value_equal])
                 used_values.append(v_idx)
         x_vals_np = x_vals_np[used_values]
@@ -922,7 +941,6 @@ def term_or_data(data_tr_ns, data_oob_ns, y_i, d_i, d_grid_i, x_i_ind_split,
     terminal : Boolean. True if no further split possible. End splitting.
     terminal_x : Boolean. Try new variables.
     ...
-
     """
     terminal = terminal_x = False
     y_oob = d_dat = d_oob = d_grid_dat = d_grid_oob = x_dat = x_oob = None
@@ -953,7 +971,7 @@ def term_or_data(data_tr_ns, data_oob_ns, y_i, d_i, d_grid_i, x_i_ind_split,
 
 
 def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
-                treat_values, w_yes, cont=False, cuda=False,
+                treat_values, w_yes, cont=False, cuda=False, cython=True,
                 compare_only_to_zero=False):
     """Compute OOB values for a tree.
 
@@ -970,6 +988,7 @@ def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
     w_yes : INT.
     cont : Boolean. Default is False.
     cuda : Boolean. MSE computation with Cuda if True. Default is False.
+    # cython : Boolean. MSE computation with Cython if True. Default is True.
     compare_only_to_zero : Boolean. Reduced covariance matrix.
 
     Returns
@@ -999,7 +1018,9 @@ def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
         if enough_data_in_leaf:
             mse_mce_leaf, _, obs_by_treat_leaf = mcf_fo_obj.mcf_mse(
                 y_dat[in_leaf], y_nn[in_leaf], d_dat_in_leaf, w_l, n_l,
-                mtot, no_of_treat, treat_values, w_yes, cont, cuda)
+                mtot, no_of_treat, treat_values, w_yes, cont, cuda, cython,
+                compare_only_to_zero)
+
             mse_mce_tree, obs_t_tree = mcf_fo_obj.add_rescale_mse_mce(
                 mse_mce_leaf, obs_by_treat_leaf, mtot, no_of_treat,
                 mse_mce_tree, obs_t_tree, compare_only_to_zero)
@@ -1008,6 +1029,11 @@ def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
         n_total += n_l
     mse_mce_tree = mcf_fo_obj.get_avg_mse_mce(mse_mce_tree, obs_t_tree, mtot,
                                               no_of_treat, compare_only_to_zero)
+    if cython:
+        raise ValueError('Cython currently not used.')
+        # oob_tree = mcf_cy.compute_mse_mce_cy(mse_mce_tree, mtot, no_of_treat,
+        #                                      compare_only_to_zero)
+
     oob_tree = mcf_fo_obj.compute_mse_mce(mse_mce_tree, mtot, no_of_treat,
                                           compare_only_to_zero)
     return oob_tree

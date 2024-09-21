@@ -58,22 +58,23 @@ def blind_init(var_x_protected_name=None, var_x_policy_name=None,
     return dic
 
 
-def int_init(cuda=None, del_forest=None, descriptive_stats=None, dpi=None,
+def int_init(cuda=None, cython=None,
+             del_forest=None, descriptive_stats=None, dpi=None,
              fontsize=None, keep_w0=None, no_filled_plot=None,
              max_save_values=None, max_cats_cont_vars=None, mp_ray_del=None,
              mp_ray_objstore_multiplier=None, mp_ray_shutdown=None,
-             mp_vim_type=None, output_no_new_dir=None,
-             mp_weights_tree_batch=None, mp_weights_type=None,
+             mp_vim_type=None, mp_weights_tree_batch=None, mp_weights_type=None,
+             output_no_new_dir=None,
              return_iate_sp=None, replication=None, report=None,
              seed_sample_split=None, share_forest_sample=None, show_plots=None,
-             verbose=None, weight_as_sparse=None, weight_as_sparse_splits=None,
+             verbose=None,
+             weight_as_sparse=None, weight_as_sparse_splits=None,
              with_output=None, p_ate_no_se_only=None):
     """Initialise dictionary of parameters of internal variables."""
     dic = {}
-    if cuda is not True:
-        dic['cuda'] = False
-    else:
-        dic['cuda'] = is_available()
+    dic['cuda'] = False if cuda is not True else is_available()
+    dic['cython'] = cython is not False
+
     dic['del_forest'] = del_forest is True
     dic['keep_w0'] = keep_w0 is True
     dic['descriptive_stats'] = descriptive_stats is not False
@@ -620,17 +621,36 @@ def cf_init(alpha_reg_grid=None, alpha_reg_max=None, alpha_reg_min=None,
             m_share_min=None, m_random_poisson=None, match_nn_prog_score=None,
             mce_vart=None, vi_oob_yes=None, n_min_grid=None, n_min_max=None,
             n_min_min=None, n_min_treat=None, p_diff_penalty=None,
-            subsample_factor_eval=None, subsample_factor_forest=None,
+            penalty_type=None, subsample_factor_eval=None,
+            subsample_factor_forest=None, tune_all=None,
             random_thresholds=None):
     """Initialise dictionary with parameters of causal forest building."""
     dic = {}
-    (dic['alpha_reg_grid'], dic['alpha_reg_max'], dic['alpha_reg_min'],
-     dic['alpha_reg_values']) = get_alpha(alpha_reg_grid, alpha_reg_max,
-                                          alpha_reg_min)
+
     dic['boot'] = 1000 if boot is None or boot < 1 else round(boot)
     dic['match_nn_prog_score'] = match_nn_prog_score is not False
     dic['nn_main_diag_only'] = nn_main_diag_only is True
     dic['compare_only_to_zero'] = compare_only_to_zero is True
+
+    dic['m_grid'] = 1 if m_grid is None or m_grid < 1 else round(m_grid)
+    dic['n_min_grid'] = 1 if (n_min_grid is None or n_min_grid < 1
+                              ) else round(n_min_grid)
+    alpha_reg_grid_check = 1 if (alpha_reg_grid is None or alpha_reg_grid < 1
+                                 ) else round(alpha_reg_grid)
+
+    dic['tune_all'] = tune_all is True
+    if dic['tune_all']:
+        no_of_values = 3
+        if dic['m_grid'] < no_of_values:
+            dic['m_grid'] = no_of_values
+        if dic['n_min_grid'] < no_of_values:
+            dic['n_min_grid'] = no_of_values
+        if alpha_reg_grid_check < no_of_values:
+            alpha_reg_grid_check = no_of_values
+
+    (dic['alpha_reg_grid'], dic['alpha_reg_max'], dic['alpha_reg_min'],
+     dic['alpha_reg_values']) = get_alpha(alpha_reg_grid_check, alpha_reg_max,
+                                          alpha_reg_min)
     # Select grid for number of parameters
     if m_share_min is None or not 0 < m_share_min <= 1:
         dic['m_share_min'] = 0.1
@@ -646,7 +666,7 @@ def cf_init(alpha_reg_grid=None, alpha_reg_max=None, alpha_reg_min=None,
     else:
         dic['m_random_poisson'] = True
         dic['m_random_poisson_min'] = 10
-    dic['m_grid'] = 1 if m_grid is None or m_grid < 1 else round(m_grid)
+
     if mce_vart is None or mce_vart == 1:
         mtot, mtot_no_mce, estimator_str = 1, 0, 'MSE & MCE'    # MSE + MCE
     elif mce_vart == 2:                  # -Var(treatment effect)
@@ -658,12 +678,18 @@ def cf_init(alpha_reg_grid=None, alpha_reg_max=None, alpha_reg_min=None,
         estimator_str = 'MSE, MCE or penalty (random)'
     else:
         raise ValueError('Inconsistent MTOT definition of  MCE_VarT.')
+
+    if penalty_type is None or penalty_type != 'diff_d':
+        dic['penalty_type'] = 'mse_d'
+    else:
+        dic['penalty_type'] = penalty_type
+
     # These values will be updated later
     dic['mtot'], dic['mtot_no_mce'] = mtot, mtot_no_mce
     dic['estimator_str'] = estimator_str
     dic['chunks_maxsize'] = chunks_maxsize
     dic['vi_oob_yes'] = vi_oob_yes is True
-    dic['n_min_grid'], dic['n_min_max'] = n_min_grid, n_min_max
+    dic['n_min_max'] = n_min_max
     dic['n_min_min'], dic['n_min_treat'] = n_min_min, n_min_treat
     dic['p_diff_penalty'] = p_diff_penalty
     dic['subsample_factor_eval'] = subsample_factor_eval
@@ -755,7 +781,7 @@ def cf_update_train(mcf_, data_df):
                 raise ValueError('Probability of using p-score > 1. Programm'
                                  ' stopped.')
     if cf_dic['p_diff_penalty']:
-        cf_dic['estimator_str'] += ' penalty fct'
+        cf_dic['estimator_str'] += f' Penalty {cf_dic["penalty_type"]}'
     # Minimum leaf size
     if cf_dic['n_min_min'] is None or cf_dic['n_min_min'] < 1:
         cf_dic['n_min_min'] = round(max((n_d_subsam**0.4) / 10, 1.5)
@@ -787,6 +813,7 @@ def cf_update_train(mcf_, data_df):
         cf_dic['n_min_grid'] = 1
     else:
         cf_dic['n_min_grid'] = round(cf_dic['n_min_grid'])
+
     if cf_dic['n_min_min'] == cf_dic['n_min_max']:
         cf_dic['n_min_grid'] = 1
     if cf_dic['n_min_grid'] == 1:
@@ -963,9 +990,9 @@ def p_update_pred(mcf_, data_df):
 
 def post_init(p_dic, bin_corr_threshold=None, bin_corr_yes=None,
               est_stats=None, kmeans_no_of_groups=None, kmeans_max_tries=None,
-              kmeans_replications=None, kmeans_yes=None, k_means_single=None,
-              random_forest_vi=None, relative_to_first_group_only=None,
-              plots=None):
+              kmeans_replications=None, kmeans_yes=None, kmeans_single=None,
+              kmeans_min_size_share=None, random_forest_vi=None,
+              relative_to_first_group_only=None, plots=None, tree=None):
     """Initialise dictionary with parameters of post estimation analysis."""
     est_stats = est_stats is not False
     if not p_dic['iate']:
@@ -976,7 +1003,7 @@ def post_init(p_dic, bin_corr_threshold=None, bin_corr_yes=None,
     plots = plots is not False
     relative_to_first_group_only = relative_to_first_group_only is not False
     kmeans_yes = kmeans_yes is not False
-    k_means_single = k_means_single is True
+    kmeans_single = kmeans_single is True
     if kmeans_replications is None or kmeans_replications < 0:
         kmeans_replications = 10
     else:
@@ -984,18 +1011,30 @@ def post_init(p_dic, bin_corr_threshold=None, bin_corr_yes=None,
     if kmeans_max_tries is None:
         kmeans_max_tries = 1000
     kmeans_max_tries = max(kmeans_max_tries, 10)
+    if (kmeans_min_size_share is None
+        or not isinstance(kmeans_min_size_share, (int, float))
+            or not 0 < kmeans_min_size_share < 33):
+        kmeans_min_size_share = 1
+
     add_pred_to_data_file = est_stats
     random_forest_vi = random_forest_vi is not False
+
+    tree = tree is not False
+    tree_depths = (2, 3, 4, 5)
+
     # Put everything in the dictionary
     dic = {
         'bin_corr_threshold': bin_corr_threshold, 'bin_corr_yes': bin_corr_yes,
         'est_stats': est_stats, 'kmeans_no_of_groups': kmeans_no_of_groups,
         'kmeans_max_tries': kmeans_max_tries,
         'kmeans_replications': kmeans_replications, 'kmeans_yes': kmeans_yes,
-        'k_means_single': k_means_single, 'random_forest_vi': random_forest_vi,
-        'plots': plots,
+        'kmeans_single': kmeans_single,
+        'kmeans_min_size_share': kmeans_min_size_share,
+        'random_forest_vi': random_forest_vi, 'plots': plots,
         'relative_to_first_group_only': relative_to_first_group_only,
-        'add_pred_to_data_file': add_pred_to_data_file}
+        'add_pred_to_data_file': add_pred_to_data_file,
+        'tree': tree, 'tree_depths': tree_depths
+        }
     return dic
 
 
@@ -1003,27 +1042,53 @@ def post_update_pred(mcf_, data_df):
     """Update entries in post_dic that need info from prediction data."""
     n_pred = len(data_df)
     post_dic = mcf_.post_dict
+    # if isinstance(post_dic['kmeans_no_of_groups'], (int, float)):
+    #     post_dic['kmeans_no_of_groups'] = [(post_dic['kmeans_no_of_groups'])]
+    # if (post_dic['kmeans_no_of_groups'] is None
+    #         or len(post_dic['kmeans_no_of_groups']) == 1):
+    #     if (post_dic['kmeans_no_of_groups'] is None
+    #             or post_dic['kmeans_no_of_groups'][0] < 2):
+    #         if n_pred < 10000:
+    #             middle = 5
+    #         elif n_pred > 100000:
+    #             middle = 10
+    #         else:
+    #             middle = 5 + round(n_pred/20000)
+    #         if middle < 7:
+    #             post_dic['kmeans_no_of_groups'] = [
+    #                 middle-2, middle-1, middle, middle+1, middle+2]
+    #         else:
+    #             post_dic['kmeans_no_of_groups'] = [
+    #                 middle-4, middle-2, middle, middle+2, middle+4]
+    #     else:
+    #         post_dic['kmeans_no_of_groups'] = [round(
+    #             post_dic['kmeans_no_of_groups'])]
+    # else:
+    #     if not isinstance(post_dic['kmeans_no_of_groups'], list):
+    #         post_dic['kmeans_no_of_groups'] = list(
+    #             post_dic['kmeans_no_of_groups'])
+    #         post_dic['kmeans_no_of_groups'] = [
+    #             round(a) for a in post_dic['kmeans_no_of_groups']]
     if isinstance(post_dic['kmeans_no_of_groups'], (int, float)):
-        post_dic['kmeans_no_of_groups'] = [post_dic['kmeans_no_of_groups']]
+        post_dic['kmeans_no_of_groups'] = [(post_dic['kmeans_no_of_groups'])]
     if (post_dic['kmeans_no_of_groups'] is None
-            or len(post_dic['kmeans_no_of_groups']) == 1):
-        if (post_dic['kmeans_no_of_groups'] is None is None
-                or post_dic['kmeans_no_of_groups'][0] < 2):
-            if n_pred < 10000:
-                middle = 5
-            elif n_pred > 100000:
-                middle = 10
-            else:
-                middle = 5 + round(n_pred/20000)
-            if middle < 7:
-                post_dic['kmeans_no_of_groups'] = [
-                    middle-2, middle-1, middle, middle+1, middle+2]
-            else:
-                post_dic['kmeans_no_of_groups'] = [
-                    middle-4, middle-2, middle, middle+2, middle+4]
+        or len(post_dic['kmeans_no_of_groups']) == 1
+            or post_dic['kmeans_no_of_groups'][0] < 2):
+        if n_pred < 10000:
+            middle = 5
+        elif n_pred > 100000:
+            middle = 10
         else:
-            post_dic['kmeans_no_of_groups'] = [round(
-                post_dic['kmeans_no_of_groups'])]
+            middle = 5 + round(n_pred/20000)
+        if middle < 7:
+            post_dic['kmeans_no_of_groups'] = [
+                middle-2, middle-1, middle, middle+1, middle+2]
+        else:
+            post_dic['kmeans_no_of_groups'] = [
+                middle-4, middle-2, middle, middle+2, middle+4]
+    # else:
+    #     post_dic['kmeans_no_of_groups'] = [round(
+    #         post_dic['kmeans_no_of_groups'])]
     else:
         if not isinstance(post_dic['kmeans_no_of_groups'], list):
             post_dic['kmeans_no_of_groups'] = list(

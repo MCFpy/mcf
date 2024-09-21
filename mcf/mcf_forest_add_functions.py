@@ -116,10 +116,7 @@ def describe_forest(forest, m_n_min_ar, var_dic, cf_dic, gen_dic, pen_mult=0,
 
     Parameters
     ----------
-    forest : List of List. Each forest consist of one node_table.
-    m_n_min : List of INT. Number of variables and minimum leaf size
-    v_dict : Dict. Variables.
-    c_dict : Dict. Parameters.
+    ....
 
     Returns
     -------
@@ -146,6 +143,10 @@ def describe_forest(forest, m_n_min_ar, var_dic, cf_dic, gen_dic, pen_mult=0,
     txt += f'\nSplitting rule used:        {splitting_rule:<4}'
     if cf_dic['p_diff_penalty'] > 0:
         txt += f'\nPenalty used in splitting:  {pen_mult}'
+        penalty_method = ('MSE of treatment prediction '
+                          if cf_dic['penalty_type'] == 'mse_d'
+                          else 'Difference penalty (Lechner, 2018)')
+        txt += f' Penalty method: {penalty_method}'
     txt += '\nShare of data in subsample for forest building:'
     txt += f' {cf_dic["subsample_share_forest"]:<4}'
     txt += '\nShare of data in subsample for forest evaluation:'
@@ -261,15 +262,32 @@ def get_terminal_leaf_no(tree_dict, x_dat):
     return leaf_id
 
 
+# Optimized version of 4.6.2024
 @njit
 def terminal_leaf_loop_numba(leaf_info_int, cut_off_cont, x_dat, leaf_id):
     """Get the final leaf number with a loop algorithm."""
     while True:    # Should be equally fast than 'for' loop
-        leaf = leaf_info_int[leaf_id, :]
+        leaf = leaf_info_int[leaf_id]
         if leaf[7] == 1:             # Terminal leaf
             return leaf[0]
-        leaf_id = get_next_leaf_no_numba(leaf, leaf_id, x_dat, cut_off_cont)
+        elif leaf[7] == 0:
+            leaf_id = get_next_leaf_no_numba(leaf, leaf_id, x_dat, cut_off_cont)
+        else:
+            raise RuntimeError(f'Leaf is still active. {leaf[4]}')
     return leaf_id
+
+
+# # Old version that worked fine
+# @njit
+# def terminal_leaf_loop_numba(leaf_info_int, cut_off_cont, x_dat, leaf_id):
+#     """Get the final leaf number with a loop algorithm."""
+#     while True:    # Should be equally fast than 'for' loop
+#         leaf = leaf_info_int[leaf_id, :]
+#         if leaf[7] == 1:             # Terminal leaf
+#             return leaf[0]
+
+#         leaf_id = get_next_leaf_no_numba(leaf, leaf_id, x_dat, cut_off_cont)
+#     return leaf_id
 
 
 def terminal_leaf_loop(leaf_info_int, cut_off_cont, cats_prime, x_dat, leaf_id):
@@ -278,19 +296,28 @@ def terminal_leaf_loop(leaf_info_int, cut_off_cont, cats_prime, x_dat, leaf_id):
         leaf = leaf_info_int[leaf_id, :]
         if leaf[7] == 1:             # Terminal leaf
             return leaf[0]
-        leaf_id = get_next_leaf_no(leaf, leaf_id, x_dat, cut_off_cont,
-                                   cats_prime)
+        elif leaf[7] == 0:
+            leaf_id = get_next_leaf_no(leaf, leaf_id, x_dat, cut_off_cont,
+                                       cats_prime)
+        else:
+            raise RuntimeError(f'Leaf is still active. {leaf[4]}')
+
     return leaf_id
 
 
 @njit
 def terminal_leaf_recursive_numba(leaf_info_int, cut_off_cont, x_dat, leaf_id):
     """Get the final leaf number with a recursive algorithm."""
-    leaf = leaf_info_int[leaf_id, :]
+    leaf = leaf_info_int[leaf_id]
+    # leaf = leaf_info_int[leaf_id, :]   old
     if leaf[7] == 1:             # Terminal leaf, leave recursion
         return leaf[0]
-    # Not final leave, so continue search and update leaf_id
-    next_leaf_id = get_next_leaf_no_numba(leaf, leaf_id, x_dat, cut_off_cont)
+    elif leaf[7] == 0:
+        # Not final leave, so continue search and update leaf_id
+        next_leaf_id = get_next_leaf_no_numba(leaf, leaf_id, x_dat,
+                                              cut_off_cont)
+    else:
+        raise RuntimeError(f'Leaf is still active. {leaf[4]}')
     return terminal_leaf_recursive_numba(leaf_info_int, cut_off_cont,
                                          x_dat, next_leaf_id)
 
@@ -301,9 +328,13 @@ def terminal_leaf_recursive(leaf_info_int, cut_off_cont, cats_prime, x_dat,
     leaf = leaf_info_int[leaf_id, :]
     if leaf[7] == 1:             # Terminal leaf, leave recursion
         return leaf[0]
-    # Not final leave, so continue search and update leaf_id
-    next_leaf_id = get_next_leaf_no(leaf, leaf_id, x_dat, cut_off_cont,
-                                    cats_prime)
+    elif leaf[7] == 0:
+        # Not final leave, so continue search and update leaf_id
+        next_leaf_id = get_next_leaf_no(leaf, leaf_id, x_dat, cut_off_cont,
+                                        cats_prime)
+    else:
+        raise RuntimeError(f'Leaf is still active. {leaf[4]}')
+
     return terminal_leaf_recursive(leaf_info_int, cut_off_cont, cats_prime,
                                    x_dat, next_leaf_id)
 
@@ -311,8 +342,8 @@ def terminal_leaf_recursive(leaf_info_int, cut_off_cont, cats_prime, x_dat,
 @njit
 def get_next_leaf_no_numba(leaf, leaf_id, x_dat, cut_off_cont):
     """Get next deeper leaf number for a non-active and non-terminal leaf."""
-    if leaf[7] not in (0, 1):
-        raise RuntimeError(f'Leaf is still active. {leaf[4]}')
+    # if leaf[7] not in (0, 1):
+    #     raise RuntimeError(f'Leaf is still active. {leaf[4]}')
     if leaf[5] == 0:        # Continuous variable
         condition = (x_dat[leaf[4]] - 1e-15) <= cut_off_cont[leaf_id]
     else:                   # Categorical variable
@@ -322,15 +353,13 @@ def get_next_leaf_no_numba(leaf, leaf_id, x_dat, cut_off_cont):
 
 def get_next_leaf_no(leaf, leaf_id, x_dat, cut_off_cont, cats_prime):
     """Get next deeper leaf number for a non-active and non-terminal leaf."""
-    if leaf[7] not in (0, 1):
-        raise RuntimeError(f'Leaf is still active. {leaf[4]}')
+    # if leaf[7] not in (0, 1):
+    #     raise RuntimeError(f'Leaf is still active. {leaf[4]}')
     if leaf[5] == 0:        # Continuous variable
         condition = (x_dat[leaf[4]] - 1e-15) <= cut_off_cont[leaf_id]
     else:                   # Categorical variable
         condition = prime_in_leaf(cats_prime[leaf_id],
                                   int(np.round(x_dat[leaf[4]])))
-        # prime_factors = mcf_gp.primes_reverse(cats_prime[leaf_id], False)
-        # condition = int(np.round(x_dat[leaf[4]])) in prime_factors
 
     return leaf[2] if condition else leaf[3]
 
@@ -594,3 +623,12 @@ def train_save_data(mcf_, data_df, forest):
                   'd_train_df': d_train_df, 'x_bala_df': x_bala_train_df,
                   'cl_train_df': cl_train_df, 'w_train_df': w_train_df}
     return forest_dic
+
+
+def not_enough_treated(continuous, n_min_treat, d_dat, no_of_treat):
+    """If there are NOT enough treated in new leaf."""
+    if continuous or n_min_treat == 1:
+        return len(np.unique(d_dat)) < no_of_treat
+    else:
+        ret = np.unique(d_dat, return_counts=True)
+        return len(ret[0]) < no_of_treat or np.any(ret[1] < n_min_treat)

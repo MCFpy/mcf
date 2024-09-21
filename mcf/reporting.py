@@ -3,7 +3,7 @@ from mcf import reporting_functions as rep
 
 class McfOptPolReport:
     """
-    .. versionadded:: 0.6.0
+    .. versionadded:: 0.7.0
         Provides reports about the main specification choices and most
         important results of the :class:`~mcf_functions.ModifiedCausalForest`
         and :class:`~optpolicy_functions.OptimalPolicy` estimations.
@@ -12,10 +12,6 @@ class McfOptPolReport:
     ----------
         mcf : Instance of the ModifiedCausalForest class or None, optional
             Contains all information needed for reports. The default is None.
-
-        mcf_blind : Instance of the ModifiedCausalForest class or None, optional
-            Contains all information from blinded IATE analysis needed for
-            reports. The default is None.
 
         mcf_sense : Instance of the ModifiedCausalForest class or None, optional
             Contains all information from sensitivity analysis needed for
@@ -76,11 +72,11 @@ class McfOptPolReport:
 
     """
 
-    def __init__(self, mcf=None, mcf_blind=None, mcf_sense=None, optpol=None,
+    def __init__(self, mcf=None, mcf_sense=None, optpol=None,
                  outputpath=None, outputfile=None):
         self.gen_dict = rep.gen_init(outputfile, outputpath)
         self.mcf_o, self.opt_o, self.sens_o = mcf, optpol, mcf_sense
-        self.blind_o = mcf_blind
+        self.blind_o = None  # Underlying method deprecated. No reporting.
         self.mcf = self.mcf_o is not None
         self.opt = self.opt_o is not None
         self.sens = self.sens_o is not None

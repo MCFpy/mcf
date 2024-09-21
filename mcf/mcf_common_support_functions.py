@@ -109,9 +109,14 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
             forests = [classif]
         cs_dic['forests'] = forests
         if gen_dic['with_output']:
+            if names_unordered:
+                names_unordered_print = data_train_dic['prime_old_name_dict']
+            else:
+                names_unordered_print = None
             mcf_vi.print_variable_importance(
                 deepcopy(classif), x_mcf_df, tree_mcf_df[d_name], x_name,
-                names_unordered, dummy_names, gen_dic, summary=False)
+                names_unordered, dummy_names, gen_dic, summary=False,
+                name_label_dict=names_unordered_print)
         # Normalize estimated probabilities to add up to 1
         pred_cs_np_sum = pred_cs_np.sum(axis=1, keepdims=True)
         pred_mcf_np_sum = pred_mcf_np.sum(axis=1, keepdims=True)
@@ -181,7 +186,19 @@ def descriptive_stats_on_off_support(mcf_, probs_np, data_df, titel=''):
                      ' check', summary=True)
     else:
         d_name, _, _ = mcf_data.get_treat_info(mcf_)
-        x_name = var_dic['x_name']
+        x_name = var_dic['x_name'].copy()
+        data_train_dic = mcf_.data_train_dict
+        keep_df = ps.change_name_value_df(keep_df,
+                                          data_train_dic['prime_old_name_dict'],
+                                          data_train_dic['prime_values_dict'],
+                                          data_train_dic['unique_values_dict'])
+        delete_df = ps.change_name_value_df(
+            delete_df, data_train_dic['prime_old_name_dict'],
+            data_train_dic['prime_values_dict'],
+            data_train_dic['unique_values_dict'])
+        x_name = [data_train_dic['prime_old_name_dict'].get(
+            item, item) for item in var_dic['x_name'].copy()]
+
         obs_del, obs_keep = len(delete_df), len(keep_df)
         obs = obs_del + obs_keep
         txt = f'\nObservations deleted: {obs_del:4} ({obs_del/obs:.2%})'

@@ -81,7 +81,10 @@ def init_gen(method=None, outfiletext=None, outpath=None, output_type=None,
     return dic
 
 
-def init_fair(regression_method=None, adj_type=None):
+def init_fair(consistency_test=None, material_disc_method=None,
+              material_max_groups=None, protected_disc_method=None,
+              protected_max_groups=None, regression_method=None,
+              adj_type=None):
     """Initialise parameters for fair allocations with protected variables."""
     dic = {}
     ok_methods = ('RandomForest', 'RandomForestNminl5',
@@ -93,7 +96,8 @@ def init_fair(regression_method=None, adj_type=None):
                   'LASSO',
                   'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger',
                   'Mean', 'automatic')
-    if regression_method is None:
+
+    if regression_method is None or not isinstance(regression_method, str):
         dic['regression_method'] = 'RandomForest'
     else:
         ok_estimators_cfold = [name.casefold() for name in ok_methods]
@@ -105,18 +109,60 @@ def init_fair(regression_method=None, adj_type=None):
                   'scores for protected variables is not among '
                   f'acceptable methods {" ".join(ok_methods)}')
 
-    ok_types = ('Mean', 'MeanVar')
-    if adj_type is None or not isinstance(adj_type, str):
-        dic['adj_type'] = 'MeanVar'
-    else:
+    ok_types = ('Mean', 'MeanVar', 'Quantiled',)
+    if isinstance(adj_type, str):
         ok_types_cfold = [name.casefold() for name in ok_types]
         try:
             position = ok_types_cfold.index(adj_type.casefold())
-            dic['adj_type'] = adj_type
         except ValueError:
-            print(f'Specified adjustment method {adj_type} '
-                  'to correct scores for protected variables is not '
-                  f'among acceptable methods {" ".join(ok_types)}')
+            raise ValueError(f'Specified adjustment method {adj_type} '
+                             'to correct scores for protected variables is not '
+                             f'among acceptable methods {" ".join(ok_types)}')
+        dic['adj_type'] = ok_types[position]
+    else:
+        dic['adj_type'] = 'Quantiled'
+
+    dic['consistency_test'] = consistency_test is True
+
+    if isinstance(protected_max_groups, (int, float)):
+        dic['protected_max_groups'] = round(protected_max_groups)
+    else:
+        dic['protected_max_groups'] = 5
+
+    if isinstance(material_max_groups, (int, float)):
+        dic['material_max_groups'] = round(material_max_groups)
+    else:
+        dic['material_max_groups'] = 5
+
+    ok_methods = ('NoDiscretization', 'EqualCell', 'Kmeans',)
+    dic['discretization_methods'] = ('EqualCell', 'Kmeans',)
+    dic['default_disc_method'] = 'Kmeans'
+    if isinstance(material_disc_method, str):
+        ok_methods_cfold = [name.casefold() for name in ok_methods]
+        try:
+            position = ok_methods_cfold.index(material_disc_method.casefold())
+        except ValueError:
+            print(f'Specified discretization method {material_disc_method} '
+                  'materially relevant features is not '
+                  f'among acceptable methods {" ".join(ok_methods)}')
+        dic['material_disc_method'] = ok_methods[position]
+    else:
+        dic['material_disc_method'] = dic['default_disc_method']
+
+    if isinstance(protected_disc_method, str):
+        ok_methods_cfold = [name.casefold() for name in ok_methods]
+        try:
+            position = ok_methods_cfold.index(protected_disc_method.casefold())
+        except ValueError:
+            print(f'Specified discretization method {protected_disc_method} '
+                  'protected features is not '
+                  f'among acceptable methods {" ".join(ok_methods)}')
+        dic['protected_disc_method'] = ok_methods[position]
+    else:
+        dic['protected_disc_method'] = dic['default_disc_method']
+
+    dic['fairscores_used'] = False   # Will be overwritten if fairscores
+    #                                  method is used
     return dic
 
 
@@ -239,10 +285,12 @@ def init_rnd_shares(optp_, data_df, d_in_data):
 
 
 def init_var(bb_restrict_name=None, d_name=None, effect_vs_0=None,
-             effect_vs_0_se=None, id_name=None, polscore_desc_name=None,
-             polscore_name=None, protected_ord_name=None,
-             protected_unord_name=None, vi_x_name=None,
-             vi_to_dummy_name=None, x_ord_name=None, x_unord_name=None):
+             effect_vs_0_se=None, id_name=None,
+             material_ord_name=None, material_unord_name=None,
+             polscore_name=None, polscore_desc_name=None,
+             protected_ord_name=None, protected_unord_name=None,
+             vi_x_name=None, vi_to_dummy_name=None,
+             x_ord_name=None, x_unord_name=None):
     """Initialise variables."""
     var_dic = {}
     var_dic['bb_restrict_name'] = check_var(bb_restrict_name)
@@ -256,18 +304,21 @@ def init_var(bb_restrict_name=None, d_name=None, effect_vs_0=None,
     var_dic['x_unord_name'] = check_var(x_unord_name)
     var_dic['vi_x_name'] = check_var(vi_x_name)
     var_dic['vi_to_dummy_name'] = check_var(vi_to_dummy_name)
-    if protected_ord_name is None:
-        var_dic['protected_ord_name'] = []
-    else:
-        var_dic['protected_ord_name'] = check_var(protected_ord_name)
-    if protected_unord_name is None:
-        var_dic['protected_unord_name'] = []
-    else:
-        var_dic['protected_unord_name'] = check_var(protected_unord_name)
+    var_dic['protected_ord_name'] = check_var_no_none(protected_ord_name)
+    var_dic['protected_unord_name'] = check_var_no_none(protected_unord_name)
+    var_dic['material_ord_name'] = check_var_no_none(material_ord_name)
+    var_dic['material_unord_name'] = check_var_no_none(material_unord_name)
+
     var_dic['name_ordered'] = var_dic['z_name'] = var_dic['x_name_remain'] = []
     var_dic['name_unordered'] = var_dic['x_balance_name'] = []
     var_dic['x_name_always_in'] = []
+
     return var_dic
+
+
+def check_var_no_none(var):
+    """Capitalise and clean variable names and remove None's."""
+    return [] if var is None else check_var(var)
 
 
 def check_var(variable):

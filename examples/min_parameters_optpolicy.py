@@ -7,12 +7,13 @@ It is much less tested than the MCF main module.
 
 Commercial and non-commercial use allowed as compatible with the license for
 Python and its modules (and Creative Commons Licence CC BY-SA).
+Appropriate credit must be given.
 
 Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.6.0
+Version: 0.7.0
 
 This is an example to show the optimal policy package can be implemented with
 a minimum number of specification (it could be even more further simplified
@@ -35,18 +36,18 @@ APPLIC_PATH = os.getcwd() + '/example'
 training_df, prediction_df, name_dict = example_data()
 
 # ------------- Methods used in Optimal Policy Module --------------------------
-METHODS = ('best_policy_score', 'policy tree',)
+METHODS = ('best_policy_score', 'policy tree', 'bps_classifier',)
 #  Tuple used to set GEN_METHOD in this example
 #  Currently valid methods are: 'best_policy_score', 'policy tree',
-#  'policy tree old'
+#  'bps_classifier'
 
 # -------- All what follows are parameters of the OptimalPolicy --------
-#   Whenever None is specified, parameter be will set to default values.
+#   Whenever None is specified, parameter will be set to default values.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 VAR_POLSCORE_NAME = ('y_pot0', 'y_pot1', 'y_pot2')
 #   Treatment specific variables to measure the value of individual treatments.
-#   This is ususally the estimated potential outcome or any other score related
+#   This is usually the estimated potential outcome or any other score related
 
 VAR_X_NAME_ORD = ('x_cont0',)  # Alternatively specify VAR_X_NAME_UNORD
 
@@ -72,4 +73,4 @@ for method in METHODS:
         optpol=myoptp, outputfile='Report_OptP_' + method)
     my_report.report()
 print('End of example estimation.\n\nThanks for using OptimalPolicy. \n\nYours'
-      ' sincerely\nExperimental OptimalPolicy MCF modul \U0001F600')
+      ' sincerely\nOptimalPolicy MCF modul (beta) \U0001F600')

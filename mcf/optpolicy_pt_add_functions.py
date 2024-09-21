@@ -107,7 +107,9 @@ def automatic_cost(optp_, data_df):
             break
         elif iterations % 100 == 0:
             step_size /= 2
-            print('Iterations: ', iterations, diff.transpose())
+            if gen_dic['with_output']:
+                iter_string = ' '.join(f'({int(s):3d})' for s in diff)
+                print(f'Iterations: {iterations}, {iter_string}')
         costs_of_treat += diff / obs * std_ps * step_size
         iterations += 1
 
@@ -283,6 +285,7 @@ def get_values_ordered(single_x_np, ps_np_diff, values, no_of_values,
     return values_sorted, no_of_ps
 
 
+# Optimzed 5.6.2024
 @njit
 def get_values_ordered_numba(single_x_np, ps_np_diff, values, no_of_values):
     """
@@ -300,17 +303,22 @@ def get_values_ordered_numba(single_x_np, ps_np_diff, values, no_of_values):
     values_sorted : 2D numpy array. Sorted values.
 
     """
-    no_of_ps = np.shape(ps_np_diff)[1]  # because of Numba
+    # no_of_ps = np.shape(ps_np_diff)[1]  # because of Numba
+    no_of_ps = ps_np_diff.shape[1]  # because of Numba
     mean_y_by_values = np.empty((no_of_values, no_of_ps))
+
     for i, val in enumerate(values):
         ps_group = ps_np_diff[single_x_np == val, :]
-        for j in range(no_of_ps):  # wg numba
-            mean_y_by_values[i, j] = np.mean(ps_group[:, j])
-    indices = np.empty((no_of_values, no_of_ps))
+        # for j in range(no_of_ps):  # wg numba
+        #     mean_y_by_values[i, j] = np.mean(ps_group[:, j])
+        mean_y_by_values[i, :] = ps_group.sum(axis=0) / len(ps_group)
+
     values_sorted = np.empty((no_of_values, no_of_ps))
+
     for j in range(no_of_ps):
         indices = np.argsort(mean_y_by_values[:, j])
         values_sorted[:, j] = values[indices]
+
     return values_sorted, no_of_ps
 
 
@@ -404,6 +412,7 @@ def adjust_reward(no_by_treat_l, no_by_treat_r, reward_l, reward_r,
     return reward_l, reward_r
 
 
+# Check for optimization, June, 5, 2024
 @njit
 def adjust_reward_numba(no_by_treat_l, no_by_treat_r, reward_l, reward_r,
                         max_by_treat):
@@ -493,7 +502,7 @@ def prepare_data_for_tree_building(optp_, data_df, seed=123456):
 
 def only_1st_tree_fct3(data_ps, costs_of_treat):
     """Find out if further splits make any sense."""
-    data = data_ps-costs_of_treat
+    data = data_ps - costs_of_treat
     no_further_splitting = all_same_max_numba(data)
     return no_further_splitting
 
@@ -503,8 +512,8 @@ def all_same_max_numba(data):
     """Check same categies have max."""
     ref_val = np.argmax(data[0, :])
     for i in range(1, len(data)):
-        opt_treat = np.argmax(data[i, :])
-        if ref_val != opt_treat:
+        # opt_treat = np.argmax(data[i, :])
+        if ref_val != np.argmax(data[i, :]):
             return False
     return True
 
@@ -536,6 +545,7 @@ def evaluate_leaf(data_ps, gen_dic, ot_dic, pt_dic, with_numba=True):
     return indi, reward_by_treat, obs_all
 
 
+# Optimized version of June, 5, 2024
 @njit
 def evaluate_leaf_numba(data_ps, no_of_treatments, max_by_treat, restricted,
                         costs_of_treat):
@@ -553,27 +563,71 @@ def evaluate_leaf_numba(data_ps, no_of_treatments, max_by_treat, restricted,
     no_per_treat: Numpy 1D-array of int.
 
     """
-    obs = len(data_ps)
+    obs = data_ps.shape[0]
     obs_all = np.zeros(no_of_treatments)
     indi = np.arange(no_of_treatments)
+
     if restricted:
         diff_obs = obs - max_by_treat
         treat_not_ok = diff_obs > 0.999
         if np.any(treat_not_ok):
-            treat_ok = np.invert(treat_not_ok)
-            data_ps_tmp = data_ps[:, treat_ok]
-            if data_ps_tmp.size == 0:
+            treat_ok = ~treat_not_ok
+            data_ps = data_ps[:, treat_ok]
+            if data_ps.shape[0] == 0:
                 idx = np.argmin(diff_obs)
                 treat_ok[idx] = True
-                data_ps = data_ps[:, treat_ok]
-            else:
-                data_ps = data_ps_tmp
+
             indi = indi[treat_ok]      # Remove obs that violate restriction
             costs_of_treat = costs_of_treat[indi]
+
     reward_by_treat = np.sum(data_ps, axis=0) - costs_of_treat * obs
     max_i = np.argmax(reward_by_treat)
     obs_all[indi[max_i]] = obs
+
     return indi[max_i], reward_by_treat[max_i], obs_all
+
+
+# Old version that worked fine.
+# @njit
+# def evaluate_leaf_numba(data_ps, no_of_treatments, max_by_treat, restricted,
+#                         costs_of_treat):
+#     """Evaluate final value of leaf taking restriction into account.
+
+#     Parameters
+#     ----------
+#     data_ps : Numpy array. Policy scores.
+#     ...
+
+#     Returns
+#     -------
+#     treat_ind: Int. Index of treatment.
+#     reward: Int. Value of leaf.
+#     no_per_treat: Numpy 1D-array of int.
+
+#     """
+#     obs = data_ps.shape[0]
+#     obs_all = np.zeros(no_of_treatments)
+#     indi = np.arange(no_of_treatments)
+
+#     if restricted:
+#         diff_obs = obs - max_by_treat
+#         treat_not_ok = diff_obs > 0.999
+#         if np.any(treat_not_ok):
+#             treat_ok = np.invert(treat_not_ok)
+#             data_ps_tmp = data_ps[:, treat_ok]
+#             if data_ps_tmp.size == 0:
+#                 idx = np.argmin(diff_obs)
+#                 treat_ok[idx] = True
+#                 data_ps = data_ps[:, treat_ok]
+#             else:
+#                 data_ps = data_ps_tmp
+#             indi = indi[treat_ok]      # Remove obs that violate restriction
+#             costs_of_treat = costs_of_treat[indi]
+
+#     reward_by_treat = np.sum(data_ps, axis=0) - costs_of_treat * obs
+#     max_i = np.argmax(reward_by_treat)
+#     obs_all[indi[max_i]] = obs
+#     return indi[max_i], reward_by_treat[max_i], obs_all
 
 
 def evaluate_leaf_no_numba(data_ps, no_of_treat, ot_dic, pt_dic):
@@ -648,15 +702,17 @@ def get_values_cont_x_numba(data_vector, no_of_evalupoints):
     """
     data_vector = np.unique(data_vector)
     obs = len(data_vector)
+
     if no_of_evalupoints > (obs - 10):
-        data_vector_new = data_vector
-    else:
-        indices = np.linspace(obs / no_of_evalupoints, obs,
-                              no_of_evalupoints+1)
-        data_vector_new = np.empty(no_of_evalupoints)
-        for i in range(no_of_evalupoints):
-            indices_i = np.uint32(indices[i])
-            data_vector_new[i] = data_vector[indices_i]
+        return data_vector
+
+    indices = np.linspace(obs / no_of_evalupoints, obs, no_of_evalupoints + 1)
+    data_vector_new = np.empty(no_of_evalupoints)
+
+    for i in range(no_of_evalupoints):
+        # indices_i = np.uint32(indices[i])
+        indices_i = int(indices[i])
+        data_vector_new[i] = data_vector[indices_i]
     return data_vector_new
 
 

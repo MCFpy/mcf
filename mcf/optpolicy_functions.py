@@ -17,7 +17,8 @@ class OptimalPolicy:
     Parameters
     ----------
     dc_screen_covariates : Boolean (or None), optional
-        Check features. Default (or None) is True.
+        Check features.
+        Default (or None) is True.
 
     dc_check_perfectcorr : Boolean (or None), optional
         Features that are perfectly correlated are deleted (1 of them).
@@ -33,8 +34,74 @@ class OptimalPolicy:
         Remove all missing & unnecessary variables.
         Default (or None) is True.
 
+    fair_consistency_test : Boolean (or None), optional
+        Test for internally consistency of fairness correction.
+        The fairness corrections are applied independently to every policy
+        score (which usually is a potential outcome or an IATE(x) for each
+        treatment relative to some base treatment (i.e. comparing 1-0, 2-0,
+        3-0, etc.). Thus the IATE for the 2-1 comparison can be computed as
+        IATE(2-0)-IATE(1-0).#  This tests compares two ways to compute a
+        fair score for the 2-1 (and all#  other comparisons) which should
+        give simular results:
+        a) Difference of two fair (!) scores
+        b) Difference of corresponding scores, subsequently made fair.
+        Note: Depending on the number of treatments, this test may be
+        computationally more expensive than the orginal fairness corrections.
+        Default (or None) is False.
+
+    fair_material_disc_method : String (or None), optional
+        Method on how to perform the discretization for materially relevant
+        features.
+        'NoDiscretization' : Variables are not changed. If one of the features
+          has more different values than FAIR_MATERIAL_MAX_GROUPS, all
+          materially relevant features will formally be treated as continuous.
+          The latter may become unreliable if their dimension is not year small.
+       'EqualCell' : Attempts to create equal cells for each variable. Maybe be
+          useful for a very small number of variables with few different values.
+       'Kmeans' : Use Kmeans clustering algorithm to form homogeneous cells.
+       Fairness adjustments are experimental.
+       Default (or None) is 'Kmeans'.
+
+    fair_protected_disc_method : String (or None), optional
+        Method on how to perform the discretization for protected features.
+        'NoDiscretization' : Variables are not changed. If one of the features
+        has more different values than FAIR_PROTECTED_MAX_GROUPS, all
+        protected features will formally be treated as continuous.
+        The latter may become unreliable if their dimension is not very small.
+        'EqualCell' : Attempts to create equal cells for each variable. Maybe be
+          useful for a very small number of variables with few different values.
+        'Kmeans' : Use Kmeans clustering algorithm to form homogeneous cells.
+        Fairness adjustments are experimental.
+        Default (or None) is 'Kmeans'.
+
+    fair_material_max_groups : Integer (or None), optional
+       Level of discretization of materially relavant variables
+       (only if needed).
+       Number of groups of materially relavant features for cases when
+       materially relavant variables are needed in protected form. This is
+       currently only necessary for 'Quantilized'.
+       Its meaning depends on fair_material_disc_method:
+       If 'EqualCell': If more than 1 variable is included among the protected
+                        variables, this restriction is applied to each variable.
+       If 'Kmeans': This is the number of clusters used by Kmeans.
+       Fairness adjustments are experimental.
+       Default (or None) is 5.
+
+    fair_protected_max_groups : Integer (or None), optional
+       Level of discretization of protected variables (only if needed).
+       Number of groups of protected features for cases when protected variables
+       are needed in discretized form. This is currently only necessary for
+       'Quantilized'.
+       Its meaning depends on fair_protected_disc_method:
+       If 'EqualCell' : If more than 1 variable is included among the protected
+           variables, this restriction is applied to each variable.
+       If 'Kmeans' : This is the number of clusters used by Kmeans.
+       Fairness adjustments are experimental.
+       Default (or None) is 5.
+
     fair_regression_method : String (or None), optional
-        Regression method to adjust scores w.r.t. protected variables. Available
+        Method choice when predictions from machine learning are needed for
+        fairnesss corrections (fair_type in ('Mean', 'MeanVar'). Available
         methods are 'RandomForest', 'RandomForestNminl5', 'RandomForestNminls5',
         'SupportVectorMachine', 'SupportVectorMachineC2',
         'SupportVectorMachineC4', 'AdaBoost', 'AdaBoost100', 'AdaBoost200',
@@ -45,14 +112,22 @@ class OptimalPolicy:
         it will be used for all scores and all adjustments. If 'automatic',
         every policy score might be adjusted with a different method. 'Mean' is
         included for cases in which regression methods have no explanatory
-        power. Default (or None) is 'RandomForest'.
+        power.
+        Fairness adjustments are experimental.
+        Default (or None) is 'RandomForest'.
 
     fair_type : String (or None), optional
         Method to choose the type of correction for the policy scores.
-       'Mean':  Mean dependence of the policy score on protected var's is
-       removed by residualisation. 'MeanVar':  Mean dependence and
-       heteroscedasticity is removed by residualisation and rescaling.
-       Default (or None) is 'MeanVar'.
+       'Mean' :  Mean dependence of the policy score on protected var's is
+                 removed by residualisation.
+       'MeanVar' :  Mean dependence and heteroscedasticity is removed
+                    by residualisation and rescaling.
+       'Quantiled' : Removing dependence via (an empricial version of) the
+                    approach by Strack and Yang (2024) using quantiles.
+       See the paper by Bearth, Lechner, Mareckova, Muny (2024) for details on
+       these methods.
+       Fairness adjustments are experimental.
+       Default (or None) is 'Quantiled'.
 
     gen_method : String (or None), optional.
         Method to compute assignment algorithm (available methods:
@@ -78,29 +153,31 @@ class OptimalPolicy:
         policy scores fulfil their conditions (i.e., they use a doubly
         robust double machine learning like score), then they also provide
         attractive theoretical properties.
-        'policy tree' is very similar to 'policy tree old' It uses
-        different approximation rules and uses slightly different coding.
-        In many cases it should be faster than 'policy tree old', which is the
-        legacy method.
         Default (or None) is 'best_policy_score'.
 
     gen_outfiletext : String (or None), optional
         File for text output. (\*.txt) file extension will be automatically
-        added. Default (or None) is 'txtFileWithOutput'.
+        added.
+        Default (or None) is 'txtFileWithOutput'.
 
     gen_outpath : String (or None), optional
         Directory to where to put text output and figures. If it does not
         exist, it will be created.
-        None: (\*.out) directory just below to the directory where the
-        programme is run. Default is None.
+        None : (\*.out) directory just below to the directory where the
+        programme is run.
+        Default is None.
 
     gen_output_type : Integer (or None), optional
-        Destination of the output. 0: Terminal, 1: File,
-        2: File and terminal. Default (or None) is 2.
+        Destination of the output.
+        0 : Terminal.
+        1 : File.
+        2 : File and terminal.
+        Default (or None) is 2.
 
     gen_variable_importance : Boolean
         Compute variable importance statistics based on random forest
-        classifiers. Default is True.
+        classifiers.
+        Default (or None) is True.
 
     other_costs_of_treat : List of floats (or None), optional
         Treatment specific costs. These costs are directly subtracted from
@@ -111,21 +188,24 @@ class OptimalPolicy:
         determined such as to enforce constraints in the training data by
         finding cost values that lead to an allocation ('best_policy_score')
         that fulfils restrictions other_max_shares.
-        Default is None.
+        Default (or None) is None.
 
     other_costs_of_treat_mult : Float or tuple of floats (with as many
                                 elements as treatments) (or None), optional
         Multiplier of automatically determined cost values. Use only when
         automatic costs violate the constraints given by other_max_shares.
         This allows to increase (>1) or decrease (<1) the share of treated
-        in particular treatment. None: (1, ..., 1). Default is None.
+        in particular treatment. None: (1, ..., 1).
+        Default (or None) is None.
 
     other_max_shares : Tuple of float elements as treatments) (or None),
                         optional
-        Maximum share allowed for each treatment. Default is None.
+        Maximum share allowed for each treatment.
+        Default (or None) is None.
 
     pt_depth_tree_1 : Integer (or None), optional
-        Depth of 1st optimal tree. Default is 3.
+        Depth of 1st optimal tree.
+        Default is 3.
         Note that tree depth is defined such that a depth of 1 implies 2
         leaves, a depth of 3 implies 4 leaves, a depth of 3 implies 8 leaves,
         etc.
@@ -144,7 +224,8 @@ class OptimalPolicy:
         computation of the policy tree. This increases the quality of trees
         concerning obeying the restrictions, but can be very time consuming.
         It will be automatically set to False if more than 1 policy tree is
-        estimated. Default (or None) is False.
+        estimated.
+        Default (or None) is False.
 
     pt_eva_cat_mult : Integer (or None), optional
         Changes the number of the evaluation points (pt_no_of_evalupoints)
@@ -159,22 +240,22 @@ class OptimalPolicy:
         the optimal splitting rule. This parameter is closely related to
         the approximation parameter of Zhou, Athey, Wager (2022)(A) with
         :math:`\\text{pt_no_of_evalupoints} = \\text{number of observation} / \\text{A}`.
-        Only relevant if gen_method is 'policy tree' or 'policy tree old'.
+        Only relevant if gen_method is 'policy tree'.
         Default (or None) is 100.
 
     pt_min_leaf_size : Integer (or None), optional
         Minimum leaf size. Leaves that are smaller than pt_min_leaf_size in
         the training data will not be considered. A larger number reduces
         computation time and avoids some overfitting.
-        None:
+        None :
 
         .. math::
 
             0.1 \\times \\frac{\\text{Number of training observations}}{{\\text{Number of leaves}}}
 
         (if treatment shares are restricted this is multiplied by the smallest
-        share allowed). Only relevant if gen_method is 'policy tree' or
-        'policy tree old'. Default is None.
+        share allowed). Only relevant if gen_method is 'policy tree'.
+        Default is None.
 
     pt_select_values_cat : Boolean (or None), optional
         Approximation method for larger categorical variables. Since we
@@ -196,7 +277,8 @@ class OptimalPolicy:
         :meth:`~OptimalPolicy.evaluate` method. Sum of all elements must add to
         1. This used only used as a comparison in the evaluation of other
         allocations. None: Shares of treatments in the allocation under
-        investigation. Default is None.
+        investigation.
+        Default is None.
 
     var_bb_restrict_name : String (or None), optional
         Name of variable related to a restriction in case of capacity
@@ -209,7 +291,8 @@ class OptimalPolicy:
         Name of (discrete) treatment. Needed in training data only if
         'changers' (different treatment in allocation than observed
         treatment) are analysed and if allocation is compared to observed
-        allocation (in :meth:`~OptimalPolicy.evaluate` method). Default is None.
+        allocation (in :meth:`~OptimalPolicy.evaluate` method).
+        Default is None.
 
     var_effect_vs_0  : List/tuple of strings (or None), optional
         Name of variables of effects of treatment relative to first
@@ -219,7 +302,8 @@ class OptimalPolicy:
     var_effect_vs_0_se  : List/tuple of strings (or None), optional
         Name of variables of standard errors of the effects of treatment
         relative to first treatment. Dimension is equal to the number of
-        treatments minus 1. Default is None.
+        treatments minus 1.
+        Default is None.
 
     var_id_name : (or None), optional
         Name of identifier in data. Default is None.
@@ -229,21 +313,47 @@ class OptimalPolicy:
         contains treatment specific variables that are used to evaluate the
         effect of the allocation with respect to those variables. This
         could be for example policy score not used in training, but which
-        are relevant nevertheless. Default is None.
+        are relevant nevertheless.
+        Default is None.
 
     var_polscore_name : List or tuple of strings (or None), optional
         Names of treatment specific variables to measure the value of
         individual treatments. This is usually the estimated potential
         outcome or any other score related. This is required for the
-        :meth:`~OptimalPolicy.solve` method. Default is None.
+        :meth:`~OptimalPolicy.solve` method.
+        Default is None.
+
+    var_material_name_ord : List or tuple of strings (nor None), optional
+        Materially relavant ordered variables: An effect of the protected
+        variables on the scores is allowed, if captured by these variables
+        (only). These variables may (or may not) be included among the decision
+        variables. These variables must (!) not be included among the protected
+        variables.
+        Default is None.
+
+    var_material_name_unord : List or tuple of strings (nor None), optional
+        Materially relavant unordered variables: An effect of the protected
+        variables on the scores is allowed, if captured by these variables
+        (only). These variables may (or may not) be included among the decision
+        variables. These variables must (!) not be included among the protected
+        variables.
+        Default is None.
 
     var_protected_ord_name : List or tuple of strings (nor None), optional
-        Names of ordered variables for which their influence will be removed on
-        the policy scores.
+        Names of protected ordered variables. Their influence on the policy
+        scores will be removed (conditional on the 'materially important'
+        variables). These variables should NOT be contained in decision
+        variables, i.e., var_x_name_ord. If they are included, they will be
+        removed and var_x_name_ord will be adjusted accordingly.
+        Default is None.
 
     var_protected_unord_name : List or tuple of strings (nor None), optional
-        Names of unordered variables for which their influence will be removed
-        on the policy scores.
+        Names of protected unordered variables. Their influence on the policy
+        scores will be removed (conditional on the 'materially important'
+        variables). These variables should NOT be contained in decision
+        variables, i.e., var_x_name_unord. If they are included, they will be
+        removed andvar_x_name_unord will be adjusted accordingly.
+        Default is None.
 
     var_vi_x_name : List or tuple of strings or None, optional
         Names of variables for which variable importance is computed.
@@ -251,24 +361,27 @@ class OptimalPolicy:
 
     var_vi_to_dummy_name : List or tuple of strings or None, optional
         Names of variables for which variable importance is computed.
-        These variables will be broken up into dummies. Default is None.
+        These variables will be broken up into dummies.
+        Default is None.
 
     var_x_name_ord : Tuple of strings (or None), optional
         Name of ordered variables (including dummy variables) used to build
         policy tree and classifier. They are also used to characterise the
-        allocation. Default is None.
+        allocation.
+        Default is None.
 
     var_x_name_unord : Tuple of strings (or None), optional
         Name of unordered variables used to build policy tree and classifier.
         They are also used to characterise the allocation. Default is None.
 
     _int_how_many_parallel : Integer (or None), optional
-        Number of parallel process. None: 80% of logical cores, if this can
-        be effectively implemented. Default is None.
+        Number of parallel process.
+        None : 80% of logical cores, if this can be effectively implemented.
+        Default is None.
 
     _int_output_no_new_dir: Boolean
-        Do not create a new directory when the path already exists. Default
-        is False.
+        Do not create a new directory when the path already exists.
+        Default (or None) is False.
 
     _int_parallel_processing : Boolean (or None), optional
         Multiprocessing.
@@ -276,17 +389,22 @@ class OptimalPolicy:
 
     _int_report : Boolean, optional
         Provide information for McfOptPolReports to construct informative
-        reports. Default is True.
+        reports.
+        Default (or None) is True.
 
     _int_with_numba : Boolean (or None), optional
-        Use Numba to speed up computations. Default (or None) is True.
+        Use Numba to speed up computations.
+        Default (or None) is True.
 
     _int_with_output : Boolean (or None), optional
-        Print output on file and/or screen. Default (or None) is True.
+        Print output on file and/or screen.
+        Default (or None) is True.
 
     _int_xtr_parallel : Boolean (or None), optional.
         Parallelize to a larger degree to make sure all CPUs are busy for
-        most of the time. Default is True. Only used for 'policy tree' and
+        most of the time.
+        Default (or None) is True.
+        Only used for 'policy tree' and
         only used if _int_parallel_processing > 1 (or None)
 
     <NOT-ON-API>
@@ -320,7 +438,7 @@ class OptimalPolicy:
         Shares for random allocation.
 
     time_strings : String
-        Detailed information on how the long the different methods needed.
+        Detailed information on how long the different methods needed.
 
     var_dict : Dictionary
         Variable names.
@@ -338,7 +456,10 @@ class OptimalPolicy:
     def __init__(
         self, dc_check_perfectcorr=True,
         dc_clean_data=True, dc_min_dummy_obs=10, dc_screen_covariates=True,
-        fair_type='MeanVar', fair_regression_method='RandomForest',
+        fair_type='MeanVar', fair_consistency_test=False,
+        fair_material_disc_method='Kmeans', fair_protected_disc_method='Kmeans',
+        fair_material_max_groups=5, fair_regression_method='RandomForest',
+        fair_protected_max_groups=5,
         gen_method='best_policy_score', gen_outfiletext='txtFileWithOutput',
         gen_outpath=None, gen_output_type=2, gen_variable_importance=True,
         other_costs_of_treat=None, other_costs_of_treat_mult=None,
@@ -348,7 +469,9 @@ class OptimalPolicy:
         pt_select_values_cat=False,
         rnd_shares=None,
         var_bb_restrict_name=None, var_d_name=None, var_effect_vs_0=None,
-        var_effect_vs_0_se=None, var_id_name=None, var_polscore_desc_name=None,
+        var_effect_vs_0_se=None, var_id_name=None,
+        var_material_name_ord=None, var_material_name_unord=None,
+        var_polscore_desc_name=None,
         var_polscore_name=None, var_protected_name_ord=None,
         var_protected_name_unord=None, var_vi_x_name=None,
         var_vi_to_dummy_name=None, var_x_name_ord=None, var_x_name_unord=None,
@@ -394,6 +517,8 @@ class OptimalPolicy:
             bb_restrict_name=var_bb_restrict_name, d_name=var_d_name,
             effect_vs_0=var_effect_vs_0, effect_vs_0_se=var_effect_vs_0_se,
             id_name=var_id_name, polscore_desc_name=var_polscore_desc_name,
+            material_ord_name=var_material_name_ord,
+            material_unord_name=var_material_name_unord,
             polscore_name=var_polscore_name,
             protected_ord_name=var_protected_name_ord,
             protected_unord_name=var_protected_name_unord,
@@ -401,7 +526,13 @@ class OptimalPolicy:
             vi_x_name=var_vi_x_name, vi_to_dummy_name=var_vi_to_dummy_name)
 
         self.fair_dict = op_init.init_fair(
-            regression_method=fair_regression_method, adj_type=fair_type)
+            consistency_test=fair_consistency_test,
+            material_disc_method=fair_material_disc_method,
+            protected_disc_method=fair_protected_disc_method,
+            material_max_groups=fair_material_max_groups,
+            regression_method=fair_regression_method,
+            protected_max_groups=fair_protected_max_groups,
+            adj_type=fair_type)
 
         self.time_strings, self.var_x_type, self.var_x_values = {}, {}, {}
         self.bps_class_dict = {}
@@ -418,7 +549,7 @@ class OptimalPolicy:
 
     def fairscores(self, data_df, data_title=''):
         """
-        Make scores independent of protected variables.
+        Make scores independent of protected variables. Experimental.
 
         Parameters
         ----------
@@ -437,12 +568,17 @@ class OptimalPolicy:
             Location of directory in which output is saved.
         """
         time_start = time()
+        self.fair_dict['fairscores_used'] = True
+
+        if self.gen_dict['with_output']:
+            print_dic_values_all_optp(self, summary_top=True,
+                                      summary_dic=False, stage='Fairscores')
         self.report['fairscores'] = True
         # Check if data are available, recode features
         data_new_df = op_data.prepare_data_fair(self, data_df)
 
-        data_fair_df, names_fair_scores = op_fair.adjust_scores(self,
-                                                                data_new_df)
+        (data_fair_df, names_fair_scores, tests_dict) = op_fair.adjust_scores(
+            self, data_new_df)
 
         # Timing
         time_name = ['Time for fairness correction of scores:    ',]
@@ -454,7 +590,8 @@ class OptimalPolicy:
         key = 'fairness correction ' + data_title
         self.time_strings[key] = time_str
 
-        return data_fair_df, names_fair_scores, self.gen_dict['outpath']
+        return (data_fair_df, names_fair_scores, tests_dict,
+                self.gen_dict['outpath'])
 
     def solve(self, data_df, data_title=''):
         """
@@ -522,6 +659,8 @@ class OptimalPolicy:
             time_str = ps.print_timing(
                 self.gen_dict, f'{method:20} Training ', time_name,
                 time_difference, summary=True)
+        else:
+            time_str = ''
         key = f'{method} training ' + data_title
         self.time_strings[key] = time_str
 
@@ -599,6 +738,8 @@ class OptimalPolicy:
             time_str = ps.print_timing(
                 self.gen_dict, f'{method:20} Allocation ', time_name,
                 time_difference, summary=True)
+        else:
+            time_str = ''
         key = f'{method} allocation ' + data_title
         self.time_strings[key] = time_str
         self.report['alloc_list'].append(self.report['txt'])
@@ -719,20 +860,24 @@ def print_dic_values_all_optp(optp_, summary_top=True, summary_dic=False,
     txt = '=' * 100 + f'\nOptimal Policy Modul ({stage}) with '
     txt += f'{optp_.gen_dict["method"]}' + '\n' + '-' * 100
     ps.print_mcf(optp_.gen_dict, txt, summary=summary_top)
-    print_dic_values_optp(optp_, summary=summary_dic)
+    print_dic_values_optp(optp_, summary=summary_dic, stage=stage)
 
 
-def print_dic_values_optp(optp_, summary=False):
+def print_dic_values_optp(optp_, summary=False, stage=None):
     """Print values of dictionaries that determine module."""
-    dic_list = [optp_.int_dict, optp_.gen_dict, optp_.dc_dict,
-                optp_.other_dict, optp_.rnd_dict, optp_.var_dict]
-    dic_name_list = ['int_dict', 'gen_dict', 'dc_dict',
-                     'other_dict', 'rnd_dict', 'var_dict']
-    if optp_.gen_dict['method'] in ('policy tree', 'policy tree old'):
-        add_list = [optp_.var_x_type, optp_.var_x_values, optp_.pt_dict]
-        add_list_name = ['var_x_type', 'var_x_values', 'pt_dict']
-        dic_list.extend(add_list)
-        dic_name_list.extend(add_list_name)
+    if stage == 'Fairscores':
+        dic_list = [optp_.fair_dict,]
+        dic_name_list = ['fair_dict',]
+    else:
+        dic_list = [optp_.int_dict, optp_.gen_dict, optp_.dc_dict,
+                    optp_.other_dict, optp_.rnd_dict, optp_.var_dict]
+        dic_name_list = ['int_dict', 'gen_dict', 'dc_dict',
+                         'other_dict', 'rnd_dict', 'var_dict']
+        if optp_.gen_dict['method'] in ('policy tree', 'policy tree old'):
+            add_list = [optp_.var_x_type, optp_.var_x_values, optp_.pt_dict]
+            add_list_name = ['var_x_type', 'var_x_values', 'pt_dict']
+            dic_list.extend(add_list)
+            dic_name_list.extend(add_list_name)
     for dic, dic_name in zip(dic_list, dic_name_list):
         ps.print_dic(dic, dic_name, optp_.gen_dict, summary=summary)
     ps.print_mcf(optp_.gen_dict, '\n', summary=summary)

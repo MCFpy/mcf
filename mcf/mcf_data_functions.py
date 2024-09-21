@@ -303,11 +303,7 @@ def create_xz_variables(mcf_, data_df, train=True):
         vars_with_nans_mask = data_df.isna().any()
         vars_with_nans = vars_with_nans_mask[vars_with_nans_mask
                                              ].index.tolist()
-        # vars_with_nans = []
-        # for name in data_df.columns:
-        #     temp_pd = data_df[name].squeeze()
-        #     if temp_pd.dtype == 'object':
-        #         vars_with_nans.append(name)
+
         if vars_with_nans:
             txt = ('-' * 100 + '\nWARNING: The following variables are not '
                    'numeric or may contain missing values:\n'
@@ -332,6 +328,8 @@ def create_xz_variables(mcf_, data_df, train=True):
         unique_val_dict = data_train_dic['unique_values_dict']
         z_new_name_dict = data_train_dic['z_new_name_dict']
         z_new_dic_dict = data_train_dic['z_new_dic_dict']
+        prime_new_name_dict = data_train_dic['prime_new_name_dict']
+        prime_old_name_dict = data_train_dic['prime_old_name_dict']
     data_df.columns = data_df.columns.str.casefold()
     temp_df = data_df.replace({False: 0, True: 1})
     data_df = temp_df
@@ -460,6 +458,7 @@ def create_xz_variables(mcf_, data_df, train=True):
     x_name_type_unord,  x_name_values = [], []
     if train:
         q_inv_cr_dict, prime_values_dict, unique_val_dict = {}, {}, {}
+        prime_new_name_dict, prime_old_name_dict = {}, {}
     for variable in var_dic['x_name']:
         if variable in var_dic['name_ordered']:  # Ordered variable
             unique_val = data_df[variable].unique()
@@ -542,6 +541,8 @@ def create_xz_variables(mcf_, data_df, train=True):
                     unique_val, prime_values)
             if train:
                 prime_values_dict.update({prime_variable: prime_values})
+                prime_new_name_dict.update({variable: prime_variable})
+                prime_old_name_dict.update({prime_variable: variable})
                 unique_val_dict.update({variable: tuple(unique_val)})
             if k < 19:
                 x_name_type_unord += [1]  # <= 18 categories: dtype=int64
@@ -598,8 +599,11 @@ def create_xz_variables(mcf_, data_df, train=True):
         'q_inv_dict': q_inv_dict, 'q_inv_cr_dict': q_inv_cr_dict,
         'prime_values_dict': prime_values_dict,
         'unique_values_dict': unique_val_dict,
+        'prime_new_name_dict': prime_new_name_dict,
+        'prime_old_name_dict': prime_old_name_dict,
         'z_new_name_dict': z_new_name_dict, 'z_new_dic_dict': z_new_dic_dict
         }
+
     mcf_.var_dict = var_dic
     mcf_.var_x_type,  mcf_.var_x_values = var_x_type, var_x_values
     mcf_.gen_dict = gen_dic

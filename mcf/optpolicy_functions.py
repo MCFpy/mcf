@@ -94,7 +94,7 @@ class OptimalPolicy:
        'Quantilized'.
        Its meaning depends on fair_protected_disc_method:
        If 'EqualCell' : If more than 1 variable is included among the protected
-        variables, this restriction is applied to each variable.
+       variables, this restriction is applied to each variable.
        If 'Kmeans' : This is the number of clusters used by Kmeans.
        Fairness adjustments are experimental.
        Default (or None) is 5.
@@ -119,11 +119,11 @@ class OptimalPolicy:
     fair_type : String (or None), optional
         Method to choose the type of correction for the policy scores.
        'Mean' :  Mean dependence of the policy score on protected var's is
-        removed by residualisation.
+       removed by residualisation.
        'MeanVar' :  Mean dependence and heteroscedasticity is removed
-        by residualisation and rescaling.
+       by residualisation and rescaling.
        'Quantiled' : Removing dependence via (an empricial version of) the
-        approach by Strack and Yang (2024) using quantiles.
+       approach by Strack and Yang (2024) using quantiles.
        See the paper by Bearth, Lechner, Mareckova, Muny (2024) for details on
        these methods.
        Fairness adjustments are experimental.

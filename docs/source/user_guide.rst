@@ -43,3 +43,4 @@ We provide several example scripts `in our example folder on GitHub <https://git
 - `Minimal example <https://github.com/MCFpy/mcf/blob/main/examples/min_parameters_optpolicy.py>`__
 - `Minimal example that jointly estimates a Modified Causal Forest and an Optimal Policy Tree <https://github.com/MCFpy/mcf/blob/main/examples/mcf_optpol_combined.py>`__
 - `Full example with all parameters used <https://github.com/MCFpy/mcf/blob/main/examples/all_parameters_optpolicy.py>`__
+- `Example on fairscores method <https://github.com/MCFpy/mcf/blob/main/examples/fairness_optpolicy.py>`__

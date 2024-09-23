@@ -3,7 +3,7 @@ Fairness Extensions in Optimal Policy
 
 The :py:class:`~optpolicy_functions.OptimalPolicy` class in the **mcf** includes experimental features for fairness adjustments, accessible through the ``fairscores`` method. 
 These features are designed to ensure that policy scores are fair with respect to certain protected variables. 
-The fairness adjustments are based on the work by Bearth, Lechner, Mareckova, and Muny (2024).
+The fairness adjustments are based on the upcoming work by Bearth, Lechner, Mareckova, and Muny (2024).
 
 This method can be configured using several parameters to control the type and extent of fairness adjustments. 
 

@@ -59,8 +59,8 @@ class OptimalPolicy:
        'EqualCell' : Attempts to create equal cells for each variable. Maybe be
         useful for a very small number of variables with few different values.
        'Kmeans' : Use Kmeans clustering algorithm to form homogeneous cells.
-       Fairness adjustments are experimental.
-       Default (or None) is 'Kmeans'.
+        Fairness adjustments are experimental.
+        Default (or None) is 'Kmeans'.
 
     fair_protected_disc_method : String (or None), optional
         Method on how to perform the discretization for protected features.

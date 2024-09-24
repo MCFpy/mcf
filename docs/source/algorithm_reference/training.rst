@@ -34,7 +34,16 @@ The MCE depends on correlations between treatment states. For this reason, befor
 How the program matches is governed by the argument ``cf_match_nn_prog_score``. 
 The program matches either by outcome scores (one per treatment) or on all covariates by Mahalanobis matching. If there are many covariates, it is advisable to match on outcome scores due to the curse of dimensionality. When performing Mahalanobis matching, a practical issue may be that the required inverse of the covariance matrix is unstable. For this reason the program allows to only use the main diagonal to invert the covariance matrix. This is regulated via the argument ``cf_nn_main_diag_only``. 
 
-Likewise, the program allows for a modification of the splitting rule by adding a penalty to the objective function specified in ``cf_mce_vart``. The idea to use a penalty based on the propensity score is to increase treatment homogeneity within new splits to reduce selection bias. The penalty function is passed over to the program via the argument ``cf_p_diff_penalty``. Note that from ``cf_mce_vart`` only option (3) random switching cannot work without the penalty. The type of penalty function is specified using the ``cf_penalty_type`` keyword. 
+The program also allows for modification of the splitting rule by adding a penalty to the objective function, as specified by the ``cf_mce_vart`` argument. The purpose of using a penalty based on the propensity score is to reduce selection bias by promoting greater treatment homogeneity within newly formed splits.
+
+The type of penalty can be controlled using the ``cf_penalty_type`` keyword, which supports two options:
+
+1. 'mse_d' (default): Computes the MSE of the propensity scores in the daughter leaves.
+2. 'diff_d': Calculates the penalty as the squared differences between treatment propensities in the daughter leaves.
+    
+For both options, you can define a multiplier using the ``cf_p_diff_penalty`` keyword to adjust the penalty's impact. An advantage of the 'mse_d' option is that it can be computed using the out-of-bag observations, making it useful when tuning the forest. 
+
+Note that the random switching option (3) in ``cf_mce_vart`` requires a penalty to function properly, as it does not work without one.
 
 Once the forest is ready for training, the splits obtained in the training dataset are transferred to all data subsamples (by treatment state) in the held-out data set. Finally, the mean of the outcomes in each leaf is the prediction.
 

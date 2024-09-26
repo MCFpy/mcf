@@ -27,6 +27,11 @@ Changelog
 
     Note the absence of the tilde '~' in this case. 
 
+Version 0.7.1
+-------------
+
+- Bug in optimal policy module for policy variables with more than 20 unordered values.
+
 Version 0.7.0
 -------------
 

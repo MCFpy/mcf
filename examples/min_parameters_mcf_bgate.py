@@ -10,7 +10,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.0
+Version: 0.7.1
 
 This is an example to show how the mcf with BGATE estimation can be implemented
 relying completely on defaults. Note that usually in application it is very

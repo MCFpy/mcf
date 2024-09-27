@@ -13,7 +13,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.0
+Version: 0.7.1
 
 This is an example to show the optimal policy package can be implemented with
 a minimum number of specification (it could be even more further simplified

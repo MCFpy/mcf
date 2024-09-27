@@ -34,126 +34,131 @@ class OptimalPolicy:
         Remove all missing & unnecessary variables.
         Default (or None) is True.
 
-    fair_consistency_test : Boolean (or None), optional
+    fair_consistency_test : Boolean (or None), optional\
         Test for internally consistency of fairness correction.
         The fairness corrections are applied independently to every policy
         score (which usually is a potential outcome or an IATE(x) for each
         treatment relative to some base treatment (i.e. comparing 1-0, 2-0,
         3-0, etc.). Thus the IATE for the 2-1 comparison can be computed as
-        IATE(2-0)-IATE(1-0).#  This tests compares two ways to compute a
+        IATE(2-0)-IATE(1-0). This tests compares two ways to compute a
         fair score for the 2-1 (and all#  other comparisons) which should
-        give simular results:
-        a) Difference of two fair (!) scores
-        b) Difference of corresponding scores, subsequently made fair.
+        give simular results:\
+        a) Difference of two fair (!) scores\
+        b) Difference of corresponding scores, subsequently made fair.\
         Note: Depending on the number of treatments, this test may be
-        computationally more expensive than the orginal fairness corrections.
+        computationally more expensive than the orginal fairness corrections.\
+        Fairness adjustments are experimental.\
         Default (or None) is False.
 
-    fair_material_disc_method : String (or None), optional
+    fair_material_disc_method : String (or None), optional\
         Method on how to perform the discretization for materially relevant
-        features.
-        'NoDiscretization' : Variables are not changed. If one of the features
-        has more different values than FAIR_MATERIAL_MAX_GROUPS, all
+        features.\
+        ``'NoDiscretization'`` : Variables are not changed. If one of the
+        features has more different values than fair_material_max_groups, all
         materially relevant features will formally be treated as continuous.
-        The latter may become unreliable if their dimension is not year small.
-        'EqualCell' : Attempts to create equal cells for each variable. Maybe be
-        useful for a very small number of variables with few different values.
-        'Kmeans' : Use Kmeans clustering algorithm to form homogeneous cells.
-        Fairness adjustments are experimental.
+        The latter may become unreliable if their dimension is not year small.\
+        ``'EqualCell'`` : Attempts to create equal cells for each variable.
+        Maybe be useful for a very small number of variables with few different
+        values.\
+        ``'Kmeans'`` : Use Kmeans clustering algorithm to form homogeneous
+        cells.\
+        Fairness adjustments are experimental.\
         Default (or None) is 'Kmeans'.
 
-    fair_protected_disc_method : String (or None), optional
-        Method on how to perform the discretization for protected features.
-        'NoDiscretization' : Variables are not changed. If one of the features
-        has more different values than FAIR_PROTECTED_MAX_GROUPS, all
-        protected features will formally be treated as continuous.
-        The latter may become unreliable if their dimension is not very small.
-        'EqualCell' : Attempts to create equal cells for each variable. Maybe be
-        useful for a very small number of variables with few different values.
-        'Kmeans' : Use Kmeans clustering algorithm to form homogeneous cells.
-        Fairness adjustments are experimental.
-        Default (or None) is 'Kmeans'.
+    fair_protected_disc_method : String (or None), optional\
+        Method on how to perform the discretization for protected features.\
+        ``'NoDiscretization'`` : Variables are not changed. If one of the
+        features has more different values than fair_protected_max_groups,
+        all protected features will formally be treated as continuous. The
+        latter may become unreliable if their dimension is not very small.\
+        ``'EqualCell'`` : Attempts to create equal cells for each variable.
+        Maybe be useful for a very small number of variables with few different
+        values.\
+        ``'Kmeans'`` : Use Kmeans clustering algorithm to form homogeneous
+        cells.\
+        Fairness adjustments are experimental.\
+        Default (or None) is ``'Kmeans'``.
 
-    fair_material_max_groups : Integer (or None), optional
-       Level of discretization of materially relavant variables
-       (only if needed).
-       Number of groups of materially relavant features for cases when
-       materially relavant variables are needed in protected form. This is
-       currently only necessary for 'Quantilized'.
-       Its meaning depends on fair_material_disc_method:
-       If 'EqualCell': If more than 1 variable is included among the protected
-       variables, this restriction is applied to each variable.
-       If 'Kmeans': This is the number of clusters used by Kmeans.
-       Fairness adjustments are experimental.
-       Default (or None) is 5.
+    fair_material_max_groups : Integer (or None), optional\
+        Level of discretization of materially relavant variables (only if
+        needed). Number of groups of materially relavant features for cases when
+        materially relavant variables are needed in protected form. This is
+        currently only necessary for 'Quantilized'.\
+        Its meaning depends on fair_material_disc_method:\
+        If ``'EqualCell'``: If more than 1 variable is included among the
+        protected variables, this restriction is applied to each variable.\
+        If ``'Kmeans'``: This is the number of clusters used by Kmeans.\
+        Fairness adjustments are experimental.\
+        Default (or None) is 5.
 
-    fair_protected_max_groups : Integer (or None), optional
-       Level of discretization of protected variables (only if needed).
-       Number of groups of protected features for cases when protected variables
-       are needed in discretized form. This is currently only necessary for
-       'Quantilized'.
-       Its meaning depends on fair_protected_disc_method:
-       If 'EqualCell' : If more than 1 variable is included among the protected
-       variables, this restriction is applied to each variable.
-       If 'Kmeans' : This is the number of clusters used by Kmeans.
-       Fairness adjustments are experimental.
-       Default (or None) is 5.
+    fair_protected_max_groups : Integer (or None), optional\
+        Level of discretization of protected variables (only if needed).
+        Number of groups of protected features for cases when protected
+        variables are needed in discretized form. This is currently only
+        necessary for ``'Quantilized'``.\
+        Its meaning depends on fair_protected_disc_method:
+        If ``'EqualCell'`` : If more than 1 variable is included among the
+        protected variables, this restriction is applied to each variable.\
+        If ``'Kmeans'`` : This is the number of clusters used by Kmeans.
+        Fairness adjustments are experimental.\
+        Default (or None) is 5.
 
-    fair_regression_method : String (or None), optional
+    fair_regression_method : String (or None), optional\
         Method choice when predictions from machine learning are needed for
-        fairnesss corrections (fair_type in ('Mean', 'MeanVar'). Available
-        methods are 'RandomForest', 'RandomForestNminl5', 'RandomForestNminls5',
-        'SupportVectorMachine', 'SupportVectorMachineC2',
-        'SupportVectorMachineC4', 'AdaBoost', 'AdaBoost100', 'AdaBoost200',
-        'GradBoost', 'GradBoostDepth6',  'GradBoostDepth12', 'LASSO',
-        'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger', 'Mean'.
-        If 'automatic', an optimal method will be chosen based on
-        5-fold cross-validation in the training data. If a method is specified
-        it will be used for all scores and all adjustments. If 'automatic',
-        every policy score might be adjusted with a different method. 'Mean' is
-        included for cases in which regression methods have no explanatory
-        power.
-        Fairness adjustments are experimental.
-        Default (or None) is 'RandomForest'.
+        fairnesss corrections (fair_type in (``'Mean'``, ``'MeanVar'``).\
+        Available methods are ``'RandomForest'``, ``'RandomForestNminl5'``,
+        ``'RandomForestNminls5'``, ``'SupportVectorMachine'``,
+        ``'SupportVectorMachineC2'``, ``'SupportVectorMachineC4'``,
+        ``'AdaBoost'``, ``'AdaBoost100'``, ``'AdaBoost200'``, ``'GradBoost'``,
+        ``'GradBoostDepth6'``, ``'GradBoostDepth12'``, ``'LASSO'``,
+        ``'NeuralNet'``, ``'NeuralNetLarge'``, ``'NeuralNetLarger'``,
+        ``'Mean'``. If ``'automatic'``, an optimal method will be chosen based
+        on 5-fold cross-validation in the training data. If a method is
+        specified it will be used for all scores and all adjustments. If
+        'automatic', every policy score might be adjusted with a different
+        method. 'Mean' is included for cases in which regression methods have
+        no explanatory power.\
+        Fairness adjustments are experimental.\
+        Default (or None) is ``'RandomForest'``.
 
-    fair_type : String (or None), optional
-        Method to choose the type of correction for the policy scores.
-       'Mean' :  Mean dependence of the policy score on protected var's is
-       removed by residualisation.
-       'MeanVar' :  Mean dependence and heteroscedasticity is removed
-       by residualisation and rescaling.
-       'Quantiled' : Removing dependence via (an empricial version of) the
-       approach by Strack and Yang (2024) using quantiles.
-       See the paper by Bearth, Lechner, Mareckova, Muny (2024) for details on
-       these methods.
-       Fairness adjustments are experimental.
-       Default (or None) is 'Quantiled'.
+    fair_type : String (or None), optional\
+        Method to choose the type of correction for the policy scores.\
+        ``'Mean'`` :  Mean dependence of the policy score on protected var's is
+        removed by residualisation.\
+        ``'MeanVar'`` :  Mean dependence and heteroscedasticity is removed by
+        residualisation and rescaling.\
+        ``'Quantiled'`` : Removing dependence via (an empricial version of) the
+        approach by Strack and Yang (2024) using quantiles.\
+        See the paper by Bearth, Lechner, Mareckova, Muny (2024) for details on
+        these methods.\
+        Fairness adjustments are experimental.\
+        Default (or None) is 'Quantiled'.
 
-    gen_method : String (or None), optional.
+    gen_method : String (or None), optional.\
         Method to compute assignment algorithm (available methods:
-        'best_policy_score', 'bps_classifier', 'policy tree').
-        'best_policy_score' conducts Black-Box allocations, which are
+        ``'best_policy_score'``, ``'bps_classifier'``, ``'policy tree'``).
+        ``'best_policy_score'`` conducts Black-Box allocations, which are
         obtained by using the scores directly (potentially subject to
         restrictions). When the Black-Box allocations are used for
         allocation of data not used for training, the respective scores
         must be available.
-        'bps_classifier' uses the allocations obtained by 'best_policy_score'
-        and trains classifiers. The output will be a decision rule that
-        depends on features only and does not require knowledge of the policy
-        scores. The actual classifier used is selected among four different
-        classifiers offered by sci-kit learn, namely a simple neural network,
-        two classification random forests with minimum leaf size of 2 and 5, and
-        ADDABoost. The selection is a made according to the out-of-sample
-        performance on scikit-learns Accuracy Score.
-        The implemented 'policy tree' 's are optimal trees, i.e. all
+        ``'bps_classifier'`` uses the allocations obtained by
+        ``'best_policy_score'`` and trains classifiers. The output will be a
+        decision rule that depends on features only and does not require
+        knowledge of the policy scores. The actual classifier used is selected
+        among four different classifiers offered by sci-kit learn, namely a
+        simple neural network, two classification random forests with minimum
+        leaf size of 2 and 5, and ADDABoost. The selection is a made according
+        to the out-of-sample performance on scikit-learns Accuracy Score.
+        The implemented ``'policy tree'`` 's are optimal trees, i.e. all
         possible trees are checked if they lead to a better performance.
         If restrictions are specified, then this is incorporated into
         treatment specific cost parameters. Many ideas of the
         implementation follow Zhou, Athey, Wager (2022). If the provided
         policy scores fulfil their conditions (i.e., they use a doubly
         robust double machine learning like score), then they also provide
-        attractive theoretical properties.
-        Default (or None) is 'best_policy_score'.
+        attractive theoretical properties.\
+        Default (or None) is ``'best_policy_score'``.
 
     gen_outfiletext : String (or None), optional
         File for text output. (\*.txt) file extension will be automatically

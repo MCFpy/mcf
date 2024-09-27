@@ -10,7 +10,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.0
+Version: 0.7.1
 
 This is an example to show how to combine the ModifiedCausalForest class and
 the OptimalPolicy class for joint estimation. Please note that there could be
@@ -52,11 +52,11 @@ alldata_df, _, name_dict = example_data(obs_y_d_x_iate=TRAIN_OBS)
 VAR_D_NAME = 'treat'   # Name of treatment variable
 VAR_Y_NAME = 'outcome'         # Name of outcome variable
 VAR_X_NAME_ORD = ('x_cont0', 'x_cont1', 'x_cont2',)
+VAR_X_NAME_UNORD = ('x_unord0',)
 
 # In this example the policy scores will be outputed from mcf predict method.
 
 # --- Parameters --
-GEN_IATE_EFF = None
 GEN_METHOD = 'policy tree'
 PT_DEPTH_TREE_1 = 2  # Too small for real application, for demonstration only
 PT_DEPTH_TREE_2 = 2
@@ -89,6 +89,7 @@ evaluate_pt_df.reset_index(drop=True, inplace=True)
 mymcf = ModifiedCausalForest(var_d_name=VAR_D_NAME,
                              var_y_name=VAR_Y_NAME,
                              var_x_name_ord=VAR_X_NAME_ORD,
+                             var_x_name_unord=VAR_X_NAME_UNORD,
                              gen_iate_eff=True,
                              cf_compare_only_to_zero=True,
                              gen_outpath=APPLIC_PATH)
@@ -116,6 +117,7 @@ VAR_POLSCORE_NAME = [VAR_Y_NAME.casefold() + '_lc' + str(i) + '_un_lc_pot_eff'
 
 myoptp = OptimalPolicy(var_d_name=VAR_D_NAME,
                        var_x_name_ord=VAR_X_NAME_ORD,
+                       var_x_name_unord=VAR_X_NAME_UNORD,
                        var_polscore_name=VAR_POLSCORE_NAME,
                        pt_depth_tree_1=PT_DEPTH_TREE_1,
                        pt_depth_tree_2=PT_DEPTH_TREE_2,

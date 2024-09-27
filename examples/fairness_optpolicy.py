@@ -13,7 +13,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.0
+Version: 0.7.1
 
 This is an example to show how to use the OptimalPolicy class of the mcf
 module with full specification of all its keywords. It may be seen as an add on
@@ -95,7 +95,7 @@ GEN_OUTPATH = os.getcwd() + '/example/outputOPT'  # Directory for output.
 WEIGHTPLOT_PATH = os.getcwd() + '/out'
 #   Path to put the plots for the different fairness weighting
 
-GEN_OUTFILETEXT = "OptPolicy_0_7_0_Fairness"  # File for text output
+GEN_OUTFILETEXT = "OptPolicy_0_7_1_Fairness"  # File for text output
 #   Default is 'txtFileWithOutput'.
 #   *.txt file extension will be added by the programme
 

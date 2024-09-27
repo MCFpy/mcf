@@ -10,7 +10,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economic Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.0
+Version: 0.7.1
 
 This is an example to show how to use the mcf with full specification of all
 its keywords. It may be seen as an add on to the published mcf documentation.
@@ -69,7 +69,7 @@ GEN_OUTPATH = os.getcwd() + '/example/output'
 #   If specified directory does not exist, it will be created.
 #   OUTPATH is passed to ModifiedCausalForest.
 
-GEN_OUTFILETEXT = 'mcf.py.0.7.0'
+GEN_OUTFILETEXT = 'mcf.py.0.7.1'
 #   File for text output. If gen_outfiletext is None, 'txtFileWithOutput' is
 #   used. *.txt file extension will be added by the programme.
 
@@ -100,7 +100,6 @@ VAR_Y_TREE_NAME = name_dict['y_name']     # Variable to build trees.
 #   Features
 VAR_X_NAME_ORD = name_dict['x_name_ord']   # Ordered (including dummy variables)
 VAR_X_NAME_UNORD = name_dict['x_name_unord']   # Unordered
-
 
 #   Identifier
 VAR_ID_NAME = name_dict['id_name']

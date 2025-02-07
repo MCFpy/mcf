@@ -24,8 +24,8 @@ The implemented policy tree is the optimal tree among all possible trees and is 
 The optimal tree maximises the value function (or welfare), computed as the sum of the individual policy scores, such as potential outcomes or :math:`IATEs`, by assigning all observations in a terminal leaf node to a single treatment.
 If restrictions are specified, then they are incorporated into treatment specific cost parameters.
 
-While the basic logic follows `Zhou, Athey, and Wager (2022) <https://doi.org/10.1287/opre.2022.2271>`_ , the details of the programmatic implementation differ. 
-For instance, in contrast to policytree, the optpoltree allows you to consider constraints regarding the maximal shares of treated observations, treatment costs, and different policy scores.
+While the basic logic follows `Zhou, Athey, and Wager (2022) <https://doi.org/10.1287/opre.2022.2271>`_, the details in the programmatic implementation differ. 
+For instance, in contrast to the ``policytree``, the ``optpoltree`` option allows to consider constraints regarding the maximal shares of treated observations, treatment costs, and different policy scores.
 
 Let us look into this method further:
 
@@ -52,12 +52,11 @@ The goal is to maximize the overall outcome, making the best possible decisions 
 Steps
 ~~~~~
 
-Here is a step-by-step explanation on how the Policy Tree works:
+Here is a step-by-step explanation on how ``policy tree`` works:
 
-1. Case :math:`(L = 1)` : no further splits are possible and the algorithm returns the maximum sum of potential outcomes across all treatments alongside the treatment that achieves this maximum.
-   Essentially, the algorithm computes the best possible treatment without further splitting. It does so by summing the potential outcomes for each treatment across all observations and selecting the treatment that maximizes this sum.
+1. Case :math:`(L = 1)`, i.e., no further splits are possible. The algorithm defines the best treatment by summing the potential outcomes for each treatment across all observations and selecting the treatment that maximizes this sum. The algorithm returns this maximum sum of potential outcomes across all treatments and the corresponding treatment.
 
-2. Case :math:`(L > 1)` : initialize the reward :math:`(\mathcal{R})` to negative infinity and the tree :math:`(\mathcal{T})` to empty. Loop over all features :math:`(m = 1, 2, \ldots, p_1 + p_2)`:
+2. Case :math:`(L > 1)`, i.e., further splits are possible. The algorithm initializes the reward :math:`(\mathcal{R})` to negative infinity and the policy tree :math:`(\mathcal{T})` to empty. Loop over all features :math:`X_{m,i}` where :math:`(m = 1, 2, \ldots, p_1 + p_2)`:
 
    For each feature, consider all possible split points:
      - Split the data into two sets: left and right, based on the split value.
@@ -95,10 +94,11 @@ Example
 Algorithm 2: Best Policy Score
 ------------------------------
 
-To use this method, set ``gen_method`` to ``best_policy_score``. **Note** that this is the default method.
+To opt for this method, set ``gen_method`` to ``best_policy_score``.
+Note that this is the **default method**.
 
-Very simply, this method assigns units to the treatment with the highest estimated potential outcome. 
-This algorithm is computationally cheap, yet it lacks clear interpretability for the allocation rules, which makes it challenging for policymakers to adopt.
+This method simply assigns units to the treatment providing it the highest estimated potential outcome. 
+This algorithm is computationally cheap, but comes with the downside of a low interpretability for the allocation rules.
 
 Example
 ~~~~~~~
@@ -126,18 +126,21 @@ Example
 Algorithm 3: Best Policy Score Classifier
 -----------------------------------------
 
-To use this method, set ``gen_method`` to ``bps_classifier``.
+To opt for this method, set ``gen_method`` to ``bps_classifier``.
 
-For the moment, this is an experimental feature and will soon be further discussed.
+Note that currentlly this is an experimental feature to be discussed soon.
 
 On a high level, this method uses the allocations obtained by the previous Best Policy Score method and trains classifiers. 
-The output is a decision rule that depends on features only and does not require knowledge of the policy scores.
+The output is a decision rule that depends on features only and does not require knowledge about the policy scores.
 
 
-Options for Optimal Policy Tree
-===============================
+Parameter tuning for the Optimal Policy Tree
+============================================
 
-You can personalize various parameters defined in the :py:class:`~optpolicy_functions.OptimalPolicy` class. 
+You can adjust different parameters defined in the :py:class:`~optpolicy_functions.OptimalPolicy` class.
+
+General parameters
+------------------
 
 You can use the ``var_effect_vs_0_se`` parameter to specify the standard errors of variables of effects of treatment relative to first treatment. Dimension is equal to the number of treatments minus 1. 
 
@@ -167,7 +170,7 @@ Alternatively, if restrictions are present and ``other_costs_of_treat`` is left 
 Please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` for more details or additional parameters. 
 
 Example
--------
+~~~~~~~
 
 .. code-block:: python
 
@@ -192,8 +195,8 @@ Example
        other_costs_of_treat_mult = None
        )
 
-Computational speed
-===================
+Parameters for computational speed
+----------------------------------
 
 Additionally, you can control certain aspects of the algorithm which impact running time:
 

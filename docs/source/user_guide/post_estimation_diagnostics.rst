@@ -59,7 +59,7 @@ You can also specify this path through the ``gen_outpath`` parameter of the clas
 Correlation analysis
 --------------------
 
-The correlation analysis estimates the dependencies between the different :math:`\text{IATE's}`, between the :math:`\text{IATE's}` and the potential outcomes, and between the :math:`\text{IATE's}` and the features. You can activate the correlation analysis by setting the parameter ``post_bin_corr_yes`` to True. Note that the correlation coefficients are only displayed if their absolute values exceeds the threshold specified by the parameter ``post_bin_corr_threshold``.
+The correlation analysis estimates the dependencies between the different :math:`\text{IATE's}`, between the :math:`\text{IATE's}` and the potential outcomes, and between the :math:`\text{IATE's}` and the features. You can activate the correlation analysis by setting the parameter ``post_bin_corr_yes`` to True. Note that the correlation coefficients are only displayed if their absolute values exceed the threshold specified by the parameter ``post_bin_corr_threshold``.
 
 
 :math:`k`-means clustering

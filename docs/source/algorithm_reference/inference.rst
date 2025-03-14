@@ -5,10 +5,10 @@ The **mcf** offers three ways of conducting inference.
 
 - **Weights-based Inference Procedure**: This is the default method in the program. It is particularly useful to gain information on the precision of estimators that have a representation as weighted averages of the outcomes. The variance of the treatment effect estimator is estimated based on a variance decomposition made up of two components:
 
-   - Expectation of the conditional variance
-   - Variance of the conditional expectation, given the weights
+    - Expectation of the conditional variance
+    - Variance of the conditional expectation, given the weights
 
-This decomposition accounts for heteroscedasticity in the weight. The conditional means and variances are estimated non-parametrically, either by the Nadaraya-Watson kernel estimator or by the k-Nearest Neighbor (k-NN) estimator (default). See `Lechner (2018) <https://doi.org/10.48550/arXiv.1812.09487>`_ for more details.
+This decomposition accounts for heteroscedasticity in the weights. The conditional means and variances are estimated non-parametrically, either by the Nadaraya-Watson kernel estimator or by the k-Nearest Neighbor (k-NN) estimator (default). See `Lechner (2018) <https://doi.org/10.48550/arXiv.1812.09487>`_ for more details.
 
 - **Variance of Treatment Effect Estimates**: This method estimates the variance of treatment effect estimates as the sum of the variance of weighted outcomes in the respective treatment states. A drawback of this inference method is that it implicitly assumes homoscedasticity in the weights for each treatment state.
 

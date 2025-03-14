@@ -16,7 +16,7 @@ This decomposition accounts for heteroscedasticity in the weights. The condition
 - **Bootstrap Algorithm**: This method uses a bootstrap algorithm to obtain inference by computing standard errors. Our algorithm bootstraps the equally weighted weights and then renormalizes them.
 
 
-**Note**: because of the weighting representation, inference can also readily be used to account for clustering, which is a common feature in economics data.
+Because of the weighting representation, inference can also readily be used to account for clustering, which is a common feature in economics data.
 
 
 Parameters 

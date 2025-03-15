@@ -1,0 +1,6 @@
+﻿optpolicy\_functions.OptimalPolicy.fairscores
+=============================================
+
+.. currentmodule:: optpolicy_functions
+
+.. automethod:: OptimalPolicy.fairscores

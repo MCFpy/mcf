@@ -1,0 +1,6 @@
+﻿mcf\_functions.ModifiedCausalForest.predict
+===========================================
+
+.. currentmodule:: mcf_functions
+
+.. automethod:: ModifiedCausalForest.predict

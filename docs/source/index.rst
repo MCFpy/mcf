@@ -180,6 +180,7 @@ Conceptual foundation
 ^^^^^^^^^^^^^^^^^^^^^
 - Lechner M (2018). **Modified Causal Forests for Estimating Heterogeneous Causal Effects**. `Read Paper <https://doi.org/10.48550/arXiv.1812.09487>`__
 - Lechner M, Mareckova J (2022). **Modified Causal Forest**. `Read Paper <https://doi.org/10.48550/arXiv.2209.03744>`__
+- Lechner M, Bearth N (2024). **Causal Machine Learning for Moderation Effects**. `Read Paper <https://arxiv.org/abs/2401.08290>`__
 
 Algorithm demonstrations
 ^^^^^^^^^^^^^^^^^^^^^^^^

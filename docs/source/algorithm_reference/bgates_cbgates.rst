@@ -86,7 +86,6 @@ Examples
        var_d_name="treat",
        var_x_name_ord=["x_unord0", "x_cont0", "x_ord1"],
        var_z_name_list=["x_cont0"],
-       var_bgate_name=["x_cont0"],
        # Estimate a GATE that is balanced in all other features
        p_cbgate=True
    )

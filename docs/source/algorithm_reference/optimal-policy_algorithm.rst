@@ -118,8 +118,7 @@ Example
         var_x_name_ord=['x_cont0', 'x_cont1', 'x_ord1'],
         var_x_name_unord=['x_unord0'],
         # Select the Best Policy Score method
-        gen_method='best_policy_score',
-        pt_depth_tree_1=2
+        gen_method='best_policy_score'
         )
 
 

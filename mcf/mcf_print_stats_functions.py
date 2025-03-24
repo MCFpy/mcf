@@ -50,7 +50,8 @@ def desc_by_treatment(mcf_, data_df, summary=False, stage=1):
     """Descripe stats by treatment in different versions."""
     if stage == 1:
         variables_to_desc = [*mcf_.var_dict['y_name'],
-                             *mcf_.var_dict['x_balance_name']]
+                             *mcf_.var_dict['x_name_balance_test']
+                             ]
     elif stage == 2:
         variables_to_desc = [*mcf_.var_dict['y_name'],
                              *mcf_.var_dict['x_name']]
@@ -176,12 +177,12 @@ def statistics_by_treatment(gen_dic, data_df, treat_name, var_name,
         print_mcf(gen_dic, '\nMean', summary=summary)
         print_mcf(gen_dic, mean.transpose(), summary=summary)
         if median_yes:
-            print_mcf(gen_dic, '\nMedian', summary=summary)
+            print_mcf(gen_dic, '\nMedian', summary=False)
             print_mcf(gen_dic, data.groupby(treat_name).median().transpose(),
-                      summary=summary)
+                      summary=False)
         if std_yes:
-            print_mcf(gen_dic, '\nStandard deviation', summary=summary)
-            print_mcf(gen_dic, std.transpose(), summary=summary)
+            print_mcf(gen_dic, '\nStandard deviation', summary=False)
+            print_mcf(gen_dic, std.transpose(), summary=False)
         if balancing_yes:
             balancing_tests(gen_dic, mean, std, count, only_next,
                             summary=summary, subtitle='(descriptive)')
@@ -334,7 +335,8 @@ def effect_to_csv(est, stderr, t_val, p_val, effect_list, path=None,
     t_val : Numpy array. t/z-value.
     p_val : Numpy array. p-value.
     effect_list : List of Int. Treatment values involved in comparison.
-    pfad: String. Path to which the save csv-File is saved to. Default is None.
+    pfad: Pathlib object. Path to which the save csv-File is saved to.
+          Default is None.
     label: String. Label for filename. Default is None.
 
     Returns
@@ -342,7 +344,7 @@ def effect_to_csv(est, stderr, t_val, p_val, effect_list, path=None,
     None.
     """
     file_tmp = label + '.csv' if isinstance(label, str) else 'effect.csv'
-    file = path + '/' + file_tmp if isinstance(path, str) else file_tmp
+    file = path / (file_tmp if isinstance(path, str) else file_tmp)
     mcf_sys.delete_file_if_exists(file)
     names_est, names_se, names_tval, names_pval = [], [], [], []
     for j in range(np.size(est)):
@@ -429,21 +431,21 @@ def txt_weight_stat(larger_0, equal_0, mean_pos, std_pos, gini_all, gini_pos,
                 continue
         txt += '\n' + '- ' * 50 + f'\nTreatment group: {d_value:<4}\n'
         txt += '- ' * 50
-        txt += (f'\n# of weights > 0: {round(larger_0[j], 2):<6} '
+        txt += (f'\n# of weights <> 0: {round(larger_0[j], 2):<6} '
                 f'# of weights = 0: {round(equal_0[j], 2):<6} '
-                f'Mean of positive weights: {mean_pos[j]:7.4f} '
-                f'Std of positive weights: {std_pos[j]:7.4f}')
+                f'Mean of non-zero weights: {mean_pos[j]:7.4f} '
+                f'Std of non-zero weights: {std_pos[j]:7.4f}')
         txt += ('\nGini coefficient (incl. weights=0):                        '
                 f'{gini_all[j]:7.2f}%')
-        txt += ('\nGini coefficient (weights > 0):                            '
+        txt += ('\nGini coefficient (non-zero weights > 0):                   '
                 f'{gini_pos[j]:7.2f}%')
-        txt += ('\nShare of 1% / 5% / 10% largest weights of all weights > 0: '
+        txt += ('\nShare of 1% / 5% / 10% largest weights of all weights <> 0:'
                 f'{share_largest_q[j, 0]:7.2f}% {share_largest_q[j, 1]:7.2f}%'
                 f' {share_largest_q[j, 2]:7.2f}%')
-        txt += '\nShare of weights > 0.5,0.25,0.1,0.05,...,0.01 (among w>0): '
+        txt += '\nShare of abs(weights) > 0.5,0.25,0.1,...,0.01 (among w<>0): '
         for i in range(len(p_dic['q_w'])):
             txt += f'{sum_larger[j, i]:7.2f}%'
-        txt += '\nShare of obs. with weights > 0.5, ..., 0.01   (among w>0): '
+        txt += '\nShare of obs. with abs(weights)>0.5, ..., 0.01 (among w<>0):'
         for i in range(len(p_dic['q_w'])):
             txt += f'{obs_larger[j, i]:7.2f}%'
         if np.size(share_censored) > 1:
@@ -454,7 +456,8 @@ def txt_weight_stat(larger_0, equal_0, mean_pos, std_pos, gini_all, gini_pos,
     return txt
 
 
-def print_iate(iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic):
+def print_iate(iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic,
+               extra_title=''):
     """Print statistics for the two types of IATEs.
 
     Parameters
@@ -476,7 +479,8 @@ def print_iate(iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic):
     no_outcomes = np.size(iate, axis=1)
     n_obs = len(iate)
     str_f, str_m, str_l = '=' * 100, '-' * 100, '- ' * 50
-    print_str = '\n' + str_f + '\nDescriptives for IATE estimation\n' + str_m
+    print_str = ('\n' + str_f + '\nDescriptives for IATE estimation '
+                 + extra_title + '\n' + str_m)
     print_str_short = ''
     iterator = 2 if p_dic['iate_m_ate'] else 1
     for types in range(iterator):
@@ -544,18 +548,30 @@ def print_minus_ate_info(weighted, print_it=True, gate_or_iate='GATE'):
 
 
 def print_effect_z(g_r, gm_r, z_values, gate_str, print_output=True,
-                   gates_minus_previous=False):
+                   gates_minus_previous=False, qiate=False, gmopp_r=None):
     """Print treatment effects."""
     no_of_effect_per_z = np.size(g_r[0][0])
     if gates_minus_previous:
         print_str = ('- ' * 50 + f'\n                   {gate_str}'
                      + f'                                {gate_str}(change)')
     else:
-        print_str = ('- ' * 50 + f'\n                   {gate_str}'
-                     + f'                                {gate_str} - ATE')
-    print_str += ('\nComparison      Z      Est         SE  t-val   p-val'
-                  + '         Est        SE  t-val   p-val\n' + '- ' * 50
-                  + '\n')
+        if qiate:
+            print_str = ('- ' * 50 + '\n                   QIATE(q)    '
+                         '                            QIATE(q) - QIATE(0.5)'
+                         '                    QIATE(q) - QIATE(1-q)')
+        else:
+            print_str = ('- ' * 50 + f'\n                   {gate_str}'
+                         + f'                                {gate_str} - ATE')
+    if qiate:
+        print_str += ('\nComparison Quantile    Est         SE  t-val   p-val'
+                      + '         Est        SE  t-val   p-val'
+                      + '         Est        SE  t-val   p-val\n'
+                      + '- ' * 50 + '\n'
+                      )
+    else:
+        print_str += ('\nComparison      Z      Est         SE  t-val   p-val'
+                      + '         Est        SE  t-val   p-val\n' + '- ' * 50
+                      + '\n')
     prec = find_precision(z_values)
     if prec == 0:
         z_values, _ = mcf_gp.recode_if_all_prime(z_values.copy(), None)
@@ -573,14 +589,39 @@ def print_effect_z(g_r, gm_r, z_values, gate_str, print_output=True,
                 sm_s = stars(gm_r[zind][3][j])
             else:
                 estsem_s = tm_p_s = sm_s = ' '
-            print_str += (treat_s + val_s + estse_s + t_p_s + s_s + estsem_s
-                          + tm_p_s + sm_s + '\n')
+            if gmopp_r is not None:
+                if 0.4999 < z_val < 0.501:
+                    estsemopp_s = (
+                        f'{0:>9.5f}  {0:>9.5f}'
+                        )
+                    tmopp_p_s = (
+                        f'{0:>6.2f}  {1:>6.2%}'
+                        )
+                    smopp_s = stars(100)
+                else:
+                    estsemopp_s = (
+                        f'{gmopp_r[zind][0][j]:>9.5f}  '
+                        f'{gmopp_r[zind][1][j]:>9.5f}'
+                        )
+                    tmopp_p_s = (
+                        f'{gmopp_r[zind][2][j]:>6.2f}  '
+                        f'{gmopp_r[zind][3][j]:>6.2%}'
+                        )
+                    smopp_s = stars(gm_r[zind][3][j])
+            else:
+                estsemopp_s = tmopp_p_s = smopp_s = ' '
+            print_str += (treat_s + val_s + estse_s + t_p_s + s_s
+                          + estsem_s + tm_p_s + sm_s
+                          + estsemopp_s + tmopp_p_s + smopp_s
+                          + '\n')
         if j < no_of_effect_per_z-1:
             print_str += '- ' * 50 + '\n'
-    print_str += '-' * 100
-    print_str += ('\nShown values of Z may represent the order of the values'
-                  + ' (starting with 0) instead of the original values.')
-    print_str += '\n' + '-' * 100
+    if not qiate:
+        print_str += '-' * 100
+        print_str += ('\nShown values of Z may represent the order of the '
+                      'values (starting with 0) instead of the original values.'
+                      )
+        print_str += '\n' + '-' * 100
     if print_output:
         print(print_str)
     return print_str

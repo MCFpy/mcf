@@ -138,7 +138,7 @@ def weight_var_cuda(w0_dat, y0_dat, cl_dat, gen_dic, p_dic, normalize=True,
                     exp_y_cond_w, var_y_cond_w = moving_avg_mean_var_cuda(
                         y_s, k, precision=precision)
                 else:
-                    band = (bandwidth_nw_rule_of_thumb_cuda(w_s)
+                    band = (bandwidth_nw_rule_of_thumb_cuda(w_s, kernel=1)
                             * p_dic['nw_bandw'])
                     exp_y_cond_w = nadaraya_watson_cuda(
                         y_s, w_s, w_s, p_dic['nw_kern'], band)
@@ -338,8 +338,8 @@ def moving_avg_mean_var_cuda(data, k, mean_and_var=True, precision=32):
     return mean, var
 
 
-def bandwidth_nw_rule_of_thumb_cuda(data):
-    """Compute rule of thumb for Nadaraya Watson Kernel regression.
+def bandwidth_nw_rule_of_thumb_cuda(data, kernel=1):
+    """Compute rule of thumb for Nadaraya Watson Kernel regression (cuda).
 
     Li & Racine, 2004, Nonparametric Econometrics: Theory & Practice,
                        bottom of page 66
@@ -360,6 +360,11 @@ def bandwidth_nw_rule_of_thumb_cuda(data):
     std = torch.std(data)
     sss = min(std, iqr) if iqr > 1e-15 else std
     bandwidth = sss * (obs ** (-0.2))
+
+    if kernel == 1:  # Epanechikov
+        bandwidth *= 2.34
+    elif kernel == 2:  # Normal distribution
+        bandwidth *= 1.06
     if bandwidth < 1e-15:
         bandwidth = 1
     return bandwidth
@@ -462,7 +467,7 @@ def kernel_proc_cuda(data, kernel):
 
 def analyse_weights_cuda(weights, title, gen_dic, p_dic, ate=True,
                          continuous=False, no_of_treat_cont=None,
-                         d_values_cont=None, precision=32):
+                         d_values_cont=None, precision=32, late=False):
     """Describe the weights (cuda version).
 
     Parameters
@@ -494,7 +499,10 @@ def analyse_weights_cuda(weights, title, gen_dic, p_dic, ate=True,
     txt = ''
     if ate:
         txt += '\n' * 2 + '=' * 100
-        txt += '\nAnalysis of weights (normalised to add to 1): ' + title
+        if late:
+            txt += '\nAnalysis of weights: ' + title
+        else:
+            txt += '\nAnalysis of weights (normalised to add to 1): ' + title
     no_of_treat = no_of_treat_cont if continuous else gen_dic['no_of_treat']
     larger_0 = torch.empty(no_of_treat, device='cuda',
                            dtype=mcf_c.tdtype('int', precision))
@@ -511,11 +519,11 @@ def analyse_weights_cuda(weights, title, gen_dic, p_dic, ate=True,
     sum_weights = torch.sum(weights, axis=1)
     for j in range(no_of_treat):
         if not (((1 - 1e-10) < sum_weights[j] < (1 + 1e-10))
-                or (-1e-15 < sum_weights[j] < 1e-15)):
+                or (-1e-15 < sum_weights[j] < 1e-15)) and not late:
             w_j = weights[j] / sum_weights[j]
         else:
             w_j = weights[j]
-        w_pos = w_j[w_j > 1e-15]
+        w_pos = w_j[torch.abs(w_j) > 1e-15]
         n_pos = len(w_pos)
         larger_0[j] = n_pos
         n_all = len(w_j)
@@ -523,6 +531,7 @@ def analyse_weights_cuda(weights, title, gen_dic, p_dic, ate=True,
         mean_pos[j], std_pos[j] = torch.mean(w_pos), torch.std(w_pos)
         gini_all[j] = gini_coeff_pos_cuda(w_j) * 100
         gini_pos[j] = gini_coeff_pos_cuda(w_pos) * 100
+        w_pos = torch.abs(w_pos)
         if n_pos > 5:
             quantiles = torch.tensor([0.99, 0.95, 0.9],  device='cuda')
             qqq = torch.quantile(w_pos, quantiles)

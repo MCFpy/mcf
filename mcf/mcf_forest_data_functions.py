@@ -6,7 +6,6 @@ Contains the data related functions needed for building the forst.
 -*- coding: utf-8 -*-
 """
 from copy import deepcopy
-from math import ceil
 from numba import njit, prange
 
 import numpy as np
@@ -16,10 +15,10 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import torch
 
 from mcf import mcf_cuda_functions as mcf_c
-from mcf import mcf_data_functions as data
-from mcf import mcf_general as gp
-from mcf import mcf_general_sys as gp_sys
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_data_functions as mcf_data
+from mcf import mcf_general as mcf_gp
+from mcf import mcf_general_sys as mcf_gp_sys
+from mcf import mcf_print_stats_functions as mcf_ps
 
 
 def prepare_data_for_forest(mcf_, data_df, no_y_nn=False):
@@ -49,9 +48,9 @@ def prepare_data_for_forest(mcf_, data_df, no_y_nn=False):
 
     """
     cf_dic, var_dic = mcf_.cf_dict, mcf_.var_dict
-    x_name, x_type = gp.get_key_values_in_list(mcf_.var_x_type)
+    x_name, x_type = mcf_gp.get_key_values_in_list(mcf_.var_x_type)
     x_type = np.array(x_type)
-    x_name2, x_values = gp.get_key_values_in_list(mcf_.var_x_values)
+    x_name2, x_values = mcf_gp.get_key_values_in_list(mcf_.var_x_values)
     if x_name != x_name2:
         raise RuntimeError('Wrong order of names', x_name, x_name2)
     p_x = len(x_name)     # Number of variables
@@ -77,6 +76,7 @@ def prepare_data_for_forest(mcf_, data_df, no_y_nn=False):
             if no_y_nn else data_df[var_dic['y_match_name']].to_numpy())
     y_nn_i = np.arange(2, 2 + len(var_dic['y_match_name']))
     x_dat = data_df[x_name].to_numpy()
+
     for col_indx in range(np.shape(x_dat)[1]):
         if x_type[col_indx] > 0:
             x_dat[:, col_indx] = np.around(x_dat[:, col_indx])
@@ -103,6 +103,10 @@ def prepare_data_for_forest(mcf_, data_df, no_y_nn=False):
     else:
         d_grid_i = None
     y_i = [0]
+    if (len(data_np) > mcf_.int_dict['obs_bigdata']
+            and data_np.dtype == np.float64):
+        data_np = data_np.astype(np.float32)  # Saves some memory
+
     return (x_name, x_type, x_values, cf_dic, pen_mult, data_np,
             y_i, y_nn_i, x_i, x_ind, x_ai_ind, d_i, w_i, cl_i, d_grid_i)
 
@@ -129,7 +133,7 @@ def m_n_grid(cf_dic, no_vars):
         if cf_dic['m_grid'] == 1:
             grid_m = round((m_min + m_max) / 2)
         else:
-            grid_m = gp.grid_log_scale(m_max, m_min, cf_dic['m_grid'])
+            grid_m = mcf_gp.grid_log_scale(m_max, m_min, cf_dic['m_grid'])
             grid_m = [int(idx) for idx in grid_m]
     if (isinstance(cf_dic['n_min_values'], (list, tuple, np.ndarray))
             and len(cf_dic['n_min_values']) > 1):
@@ -144,13 +148,15 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
     lc_dic, var_x_type = mcf_.lc_dict, mcf_.var_x_type
     int_dic = mcf_.int_dict
     if gen_dic['x_type_1'] or gen_dic['x_type_2']:  # Expand cat var to dummy
-        var_names_unordered = gp.dic_get_list_of_key_by_item(var_x_type,
-                                                             [1, 2])
+        var_names_unordered = mcf_gp.dic_get_list_of_key_by_item(var_x_type,
+                                                                 [1, 2])
         x_dummies = data_df[var_names_unordered].astype('category')
         x_dummies = pd.get_dummies(x_dummies, dtype=int)
     if gen_dic['x_type_0']:
-        var_names_ordered = gp.dic_get_list_of_key_by_item(var_x_type, [0])
+        var_names_ordered = mcf_gp.dic_get_list_of_key_by_item(var_x_type, [0])
         x_ord = data_df[var_names_ordered]
+    else:
+        x_ord = None
     if gen_dic['x_type_0'] and (gen_dic['x_type_1'] or gen_dic['x_type_2']):
         x_df = pd.concat([x_dummies, x_ord], axis=1)
     elif gen_dic['x_type_0'] and not (gen_dic['x_type_1']
@@ -165,15 +171,18 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
             y_dat_match = data_df[var_dic['y_tree_name_unc']].to_numpy()
         else:
             y_dat_match = y_dat
-    d_name, d_values, no_of_treat = data.get_treat_info(mcf_)
+    else:
+        y_dat_match = None
+    d_name, d_values, no_of_treat = mcf_data.get_treat_info(mcf_)
     d_dat = data_df[d_name].to_numpy()
     obs = len(x_dat)                        # Reduce x_dat to prognostic scores
     if (cf_dic['match_nn_prog_score']
         and ((cf_dic['mtot'] == 1) or (cf_dic['mtot'] == 4))
             and (len(x_df.columns) >= 2 * no_of_treat)):
         if gen_dic['with_output'] and gen_dic['verbose']:
-            ps.print_mcf(gen_dic, '\nComputing prognostic score for matching',
-                         summary=False)
+            mcf_ps.print_mcf(gen_dic,
+                             '\nComputing prognostic score for matching',
+                             summary=False)
         cf_dic['nn_main_diag_only'] = False   # Use full Mahalanobis matrix
         x_dat_neu = np.empty((obs, no_of_treat))
         params = {'n_estimators': cf_dic['boot'], 'max_features': 'sqrt',
@@ -199,7 +208,7 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
         if gen_dic['with_output'] and gen_dic['verbose']:
             txt = '\nPrognostic scores not used for matching '
             txt += '(too few covariates)'
-            ps.print_mcf(gen_dic, txt, summary=False)
+            mcf_ps.print_mcf(gen_dic, txt, summary=False)
     if (cf_dic['mtot'] == 1) or (cf_dic['mtot'] == 4):
         y_match = np.empty((obs, no_of_treat))
         # determine distance metric of Mahalanobis matching
@@ -224,7 +233,7 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
             else:
                 # Use ray for the higher dimensional cases
                 if gen_dic['mp_automatic']:
-                    maxworkers = gp_sys.find_no_of_workers(
+                    maxworkers = mcf_gp_sys.find_no_of_workers(
                         gen_dic['mp_parallel'], gen_dic['sys_share'])
                 else:
                     maxworkers = gen_dic['mp_parallel']
@@ -236,7 +245,7 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
                         ' too slow)')
             elif cuda:
                 txt += '  GPU is used instead of multiple CPUs.'
-            ps.print_mcf(gen_dic, txt, summary=False)
+            mcf_ps.print_mcf(gen_dic, txt, summary=False)
         if maxworkers == 1:
             for i_treat, i_value in enumerate(d_values):
                 if cuda:
@@ -252,27 +261,27 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
                         y_dat, x_dat, d_dat, obs, cov_x_inv, i_value, i_treat
                         )[0].flatten()
         else:
-            if int_dic['mp_ray_shutdown'] or int_dic['ray_or_dask'] == 'dask':
-                if maxworkers > ceil(no_of_treat/2):
-                    maxworkers = ceil(no_of_treat/2)
-            if int_dic['ray_or_dask'] == 'ray':
-                if not ray.is_initialized():
-                    ray.init(num_cpus=maxworkers, include_dashboard=False)
-                x_dat_ref = ray.put(x_dat)
-                still_running = [ray_nn_neighbour_mcf2.remote(
-                    y_dat, x_dat_ref, d_dat, obs, cov_x_inv, d_values[idx],
-                    idx, cuda) for idx in range(no_of_treat)]
-                while len(still_running) > 0:
-                    finished, still_running = ray.wait(still_running)
-                    finished_res = ray.get(finished)
-                    for res in finished_res:
-                        y_match[:, res[1]] = res[0]
-                if 'refs' in int_dic['mp_ray_del']:
-                    del x_dat_ref
-                if 'rest' in int_dic['mp_ray_del']:
-                    del finished_res, finished
-                if int_dic['mp_ray_shutdown']:
-                    ray.shutdown()
+            if not ray.is_initialized():
+                mcf_gp_sys.init_ray_with_fallback(
+                    maxworkers, int_dic, gen_dic,
+                    ray_err_txt='Ray did not start in nearest neighbour '
+                    'matching'
+                    )
+            x_dat_ref = ray.put(x_dat)
+            still_running = [ray_nn_neighbour_mcf2.remote(
+                y_dat, x_dat_ref, d_dat, obs, cov_x_inv, d_values[idx],
+                idx, cuda) for idx in range(no_of_treat)]
+            while len(still_running) > 0:
+                finished, still_running = ray.wait(still_running)
+                finished_res = ray.get(finished)
+                for res in finished_res:
+                    y_match[:, res[1]] = res[0]
+            if 'refs' in int_dic['mp_ray_del']:
+                del x_dat_ref
+            if 'rest' in int_dic['mp_ray_del']:
+                del finished_res, finished
+            if int_dic['mp_ray_shutdown']:
+                ray.shutdown()
     else:
         y_match = np.zeros((obs, no_of_treat))
     treat_val_str = [str(i) for i in d_values]
@@ -283,16 +292,16 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
                               index=data_df.index)
     data_new_df = pd.concat([data_df, y_match_df], axis=1)
     if gen_dic['with_output'] and print_out:
-        ps.print_mcf(gen_dic, '\nMatched outcomes', summary=True)
-        ps.print_descriptive_df(gen_dic, data_new_df, varnames=y_match_name,
-                                summary=True)
+        mcf_ps.print_mcf(gen_dic, '\nMatched outcomes', summary=True)
+        mcf_ps.print_descriptive_df(gen_dic, data_new_df, varnames=y_match_name,
+                                    summary=True)
     if gen_dic['with_output'] and int_dic['descriptive_stats'] and print_out:
         txt = '\nStatistics on matched neighbours of variable used for'
         txt += ' tree building'
-        ps.print_mcf(gen_dic, txt, summary=True)
+        mcf_ps.print_mcf(gen_dic, txt, summary=True)
         d_name = (var_dic['grid_nn_name']
                   if gen_dic['d_type'] == 'continuous' else var_dic['d_name'])
-        ps.statistics_by_treatment(
+        mcf_ps.statistics_by_treatment(
             gen_dic, data_new_df, d_name, var_dic['y_match_name'],
             only_next=gen_dic['d_type'] == 'continuous', summary=False,
             data_train_dic=mcf_.data_train_dict)

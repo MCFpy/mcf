@@ -10,14 +10,14 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.1
+Version: 0.7.2
 
 This is an example to show how the mcf can be implemented relying completely on
 defaults. Note that usually in application it is very likely to be appropriate
 to deviate from some of the default specifications.
 
 """
-import os
+from pathlib import Path
 
 from mcf.example_data_functions import example_data
 from mcf.mcf_functions import ModifiedCausalForest
@@ -26,7 +26,7 @@ from mcf.reporting import McfOptPolReport
 
 # ------------------ NOT parameters of the ModifiedCausalForest ---------------
 #  Define data to be used in this example
-APPLIC_PATH = os.getcwd() + '/example'
+APPLIC_PATH = Path.cwd() / 'example/output'
 
 # ---------------------- Generate artificial data ------------------------------
 
@@ -38,10 +38,11 @@ VAR_D_NAME = 'treat'   # Name of treatment variable
 VAR_Y_NAME = 'outcome'         # Name of outcome variable
 VAR_X_NAME_ORD = ('x_cont0',)  # Using VAR_X_NAME_UNORD instead is fine as well
 # -----------------------------------------------------------------------------
-if not os.path.exists(APPLIC_PATH):
-    os.makedirs(APPLIC_PATH)
+if not APPLIC_PATH.exists():
+    APPLIC_PATH.mkdir(parents=True)
 # -----------------------------------------------------------------------------
-mymcf = ModifiedCausalForest(var_d_name=VAR_D_NAME,
+mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
+                             var_d_name=VAR_D_NAME,
                              var_y_name=VAR_Y_NAME,
                              var_x_name_ord=VAR_X_NAME_ORD)
 

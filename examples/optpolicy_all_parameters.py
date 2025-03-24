@@ -13,14 +13,14 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.0
+Version: 0.7.2
 
 This is an example to show how to use the OptimalPolicy class of the mcf
 module with full specification of all its keywords. It may be seen as an add on
 to the published mcf documentation.
 
 """
-import os
+from pathlib import Path
 
 from mcf.example_data_functions import example_data
 from mcf.optpolicy_functions import OptimalPolicy
@@ -28,7 +28,7 @@ from mcf.reporting import McfOptPolReport
 
 # ------------- NOT passed to OptimalPolicy -----------------------------------
 #  Define data to be used in this example
-APPLIC_PATH = os.getcwd() + '/example'
+APPLIC_PATH = Path.cwd() / 'example'
 
 # ---------------------- Generate artificial data ------------------------------
 
@@ -45,7 +45,7 @@ PRED_OBS = 1000         # Number of observations of prediction data.
 #                         features that are used in training. Policy scores are
 #                         not required. Default is 1000.
 
-FAIRNESS_CORRECTION = True
+FAIRNESS_CORRECTION = False
 # If True, scores are adjusted for fairness
 # considerations a là Bearth, Lechner, Mareckova, and Muny (2024). Requires
 # the specification of some additional keywords below
@@ -60,7 +60,7 @@ NO_FEATURES = 20         # Number of features. Will generate different types of
 
 NO_TREATMENTS = 3        # Number of treatments
 
-training_df, prediction_df, name_dict = example_data(
+training_all_df, prediction_df, name_dict = example_data(
     obs_y_d_x_iate=TRAIN_OBS,
     obs_x_iate=PRED_OBS,
     no_features=NO_FEATURES,
@@ -70,7 +70,7 @@ training_df, prediction_df, name_dict = example_data(
     descr_stats=True)
 
 if PREDDATA_IS_TRAINDATA:
-    prediction_df = training_df
+    prediction_df = training_all_df
 
 # ------------- Methods used in Optimal Policy Module --------------------------
 METHODS = ('best_policy_score', 'bps_classifier', 'policy tree',)
@@ -82,11 +82,11 @@ METHODS = ('best_policy_score', 'bps_classifier', 'policy tree',)
 # -------- All what follows are parameters of the OptimalPolicy --------
 #   Whenever None is specified, parameter will be set to default values.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-GEN_OUTPATH = os.getcwd() + '/example/outputOPT'  # Directory for output.
+GEN_OUTPATH = Path.cwd() / 'example/outputOPT'  # Directory for output.
 #   If it does not exist, it will be created. Default is an *.out directory
 #   just below to the directory where the programme is run.
 
-GEN_OUTFILETEXT = "OptPolicy.0.7.0"  # File for text output
+GEN_OUTFILETEXT = "OptPolicy.0.7.2"  # File for text output
 #   Default is 'txtFileWithOutput'.
 #   *.txt file extension will be added by the programme
 
@@ -101,6 +101,11 @@ GEN_METHOD = None
 #   loop at the end of the programme.
 GEN_VARIABLE_IMPORTANCE = None    # Compute variable importance statistics
 #   based on random forest  classifiers. Default is True.
+
+#   ------------- Multiprocessing ----------------------------------------------
+GEN_MP_PARALLEL = None       # Number of parallel processes  (>0)
+#   Default is to use 80% of logical cores (reduce if memory problems!)
+#   0, 1: no parallel computations
 
 # ---------------- Names of variables used ------------------------------------
 VAR_ID_NAME = 'id'     # Name of identifier in data. Default is None.
@@ -325,14 +330,15 @@ PT_NO_OF_EVALUPOINTS = None  # No of evaluation points for continuous variables.
 PT_EVA_CAT_MULT = None      # Changes the number of the evaluation points
 #   (pt_no_of_evalupoints) for the unordered (categorical) variables to:
 #   pt_eva_cat_mult * pt_no_of_evalupoints (available only for the method
-#   'policy tree').  Default is 1.
+#   'policy tree').  Default is 2.
 
 PT_SELECT_VALUES_CAT = None   # Approximation method for larger categorical
 #   variables.
 #   Since we search among optimal trees, for categorical variables
 #   variables we need to check for all possible combinations of the different
 #   values that lead to binary splits. This number could be huge. There-
-#   fore, we compare only PT_NO_OF_EVALUPOINTS * 2 different combinations.
+#   fore, we compare only PT_NO_OF_EVALUPOINTS * PT_EVA_CAT_MULT different
+#   combinations.
 #   Method 1 (PT_SELECT_VALUES_CAT == True) does this by randomly drawing
 #   values from the particular categorical variable and forming groups only
 #   using those values. Method 2 (PT_SELECT_VALUES_CAT==False) sorts the
@@ -400,18 +406,14 @@ OTHER_COSTS_OF_TREAT_MULT = None   # Multiplier of automatically determined
 #   decrease (<1) the share of treated in particular treatment.
 
 # -----------Internal parameters. Change only if good reason to do so. --------
+_INT_FONTSIZE = None            # Legend, 1(very small) to 7(very large); def: 2
+_INT_DPI = None                 # > 0: Default (None): 500
 _INT_WITH_OUTPUT = None   # Print output on file and screen. Default is True.
 _INT_OUTPUT_NO_NEW_DIR = None   # Do not create a new directory when the path
-#                                already exists. Default is False.
+#                                 already exists. Default is False.
 _INT_REPORT = None              # True: Provide information for McfOptPolReports
 #                                 to construct informative reports.
 #                                 Default is True.
-_INT_PARALLEL_PROCESSING = None  # False: No parallel computations
-#                             True: Multiprocessing (def)
-_INT_HOW_MANY_PARALLEL = None  # Number of parallel process. Default is 80% of
-#   cores, if this can be effectively implemented.
-_INT_XTR_PARALLEL = None  # Parallelize to a larger degree to make sure all
-#                           CPUs are busy for most of the time. Default is True.
 _INT_WITH_NUMBA = None    # Use Numba to speed up computations: Default is True.
 _INT_XTR_PARALLEL = None  # Parallelize to a larger degree to make sure all
 #   CPUs are busy for most of the time. Default is True. Only used for
@@ -437,6 +439,7 @@ params = {
     'fair_material_disc_method': FAIR_MATERIAL_DISC_METHOD,
     'gen_outfiletext': GEN_OUTFILETEXT,
     'gen_outpath': GEN_OUTPATH, 'gen_output_type': GEN_OUTPUT_TYPE,
+    'gen_mp_parallel': GEN_MP_PARALLEL,
     'gen_variable_importance': GEN_VARIABLE_IMPORTANCE,
     'other_costs_of_treat': OTHER_COSTS_OF_TREAT,
     'other_costs_of_treat_mult': OTHER_COSTS_OF_TREAT_MULT,
@@ -460,31 +463,31 @@ params = {
     'var_vi_x_name': VAR_VI_X_NAME,
     'var_vi_to_dummy_name': VAR_VI_TO_DUMMY_NAME,
     'var_x_name_ord': VAR_X_NAME_ORD, 'var_x_name_unord': VAR_X_NAME_UNORD,
-    '_int_how_many_parallel': _INT_HOW_MANY_PARALLEL,
+    '_int_dpi': _INT_DPI, '_int_fontsize': _INT_FONTSIZE,
     '_int_output_no_new_dir': _INT_OUTPUT_NO_NEW_DIR,
     '_int_report': _INT_REPORT,
-    '_int_parallel_processing': _INT_PARALLEL_PROCESSING,
     '_int_with_numba': _INT_WITH_NUMBA,
     '_int_with_output': _INT_WITH_OUTPUT,
     '_int_xtr_parallel': _INT_XTR_PARALLEL,
     }
-if not os.path.exists(APPLIC_PATH):
-    os.makedirs(APPLIC_PATH)
+if not APPLIC_PATH.exists():
+    APPLIC_PATH.mkdir(parents=True)
 
 for method in METHODS:
     params['gen_method'] = method
     myoptp = OptimalPolicy(**params)
     # --- Fairness correction ------
     if FAIRNESS_CORRECTION:
-        training_fair_df, _, _, _ = myoptp.fairscores(training_df,
-                                                      data_title='training')
+        training_df, _, _, _ = myoptp.fairscores(training_all_df,
+                                                 data_title='training')
     else:
-        training_fair_df = training_df
+        training_df = training_all_df
+
     # ----- Training data ----------
-    alloc_train_df, _, _ = myoptp.solve(training_fair_df,
+    alloc_train_df, _, _ = myoptp.solve(training_df,
                                         data_title='training fair')
 
-    results_eva_train, _ = myoptp.evaluate(alloc_train_df, training_fair_df,
+    results_eva_train, _ = myoptp.evaluate(alloc_train_df, training_df,
                                            data_title='training fair')
     if method != 'best_policy_score':
         alloc_pred_df, _ = myoptp.allocate(prediction_df,

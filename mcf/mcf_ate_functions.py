@@ -23,8 +23,8 @@ from mcf import mcf_print_stats_functions as ps
 
 
 def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
-            w_ate_only=False, with_output=True):
-    """Estimate ATE and their standard errors.
+            w_ate_only=False, with_output=True, late=False):
+    """Estimate ATEs and their standard errors.
 
     Parameters
     ----------
@@ -32,10 +32,16 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
     data_df : DataFrame. Prediction data.
     weights_dic : Dict.
               Contains weights and numpy data.
-    balancing_test: Boolean.
+    balancing_test: Boolean,  optional.
               Default is False.
-    w_ate_only : Boolean.
+    w_ate_only : Boolean, optional.
               Only weights are needed as output. Default is False.
+    with_output : Boolean, optional.
+              Output printed if True. Default is True.
+    late : Boolena, optional.
+               Local average treatment effect estimation. True will prevent
+               weights from being forced to be positive and normalized. Default
+               is False.
 
     Returns
     -------
@@ -50,7 +56,7 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
     print_output = not w_ate_only and with_output
     if balancing_test:
         var_dic, p_dic = deepcopy(mcf_.var_dict), deepcopy(mcf_.p_dict)
-        var_dic['y_name'] = var_dic['x_balance_name']
+        var_dic['y_name'] = var_dic['x_name_balance_test']
         p_dic['atet'], p_dic['gatet'] = 0, 0
         y_dat = weights_dic['x_bala_np']
     else:
@@ -91,15 +97,15 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
         for i in range(n_p):
             w_add = np.zeros((no_of_treat, n_y))
             for t_ind, _ in enumerate(d_values):
-                w_i_csr = weights[t_ind].getrow(i)    # copy, but still sparse
+                w_i_csr = weights[t_ind][i, :]   # copy, but still sparse
                 if gen_dic['weighted']:
                     w_i_csr = w_i_csr.multiply(w_dat.reshape(-1))
                 sum_wi = w_i_csr.sum()
-                if sum_wi <= 1e-15:
+                if sum_wi <= 1e-15 and not late:
                     txt = f'\nEmpty leaf. Observation: {i}'
                     ps.print_mcf(gen_dic, txt, summary=True)
                     raise RuntimeError(txt)
-                if not (1-1e-10) < sum_wi < (1+1e-10):
+                if not ((1-1e-10) < sum_wi < (1+1e-10)) and not late:
                     w_i_csr = w_i_csr.multiply(1 / sum_wi)
                 if gen_dic['weighted']:
                     w_i_csr = w_i_csr.multiply(w_p[i])
@@ -117,13 +123,14 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
                 w_i = weight_i[t_ind][1].copy()
                 if gen_dic['weighted']:
                     w_i = w_i * w_dat[weight_i[t_ind][0]].reshape(-1)
-                sum_wi = np.sum(w_i)
-                if sum_wi <= 1e-15:
-                    txt = (f'\nZero weight. Index: {weight_i[t_ind][0]}'
-                           f'd_value: {t_ind}\nWeights: {w_i}')
-                    ps.print_mcf(gen_dic, txt, summary=True)
-                    raise RuntimeError(txt)
-                if not (1-1e-10) < sum_wi < (1+1e-10):
+                if not late:
+                    sum_wi = np.sum(w_i)
+                    if sum_wi <= 1e-15:
+                        txt = (f'\nZero weight. Index: {weight_i[t_ind][0]}'
+                               f'd_value: {t_ind}\nWeights: {w_i}')
+                        ps.print_mcf(gen_dic, txt, summary=True)
+                        raise RuntimeError(txt)
+                if not ((1-1e-10) < sum_wi < (1+1e-10)) and not late:
                     w_i = w_i / sum_wi
                 if gen_dic['weighted']:
                     w_i = w_i * w_p[i]
@@ -138,9 +145,11 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
                 w_ate[ind_d_val[d_p[i] == d_values]+1, :, :] += w_add
     # Step 2: Get potential outcomes
     sumw = np.sum(w_ate, axis=2)
+    if late:
+        sumw = np.ones_like(sumw) * n_p
     for a_idx in range(no_of_ates):
         for ta_idx in range(no_of_treat):
-            if -1e-15 < sumw[a_idx, ta_idx] < 1e-15:
+            if (-1e-15 < sumw[a_idx, ta_idx] < 1e-15) and not late:
                 if int_dic['with_output'] and print_output:
                     txt += (f'\nTreatment: {ta_idx}, ATE number: {a_idx})'
                             f'\nATE weights: {w_ate[a_idx, ta_idx, :]}')
@@ -163,8 +172,15 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
             if not p_dic['ate_no_se_only']:
                 w_ate_export[a_idx, ta_idx, :] = w_ate[a_idx, ta_idx, :]
             if (p_dic['max_weight_share'] < 1) and not continuous:
-                w_ate[a_idx, ta_idx, :], _, share = mcf_gp.bound_norm_weights(
-                    w_ate[a_idx, ta_idx, :], p_dic['max_weight_share'])
+                if late:
+                    (w_ate[a_idx, ta_idx, :], _, share
+                     ) = mcf_gp.bound_norm_weights_not_one(
+                         w_ate[a_idx, ta_idx, :], p_dic['max_weight_share'])
+                else:
+                    (w_ate[a_idx, ta_idx, :], _, share
+                     ) = mcf_gp.bound_norm_weights(
+                         w_ate[a_idx, ta_idx, :], p_dic['max_weight_share'])
+
                 if int_dic['with_output']:
                     txt += ('\nShare of weights censored at'
                             f'{p_dic["max_weight_share"]*100:8.3f}%: '
@@ -208,8 +224,14 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
                                           + w01 * w_ate[a_idx, t_idx+1, :])
                         w_ate_cont = w_ate_cont / np.sum(w_ate_cont)
                         if p_dic['max_weight_share'] < 1:
-                            w_ate_cont, _, share = mcf_gp.bound_norm_weights(
-                                w_ate_cont, p_dic['max_weight_share'])
+                            if late:
+                                (w_ate_cont, _, share
+                                 ) = mcf_gp.bound_norm_weights_not_one(
+                                     w_ate_cont, p_dic['max_weight_share'])
+                            else:
+                                (w_ate_cont, _, share
+                                 ) = mcf_gp.bound_norm_weights(
+                                     w_ate_cont, p_dic['max_weight_share'])
                         ret = mcf_est.weight_var(
                             w_ate_cont, y_dat[:, o_idx], cl_dat, gen_dic,
                             p_dic, weights=w_dat,
@@ -232,7 +254,8 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
                         gen_dic, p_dic, weights=w_dat,
                         bootstrap=p_dic['se_boot_ate'],
                         keep_all=int_dic['keep_w0'],
-                        se_yes=not p_dic['ate_no_se_only'])
+                        se_yes=not p_dic['ate_no_se_only'],
+                        normalize=not late)
                     pot_y[a_idx, t_idx, o_idx] = ret[0]
                     if not p_dic['ate_no_se_only']:
                         pot_y_var[a_idx, t_idx, o_idx] = ret[1]
@@ -247,12 +270,13 @@ def ate_est(mcf_, data_df, weights_dic, balancing_test=False,
             (_, _, _, _, _, _, _, _, _, txt_weight) = mcf_est.analyse_weights(
                 w_ate_1dim[0, :, :], 'Weights to compute ATE', gen_dic, p_dic,
                 ate=True, continuous=continuous, no_of_treat_cont=no_of_treat,
-                d_values_cont=d_values)
+                d_values_cont=d_values, late=late)
             txt += txt_weight
     return w_ate_export, pot_y, pot_y_var, txt
 
 
-def ate_effects_print(mcf_, effect_dic, y_pred_lc, balancing_test=False):
+def ate_effects_print(mcf_, effect_dic, y_pred_lc, balancing_test=False,
+                      extra_title=''):
     """Compute ate's from potential outcomes and print them."""
     gen_dic, ct_dic, p_dic = mcf_.gen_dict, mcf_.ct_dict, mcf_.p_dict
     var_dic, int_dic = mcf_.var_dict, mcf_.int_dict
@@ -266,13 +290,15 @@ def ate_effects_print(mcf_, effect_dic, y_pred_lc, balancing_test=False):
     continuous = gen_dic['d_type'] == 'continuous'
     d_values = ct_dic['d_values_dr_np'] if continuous else gen_dic['d_values']
     no_of_treat = len(d_values)
-    y_name = var_dic['x_balance_name'] if balancing_test else var_dic['y_name']
+    y_name = (var_dic['x_name_balance_test'] if balancing_test
+              else var_dic['y_name'])
     if gen_dic['with_output']:
         txt = '\n' * 2 + '=' * 100
         if balancing_test:
             txt += '\nBalancing Tests\n' + '-' * 100
         else:
-            txt += '\nAverage Treatment Effects Estimation\n' + '-' * 100
+            txt += ('\nAverage Treatment Effects Estimation '
+                    + extra_title + '\n' + '-' * 100)
         txt += '\nPotential outcomes\n' + '-' * 100
         if p_dic['se_boot_ate'] > 1:
             txt += ('\nBootstrap standard errors with '
@@ -353,7 +379,7 @@ def ate_effects_print(mcf_, effect_dic, y_pred_lc, balancing_test=False):
     if balancing_test and gen_dic['with_output']:
         average_t = np.mean(ate_t)
         txt += '\nVariables investigated for balancing test:'
-        for name in var_dic['x_balance_name']:
+        for name in var_dic['x_name_balance_test']:
             txt += f' {name}'
         txt += '\n' + '- ' * 50 + '\n' + 'Balancing test summary measure'
         txt += ' (average t-value of ATEs):'
@@ -413,12 +439,9 @@ def dose_response_figure(y_name, d_name, effects, stderr, d_values, int_dic,
     label_ci = f'{p_dic["ci_level"]:2.0%}-CI'
     label_m, label_0, line_0 = 'ADR', '_nolegend_', '_-k'
     zeros = np.zeros_like(effects)
-    file_name_jpeg = (p_dic['ate_iate_fig_pfad_jpeg'] + '/' + file_title
-                      + '.jpeg')
-    file_name_pdf = (p_dic['ate_iate_fig_pfad_pdf'] + '/' + file_title
-                     + '.pdf')
-    file_name_csv = (p_dic['ate_iate_fig_pfad_csv'] + '/' + file_title
-                     + 'plotdat.csv')
+    file_name_jpeg = p_dic['ate_iate_fig_pfad_jpeg'] / f'{file_title}.jpeg'
+    file_name_pdf = p_dic['ate_iate_fig_pfad_pdf'] / f'{file_title}.pdf'
+    file_name_csv = p_dic['ate_iate_fig_pfad_csv'] / f'{file_title}plotdat.csv'
     fig, axs = plt.subplots()
     axs.set_title(titel.replace('vs', ' vs '))
     axs.set_ylabel("Average dose response (relative to 0)")
@@ -436,8 +459,8 @@ def dose_response_figure(y_name, d_name, effects, stderr, d_values, int_dic,
         fig.savefig(file_name_pdf, dpi=int_dic['dpi'])
         if int_dic['show_plots']:
             plt.show()
-        else:
-            plt.close()
+        plt.close()
+
         upper, lower = upper.reshape(-1, 1), lower.reshape(-1, 1)
         effects = effects.reshape(-1, 1)
         d_values_np = np.array(d_values, copy=True).reshape(-1, 1)

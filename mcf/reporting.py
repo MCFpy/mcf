@@ -3,7 +3,7 @@ from mcf import reporting_functions as rep
 
 class McfOptPolReport:
     """
-    .. versionadded:: 0.6.0
+    .. versionadded:: 0.7.0
         Provides reports about the main specification choices and most
         important results of the :class:`~mcf_functions.ModifiedCausalForest`
         and :class:`~optpolicy_functions.OptimalPolicy` estimations.
@@ -21,7 +21,7 @@ class McfOptPolReport:
             Contains all information from the optimal policy analysis needed
             for reports. The default is None.
 
-        outputpath : String or None, optional
+        outputpath : String, Pathlib object, or None, optional
             Path to write the pdf file that is created with the
             :meth:`~McfOptPolReport.report` method. If None, then an
             '/out' subdirectory of the current working directory is used.
@@ -68,6 +68,9 @@ class McfOptPolReport:
     blind : Boolean.
         True if there is anything to report about blinded IATE estimation.
 
+    late : Boolean.
+        True if instrumental variable estimation is performed.
+
     </NOT-ON-API>
 
     """
@@ -82,6 +85,7 @@ class McfOptPolReport:
         self.sens = self.sens_o is not None
         self.blind = self.blind_o is not None
         self.text = {}
+        self.late = False        # Instrumental variable estimation
 
     def report(self):
         """Create a PDF report using instances of the
@@ -91,10 +95,12 @@ class McfOptPolReport:
 
         Returns
         -------
-        outpath : String
+        outpath : Pathlib object
             Name and Location of file in which pdf output is saved.
 
         """
+        if self.mcf:
+            self.late = self.mcf_o.iv_mcf['firststage'] is not None
         # Step one: Fill the dictionaries
         rep.create_text(self)
 

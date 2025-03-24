@@ -16,9 +16,10 @@ import pandas as pd
 import ray
 
 from mcf import mcf_general as mcf_gp
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_print_stats_functions as mcf_ps
 from mcf import optpolicy_pt_add_functions as opt_pt_add
 from mcf import optpolicy_pt_eff_functions as opt_pt_eff
+from mcf import mcf_general_sys as mcf_sys
 
 
 def policy_tree_allocation(optp_, data_df):
@@ -64,7 +65,7 @@ def policy_tree_allocation(optp_, data_df):
             if tree_number == 1:
                 txt += f'. Leaf of first tree: {idx+1}'
             if optp_.gen_dict['with_output']:
-                ps.print_mcf(optp_.gen_dict, txt, summary=False)
+                mcf_ps.print_mcf(optp_.gen_dict, txt, summary=False)
             while best_tree is None:
                 if optp_.gen_dict['method'] == 'policy tree':
                     best_tree, _, _ = opt_pt_eff.optimal_tree_eff_proc(
@@ -79,7 +80,7 @@ def policy_tree_allocation(optp_, data_df):
                                'reduced.\nIf results are desired for original '
                                'depth level, try reducing the minimum leaf size'
                                ' or increasing the # of evaluation points.')
-                        ps.print_mcf(optp_.gen_dict, txt, summary=True)
+                        mcf_ps.print_mcf(optp_.gen_dict, txt, summary=True)
                     optp_local.pt_dict['depth'] -= 1
                     if optp_local.pt_dict['depth'] == 1:
                         break
@@ -103,8 +104,8 @@ def policy_tree_allocation(optp_, data_df):
     allocation_df = pd.DataFrame(data=pt_alloc_np, columns=('Policy Tree',))
     if pt_alloc_txt is None:
         return allocation_df, '', tree_info_dic
-    else:
-        return allocation_df, pt_alloc_txt + txt_warning, tree_info_dic
+
+    return allocation_df, pt_alloc_txt + txt_warning, tree_info_dic
 
 
 def policy_tree_prediction_only(optp_, data_df):
@@ -174,7 +175,7 @@ def pred_policy_allocation(optp_, data_df):
     total_obs = len(data_df_x)
     x_indx = pd.DataFrame(data=range(len(data_df_x)), columns=('Sorter',))
     length = len(pt_dic['policy_tree'])
-    ids = [None] * length
+    ids = [None for _ in range(length)]
     terminal_leafs = []
     terminal_leafs_id = []
     for leaf_i in range(length):
@@ -184,10 +185,10 @@ def pred_policy_allocation(optp_, data_df):
             terminal_leafs_id.append(pt_dic['policy_tree'][leaf_i][0])
     assert len(set(ids)) == len(ids), ('Some leafs IDs are identical.' +
                                        'Rerun programme.')
-    splits_seq = [None] * len(terminal_leafs)
-    obs = [None] * len(terminal_leafs)
-    treat = [None] * len(terminal_leafs)
-    indx_in_leaf = [None] * len(terminal_leafs)
+    splits_seq = [None for _ in range(len(terminal_leafs))]
+    obs = [None for _ in range(len(terminal_leafs))]
+    treat = [None for _ in range(len(terminal_leafs))]
+    indx_in_leaf = [None for _ in range(len(terminal_leafs))]
     for i, leaf in enumerate(terminal_leafs):
         splits_seq[i], _, obs[i], treat[i], indx_in_leaf[i] = two_leafs_info(
             pt_dic['policy_tree'], x_indx, data_df_x, leaf,
@@ -308,9 +309,12 @@ def optimal_tree_proc(optp_, data_df, seed=12345):
     (data_x, data_ps, data_ps_diff, name_x, type_x, values_x
      ) = opt_pt_add.prepare_data_for_tree_building(optp_, data_df, seed=seed)
     optimal_tree, x_trees = None, []
-    if int_dic['parallel_processing']:
+    if gen_dic['mp_parallel'] > 1.5:
         if not ray.is_initialized():
-            ray.init(num_cpus=int_dic['mp_parallel'], include_dashboard=False)
+            mcf_sys.init_ray_with_fallback(
+                gen_dic['mp_parallel'], int_dic, gen_dic,
+                ray_err_txt='Ray does not start up in policy tree estimation.'
+                )
         data_x_ref = ray.put(data_x)
         data_ps_ref = ray.put(data_ps)
         data_ps_diff_ref = ray.put(data_ps_diff)
@@ -319,7 +323,7 @@ def optimal_tree_proc(optp_, data_df, seed=12345):
             values_x, gen_dic, pt_dic, ot_dic, pt_dic['depth'], m_i,
             int_dic['with_numba'], m_i**3)
             for m_i in range(len(type_x))]
-        idx, x_trees = 0, [None] * len(type_x)
+        idx, x_trees = 0, [None for _ in range(len(type_x))]
         while len(still_running) > 0:
             finished, still_running = ray.wait(still_running)
             finished_res = ray.get(finished)
@@ -385,7 +389,7 @@ def tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
                 if treedepth == pt_dic['depth']:
                     txt = (f'{name_x[m_i]:20s}  {m_i / no_of_x * 100:4.1f}%'
                            ' of variables completed')
-                    ps.print_mcf(gen_dic, txt, summary=False)
+                    mcf_ps.print_mcf(gen_dic, txt, summary=False)
             if type_x[m_i] == 'cont':
                 values_x_to_check = opt_pt_add.get_values_cont_x(
                     data_x[:, m_i], pt_dic['no_of_evalupoints'],
@@ -463,7 +467,7 @@ def merge_trees(tree_l, tree_r, name_x_m, type_x_m, val_x, treedepth):
     new_tree : List of lists. The merged trees.
 
     """
-    leaf = [None] * 9
+    leaf = [None for _ in range(9)]
     leaf[0], leaf[1] = randrange(100000), None
     leaf[5], leaf[6], leaf[7] = name_x_m, type_x_m, val_x
     if treedepth == 2:  # Final split (defines 2 final leaves)
@@ -473,7 +477,7 @@ def merge_trees(tree_l, tree_r, name_x_m, type_x_m, val_x, treedepth):
     else:
         leaf[2], leaf[3], leaf[4] = tree_l[0][0], tree_r[0][0], 0
         tree_l[0][1], tree_r[0][1] = leaf[0], leaf[0]
-        new_tree = [None] * (1 + 2 * len(tree_l))
+        new_tree = [None for _ in range(1 + 2 * len(tree_l))]
         new_tree[0] = leaf
         i = 1
         for i_l in tree_l:

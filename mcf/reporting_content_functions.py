@@ -93,9 +93,9 @@ def opt_fairness(opt_o, empty_lines_end):
         'heteroscedasticity of the policy scores related to the '
         'protected features is removed by rescaling.'
         '\n(3) Quantiled: insprired by the quantile based '
-        'approach suggested by Strack & Yang (2024), but extend to multiple '
-        'treatments and possibly continuous protected and / or materially '
-        'important features.'
+        'approach suggested by Strack & Yang (2024), but extended to address '
+        'multiple treatments and possibly continuous protected and / or '
+        'materially important features. '
         'If there are many values of the materially relevant '
         'features, features may be either discretized or treated as '
         'continuous. If treated as continuous, the respective densities '
@@ -208,7 +208,17 @@ def opt_evaluation(opt_o):
             and (opt_o.var_dict['vi_x_name']
                  or opt_o.var_dict['vi_to_dummy_name'])):
         general_txt += ' and variable importance statistics'
-    general_txt += '.'
+    general_txt += (
+        '. Also Qini-like plots are produced and saved in the same location as '
+        'the text output. Those plots compare the optimal allocation to a '
+        'reference allocation (3 allocations are used as such reference '
+        'allocations, if available: (i) observed, (ii) random, (iii) the '
+        'treatment with the highest ATE is allocated to everybody). '
+        'They show the mean welfare when an increasing share of observations '
+        '(starting with those who gain most from the optimal allocation '
+        'compared to the reference allocation) is allocated using the optimal '
+        'allocation rule.'
+        )
     for evalu in opt_o.report['evalu_list']:
         txt = evalu[0]
         table_df = results_dic_to_df(evalu[1])
@@ -219,7 +229,7 @@ def opt_evaluation(opt_o):
 def opt_training(opt_o, empty_lines_end=2):
     """Text training part of description."""
     txt = '\nCOMPUTATION'
-    txt += (f'\n{opt_o.int_dict["mp_parallel"]} logical cores are used for '
+    txt += (f'\n{opt_o.gen_dict["mp_parallel"]} logical cores are used for '
             'processing.')
     if (opt_o.int_dict['xtr_parallel'] and
             opt_o.gen_dict['method'] in ('policy tree', 'policy tree old',)):
@@ -455,33 +465,45 @@ def opt_general(opt_o, empty_lines_end):
     return txt + '\n' * empty_lines_end
 
 
-def mcf_iate_analyse(mcf_o, empty_lines_end):
+def mcf_iate_analyse(mcf_o, empty_lines_end, late=False):
     """Create text, table, and figures for ate estimation."""
     txt = ('\n' * 2 +
            'This section contains parts of the descriptive analysis '
-           ' of the IATEs. More detailed tables and figures are contained in '
-           'the output files and directories. These additional results '
-           'include variable importance plots from a regression random forest '
-           'as well as and linear regression results. Both estimators use '
-           'the estimated IATEs as dependent variables and the confounders '
-           'and heterogeneity variables as features.'
+           ' of the '
            )
+    txt += 'LIATEs. ' if late else 'IATEs. '
+    txt += ('More detailed tables and figures are contained in '
+            'the output files and directories. These additional results '
+            'include variable importance plots from a regression random forest '
+            'as well as and linear regression results. Both estimators use '
+            'the estimated IATEs as dependent variables and the confounders '
+            'and heterogeneity variables as features. '
+            )
+    if late:
+        txt += ('\nFigures relate to the distributions of the LIATEs as well '
+                'as to the IATEs for the first stage and the reduced form. '
+                )
     figure_note = '\n' * empty_lines_end
     knn_text = ''
     if (mcf_o.report.get('knn_table') is not None
             and mcf_o.report['knn_table'] is not None):
         knn_text = '\n' * 2 + 'K-MEANS CLUSTERING'
         knn_text += ('\nThe sample is divided using k-means clustering based '
-                     'on the estimated IATEs. The number of clusters is '
-                     'determined by maximizing the Average Silhouette Score '
-                     'on a given grid. The following table shows the means of '
-                     'the IATEs, potential outcomes, and the features in '
-                     'these clusters, respectively.'
+                     'on the estimated '
+                     )
+        knn_text += 'LIATEs' if late else 'IATEs'
+        knn_text += ('. The number of clusters is determined by maximizing '
+                     'the Average Silhouette Score on a given grid. The '
+                     'following table shows the means of the '
+                     )
+        knn_text += 'LIATEs' if late else 'IATEs'
+        knn_text += (', potential outcomes, and the features in these '
+                     'clusters, respectively.'
                      )
         if mcf_o.post_dict['kmeans_single']:
             knn_text += ('There are also results for clustering according to '
                          'single effects only. These results are contained in '
-                         'the respective *.txt-files.')
+                         'the respective .txt-files.')
     if mcf_o.report.get('fig_iate') is not None:
         fig_iate = mcf_o.report['fig_iate']
     else:
@@ -494,13 +516,19 @@ def mcf_iate_analyse(mcf_o, empty_lines_end):
     return txt, fig_iate, figure_note, knn_text, knn_table
 
 
-def mcf_iate_part1(mcf_o, empty_lines_end):
+def mcf_iate_part1(mcf_o, empty_lines_end, late=False):
     """Text basic descriptives of IATEs."""
     txt = ('\n' * 2 +
            'This section contains parts of the descriptive analysis '
-           'of the IATEs. Use the analyse method to obtain more '
-           'descriptives of the IATEs, like their distribution, and their '
-           'relations to the features.')
+           'of the '
+           )
+    txt += 'LIATEs. ' if late else 'IATEs. '
+    txt += ('Use the analyse method to obtain more '
+            'descriptives of the '
+            )
+    txt += 'LIATEs, ' if late else 'IATEs, '
+    txt += 'like their distribution, and their relations to the features.'
+
     if mcf_o.gen_dict['iate_eff']:
         txt += ('\n' * 2 + 'METHODOLOGICAL NOTE'
                 '\nIn order to increase the efficiency of the IATE estimation, '
@@ -510,21 +538,23 @@ def mcf_iate_part1(mcf_o, empty_lines_end):
                 'to obtain a more precise estimator (which may be particulary '
                 'useful when the IATEs, or the corresponding potential '
                 'outcomes, are used as inputs for decision models). '
-                '\nThe following descriprive analysis is based on the first '
+                '\nThe following descriptive analysis is based on the first '
                 'round IATEs only.')
     txt += '\n' * 2 + 'RESULTS' + '\n' + mcf_o.report['iate_text']
     return txt + '\n' * empty_lines_end
 
 
-def mcf_balance(empty_lines_end):
+def mcf_balance(empty_lines_end, late=False):
     """Text balancing tests."""
     txt = ('\n' * 2 + 'Balancing tests are experimental. '
            'See the output files for the results.')
+    if late:
+        txt += 'Balancing tests are for 1st stage and reduced form only.'
     return txt + '\n' * empty_lines_end
 
 
-def mcf_gate(mcf_o, empty_lines_end, gate_type='gate'):
-    """Create text, table, and figures for ate estimation."""
+def mcf_gate(mcf_o, empty_lines_end, gate_type='gate', late=False):
+    """Create text, table, and figures for gate estimation."""
     dic = mcf_o.p_dict
     txt = ('Note: Detailed tables and figures for additional effects are '
            'contained in the output files and output directories. ')
@@ -532,26 +562,30 @@ def mcf_gate(mcf_o, empty_lines_end, gate_type='gate'):
         txt += ('Similarly, figures and tables of the effects for the '
                 'different treatment groups are contained in the output files '
                 'and directories.')
+    if late:
+        txt += 'Estimated effects are Local Group Average Treatment Effects. '
 
     figure_list = mcf_o.report['fig_' + gate_type]
     if gate_type == 'bgate':
         txt_bgate = ('\nVariables to balance the distribution for the BGATE: '
-                     f' {", ".join(mcf_o.var_dict["bgate_name"])}')
+                     f' {", ".join(mcf_o.var_dict["x_name_balance_bgate"])}')
         return_tuple = (figure_list, txt + '\n' * empty_lines_end, txt_bgate)
     else:
         return_tuple = (figure_list, txt + '\n' * empty_lines_end)
     return return_tuple
 
 
-def mcf_ate(mcf_o, empty_lines_end):
+def mcf_ate(mcf_o, empty_lines_end, late=False):
     """Create text and table for ate estimation."""
     dic = mcf_o.p_dict
     if dic['se_boot_ate'] or dic['cluster_std']:
         txt = '\n' * 2 + 'METHOD'
         txt += (f'\nBootstrap standard error with {dic["se_boot_ate"]} '
                 'replications. ')
-    txt = '\n' * 2 + 'RESULT'
-    tables_results = build_ate_table(mcf_o)   # List: One Table per outcome
+    txt = '\n' * 2 + 'RESULT '
+    if late:
+        txt += '(Local Average Treatment Effects)'
+    tables_results = build_ate_table(mcf_o)  # List: One Table per outcome
     table_note = results_table_note(dic['atet'])
     return txt, tables_results, table_note + '\n' * empty_lines_end
 
@@ -608,27 +642,36 @@ def p_star_string(p_val):
     return print_str
 
 
-def mcf_results(mcf_o, empty_lines_end):
+def mcf_results(mcf_o, empty_lines_end, late=False):
     """Text some general remarks about the estimation process."""
     dic = mcf_o.p_dict
     txt = '\n' * 2 + 'GENERAL REMARKS'
     txt += ('\nThe following results for the different parameters are all '
             'based on the same causal forests (CF). The combination of the CF '
-            'with the potentially new data provided leads to a weight matrix. '
-            'This matrix may be large requiring some computational '
-            'optimisations, such as processing it in batches and saving it '
-            'in sparse matrix format. One advantage of this approach is that '
-            'aggregated effects (ATE, GATE) can be computed by aggregation '
-            'of the weights used for the IATE. Thus a high internal '
-            'consistency is preserved in the sense that IATE will aggregate to '
-            'GATEs, which in turn will aggregate to ATEs.')
+            'with the potentially new data provided leads to weight matrices. '
+            'These matrices may be large requiring some computational '
+            'optimisations, such as processing them in batches and saving them '
+            'in a sparse matrix format. One advantage of this approach is that '
+            'aggregated effects '
+            )
+    txt += '(LATE, LGATE, LBGATE) ' if late else '(ATE, GATE, BGATE) '
+    txt += 'can be computed by aggregation of the weights used for the '
+    if late:
+        txt += ('LIATE. Thus a high internal consistency is preserved in the '
+                'sense that LIATEs will aggregate to LGATEs, which in turn '
+                'will aggregate to LATEs.')
+    else:
+        txt += ('IATE. Thus a high internal consistency is preserved in the '
+                'sense that IATEs will aggregate to GATEs, which in turn '
+                'will aggregate to ATEs.')
 
     if dic["max_weight_share"] > 0:
         txt += '\n' * 2 + 'ESTIMATION'
         txt += ('\nWeights of individual training observations are truncated '
-                f'at {dic["max_weight_share"]:4.2%}.')
-        txt += ('Aggregation of IATE to ATEs and GATEs may not be exact due to '
-                'weight truncation.')
+                f'at {dic["max_weight_share"]:4.2%}. ')
+        txt += 'Aggregation of '
+        txt += 'LIATEs to LATE and GATEs' if late else 'IATEs to ATE and GATEs'
+        txt += ' may not be exact due to weight truncation.'
         if dic['choice_based_sampling']:
             txt += ('\nTreatment based choice based sampling is used with '
                     f'probabilities {", ".join(dic["choice_based_probs"])}.')
@@ -647,12 +690,14 @@ def mcf_results(mcf_o, empty_lines_end):
         txt += ('\nStandard errors are clustered. '
                 f'{mcf_o.var_dict["cluster_name"]} is the cluster variable.'
                 'Clustering is implemented by the block-bootstrap.')
-
-    txt += '\n' * 2 + 'NOTE'
-    txt += ('\nTreatment effects for specific treatment groups (so-called '
-            'treatment effects on the treated or non-treated) can only be '
-            'provided if the data provided for prediction contains a '
-            'treatment variable (which is not required for the other effects).')
+    if not late:
+        txt += '\n' * 2 + 'NOTE'
+        txt += ('\nTreatment effects for specific treatment groups (so-called '
+                'treatment effects on the treated or non-treated) can only be '
+                'provided if the data provided for prediction contains a '
+                'treatment variable (which is not required for the other '
+                'effects).'
+                )
 
     return txt + '\n' * empty_lines_end
 
@@ -666,40 +711,96 @@ def mcf_prediction(mcf_o, empty_lines_end):
     return txt + '\n' * empty_lines_end
 
 
-def mcf_forest(mcf_o, empty_lines_end):
+def mcf_forest(mcf_o, empty_lines_end, late=False):
     """Text the forest method."""
-    dic, rep = mcf_o.cf_dict, mcf_o.report['cf']
+    if late:
+        dic_1st, rep_1st = mcf_o.cf_dict, mcf_o.report['cf_1st']
+        dic_redf, rep_redf = mcf_o.cf_dict, mcf_o.report['cf_redf']
+        dic, rep = dic_redf, rep_redf
+    else:
+        dic, rep = mcf_o.cf_dict, mcf_o.report['cf']
+
     txt = '\n' * 2 + 'METHOD and tuning parameters'
-    txt += f'\nMethod used for forest building is {dic["estimator_str"]}. '
+    if late:
+        txt += ('\nMethod used for forest building is for the 1st stage '
+                f'{dic_1st["estimator_str"]} and {dic_redf["estimator_str"]} '
+                'for the reduced form. ')
+    else:
+        txt += f'\nMethod used for forest building is {dic["estimator_str"]}. '
     if dic['compare_only_to_zero']:
         txt += ('MSE is only computed for IATEs comparing all treatments to '
                 'the first (control) treatment.')
-    txt += (f'\nThe causal forest consists of {dic["boot"]} trees.'
-            f'\nThe minimum leaf size is {rep["n_min"]}.'
-            '\nThe number of variables considered for each split is '
-            f'{rep["m_split"]}'
-            '\nThe share of data used in the subsamples for forest building is '
-            f'{rep["f_share_build"]:4.0%}.'
-            '\nThe share of the data used in the subsamples for forest '
-            f'evaluation (outcomes) is {rep["f_share_fill"]:4.0%}.'
-            f'\nAlpha regularity is set to {rep["alpha"]:3.0%}.'
-            f'\n\n{rep["y_name_tree"]} is the outcome variable used for '
-            'splitting ')
+    if late:
+        txt += (f'\nThe causal forest consists of {dic_1st["boot"]}, '
+                f'{dic_redf["boot"]} (1st stage, reduced form) trees.'
+                f'\nThe minimum leaf size is {rep_1st["n_min"]}, '
+                f'{rep_redf["n_min"]}.'
+                '\nThe number of variables considered for each split is '
+                f'{rep_1st["m_split"]}, {rep_redf["m_split"]}.'
+                '\nThe share of data used in the subsamples for forest '
+                f'building is {rep_1st["f_share_build"]:4.0%}, '
+                f'{rep_redf["f_share_build"]:4.0%}.'
+                '\nThe share of the data used in the subsamples for forest '
+                f'evaluation (outcomes) is {rep_1st["f_share_fill"]:4.0%}, '
+                f'{rep_redf["f_share_fill"]:4.0%}.'
+                f'\nAlpha regularity is set to {rep_1st["alpha"]:3.0%}, '
+                f'{rep_redf["alpha"]:3.0%}. \n\n{rep_1st["y_name_tree"]}, '
+                f'{rep_redf["y_name_tree"]} are the outcome variable used for '
+                'splitting ')
+    else:
+        txt += (f'\nThe causal forest consists of {dic["boot"]} trees.'
+                f'\nThe minimum leaf size is {rep["n_min"]}.'
+                '\nThe number of variables considered for each split is '
+                f'{rep["m_split"]}.'
+                '\nThe share of data used in the subsamples for forest '
+                f'building is {rep["f_share_build"]:4.0%}.'
+                '\nThe share of the data used in the subsamples for forest '
+                f'evaluation (outcomes) is {rep["f_share_fill"]:4.0%}.'
+                f'\nAlpha regularity is set to {rep["alpha"]:3.0%}.'
+                f'\n\n{rep["y_name_tree"]} is the outcome variable used for '
+                'splitting ')
     if mcf_o.lc_dict["yes"]:
         txt += '(locally centered).'
     var = rep["Features"].replace('_prime', '')
     txt += f'\nThe features used for splitting are {var}.'
 
     txt += '\n' * 2 + 'RESULTS'
-    txt += (f'\nEach tree has on average {rep["leaves_mean"]:5.2f} leaves. '
-            f'\nEach leaf contains on average {rep["obs_leaf_mean"]:4.1f} '
-            'observations. The median # of observations per leaf is '
-            f'{rep["obs_leaf_med"]:2.0f}. '
-            f'\nThe smallest leaves have {rep["obs_leaf_min"]:2.0f} '
-            'observations.'
-            f'\nThe largest leaf has {rep["obs_leaf_max"]:3.0f} observations.')
-    txt += (f'\n{rep["share_leaf_merged"]:5.2%} of the leaves were merged '
-            'when populating the forest with outcomes from the honesty sample.')
+    if late:
+        txt += (f'\nEach tree has on average {rep_1st["leaves_mean"]:5.2f}, '
+                f'{rep_redf["leaves_mean"]:5.2f} (1st stage, reduced form) '
+                'leaves. '
+                '\nEach leaf contains on average '
+                f'{rep_1st["obs_leaf_mean"]:4.1f}, '
+                f'{rep_redf["obs_leaf_mean"]:4.1f}  observations. The median # '
+                'of observations per leaf is '
+                f'{rep_1st["obs_leaf_med"]:2.0f}, '
+                f'{rep_redf["obs_leaf_med"]:2.0f}. '
+                f'\nThe smallest leaves have {rep_1st["obs_leaf_min"]:2.0f}, '
+                f'{rep_redf["obs_leaf_min"]:2.0f} observations.'
+                f'\nThe largest leaf has {rep_1st["obs_leaf_max"]:3.0f}, '
+                f'{rep_redf["obs_leaf_max"]:3.0f} observations.')
+        txt += (f'\n{rep_1st["share_leaf_merged"]:5.2%}, '
+                f'{rep_redf["share_leaf_merged"]:5.2%} of the leaves were'
+                ' merged when populating the forest with outcomes. Not that '
+                'the data used populating the leaves are from the honesty '
+                'sample for the reduced form, while the 1st stage is using the '
+                'same data as was used to build the trees (thus, it is not '
+                'honest).'
+                )
+    else:
+        txt += (f'\nEach tree has on average {rep["leaves_mean"]:5.2f} leaves. '
+                f'\nEach leaf contains on average {rep["obs_leaf_mean"]:4.1f} '
+                'observations. The median # of observations per leaf is '
+                f'{rep["obs_leaf_med"]:2.0f}. '
+                f'\nThe smallest leaves have {rep["obs_leaf_min"]:2.0f} '
+                'observations.'
+                f'\nThe largest leaf has {rep["obs_leaf_max"]:3.0f} '
+                'observations.'
+                )
+        txt += (f'\n{rep["share_leaf_merged"]:5.2%} of the leaves were merged '
+                'when populating the forest with outcomes from the honesty '
+                'sample.'
+                )
 
     if dic['folds'] > 1 or mcf_o.gen_dict['iate_eff']:
         txt += '\n' * 2 + 'NOTE'
@@ -718,7 +819,7 @@ def mcf_forest(mcf_o, empty_lines_end):
     return txt + '\n' * empty_lines_end
 
 
-def mcf_local_center(mcf_o, empty_lines_end):
+def mcf_local_center(mcf_o, empty_lines_end, late=False):
     """Text the local centering results."""
     txt = '\nMETHOD'
     txt += ('\nLocal centering is based on training a regression to predict '
@@ -744,24 +845,37 @@ def mcf_local_center(mcf_o, empty_lines_end):
         txt += (f'\n{mcf_o.lc_dict["cs_share"]:5.2%} of the training data is '
                 ' used for local centering only.')
     txt += '\n\nRESULTS'
-    txt += f'\nOut-of-sample fit for {mcf_o.report["lc_r2"]} '
+    if late:
+        txt += ('\nOut-of-sample fit (1st stage)'
+                f' for {mcf_o.report["lc_r2_1st"]} ')
+        txt += ('\nOut-of-sample fit (reduced form)'
+                f' for {mcf_o.report["lc_r2_redform"]} ')
+    else:
+        txt += f'\nOut-of-sample fit for {mcf_o.report["lc_r2"]} '
     return txt + '\n' * empty_lines_end
 
 
-def mcf_common_support(mcf_o, empty_lines_end, train=True):
+def mcf_common_support(mcf_o, empty_lines_end, train=True, late=False):
     """Text the common support results."""
     txt = ''
     if train:
         txt += '\nMETHOD'
         txt += ('\nThe common support analysis is based on checking the '
-                'overlap in the out-of-sample predictions of the propensity '
-                'scores (PS) for the different treatment arms. PSs are '
+                'overlap in the out-of-sample predictions of the propensity ')
+        if late:
+            txt += 'scores (PS) for the different values of the instrument. '
+        else:
+            txt += 'scores (PS) for the different treatment arms. '
+        txt += ('PSs are '
                 'estimated by random forest classifiers. Overlap is '
                 'operationalized by computing cut-offs probabilities of '
-                'the PSs (ignoring the first treatment arm, because '
-                'probabilities add to 1 over all treatment arms). '
-                'These cut-offs are subsequently also applied to the data used '
-                'for predicting the effects.')
+                'the PSs (ignoring the first '
+                )
+        txt += 'instrument value' if late else 'treatment arm'
+        txt += ', because probabilities add to 1 over all '
+        txt += 'instrument values' if late else 'treatment arms'
+        txt += ('). These cut-offs are subsequently also applied to the data '
+                'used for predicting the effects.')
         if mcf_o.cs_dict['type'] == 1:
             quant = mcf_o.cs_dict["quantil"]
             string = "min / max" if quant == 1 else (str(quant*100)
@@ -794,7 +908,7 @@ def mcf_common_support(mcf_o, empty_lines_end, train=True):
     return txt + '\n' * empty_lines_end
 
 
-def mcf_feature_selection(mcf_o, empty_lines_end):
+def mcf_feature_selection(mcf_o, empty_lines_end, late=False):
     """Text the feature selection result."""
     txt = '\nMETHOD'
     txt += ('\nA Random Forest is estimated for the propensity score '
@@ -807,6 +921,8 @@ def mcf_feature_selection(mcf_o, empty_lines_end):
             'are highly correlated with other variables, or dummies, or '
             'variables that should not be removed for other reasons '
             '(computing heterogeneity or checking balancing).')
+    if late:
+        txt += '\nFeature selection is based on the 1st stage only.'
     other = mcf_o.fs_dict['other_sample']
     txt += '\nFeature selection is performed '
     if other:
@@ -872,12 +988,15 @@ def mcf_training(mcf_o, empty_lines_end):
     return txt + '\n' * empty_lines_end
 
 
-def mcf_general(mcf_o, empty_lines_end):
+def mcf_general(mcf_o, empty_lines_end, late):
     """Collect general mcf information."""
     mtot = mcf_o.cf_dict['mtot']  # 1 standard
     prog_score = mcf_o.cf_dict['match_nn_prog_score']
     matching = 'Prognostic Score' if prog_score else 'Mahalanobis Distance'
     txt = '\nMETHOD\n'
+    if late:
+        txt += ('Instrumental variable method used. MCFs are run for the '
+                'first stage and the reduced form. \n')
     if mtot == 1:
         txt += ('Standard MCF method used. Nearest neighbour matching performed'
                 f' using the {matching}.')
@@ -904,7 +1023,7 @@ def mcf_general(mcf_o, empty_lines_end):
                 f' {", ".join(mcf_o.var_dict["x_name_ord"])}')
     if mcf_o.var_dict["x_name_unord"]:
         var = [y[:-6] if y.endswith('_prime') else y
-               for y in mcf_o.var_dict["z_name_unord"]]
+               for y in mcf_o.var_dict["x_name_unord"]]
         txt += (f'\nUnordered (categorical) confounders: {", ".join(var)}')
     if mcf_o.var_dict["z_name_list"]:
         txt += ('\nContinuous heterogeneity variables: '
@@ -918,13 +1037,13 @@ def mcf_general(mcf_o, empty_lines_end):
                for y in mcf_o.var_dict["z_name_unord"]]
         txt += ('\nUnordered heterogeneity variables: '
                 f' {", ".join(var)}')
-    if mcf_o.var_dict["x_balance_name"] and mcf_o.p_dict['bt_yes']:
+    if mcf_o.var_dict["x_name_balance_test"] and mcf_o.p_dict['bt_yes']:
         var = [y[:-6] if y.endswith('_prime') else y
-               for y in mcf_o.var_dict["x_balance_name"]]
+               for y in mcf_o.var_dict["x_name_balance_test"]]
         txt += f'\nVariables to check balancing: {", ".join(var)}'
-    if mcf_o.var_dict["bgate_name"]:
+    if mcf_o.var_dict["x_name_balance_bgate"]:
         txt += ('\nVariables to balance the distribution for the BGATE: '
-                f' {", ".join(mcf_o.var_dict["bgate_name"])}')
+                f' {", ".join(mcf_o.var_dict["x_name_balance_bgate"])}')
     if mcf_o.gen_dict["weighted"]:
         txt += ('\n\nWeighting used. Weights are contained in'
                 f' {mcf_o.var_dict["w_name"][0]}')
@@ -971,14 +1090,21 @@ def add_effects(p_dict, gen_dict):
 
 def general(rep_o):
     """Provide basic information."""
-    def basic_helper(obj_inst, titel):
+    def basic_helper(obj_inst, titel, mcf=False):
         """Create method-specific output string."""
-        return (
+        help_txt = (
             '\n\n' + titel +
-            f'\nPath for all outputs: \n   {obj_inst.gen_dict["outpath"]}'
-            f'\nDetailed text output:\n   {obj_inst.gen_dict["outfiletext"]}'
-            f'\nSummary text output:\n   {obj_inst.gen_dict["outfilesummary"]}'
+            f'\nAll outputs: {obj_inst.gen_dict["outpath"]}')
+        if mcf:
+            help_txt += (
+                '\nSubdirectories with figures and data are named '
+                f'{"ate_iate"}, {"gate"}, and {"common support"} and contain '
+                'the content related to their name.')
+        help_txt += (
+            f'\nDetailed text output: {obj_inst.gen_dict["outfiletext"]}'
+            f'\nSummary text output: {obj_inst.gen_dict["outfilesummary"]}'
             )
+        return help_txt
 
     txt = (
         '\nWelcome to the mcf estimation and optimal policy package.'
@@ -991,7 +1117,7 @@ def general(rep_o):
 
     pre_titel = 'Output information for '
     if rep_o.mcf_o is not None:
-        txt += basic_helper(rep_o.mcf_o, pre_titel + 'MCF ESTIMATION')
+        txt += basic_helper(rep_o.mcf_o, pre_titel + 'MCF ESTIMATION', mcf=True)
     if rep_o.sens_o is not None:
         txt += basic_helper(rep_o.sens_o, pre_titel + 'SENSITIVITY ANALYSIS')
     if rep_o.blind_o is not None:
@@ -1006,10 +1132,15 @@ def general(rep_o):
                 'levels of granularity, from the average effect at the '
                 'population '
                 'level to very fine grained effects at the (almost) individual '
-                'level. Since effects at the highler levels are obtained from '
+                'level. Since effects at the higher levels are obtained from '
                 'lower level effects, all effects are internally consistent. '
                 'Recently, the basic package has been appended for new average '
                 'effects as well as for an optimal policy module. '
+                'Effect estimation is implemented for identification by '
+                'unconfoundedness as well as by instrumental variables. '
+                'While unconfoundedness estimation can deal with multiple '
+                'treatments, instrumental variable estimation is restricted '
+                'to binary instruments and binary treatments.'
                 'The basis of the MCF estimator is the the causal forest '
                 'suggested by Wager and Athey (2018). Their estimator has '
                 'been changed in several dimensions which are described in '
@@ -1038,6 +1169,9 @@ def general(rep_o):
                 'Resolution Treatment Effects Estimation:  Uncovering Effect '
                 'Heterogeneities with the Modified Causal Forest, Entropy, 24, '
                 '1039. '
+                '\n- Bodory, H., F. Mascolo, M. Lechner (2024): Enabling '
+                'Decision Making with the Modified Causal Forest: Policy Trees '
+                'for Treatment Assignment, Algorithm, 17, 318. '
                 '\n- Chernozhukov, V., D. Chetverikov, M. Demirer, '
                 'E. Duflo, C. Hansen, W. Newey, J. Robins (2018):  '
                 'Double/debiased  machine learning for treatment and '
@@ -1054,6 +1188,8 @@ def general(rep_o):
                 '159:8.'
                 '\n- Lechner, M., J. Mareckova (2024): Comprehensive Causal '
                 'Machine Learning, arXiv.'
+                '\n- Lechner, M., J. Mareckova (2025): Comprehensive Causal '
+                'Machine Learning with Instrumental Variables,  mimeo. '
                 '\n- Wager, S., S. Athey (2018): Estimation and Inference of '
                 'Heterogeneous Treatment Effects using  Random Forests, '
                 'Journal of the American Statistical Association, 113:523, '
@@ -1094,7 +1230,7 @@ def general(rep_o):
                 'specific classifier is selected among four different '
                 'classifiers from scikit-learn, namely a simple neural '
                 'network, two classification random forests with minimum leaf '
-                'size of 2 and 5, and ADDABoost. The selection is a made '
+                'size of 2 and 5, and ADDABoost. The selection is made '
                 'according to the out-of-sample performance of the Accuracy '
                 'Score of scikit-learn.'
                 '\n\nThe POLICY TREE algorithm builds optimal shallow decision '
@@ -1121,7 +1257,7 @@ def general(rep_o):
                 'adjust the policy score accordingly. Second, trees that '
                 'violate the constraints are removed '
                 '(to some extent, optional).'
-                '\nExtensions 3: There are a several options implemented to '
+                '\nExtensions 3: There are several options implemented to '
                 'reduce the computational burden, which are discussed below '
                 'in the section showing the implementation of the policy '
                 'score. '

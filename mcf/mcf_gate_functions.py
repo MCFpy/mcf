@@ -22,10 +22,12 @@ from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
 from mcf import mcf_print_stats_functions as ps
 from mcf import mcf_weight_functions as mcf_w
+from mcf.mcf_iv_functions_add import get_1st_stage_iate, get_weights_late
 
 
 def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
-             z_name_cbgate=None, with_output=True, paras_cbgate=None):
+             z_name_cbgate=None, with_output=True, paras_cbgate=None,
+             late=False):
     """Estimate GATE(T)s, BGATE and CBGATE and their standard errors."""
     if gate_type not in ('GATE', 'CBGATE', 'BGATE'):
         raise ValueError('Wrong GATE specifified ({gate_type}). gate_type must'
@@ -55,9 +57,9 @@ def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
     n_y, no_of_out = len(y_dat), len(var_dic['y_name'])
     d_p, z_p, w_p, _ = mcf_ate.get_data_for_final_ate_estimation(
         data_df, gen_dic, p_dic, var_dic, ate=False, need_count=False)
-    z_type_l = [None] * len(var_dic['z_name'])
+    z_type_l = [None for _ in range(len(var_dic['z_name']))]
     z_values_l = z_type_l[:]
-    z_smooth_l = [False] * len(var_dic['z_name'])
+    z_smooth_l = [False for _ in range(len(var_dic['z_name']))]
 
     if gen_dic['d_type'] == 'continuous':
         continuous = True
@@ -65,12 +67,13 @@ def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
         no_of_treat, d_values = ct_dic['grid_w'], ct_dic['grid_w_val']
         d_values_dr = ct_dic['d_values_dr_np']
         no_of_treat_dr = len(d_values_dr)
-        treat_comp_label = [None] * round(no_of_treat_dr - 1)
+        treat_comp_label = [None for _ in range(round(no_of_treat_dr - 1))]
     else:
         continuous = False
         no_of_treat, d_values = gen_dic['no_of_treat'], gen_dic['d_values']
         no_of_treat_dr, d_values_dr = no_of_treat, d_values
-        treat_comp_label = [None] * round(no_of_treat * (no_of_treat - 1) / 2)
+        treat_comp_label = [None for _ in range(
+            round(no_of_treat * (no_of_treat - 1) / 2))]
     i_d_val = np.arange(no_of_treat)
     ref_pop_lab = ['All']
     if p_dic['gatet']:    # Always False for continuous treatments
@@ -98,33 +101,36 @@ def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
     if p_dic['gates_minus_previous']:
         w_ate = None
     else:
-        w_ate_sum = np.sum(w_ate, axis=2)
-        for a_idx in range(no_of_tgates):  # Weights for ATE are normalized
-            for t_idx in range(no_of_treat):
-                if not ((1-1e-10) < w_ate_sum[a_idx, t_idx] < (1+1e-10)):
-                    w_ate[a_idx, t_idx, :] = (w_ate[a_idx, t_idx, :]
-                                              / w_ate_sum[a_idx, t_idx])
+        if not late:
+            w_ate_sum = np.sum(w_ate, axis=2)
+            for a_idx in range(no_of_tgates):  # Weights for ATE are normalized
+                for t_idx in range(no_of_treat):
+                    if not ((1-1e-10) < w_ate_sum[a_idx, t_idx] < (1+1e-10)):
+                        w_ate[a_idx, t_idx, :] = (w_ate[a_idx, t_idx, :]
+                                                  / w_ate_sum[a_idx, t_idx])
     files_to_delete, save_w_file = set(), None
-    if gen_dic['mp_parallel'] > 1 and int_dic['ray_or_dask'] != 'ray':
-        memory_weights = mcf_sys.total_size(weights_all)
-        if int_dic['weight_as_sparse']:
-            for d_idx in range(no_of_treat):
-                memory_weights += (weights_all[d_idx].data.nbytes
-                                   + weights_all[d_idx].indices.nbytes
-                                   + weights_all[d_idx].indptr.nbytes)
-        if memory_weights > 2e+9:  # Two Gigabytes (2e+9)
-            if int_dic['with_output'] and int_dic['verbose']:
-                txt += ('Weights need ', memory_weights/1e+9, 'GB RAM'
-                        '==> Weights are passed as file to MP processes')
-            save_w_file = 'w_all.pickle'
-            mcf_sys.save_load(save_w_file, weights_all, save=True,
-                              output=int_dic['with_output'])
-            files_to_delete.add(save_w_file)
-            weights_all2 = None
-        else:
-            weights_all2 = weights_all
-    else:
-        weights_all2 = weights_all
+    # if gen_dic['mp_parallel'] > 1 and int_dic['ray_or_dask'] != 'ray':
+    #     memory_weights = mcf_sys.total_size(weights_all)
+    #     if int_dic['weight_as_sparse']:
+    #         for d_idx in range(no_of_treat):
+    #             memory_weights += (weights_all[d_idx].data.nbytes
+    #                                + weights_all[d_idx].indices.nbytes
+    #                                + weights_all[d_idx].indptr.nbytes)
+    #     if memory_weights > 2e+9:  # Two Gigabytes (2e+9)
+    #         if int_dic['with_output'] and int_dic['verbose']:
+    #             txt += ('Weights need ', memory_weights/1e+9, 'GB RAM'
+    #                     '==> Weights are passed as file to MP processes')
+    #         save_w_file = 'w_all.pickle'
+    #         mcf_sys.save_load(save_w_file, weights_all, save=True,
+    #                           output=int_dic['with_output'])
+    #         files_to_delete.add(save_w_file)
+    #         weights_all2 = None
+    #     else:
+    #         weights_all2 = weights_all
+    # else:
+    #     weights_all2 = weights_all
+    weights_all2 = weights_all
+
     if gen_dic['mp_parallel'] < 1.5:
         maxworkers = 1
     else:
@@ -139,17 +145,20 @@ def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
             maxworkers = 1
     if int_dic['with_output'] and int_dic['verbose'] and with_output:
         print('Number of parallel processes: ', maxworkers, flush=True)
-    if int_dic['ray_or_dask'] == 'ray':
-        if int_dic['mem_object_store_3'] is None:
-            if not ray.is_initialized():
-                ray.init(num_cpus=maxworkers, include_dashboard=False)
-        else:
-            if not ray.is_initialized():
-                ray.init(num_cpus=maxworkers, include_dashboard=False,
-                         object_store_memory=int_dic['mem_object_store_3'])
-            if int_dic['with_output'] and int_dic['verbose']:
-                print('Size of Ray Object Store: ',
-                      round(int_dic['mem_object_store_3']/(1024*1024)), " MB")
+
+    if maxworkers > 1:
+        if not ray.is_initialized():
+            mcf_sys.init_ray_with_fallback(
+                maxworkers, int_dic, gen_dic,
+                mem_object_store=int_dic['mem_object_store_3'],
+                ray_err_txt='Ray did not start in in GATE estimation.'
+                )
+        if (int_dic['mem_object_store_3'] is not None
+            and int_dic['with_output']
+                and int_dic['verbose']):
+            print('Size of Ray Object Store: ',
+                  round(int_dic['mem_object_store_3']/(1024*1024)), " MB"
+                  )
         weights_all_ref = ray.put(weights_all)
     y_pot_all, y_pot_var_all, y_pot_mate_all = [], [], []
     y_pot_mate_var_all, txt_all = [], []
@@ -189,33 +198,32 @@ def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
                     y_pot_var[zj_idx, :, :, :], y_pot_mate[zj_idx, :, :, :],
                     y_pot_mate_var[zj_idx, :, :, :], i_d_val, t_probs,
                     no_of_tgates, no_of_out, ct_dic, gen_dic, int_dic, p_dic,
-                    bandw_z, kernel, z_smooth, continuous)
+                    bandw_z, kernel, z_smooth, continuous, late)
                 y_pot, y_pot_var, y_pot_mate, y_pot_mate_var = assign_pot(
                      y_pot, y_pot_var, y_pot_mate, y_pot_mate_var,
                      results_fut_zj, zj_idx)
                 w_gate, w_gate_unc, w_censored = assign_w(
                      w_gate, w_gate_unc, w_censored, results_fut_zj, zj_idx)
         else:
-            if int_dic['ray_or_dask'] == 'ray':
-                still_running = [ray_gate_zj_mp.remote(
-                         z_values[zj_idx], zj_idx, y_dat, cl_dat,
-                         w_dat, z_p, d_p, w_p, z_name_j, weights_all_ref,
-                         w_gate0_dim, w_ate, i_d_val, t_probs, no_of_tgates,
-                         no_of_out, ct_dic, gen_dic, int_dic, p_dic, n_y,
-                         bandw_z, kernel, save_w_file,
-                         z_smooth, continuous)
-                    for zj_idx in range(no_of_zval)]
-                while len(still_running) > 0:
-                    finished, still_running = ray.wait(still_running)
-                    finished_res = ray.get(finished)
-                    for results_fut_idx in finished_res:
-                        (y_pot, y_pot_var, y_pot_mate, y_pot_mate_var
-                         ) = assign_pot(
-                             y_pot, y_pot_var, y_pot_mate, y_pot_mate_var,
-                             results_fut_idx, results_fut_idx[6])
-                        w_gate, w_gate_unc, w_censored = assign_w(
-                            w_gate, w_gate_unc, w_censored, results_fut_idx,
-                            results_fut_idx[6])
+            still_running = [ray_gate_zj_mp.remote(
+                     z_values[zj_idx], zj_idx, y_dat, cl_dat,
+                     w_dat, z_p, d_p, w_p, z_name_j, weights_all_ref,
+                     w_gate0_dim, w_ate, i_d_val, t_probs, no_of_tgates,
+                     no_of_out, ct_dic, gen_dic, int_dic, p_dic, n_y,
+                     bandw_z, kernel, save_w_file,
+                     z_smooth, continuous, late=late)
+                for zj_idx in range(no_of_zval)]
+            while len(still_running) > 0:
+                finished, still_running = ray.wait(still_running)
+                finished_res = ray.get(finished)
+                for results_fut_idx in finished_res:
+                    (y_pot, y_pot_var, y_pot_mate, y_pot_mate_var
+                     ) = assign_pot(
+                         y_pot, y_pot_var, y_pot_mate, y_pot_mate_var,
+                         results_fut_idx, results_fut_idx[6])
+                    w_gate, w_gate_unc, w_censored = assign_w(
+                        w_gate, w_gate_unc, w_censored, results_fut_idx,
+                        results_fut_idx[6])
         if int_dic['with_output']:
             # Describe weights
             for a_idx in range(no_of_tgates):
@@ -228,7 +236,8 @@ def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
                     ret = mcf_est.analyse_weights(
                         w_gate[zj_idx, a_idx, :, :], None, gen_dic, p_dic,
                         ate=False, continuous=continuous,
-                        no_of_treat_cont=no_of_treat, d_values_cont=d_values)
+                        no_of_treat_cont=no_of_treat, d_values_cont=d_values,
+                        late=late)
                     for idx in range(6):
                         w_st[idx] += ret[idx] / no_of_zval
                     share_largest_q += ret[6] / no_of_zval
@@ -270,7 +279,7 @@ def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
             'z_name_smooth': z_name_smooth, 'ref_pop_lab': ref_pop_lab,
             'z_p': z_p, 'no_of_tgates': no_of_tgates, 'p_dic': p_dic,
             }
-    if int_dic['ray_or_dask'] == 'ray':
+    if maxworkers > 1:
         if 'refs' in int_dic['mp_ray_del']:
             del weights_all_ref
         if 'rest' in int_dic['mp_ray_del']:
@@ -282,7 +291,7 @@ def gate_est(mcf_, data_df, weights_dic, w_atemain, gate_type='GATE',
 
 
 def bgate_est(mcf_, data_df, weights_dic, w_ate, forest_dic,
-              gate_type='CBGATE'):
+              gate_type='CBGATE', late_tuple=None):
     """Compute CBGATE & BGATE for single variables keeping others constant."""
     int_dic, var_dic = mcf_.int_dict, mcf_.var_dict
     var_x_type = deepcopy(mcf_.var_x_type)
@@ -293,8 +302,10 @@ def bgate_est(mcf_, data_df, weights_dic, w_ate, forest_dic,
     if var_dic['z_name'] is None or var_dic['z_name'] == []:
         raise ValueError(f'Something wrong with {var_dic["z_name"]}')
     if bgate:
-        if var_dic['bgate_name'] is None or var_dic['bgate_name'] == []:
-            raise ValueError(f'Something wrong with {var_dic["bgate_name"]}')
+        if (var_dic['x_name_balance_bgate'] is None
+                or var_dic['x_name_balance_bgate'] == []):
+            raise ValueError(
+                f'Something wrong with {var_dic["x_name_balance_bgate"]}')
     txt = ''
     if int_dic['with_output']:
         txt_1 = '\n' + '=' * 100 + f'\nComputing {gate_type}'
@@ -327,9 +338,9 @@ def bgate_est(mcf_, data_df, weights_dic, w_ate, forest_dic,
             vname_ = ps.del_added_chars(vname, prime=True)
             print(ps.del_added_chars(vname_, prime=True), end=' ')
         if bgate:
-            data_df_new, z_values, txt_sim = ref_data_bgate(
+            data_df_new, z_values, matches, txt_sim = ref_data_bgate(
                 data_df.copy(), vname, int_dic, p_dic, eva_values,
-                var_dic['bgate_name'][:])
+                var_dic['x_name_balance_bgate'][:])
         else:
             data_df_new, z_values, txt_sim = ref_data_cbgate(
                 data_df.copy(), vname, int_dic, p_dic, eva_values)
@@ -337,15 +348,45 @@ def bgate_est(mcf_, data_df, weights_dic, w_ate, forest_dic,
         text_sim_all += f'\n{vname_}: ' + txt_sim
         txt += txt_sim
         var_x_values[vname] = z_values[:]
-        weights_dic = mcf_w.get_weights_mp(mcf_, data_df_new, forest_dic,
-                                           'regular', with_output=False)
+
+        if bgate:
+            # Compute correction factor for duplicates in matching
+            var_dupl_mult = adjust_var_mult_duplicates(matches)
+
+        if late_tuple is None:
+            late = False
+            weights_dic = mcf_w.get_weights_mp(mcf_, data_df_new, forest_dic,
+                                               'regular', with_output=False)
+        else:
+            late = True
+            mcf_1st, mcf_redf, forest_1st_dic, forest_redf_dic = late_tuple
+            iate_1st_dic, _ = get_1st_stage_iate(mcf_, mcf_1st, data_df_new,
+                                                 True)
+            # Compute weights of reduced form & 1st stage & final estimation
+            weights_1st_dic, weights_redf_dic, weights_dic = get_weights_late(
+                mcf_, mcf_1st, mcf_redf, forest_1st_dic, forest_redf_dic,
+                iate_1st_dic, None, data_df_new, round_='regular')
+
         (w_ate, _, _, _) = mcf_ate.ate_est(
-            mcf_, data_df_new, weights_dic, with_output=False)
+            mcf_, data_df_new, weights_dic, with_output=False, late=late)
         (y_pot_gate_z, y_pot_var_gate_z, y_pot_mate_gate_z,
          y_pot_mate_var_gate_z, gate_est_dic_z, txt_p) = gate_est(
              mcf_, data_df_new, weights_dic, w_ate, gate_type=gate_type,
              z_name_cbgate=[vname], with_output=False,
-             paras_cbgate=(var_dic, var_x_values, smooth_yes, z_name_smooth))
+             paras_cbgate=(var_dic, var_x_values, smooth_yes, z_name_smooth),
+             late=late)
+
+        if bgate:
+            # Multiply variances (if they exist) with correction factor
+            try:
+                y_pot_var_gate_z[0] *= var_dupl_mult  # TODO
+            except Exception:
+                pass
+            try:
+                y_pot_mate_var_gate_z[0] *= var_dupl_mult
+            except Exception:
+                pass
+
         txt += txt_p[0]
         txt_all.append(txt)
         y_pot_all.append(y_pot_gate_z[0])
@@ -399,17 +440,18 @@ def ref_data_cbgate(data_df, z_name, int_dic, p_dic, eva_values):
     return data_all_df, eva_values, txt
 
 
-def ref_data_bgate(data_df, z_name, int_dic, p_dic, eva_values, bgate_name):
+def ref_data_bgate(data_df, z_name, int_dic, p_dic, eva_values,
+                   x_name_balance_bgate):
     """Create reference samples for covariates (BGATE)."""
     eva_values = eva_values[z_name]
     no_eval, obs, txt = len(eva_values), len(data_df), ''
-    if z_name in bgate_name:
-        bgate_name.remove(z_name)
-    if z_name.endswith('catv') and z_name[:-4] in bgate_name:
-        bgate_name.remove(z_name[:-4])
-    if z_name + 'catv' in bgate_name:  # the continuous variable
-        bgate_name.remove(z_name + 'catv')
-    if not bgate_name:
+    if z_name in x_name_balance_bgate:
+        x_name_balance_bgate.remove(z_name)
+    if z_name.endswith('catv') and z_name[:-4] in x_name_balance_bgate:
+        x_name_balance_bgate.remove(z_name[:-4])
+    if z_name + 'catv' in x_name_balance_bgate:  # the continuous variable
+        x_name_balance_bgate.remove(z_name + 'catv')
+    if not x_name_balance_bgate:
         raise ValueError('BGATE {z_name}: No variables left for balancing.')
     if obs/no_eval > 10:  # Save computation time by using random samples
         share = p_dic['bgate_sample_share'] / no_eval
@@ -428,15 +470,17 @@ def ref_data_bgate(data_df, z_name, int_dic, p_dic, eva_values, bgate_name):
     new_values_z = list(chain.from_iterable([[i] * obs for i in eva_values]))
     data_new_df.loc[:, z_name] = new_values_z
     if int_dic['with_output'] and int_dic['verbose']:
-        txt += (f'\nBGATEs are balanced with respect to {" ".join(bgate_name)}'
+        txt += ('\nBGATEs are balanced with respect to '
+                f'{" ".join(x_name_balance_bgate)}'
                 '\nBGATEs minus ATE are evaluated at fixed z-feature values'
                 ' (equally weighted).')
     # Until here these are the identical steps to CBGATE. Next, observations in
     # data_all_df get substituted by their nearest neighbours in terms of
-    # bgate_name conditional on the z_name variables.
-    data_new_b_np = data_new_df[bgate_name].to_numpy(copy=True)
+    # x_name_balance_bgate conditional on the z_name variables.
+    # Get duplicates
+    data_new_b_np = data_new_df[x_name_balance_bgate].to_numpy(copy=True)
     data_new_z_np = data_new_df[z_name].to_numpy(copy=True)
-    data_org_b_np = data_df[bgate_name].to_numpy()
+    data_org_b_np = data_df[x_name_balance_bgate].to_numpy()
     data_org_z_np = data_df[z_name].to_numpy()
     data_org_np = data_df.to_numpy()
     if data_org_b_np.shape[1] > 1:
@@ -444,6 +488,7 @@ def ref_data_bgate(data_df, z_name, int_dic, p_dic, eva_values, bgate_name):
         bz_cov_inv[-1, -1] *= 10
     # Give much more additional weight to the z-related component in matching
     incr = 0.2 * np.std(data_new_z_np)
+    collect_matches = []
     for idx, z_value in enumerate(data_new_z_np):
         z_true = data_org_z_np == z_value
         test_val = 0
@@ -467,7 +512,8 @@ def ref_data_bgate(data_df, z_name, int_dic, p_dic, eva_values, bgate_name):
             dist = diff**2
         match_neigbour_idx = np.argmin(dist)
         data_new_df.iloc[idx] = data_org_np_condz[match_neigbour_idx, :]
-    return data_new_df, eva_values, txt
+        collect_matches.append(match_neigbour_idx)
+    return data_new_df, eva_values, collect_matches, txt
 
 
 def invcovariancematrix(data_np):
@@ -569,13 +615,13 @@ def ray_gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
                    z_name_j, weights_all, w_gate0_dim, w_ate, i_d_val, t_probs,
                    no_of_tgates, no_of_out, ct_dic, gen_dic, int_dic, p_dic,
                    n_y, bandw_z, kernel, save_w_file=None, smooth_it=False,
-                   continuous=False):
+                   continuous=False, late=False):
     """Make function compatible with Ray."""
     return gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
                       z_name_j, weights_all, w_gate0_dim, w_ate, i_d_val,
                       t_probs, no_of_tgates, no_of_out, ct_dic, gen_dic,
                       int_dic, p_dic, n_y, bandw_z, kernel, save_w_file,
-                      smooth_it, continuous)
+                      smooth_it, continuous, late)
 
 
 def gate_zj(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
@@ -583,7 +629,7 @@ def gate_zj(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
             w_ate, y_pot_zj, y_pot_var_zj, y_pot_mate_zj, y_pot_mate_var_zj,
             i_d_val, t_probs, no_of_tgates, no_of_out, ct_dic, gen_dic,
             int_dic, p_dic, bandw_z, kernel, smooth_it=False,
-            continuous=False):
+            continuous=False, late=False):
     """Compute Gates and their variances for MP."""
     if continuous:
         no_of_treat, d_values = ct_dic['ct_grid_w'], ct_dic['ct_grid_w_val']
@@ -594,7 +640,7 @@ def gate_zj(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
         no_of_treat, d_values = gen_dic['no_of_treat'], gen_dic['d_values']
     weights, relevant_z,  w_z_val = get_w_rel_z(
         z_p[:, z_name_j], z_val, weights_all, smooth_it, bandwidth=bandw_z,
-        kernel=kernel, w_is_csr=int_dic['weight_as_sparse'])
+        kernel=kernel, w_is_csr=int_dic['weight_as_sparse'], late=late)
     if p_dic['gatet']:
         d_p_z = d_p[relevant_z]
     if gen_dic['weighted']:
@@ -605,8 +651,8 @@ def gate_zj(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
         w_gadd = np.zeros(w_gate0_dim)
         for t_idx, _ in enumerate(d_values):
             if int_dic['weight_as_sparse']:
-                weight_i = weights[t_idx].getrow(n_idx)
-                w_index = weight_i.indices
+                weight_i = weights[t_idx][n_idx, :]
+                w_index = weight_i.col  # TODO ex scr with indices
                 w_i = weight_i.data.copy()
             else:
                 w_index = weights[n_idx][t_idx][0].copy()  # Ind weights>0
@@ -614,7 +660,7 @@ def gate_zj(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
             if gen_dic['weighted']:
                 w_i = w_i * w_dat[w_index].reshape(-1)
             w_i_sum = np.sum(w_i)
-            if not 1-1e-10 < w_i_sum < 1+1e-10:
+            if not (1-1e-10 < w_i_sum < 1+1e-10) and not late:
                 w_i = w_i / w_i_sum
             if gen_dic['weighted']:
                 w_i = w_i * w_p_z[n_idx]
@@ -632,12 +678,15 @@ def gate_zj(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
     # Step 2: Get potential outcomes for particular z_value
     if not continuous:
         sum_wgate = np.sum(w_gate_zj, axis=2)
+    if late:
+        sum_wgate = np.ones_like(sum_wgate) * n_x
+
     for a_idx in range(no_of_tgates):
         for t_idx in range(no_of_treat):
             if not continuous:
                 w_gate_zj, w_diff, w_censored_zj, w_gate_unc_zj = w_gate_func(
                     a_idx, t_idx, sum_wgate[a_idx, t_idx], w_gate_zj,
-                    w_censored_zj, w_gate_unc_zj, w_ate, int_dic, p_dic)
+                    w_censored_zj, w_gate_unc_zj, w_ate, int_dic, p_dic, late)
             for o_idx in range(no_of_out):
                 if continuous:
                     for i, (w01, w10) in enumerate(zip(i_w01, i_w10)):
@@ -645,7 +694,7 @@ def gate_zj(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
                          w_censored_zj) = w_gate_cont_funct(
                              t_idx, a_idx, no_of_treat, w_gate_zj, w10, w01, i,
                              w_gate_unc_zj, w_censored_zj,
-                             int_dic['max_weight_share'])
+                             int_dic['max_weight_share'], late=late)
                         ret = mcf_est.weight_var(
                             w_gate_cont, y_dat[:, o_idx], cl_dat, gen_dic,
                             p_dic, weights=w_dat,
@@ -672,7 +721,7 @@ def gate_zj(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p, z_name_j,
                         w_gate_zj[a_idx, t_idx, :], y_dat[:, o_idx], cl_dat,
                         gen_dic, p_dic, weights=w_dat,
                         bootstrap=p_dic['se_boot_gate'],
-                        keep_all=int_dic['keep_w0'])
+                        keep_all=int_dic['keep_w0'], normalize=not late)
                     y_pot_zj[a_idx, t_idx, o_idx] = ret[0]
                     y_pot_var_zj[a_idx, t_idx, o_idx] = ret[1]
                     if int_dic['with_output']:
@@ -691,7 +740,7 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
                z_name_j, weights_all, w_gate0_dim, w_ate, i_d_val, t_probs,
                no_of_tgates, no_of_out, ct_dic, gen_dic, int_dic, p_dic, n_y,
                bandw_z, kernel, save_w_file=None, smooth_it=False,
-               continuous=False):
+               continuous=False, late=False):
     """Compute Gates and their variances for MP."""
     if continuous:
         no_of_treat, d_values = ct_dic['grid_w'], ct_dic['grid_w_val']
@@ -716,7 +765,7 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
     # Step 1: Aggregate weights
     weights, relevant_z, w_z_val = get_w_rel_z(
         z_p[:, z_name_j], z_val, weights_all, smooth_it, bandwidth=bandw_z,
-        kernel=kernel, w_is_csr=int_dic['weight_as_sparse'])
+        kernel=kernel, w_is_csr=int_dic['weight_as_sparse'], late=late)
     if p_dic['gatet']:
         d_p_z = d_p[relevant_z]
     if gen_dic['weighted']:
@@ -726,8 +775,8 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
         w_gadd = np.zeros(w_gate0_dim)
         for t_idx, _ in enumerate(d_values):
             if int_dic['weight_as_sparse']:
-                weight_i = weights[t_idx].getrow(n_idx)
-                w_index = weight_i.indices
+                weight_i = weights[t_idx][n_idx, :]
+                w_index = weight_i.col   # TODO ex scr with indices
                 w_i = weight_i.data.copy()
             else:
                 w_index = weights[n_idx][t_idx][0].copy()  # Ind weights>0
@@ -735,7 +784,7 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
             if gen_dic['weighted']:
                 w_i = w_i * w_dat[w_index].reshape(-1)
             w_i_sum = np.sum(w_i)
-            if not (1-1e-10) < w_i_sum < (1+1e-10):
+            if not ((1-1e-10) < w_i_sum < (1+1e-10) or late):
                 w_i = w_i / w_i_sum
             if gen_dic['weighted']:
                 w_i = w_i * w_p_z[n_idx]
@@ -753,12 +802,14 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
     # Step 2: Get potential outcomes for particular z_value
     if not continuous:
         sum_wgate = np.sum(w_gate_zj, axis=2)
+    if late:
+        sum_wgate = np.ones_like(sum_wgate) * n_x
     for a_idx in range(no_of_tgates):
         for t_idx in range(no_of_treat):
             if not continuous:
                 w_gate_zj, w_diff, w_censored_zj, w_gate_unc_zj = w_gate_func(
                     a_idx, t_idx, sum_wgate[a_idx, t_idx], w_gate_zj,
-                    w_censored_zj, w_gate_unc_zj, w_ate, int_dic, p_dic)
+                    w_censored_zj, w_gate_unc_zj, w_ate, int_dic, p_dic, late)
             for o_idx in range(no_of_out):
                 if continuous:
                     for i, (w01, w10) in enumerate(zip(i_w01, i_w10)):
@@ -766,7 +817,7 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
                          w_censored_zj) = w_gate_cont_funct(
                              t_idx, a_idx, no_of_treat, w_gate_zj, w10, w01, i,
                              w_gate_unc_zj, w_censored_zj,
-                             p_dic['max_weight_share'])
+                             p_dic['max_weight_share'], late=late)
                         ret = mcf_est.weight_var(
                             w_gate_cont, y_dat[:, o_idx], cl_dat, gen_dic,
                             p_dic, weights=w_dat,
@@ -793,7 +844,8 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
                         w_gate_zj[a_idx, t_idx, :], y_dat[:, o_idx], cl_dat,
                         gen_dic, p_dic, weights=w_dat,
                         bootstrap=p_dic['se_boot_gate'],
-                        keep_all=int_dic['keep_w0'])
+                        keep_all=int_dic['keep_w0'],
+                        normalize=not late)
                     y_pot_zj[a_idx, t_idx, o_idx] = ret[0]
                     y_pot_var_zj[a_idx, t_idx, o_idx] = ret[1]
                     if int_dic['with_output']:
@@ -804,22 +856,25 @@ def gate_zj_mp(z_val, zj_idx, y_dat, cl_dat, w_dat, z_p, d_p, w_p,
                             keep_all=int_dic['keep_w0'])
                         y_pot_mate_zj[a_idx, t_idx, o_idx] = ret2[0]
                         y_pot_mate_var_zj[a_idx, t_idx, o_idx] = ret2[1]
-    if w_gate_zj.nbytes > 1e+9 and int_dic['ray_or_dask'] != 'ray':
-        # otherwise tuple gets too large for MP
-        save_name_w = 'wtemp' + str(zj_idx) + '.npy'
-        save_name_wunc = 'wunctemp' + str(zj_idx) + '.npy'
-        np.save(save_name_w, w_gate_zj, fix_imports=False)
-        np.save(save_name_wunc, w_gate_unc_zj, fix_imports=False)
-        w_gate_zj = w_gate_unc_zj = None
-    else:
-        save_name_w = save_name_wunc = None
+
+    # if w_gate_zj.nbytes > 1e+9 and int_dic['ray_or_dask'] != 'ray':
+    #     # otherwise tuple gets too large for MP
+    #     save_name_w = 'wtemp' + str(zj_idx) + '.npy'
+    #     save_name_wunc = 'wunctemp' + str(zj_idx) + '.npy'
+    #     np.save(save_name_w, w_gate_zj, fix_imports=False)
+    #     np.save(save_name_wunc, w_gate_unc_zj, fix_imports=False)
+    #     w_gate_zj = w_gate_unc_zj = None
+    # else:
+    #     save_name_w = save_name_wunc = None
+    save_name_w = save_name_wunc = None
+
     return (y_pot_zj, y_pot_var_zj, y_pot_mate_zj, y_pot_mate_var_zj,
             w_gate_zj, w_gate_unc_zj, zj_idx, w_censored_zj, save_name_w,
             save_name_wunc)
 
 
 def get_w_rel_z(z_dat, z_val, weights_all, smooth_it, bandwidth=1, kernel=1,
-                w_is_csr=False):
+                w_is_csr=False, late=False):
     """
     Get relevant observations and their weights.
 
@@ -858,16 +913,23 @@ def get_w_rel_z(z_dat, z_val, weights_all, smooth_it, bandwidth=1, kernel=1,
 
 
 def w_gate_func(a_idx, t_idx, sum_wgate, w_gate_zj, w_censored_zj,
-                w_gate_unc_zj, w_ate, int_dic, p_dic):
+                w_gate_unc_zj, w_ate, int_dic, p_dic, late=False):
     """Compute weights for discrete case."""
-    if (not 1-1e-10 < sum_wgate < 1+1e-10) and (sum_wgate > 1e-10):
-        w_gate_zj[a_idx, t_idx, :] = w_gate_zj[a_idx, t_idx, :] / sum_wgate
+    if late or ((not 1-1e-10 < sum_wgate < 1+1e-10) and sum_wgate > 1e-10):
+        w_gate_zj[a_idx, t_idx, :] /= sum_wgate
+
     w_gate_unc_zj[a_idx, t_idx, :] = w_gate_zj[a_idx, t_idx, :]
+
     if p_dic['max_weight_share'] < 1:
-        (w_gate_zj[a_idx, t_idx, :], _, w_censored_zj[a_idx, t_idx]
-         ) = mcf_gp.bound_norm_weights(w_gate_zj[a_idx, t_idx, :],
-                                       p_dic['max_weight_share'])
-    if int_dic['with_output']:
+        if late:
+            (w_gate_zj[a_idx, t_idx, :], _, w_censored_zj[a_idx, t_idx]
+             ) = mcf_gp.bound_norm_weights_not_one(w_gate_zj[a_idx, t_idx, :],
+                                                   p_dic['max_weight_share'])
+        else:
+            (w_gate_zj[a_idx, t_idx, :], _, w_censored_zj[a_idx, t_idx]
+             ) = mcf_gp.bound_norm_weights(w_gate_zj[a_idx, t_idx, :],
+                                           p_dic['max_weight_share'])
+    if int_dic['with_output'] and w_ate is not None:
         w_diff = w_gate_unc_zj[a_idx, t_idx, :] - w_ate[a_idx, t_idx, :]
     else:
         w_diff = None
@@ -875,7 +937,8 @@ def w_gate_func(a_idx, t_idx, sum_wgate, w_gate_zj, w_censored_zj,
 
 
 def w_gate_cont_funct(t_idx, a_idx, no_of_treat, w_gate_zj, w10, w01,  i,
-                      w_gate_unc_zj, w_censored_zj, max_weight_share):
+                      w_gate_unc_zj, w_censored_zj, max_weight_share,
+                      late=False):
     """Approximate weights for continuous treatments."""
     if t_idx == (no_of_treat - 1):  # last element,no inter
         w_gate_cont = w_gate_zj[a_idx, t_idx, :]
@@ -883,14 +946,19 @@ def w_gate_cont_funct(t_idx, a_idx, no_of_treat, w_gate_zj, w10, w01,  i,
         w_gate_cont = (w10 * w_gate_zj[a_idx, t_idx, :]
                        + w01 * w_gate_zj[a_idx, t_idx+1, :])
     sum_wgate = np.sum(w_gate_cont)
-    if not ((-1e-15 < sum_wgate < 1e-15) or (1-1e-10 < sum_wgate < 1+1e-10)):
+    if not ((-1e-15 < sum_wgate < 1e-15) or (1-1e-10 < sum_wgate < 1+1e-10)
+            or late):
         w_gate_cont = w_gate_cont / sum_wgate
     if i == 0:
         w_gate_unc_zj[a_idx, t_idx, :] = w_gate_cont
     w_gate_cont_unc = w_gate_cont.copy()
     if max_weight_share < 1:
-        w_gate_cont, _, w_censored = mcf_gp.bound_norm_weights(
-            w_gate_cont, max_weight_share)
+        if late:
+            w_gate_cont, _, w_censored = mcf_gp.bound_norm_weights_not_one(
+                w_gate_cont, max_weight_share)
+        else:
+            w_gate_cont, _, w_censored = mcf_gp.bound_norm_weights(
+                w_gate_cont, max_weight_share)
         if i == 0:
             w_censored_zj[a_idx, t_idx] = w_censored
     return w_gate_cont, w_gate_cont_unc, w_gate_unc_zj, w_censored_zj
@@ -921,3 +989,14 @@ def assign_w(w_gate, w_gate_unc, w_censored, results_fut_zj, zj_idx):
     w_gate_unc[zj_idx, :, :, :] = results_fut_zj[5]
     w_censored[zj_idx, :, :] = results_fut_zj[7]
     return w_gate, w_gate_unc, w_censored
+
+
+def adjust_var_mult_duplicates(matches):
+    """Compute multiplier of variance adjusting for duplicate matches."""
+    matches_np = np.array(matches)
+    unique_values, counts = np.unique(matches_np, return_counts=True)
+    n_unique = len(unique_values)
+    d_i = counts - 1
+    var_dupl_mult = ((n_unique + np.sum(2 * d_i + d_i**2))
+                     / (n_unique + np.sum(d_i)))
+    return var_dupl_mult

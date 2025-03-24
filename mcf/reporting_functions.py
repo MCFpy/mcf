@@ -7,7 +7,7 @@ Contains classes and methods needed for mcf and optimal policy reporting.
 @author: MLechner
 """
 from datetime import datetime
-import os
+from pathlib import Path
 
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
@@ -26,7 +26,7 @@ def create_pdf_file(rep_o):
                       rep_o.text['general'], color='grey')
     idx1 = 2
     if rep_o.mcf_o is not None:
-        report_mcf_core(pdf, rep_o, idx1)
+        report_mcf_core(pdf, rep_o, idx1, late=rep_o.late)
         idx1 += 1
     if rep_o.blind_o is not None:
         report_mcf_blind(pdf, rep_o, idx1)
@@ -70,7 +70,7 @@ def report_optpol(pdf, rep_o, idx1):
                           index_label='Allocation')
 
 
-def report_mcf_core(pdf, rep_o, idx1):
+def report_mcf_core(pdf, rep_o, idx1, late=False):
     """Write report on mcf training, prediction, and analysis."""
     idx2 = idx3 = idx4 = 1
     pdf.print_section((idx1,), 'MCF estimation', rep_o.text['mcf_general'],
@@ -92,6 +92,8 @@ def report_mcf_core(pdf, rep_o, idx1):
                           rep_o.text['mcf_t_common_support'], 'greenT')
         idx3 += 1
         title = "Common support plots"
+        if late:
+            title += (' (instrument propensity score)')
         pdf.add_figure_row(title, rep_o.mcf_o.report['cs_t_figs'][0][1:],
                            width=70, height=60)
     if rep_o.mcf_o.lc_dict["yes"]:
@@ -114,7 +116,8 @@ def report_mcf_core(pdf, rep_o, idx1):
     idx4 = 1
     pdf.print_section((idx1, idx2, idx3), "Results",
                       rep_o.text['mcf_results'], 'greenP')
-    pdf.print_section((idx1, idx2, idx3, idx4), "ATE",
+    titel_ = "LATE" if late else "ATE"
+    pdf.print_section((idx1, idx2, idx3, idx4), titel_,
                       rep_o.text['mcf_ate'][0], 'greenP')
     for idx, table_df in enumerate(rep_o.text['mcf_ate'][1]):
         y_name = rep_o.mcf_o.var_dict['y_name'][idx]
@@ -128,22 +131,22 @@ def report_mcf_core(pdf, rep_o, idx1):
                       col_width=30, note=rep_o.text['mcf_ate'][2])
     idx4 += 1
     if rep_o.mcf_o.p_dict['gate']:
-        title = 'GATE'
+        title = 'LGATE' if late else 'GATE'
         pdf.print_section((idx1, idx2, idx3, idx4), "GATE", ' ', 'greenP')
         pdf.add_figure_row(title, rep_o.text['mcf_gate'][0],
                            width=70, height=60, note=rep_o.text['mcf_gate'][1])
         idx4 += 1
     if rep_o.mcf_o.p_dict['bgate']:
-        title = 'BGATE'
-        pdf.print_section((idx1, idx2, idx3, idx4), "BGATE",
+        title = 'LBGATE' if late else 'BGATE'
+        pdf.print_section((idx1, idx2, idx3, idx4), title,
                           rep_o.text['mcf_bgate'][2], 'greenP')
         pdf.add_figure_row(title, rep_o.text['mcf_bgate'][0],
                            width=70, height=60,
                            note=rep_o.text['mcf_bgate'][1])
         idx4 += 1
     if rep_o.mcf_o.p_dict['cbgate']:
-        title = 'CBGATE'
-        pdf.print_section((idx1, idx2, idx3, idx4), "CBGATE",
+        title = 'LCBGATE' if late else 'CBGATE'
+        pdf.print_section((idx1, idx2, idx3, idx4), title,
                           'All covariates are balanced.', 'greenP')
         pdf.add_figure_row(title, rep_o.text['mcf_cbgate'][0],
                            width=70, height=60,
@@ -167,7 +170,8 @@ def report_mcf_core(pdf, rep_o, idx1):
         pdf.print_section((idx1, idx2), "Analysis of Estimated IATEs",
                           rep_o.text['mcf_iate_part2'][0], 'greenA')
         if rep_o.mcf_o.report['fig_iate']:
-            pdf.add_figure_row('IATEs', rep_o.text['mcf_iate_part2'][1],
+            titel_ = 'LIATEs and IATEs' if late else 'IATEs'
+            pdf.add_figure_row(titel_, rep_o.text['mcf_iate_part2'][1],
                                width=70, height=60,
                                note=rep_o.text['mcf_iate_part2'][2])
         knn_table = rep_o.text['mcf_iate_part2'][4]
@@ -175,7 +179,8 @@ def report_mcf_core(pdf, rep_o, idx1):
             pdf.print_section(txt=rep_o.text['mcf_iate_part2'][3])
             pdf.print_section(txt=knn_table['obs_cluster_str'])
             note = 'Mean of variable in cluster.'
-            pdf.add_table('IATE ', knn_table['IATE_df'],
+            titel_ = 'LIATE ' if late else 'IATE '
+            pdf.add_table(titel_, knn_table['IATE_df'],
                           col_width=30, font_size_table=10, note=note)
             pdf.add_table('Potential Outcomes ', knn_table['PotOutcomes_df'],
                           col_width=30, font_size_table=10, note=note)
@@ -208,8 +213,8 @@ def create_text(rep_o):
     rep_o.text['header'] = header_title(rep_o)
     rep_o.text['general'] = content.general(rep_o)
     if rep_o.mcf_o is not None:
-        rep_o.text['mcf_general'] = content.mcf_general(rep_o.mcf_o,
-                                                        empty_lines_end)
+        rep_o.text['mcf_general'] = content.mcf_general(
+            rep_o.mcf_o, empty_lines_end, late=rep_o.late)
         rep_o.text['mcf_training'] = content.mcf_training(rep_o.mcf_o,
                                                           empty_lines_end)
         rep_o.text['mcf_descriptives'] = content.mcf_descriptives(
@@ -217,15 +222,15 @@ def create_text(rep_o):
         if rep_o.mcf_o.fs_dict["yes"]:
             rep_o.text['mcf_feature_selection'
                        ] = content.mcf_feature_selection(
-                            rep_o.mcf_o, empty_lines_end)
+                            rep_o.mcf_o, empty_lines_end, late=rep_o.late)
         if rep_o.mcf_o.cs_dict["type"] > 0:
             rep_o.text['mcf_t_common_support'] = content.mcf_common_support(
-                rep_o.mcf_o, empty_lines_end - 1, train=True)
+                rep_o.mcf_o, empty_lines_end - 1, train=True, late=rep_o.late)
         if rep_o.mcf_o.lc_dict["yes"]:
             rep_o.text['mcf_local_center'] = content.mcf_local_center(
-                rep_o.mcf_o, empty_lines_end)
+                rep_o.mcf_o, empty_lines_end, late=rep_o.late)
         rep_o.text['mcf_forest'] = content.mcf_forest(
-            rep_o.mcf_o, empty_lines_end)
+            rep_o.mcf_o, empty_lines_end, late=rep_o.late)
 
         # When predict and analyse is used more than once, only first occurance
         #  is reported
@@ -238,33 +243,37 @@ def create_text(rep_o):
             rep_o.mcf_o.report.update(sub_dict)
             rep_o.mcf_o.report['analyse_list'] = []
 
-        rep_o.text['mcf_prediction'] = content.mcf_prediction(rep_o.mcf_o,
-                                                              empty_lines_end)
+        rep_o.text['mcf_prediction'] = content.mcf_prediction(
+            rep_o.mcf_o, empty_lines_end)
         if rep_o.mcf_o.cs_dict["type"] > 0:
             rep_o.text['mcf_p_common_support'] = content.mcf_common_support(
-                rep_o.mcf_o, empty_lines_end - 1, train=False)
-        rep_o.text['mcf_results'] = content.mcf_results(rep_o.mcf_o,
-                                                        empty_lines_end)
-        rep_o.text['mcf_ate'] = content.mcf_ate(rep_o.mcf_o, empty_lines_end)
+                rep_o.mcf_o, empty_lines_end - 1, train=False, late=rep_o.late)
+        rep_o.text['mcf_results'] = content.mcf_results(
+            rep_o.mcf_o, empty_lines_end, late=rep_o.late)
+        rep_o.text['mcf_ate'] = content.mcf_ate(rep_o.mcf_o, empty_lines_end,
+                                                late=rep_o.late)
         if rep_o.mcf_o.p_dict['gate']:
             rep_o.text['mcf_gate'] = content.mcf_gate(
-                rep_o.mcf_o, empty_lines_end, gate_type='gate')
+                rep_o.mcf_o, empty_lines_end, gate_type='gate', late=rep_o.late)
         if rep_o.mcf_o.p_dict['bgate']:
             rep_o.text['mcf_bgate'] = content.mcf_gate(
-                rep_o.mcf_o, empty_lines_end, gate_type='bgate')
+                rep_o.mcf_o, empty_lines_end, gate_type='bgate',
+                late=rep_o.late)
         if rep_o.mcf_o.p_dict['cbgate']:
             rep_o.text['mcf_cbgate'] = content.mcf_gate(
-                rep_o.mcf_o, empty_lines_end, gate_type='cbgate')
+                rep_o.mcf_o, empty_lines_end, gate_type='cbgate',
+                late=rep_o.late)
         if rep_o.mcf_o.p_dict['bt_yes']:
-            rep_o.text['mcf_balance'] = content.mcf_balance(empty_lines_end)
+            rep_o.text['mcf_balance'] = content.mcf_balance(empty_lines_end,
+                                                            late=rep_o.late)
         if rep_o.mcf_o.p_dict['iate']:
-            rep_o.text['iate_part1'] = content.mcf_iate_part1(rep_o.mcf_o,
-                                                              empty_lines_end)
+            rep_o.text['iate_part1'] = content.mcf_iate_part1(
+                rep_o.mcf_o, empty_lines_end, late=rep_o.late)
         if (rep_o.mcf_o.int_dict['with_output']
             and rep_o.mcf_o.post_dict['est_stats']
                 and rep_o.mcf_o.int_dict['return_iate_sp']):
             rep_o.text['mcf_iate_part2'] = content.mcf_iate_analyse(
-                rep_o.mcf_o, 1)
+                rep_o.mcf_o, 1, late=rep_o.late)
 
     if rep_o.opt_o is not None:
         rep_o.text['opt_general'] = content.opt_general(
@@ -480,11 +489,12 @@ class PDF(FPDF):
         self.set_font("helvetica", 'I', size=font_size_table)
 
         # Add index header
-        self.cell(col_width_idx, col_height, index_label, border=1, align='L')
+        self.cell(col_width_idx, col_height, index_label, border='TB',
+                  align='L')
 
         # Add headers
         for col in data.columns:
-            self.cell(col_width, col_height, str(col), border=1, align='C')
+            self.cell(col_width, col_height, str(col), border='TB', align='C')
         self.ln()
         self.set_font("helvetica", size=font_size_table)
         if font_size_table < 10:
@@ -492,11 +502,20 @@ class PDF(FPDF):
         # Add data
         for _, row in data.iterrows():
             # Add index cell
-            self.cell(col_width_idx, col_height, str(row.name), border=1,
-                      align='L')
-            # Add data cells
+            row_str = str(row.name)
+            max_width_str = int(col_width_idx * 0.7)
+            # Adjustment for overly long row names
+            if len(row_str) > max_width_str:
+                self.cell(col_width_idx, col_height, row_str, border='T',
+                          align='L')
+                self.ln()
+                self.cell(col_width_idx, col_height, ' ', border='B', align='L')
+            else:
+                self.cell(col_width_idx, col_height, row_str, border='B',
+                          align='L')
+
             for col in data.columns:
-                self.cell(col_width, col_height, str(row[col]), border=1,
+                self.cell(col_width, col_height, str(row[col]), border='B',
                           align='C')
             self.ln()
         if note is not None:
@@ -513,8 +532,8 @@ def gen_init(outputfile, outputpath):
     # Format the date and time as a string
     formatted_datetime = current_datetime.strftime('%Y_%m_%d_%H_%M')
     outputfile = 'Report' if outputfile is None else outputfile
-    outputpath = os.getcwd() + '/out' if outputpath is None else outputpath
+    outputpath = Path.cwd() / ('out' if outputpath is None else outputpath)
     outputfile += '_' + formatted_datetime + '.pdf'
     outputpath = mcf_sys.define_outpath(outputpath, new_outpath=False)
-    dic['outfilename'] = outputpath + '/' + outputfile
+    dic['outfilename'] = outputpath / outputfile
     return dic

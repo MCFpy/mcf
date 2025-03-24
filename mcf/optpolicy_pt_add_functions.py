@@ -78,11 +78,12 @@ def automatic_cost(optp_, data_df):
     """Compute costs that fulfill constraints."""
     gen_dic, var_dic = optp_.gen_dict, optp_.var_dict
     ot_dic = optp_.other_dict
-    obs = len(data_df)
+
     if gen_dic['with_output']:
         print('\nSearching cost values that fulfill constraints')
     data_ps = data_df[var_dic['polscore_name']].to_numpy()
-    obs = len(data_ps)
+    obs = data_ps.shape[0]
+
     max_by_treat = np.around(np.array(ot_dic['max_shares']) * obs)
     if any(cost > 0 for cost in ot_dic['costs_of_treat']):
         costs_of_treat = ot_dic['costs_of_treat'].copy()
@@ -90,9 +91,9 @@ def automatic_cost(optp_, data_df):
         costs_of_treat = np.zeros(gen_dic['no_of_treat'])
     std_ps = np.std(data_ps.reshape(-1))
     step_size = 0.02
-    iterations = 0
     max_iterations = 1000
-    while iterations < max_iterations:
+
+    for iterations in range(max_iterations):
         treatments = np.argmax(data_ps - costs_of_treat, axis=1)
         values, count = np.unique(treatments, return_counts=True)
         if len(count) == gen_dic['no_of_treat']:
@@ -102,23 +103,26 @@ def automatic_cost(optp_, data_df):
             for i, j in enumerate(values):
                 alloc[j] = count[i]
         diff = alloc - max_by_treat
+
         diff[diff < 0] = 0
         if not np.any(diff > 0):
             break
-        elif iterations % 100 == 0:
+
+        if iterations % 100 == 0:
             step_size /= 2
             if gen_dic['with_output']:
                 iter_string = ' '.join(f'({int(s):3d})' for s in diff)
                 print(f'Iterations: {iterations}, {iter_string}')
-        costs_of_treat += diff / obs * std_ps * step_size
-        iterations += 1
 
-    alloc = np.int16(alloc)
+        costs_of_treat += diff / obs * std_ps * step_size
+
+    alloc = alloc.astype(np.int16)
     costs_of_treat_update = costs_of_treat * ot_dic['costs_of_treat_mult']
     costs_of_treat_neu = ot_dic['costs_of_treat'].copy()
     for idx, cost in enumerate(costs_of_treat_update):
         if cost > ot_dic['costs_of_treat'][idx]:
             costs_of_treat_neu[idx] = cost
+
     if gen_dic['with_output']:
         txt = ('\n' + '=' * 100 +
                '\nAutomatic determination of cost that fullfil contraints in'
@@ -143,6 +147,7 @@ def automatic_cost(optp_, data_df):
                     f' {alloc[idx] / obs:6.2%}')
         txt += '\n' + '-' * 100
         ps.print_mcf(gen_dic, txt, summary=True)
+
     return costs_of_treat_neu
 
 
@@ -309,8 +314,6 @@ def get_values_ordered_numba(single_x_np, ps_np_diff, values, no_of_values):
 
     for i, val in enumerate(values):
         ps_group = ps_np_diff[single_x_np == val, :]
-        # for j in range(no_of_ps):  # wg numba
-        #     mean_y_by_values[i, j] = np.mean(ps_group[:, j])
         mean_y_by_values[i, :] = ps_group.sum(axis=0) / len(ps_group)
 
     values_sorted = np.empty((no_of_values, no_of_ps))
@@ -440,6 +443,7 @@ def adjust_reward_numba(no_by_treat_l, no_by_treat_r, reward_l, reward_r,
             diff = min(diff_max, 1)
             reward_l = reward_l - diff * np.abs(reward_l)
             reward_r = reward_r - diff * np.abs(reward_r)
+
     return reward_l, reward_r
 
 
@@ -480,8 +484,9 @@ def prepare_data_for_tree_building(optp_, data_df, seed=123456):
     data_ps = data_df[var_dic['polscore_name']].to_numpy()
     data_ps_diff = data_ps[:, 1:] - data_ps[:, 0, np.newaxis]
     no_of_x = len(x_type)
-    name_x = [None] * no_of_x
-    type_x, values_x = [None] * no_of_x, [None] * no_of_x
+    name_x = [None for _ in range(no_of_x)]
+    type_x = [None for _ in range(no_of_x)]
+    values_x = [None for _ in range(no_of_x)]
     for j, key in enumerate(x_type.keys()):
         name_x[j], type_x[j] = key, x_type[key]
         values_x[j] = (sorted(x_values[key])
@@ -511,8 +516,7 @@ def only_1st_tree_fct3(data_ps, costs_of_treat):
 def all_same_max_numba(data):
     """Check same categies have max."""
     ref_val = np.argmax(data[0, :])
-    for i in range(1, len(data)):
-        # opt_treat = np.argmax(data[i, :])
+    for i in range(1, data.shape[0]):
         if ref_val != np.argmax(data[i, :]):
             return False
     return True
@@ -573,7 +577,7 @@ def evaluate_leaf_numba(data_ps, no_of_treatments, max_by_treat, restricted,
         if np.any(treat_not_ok):
             treat_ok = ~treat_not_ok
             data_ps = data_ps[:, treat_ok]
-            if data_ps.shape[0] == 0:
+            if data_ps.shape[1] == 0:           # changed from 0 to 1
                 idx = np.argmin(diff_obs)
                 treat_ok[idx] = True
 
@@ -710,9 +714,9 @@ def get_values_cont_x_numba(data_vector, no_of_evalupoints):
     data_vector_new = np.empty(no_of_evalupoints)
 
     for i in range(no_of_evalupoints):
-        # indices_i = np.uint32(indices[i])
         indices_i = int(indices[i])
         data_vector_new[i] = data_vector[indices_i]
+
     return data_vector_new
 
 
@@ -741,6 +745,7 @@ def get_values_cont_x_numba_prange(data_vector, no_of_evalupoints):
         for i in prange(no_of_evalupoints):
             indices_i = np.uint32(indices[i])
             data_vector_new[i] = data_vector[indices_i]
+
     return data_vector_new
 
 
@@ -765,4 +770,5 @@ def get_values_cont_x_no_numba(data_vector, no_of_evalupoints):
         return data_vector
     indices = np.uint32(np.linspace(obs / no_of_evalupoints, obs,
                                     no_of_evalupoints, endpoint=False))
+
     return data_vector[indices]

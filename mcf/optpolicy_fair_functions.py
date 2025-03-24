@@ -88,7 +88,7 @@ def fair_score_fct(optp_, scores_np, scores_name, protect_np, material_np,
 def quantalisation(optp_, scores_np, protect_np, material_np, seed=1246546,
                    title=''):
     """Adjust by quantalisation similar to Strack & Yang (2024)."""
-    txt = ''
+    txt_report = ''
     disc_methods = optp_.fair_dict['discretization_methods']
     if optp_.gen_dict['with_output']:
         if title is None or title == '':
@@ -101,10 +101,11 @@ def quantalisation(optp_, scores_np, protect_np, material_np, seed=1246546,
                                     < optp_.fair_dict['material_max_groups'])):
             optp_.fair_dict['material_disc_method'] = optp_.fair_dict[
                 'default_disc_method']
-            txt += ('\nMaterial relevant features have no or only a few '
-                    'values. Discretization method changed to '
-                    f'{optp_.fair_dict["material_disc_method"]}'
-                    )
+            txt_report += (
+                '\nMaterial relevant features have no or only a few '
+                'values. Discretization method changed to '
+                f'{optp_.fair_dict["material_disc_method"]}'
+                )
 
     # Check if protected features should be treated as discrete
     if optp_.fair_dict['protected_disc_method'] == 'NoDiscretization':
@@ -112,29 +113,30 @@ def quantalisation(optp_, scores_np, protect_np, material_np, seed=1246546,
                 'protected_max_groups']):
             optp_.fair_dict['protected_disc_method'] = optp_.fair_dict[
                 'default_disc_method']
-            txt += ('\nProtected features have no or only a few '
-                    'values. Discretization method changed to '
-                    f'{optp_.fair_dict["protected_disc_method"]}'
-                    )
+            txt_report += ('\nProtected features have no or only a few '
+                           'values. Discretization method changed to '
+                           f'{optp_.fair_dict["protected_disc_method"]}'
+                           )
 
     # Discretize if needed, otherwise no change of data
-    protect_np, material_np, txt_report = optp_fair_add.data_quantilized(
+    protect_np, material_np, txt_add = optp_fair_add.data_quantilized(
         optp_, protect_np, material_np, seed)
-    txt_report += txt
+    txt_report += txt_add
 
     if ((optp_.fair_dict['protected_disc_method'] in disc_methods)
         and ((material_np is None) or (optp_.fair_dict['material_disc_method']
                                        in disc_methods))):
         # No density estimation needed
-        fair_score_np, txt = within_cell_quantilization(scores_np, protect_np,
-                                                        material_np)
+        fair_score_np, txt_add = within_cell_quantilization(
+            scores_np, protect_np, material_np)
     else:
-        fair_score_np, txt = kernel_quantilization(
+        fair_score_np, txt_add = kernel_quantilization(
             optp_, scores_np, protect_np, material_np)
 
-    txt_report += txt
+    txt_report += txt_add
     if optp_.gen_dict['with_output'] and title == '':
         mcf_ps.print_mcf(optp_.gen_dict, txt_report, summary=True)
+
     return fair_score_np, txt_report
 
 
@@ -142,7 +144,8 @@ def kernel_quantilization(optp_, scores_np, protected_np, material_np):
     """Do within cell quantilization for arbitrary materially rel. features."""
     disc_methods = optp_.fair_dict['discretization_methods']
     txt_report = ('\nQuantile based method by Strack & Yang (2024) used for '
-                  'materially relevant features with many variables.')
+                  'materially relevant features with many variables.'
+                  )
 
     no_of_scores = scores_np.shape[1]
     fair_score_np = scores_np.copy()
@@ -153,8 +156,13 @@ def kernel_quantilization(optp_, scores_np, protected_np, material_np):
 
     if optp_.fair_dict['protected_disc_method']:
         vals_prot = np.unique(protected_np, return_counts=False)
+    else:
+        vals_prot = None
+
     if material_np is not None and optp_.fair_dict['material_disc_method']:
         vals_material = np.unique(material_np, return_counts=False)
+    else:
+        vals_material = None
 
     if protected_np.shape[1] == 1:
         protected_np = protected_np.reshape(-1, 1)
@@ -273,6 +281,7 @@ def get_grid(data, no_eval_point):
     """Get evaluation grid for densities."""
     data_min, data_max = data.min(), data.max()
     grid = np.linspace(data_min, data_max, no_eval_point).reshape(-1, 1)
+
     return grid
 
 
@@ -290,6 +299,7 @@ def within_cell_quantilization(scores_np, protected_np, material_np):
         indices_mat = np.where(material_np == mat_val)[0]
         if indices_mat.size == 0:
             continue
+
         prot_mat = protected_np[indices_mat].reshape(-1)
         vals_prot_mat = np.unique(prot_mat, return_counts=False)
         if len(vals_prot_mat) == 1:
@@ -318,6 +328,7 @@ def calculate_quantiles(data):
     rank = np.empty_like(data)
     for idx, value in enumerate(data):
         rank[idx] = np.searchsorted(data_sort, value, side='right')  # Find rank
+
     return rank / len(data)
 
 
@@ -357,6 +368,11 @@ def residualisation(optp_, scores_np, scores_name, protect_np, material_np,
         y_var_cond_x_np = np.zeros_like(scores_np)
         if with_material_x:
             y_var_cond_mat_np = np.zeros_like(scores_np)
+        else:
+            y_var_cond_mat_np = None
+    else:
+        y_var_cond_x_np = y_var_cond_mat_np = None
+
     # Loop over scores to obtain prediction of conditonal expectation of y
     for idx in range(no_of_scores):
         for mean_var in adjust_ment_set:
@@ -370,7 +386,7 @@ def residualisation(optp_, scores_np, scores_name, protect_np, material_np,
                 y_np = scores_np[:, idx]  # Dependent variable in regression
 
                 # No regression if there is no variation in the score
-                if np.std(y_np) < 1-8:
+                if np.std(y_np) < 1e-8:
                     y_mean_cond_x_np[:, idx] = y_np.copy()
                     if with_material_x:
                         y_mean_cond_mat_np[:, idx] = y_np.copy()
@@ -383,7 +399,7 @@ def residualisation(optp_, scores_np, scores_name, protect_np, material_np,
                 if with_material_x:
                     y_mean_mat_2 = y_mean_cond_mat_np[:, idx]**2
                 # No regression if there is no variation in the score
-                if np.std(y_np) < 1-8:
+                if np.std(y_np) < 1e-8:
                     y_var_cond_x_np[:, idx] = y_np - y_mean_x_2
                     if with_material_x:
                         y_var_cond_mat_np[:, idx] = y_np - y_mean_mat_2
@@ -394,19 +410,22 @@ def residualisation(optp_, scores_np, scores_name, protect_np, material_np,
             # Find best estimator for specific score (only using all covars)
             (estimator, params, best_label, _, transform_x, txt_mse
              ) = mcf_gf.best_regression(
-                x_cond_np,  y_np.ravel(),
+                x_cond_np, y_np.ravel(),
                 estimator=optp_.fair_dict['regression_method'],
-                boot=boot, seed=seed+12435,
-                max_workers=optp_.int_dict['mp_parallel'],
+                boot=boot,
+                seed=seed + 12435,
+                max_workers=optp_.gen_dict['mp_parallel'],
                 cross_validation_k=cross_validation_k,
                 absolute_values_pred=mean_var == 'variance')
+
             if with_material_x:
                 (estimator_m, params_m, best_label_m, _, transform_x_m,
                  txt_mse_m) = mcf_gf.best_regression(
                     material_np,  y_np.ravel(),
                     estimator=optp_.fair_dict['regression_method'],
-                    boot=boot, seed=seed+12435,
-                    max_workers=optp_.int_dict['mp_parallel'],
+                    boot=boot,
+                    seed=seed + 12435,
+                    max_workers=optp_.gen_dict['mp_parallel'],
                     cross_validation_k=cross_validation_k,
                     absolute_values_pred=mean_var == 'variance')
 
@@ -483,6 +502,7 @@ def residualisation(optp_, scores_np, scores_name, protect_np, material_np,
                             y_var_cond_mat_np[index_pred, idx] = (
                                 y_obj_m.predict(x_pred_m)
                                 - y_mean_mat_2[index_pred])
+
     residuum_np = scores_np - y_mean_cond_x_np
 
     # Adjust variance as well
@@ -562,7 +582,8 @@ def test_for_consistency(optp_, fair_score_np, fairscore_name, scores_np,
     if optp_.gen_dict['with_output']:
         txt1 = ('\nTest for consistency of different fairness normalisations:'
                 '\n    - Compare difference of adjusted scores to '
-                'adjusted difference of scores')
+                'adjusted difference of scores'
+                )
         for key, value in test_dic.items():
             keys = key + ':'
             txt1 += (f'\n{keys:50} MAD: {value[0]:5.2%}, '
@@ -573,7 +594,8 @@ def test_for_consistency(optp_, fair_score_np, fairscore_name, scores_np,
             'deviation of absolute unadjusted score. Ideal value is 0%.'
             '\nSame sign: Share of scores with same sign. Ideal value is 100%.'
             '\nCorrelation: Share of scores with same sign. '
-            'Ideal value is 100%.')
+            'Ideal value is 100%.'
+            )
         mcf_ps.print_mcf(optp_.gen_dict, '\n' + '-' * 100 + txt + txt1,
                          summary=True)
         txt += '\n' + txt1

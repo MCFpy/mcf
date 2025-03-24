@@ -39,7 +39,7 @@ def iate_cuda(weights_list, cl_dat_np, no_of_cluster, w_dat_np, w_ate_np,
         iate_se_flag and iate_m_ate_flag) else None
     share_censored = torch.zeros(no_of_treat_dr,  device='cuda',
                                  dtype=mcf_cuda.tdtype('float', precision))
-    l1_to_9 = [None] * n_x
+    l1_to_9 = [None for _ in range(n_x)]
     if gen_dic['d_type'] == 'continuous':
         d_values_dr = torch.from_numpy(ct_dic['d_values_dr_np'])
     else:
@@ -86,7 +86,7 @@ def gpu_to_numpy(pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var,
     pot_y_m_ate_var_np = (gpu_np(pot_y_m_ate_var)
                           if pot_y_m_ate_var is not None else None)
     share_censored_np = gpu_np(share_censored)
-    l1_to_9_list = [None] * len(l1_to_9)
+    l1_to_9_list = [None for _ in range(len(l1_to_9))]
     for idx, l1_to_9_idx in enumerate(l1_to_9):
         l1_to_9_list[idx] = [gpu_np(var) for var in l1_to_9_idx]
     return (pot_y_np, pot_y_var_np, pot_y_m_ate_np, pot_y_m_ate_var_np,
@@ -114,7 +114,7 @@ def assign_ret_all_i_cuda(pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var,
 def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         y_dat, no_of_out, n_y, ct_dic, int_dic, gen_dic, p_dic,
                         iate_se_flag, se_boot_iate, iate_m_ate_flag,
-                        d_values_dr, precision=32):
+                        d_values_dr, precision=32, late=False):
     """
     Compute function to be looped over observations for CUDA.
 
@@ -240,12 +240,16 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
             if extra_weight_p1:
                 w_t_p1 = None
         w_i_sum = torch.sum(w_i)
-        if (not (1-1e-10) < w_i_sum < (1+1e-10)) and not continuous:
+        if (not (1-1e-10) < w_i_sum < (1+1e-10)) and not (continuous or late):
             w_i = w_i / w_i_sum
         w_i_unc = w_i.clone()
         if p_dic['max_weight_share'] < 1 and not continuous:
-            w_i, _, share_i[t_idx] = mcf_gp.bound_norm_weights_cuda(
-                w_i, p_dic['max_weight_share'])
+            if late:
+                w_i, _, share_i[t_idx] = mcf_gp.bound_norm_weights_not_one_cuda(
+                    w_i, p_dic['max_weight_share'])
+            else:
+                w_i, _, share_i[t_idx] = mcf_gp.bound_norm_weights_cuda(
+                    w_i, p_dic['max_weight_share'])
         if extra_weight_p1:
             w_i_unc_p1 = w_i_p1.clone()
         if cluster_std:
@@ -275,9 +279,14 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         w_t_cont = w_t_cont / torch.sum(w_t_cont)
                     w_i_unc_cont = w_i_unc_cont / torch.sum(w_i_unc_cont)
                     if p_dic['max_weight_share'] < 1:
-                        (w_i_cont, _, share_cont
-                         ) = mcf_gp.bound_norm_weights_cuda(
-                             w_i_cont, p_dic['max_weight_share'])
+                        if late:
+                            (w_i_cont, _, share_cont
+                             ) = mcf_gp.bound_norm_weights_not_one_cuda(
+                                 w_i_cont, p_dic['max_weight_share'])
+                        else:
+                            (w_i_cont, _, share_cont
+                             ) = mcf_gp.bound_norm_weights_cuda(
+                                 w_i_cont, p_dic['max_weight_share'])
                         if i == 0:
                             share_i[t_idx] = share_cont
 
@@ -285,7 +294,7 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         w_i_cont, y_dat_cont, cl_i_cont, gen_dic, p_dic,
                         weights=w_t_cont, se_yes=iate_se_flag,
                         bootstrap=se_boot_iate, keep_all=int_dic['keep_w0'],
-                        precision=precision)
+                        precision=precision, normalize=not late)
                     ti_idx = index_full[t_idx, i]  # pylint: disable=E1136
                     pot_y_i[ti_idx, o_idx] = ret[0]
                     if iate_se_flag:
@@ -320,7 +329,8 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         if o_idx == 0:
                             w_add[ti_idx, w_index_both] = ret[2]
                             w_i_unc_sum = torch.sum(w_i_unc_cont)
-                            if not (1-1e-10) < w_i_unc_sum < (1+1e-10):
+                            if not ((1-1e-10) < w_i_unc_sum < (1+1e-10) or late
+                                    ):
                                 w_add_unc[ti_idx, w_index_both] = (
                                     w_i_unc_cont / w_i_unc_sum)
                             else:
@@ -353,7 +363,8 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                 ret = mcf_est_cuda.weight_var_cuda(
                     w_i, y_dat[w_index, o_idx], cl_i, gen_dic, p_dic,
                     weights=w_t, se_yes=iate_se_flag, bootstrap=se_boot_iate,
-                    keep_all=int_dic['keep_w0'], precision=precision)
+                    keep_all=int_dic['keep_w0'], precision=precision,
+                    normalize=not late)
                 pot_y_i[t_idx, o_idx] = ret[0]
                 if iate_se_flag:
                     pot_y_var_i[t_idx, o_idx] = ret[1]
@@ -378,7 +389,7 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                     if o_idx == 0:
                         w_add[t_idx, w_index] = ret[2]
                         w_i_unc_sum = torch.sum(w_i_unc)
-                        if not (1-1e-10) < w_i_unc_sum < (1+1e-10):
+                        if not ((1-1e-10) < w_i_unc_sum < (1+1e-10) or late):
                             w_add_unc[t_idx, w_index] = w_i_unc / w_i_unc_sum
                         else:
                             w_add_unc[t_idx, w_index] = w_i_unc

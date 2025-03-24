@@ -10,7 +10,7 @@ import numpy as np
 
 
 def make_default_tree_dict(n_leaf_min, number_of_features, indices_train,
-                           indices_oob):
+                           indices_oob, obs_bigdata_bool=False):
     """
     Define a dict. containing the full information of the causal mcf tree.
 
@@ -63,8 +63,12 @@ def make_default_tree_dict(n_leaf_min, number_of_features, indices_train,
     #                  1: Terminal leaf.
     #               8: Leaf size of training data in leaf
     #               9: Leaf size of OOB data in leaf
-
-    leaf_info_float = -np.ones((leaves_max, max_cols_float), dtype=np.float64)
+    if obs_bigdata_bool:
+        leaf_info_float = -np.ones((leaves_max, max_cols_float),
+                                   dtype=np.float32)
+    else:
+        leaf_info_float = -np.ones((leaves_max, max_cols_float),
+                                   dtype=np.float64)
     leaf_info_float[:, 0] = leaf_ids
     # leaf_info_float 0: ID of leaf
     #                 1: Cut-of value of ordered variables
@@ -73,8 +77,8 @@ def make_default_tree_dict(n_leaf_min, number_of_features, indices_train,
     # Primes need to stored separately as np.int64 may not be sufficient to
     # store extra large values
     cats_prime = [0] * leaves_max   # List, otherwise could not hold long int
-    indices_train_all = [None] * leaves_max
-    indices_oob_all = [None] * leaves_max
+    indices_train_all = [None for _ in range(leaves_max)]
+    indices_oob_all = [None for _ in range(leaves_max)]
     indices_train_all[0] = indices_train
     indices_oob_all[0] = indices_oob
     causal_tree_empty_dic = {
@@ -113,7 +117,7 @@ def cut_back_empty_cells_tree(tree):
     tree['cats_prime'] = tree['cats_prime'][:no_leaves]
     tree['train_data_list'] = tree['train_data_list'][:no_leaves]
     tree['oob_data_list'] = tree['oob_data_list'][:no_leaves]
-    tree['fill_y_indices_list'] = [None] * no_leaves
+    tree['fill_y_indices_list'] = [None for _ in range(no_leaves)]
     return tree
 
 

@@ -35,6 +35,7 @@ def train_forest(mcf_, tree_df, fill_y_df):
     else:
         cf_dic['est_rounds'] = ('regular', )
     obs = len(tree_df) + len(fill_y_df)
+
     if (folds := int(np.ceil(obs / cf_dic['chunks_maxsize']))) > 1:
         index_tr, index_y = tree_df.index, fill_y_df.index
         rng = np.random.default_rng(seed=seed)
@@ -42,6 +43,8 @@ def train_forest(mcf_, tree_df, fill_y_df):
         rng.shuffle(index_y.to_numpy())
         index_folds_tr = np.array_split(index_tr, folds)
         index_folds_y = np.array_split(index_y, folds)
+    # Similar quantity is defined in mcf_init_functions, but without accounting
+    # for common support.
     cf_dic['folds'] = folds
     for splits in range(folds):
         if folds > 1:
@@ -90,6 +93,8 @@ def train_forest(mcf_, tree_df, fill_y_df):
                     report["share_leaf_merged"] = share_merged
             else:
                 report = None
+            mcf_sys.print_mememory_statistics(
+                gen_dic, 'Forest Building: End of forests loop.')
     return cf_dic, forest_list, time_vi, report
 
 
@@ -97,8 +102,8 @@ def build_forest(mcf_, tree_df):
     """Build MCF (not yet populated by w and outcomes)."""
     int_dic, gen_dic, cf_dic = mcf_.int_dict, mcf_.gen_dict, mcf_.cf_dict
     cuda, cython = int_dic['cuda'], int_dic['cython']
-    with_ray = (not int_dic['no_ray_in_forest_building']
-                and (int_dic['ray_or_dask'] == 'ray'))
+    with_ray = not int_dic['no_ray_in_forest_building']
+    obs_bigdata_bool = len(tree_df) > int_dic['obs_bigdata']
     if not with_ray:
         if int_dic['with_output'] and int_dic['verbose']:
             ps.print_mcf(gen_dic, '\nNo use of ray in forest building.',
@@ -115,25 +120,30 @@ def build_forest(mcf_, tree_df):
     if int_dic['with_output'] and int_dic['verbose']:
         ps.print_mcf(gen_dic, f'\nNumber of parallel processes: {maxworkers}',
                      summary=False)
-    forest = [None] * cf_dic['boot']
+    forest = [None for _ in range(cf_dic['boot'])]
     if maxworkers == 1:
         for idx in range(cf_dic['boot']):
             forest[idx] = build_tree_mcf(
                 data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
                 x_values, x_ind, x_ai_ind, gen_dic, cf_dic, mcf_.ct_dict, idx,
-                pen_mult, cuda, cython)
+                pen_mult, cuda, cython, )
             if int_dic['with_output'] and int_dic['verbose']:
                 mcf_gp.share_completed(idx+1, cf_dic['boot'])
     else:
         if with_ray:
             if int_dic['mem_object_store_1'] is None:
                 if not ray.is_initialized():
-                    ray.init(num_cpus=maxworkers, include_dashboard=False)
+                    mcf_sys.init_ray_with_fallback(
+                        maxworkers, int_dic, gen_dic,
+                        ray_err_txt='Ray did not start in forest building.'
+                        )
             else:
                 if not ray.is_initialized():
-                    ray.init(
-                        num_cpus=maxworkers, include_dashboard=False,
-                        object_store_memory=int_dic['mem_object_store_1'])
+                    mcf_sys.init_ray_with_fallback(
+                        maxworkers, int_dic, gen_dic,
+                        mem_object_store=int_dic['mem_object_store_1'],
+                        ray_err_txt='Ray did not start in forest building.'
+                        )
                 if int_dic['with_output'] and int_dic['verbose']:
                     print("Size of Ray Object Store: ", round(
                         int_dic['mem_object_store_1']/(1024*1024)), " MB")
@@ -141,7 +151,8 @@ def build_forest(mcf_, tree_df):
             still_running = [ray_build_tree_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i,
                 x_type, x_values, x_ind, x_ai_ind, gen_dic, cf_dic,
-                mcf_.ct_dict, boot, pen_mult, cuda, cython)
+                mcf_.ct_dict, boot, pen_mult, cuda, cython,
+                obs_bigdata_bool)
                 for boot in range(cf_dic['boot'])]
             jdx = 0
             while len(still_running) > 0:
@@ -182,16 +193,18 @@ def build_forest(mcf_, tree_df):
 @ray.remote
 def ray_build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i,
                        x_type, x_values, x_ind, x_ai_ind, gen_dic, cf_dic,
-                       ct_dic, boot, pen_mult, cuda, cython):
+                       ct_dic, boot, pen_mult, cuda, cython,
+                       obs_bigdata_bool):
     """Prepare function for Ray."""
     return build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i,
                           x_type, x_values, x_ind, x_ai_ind, gen_dic, cf_dic,
-                          ct_dic, boot, pen_mult, cuda, cython)
+                          ct_dic, boot, pen_mult, cuda, cython,
+                          obs_bigdata_bool)
 
 
 def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
                    x_values, x_ind, x_ai_ind, gen_dic, cf_dic, ct_dic, boot,
-                   pen_mult, cuda, cython):
+                   pen_mult, cuda, cython, obs_bigdata_bool=False):
     """Build single trees for all values of tuning parameters.
 
     Parameters
@@ -233,13 +246,14 @@ def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
         indices = list(rng.choice(n_obs, size=n_train, replace=False))
     indices_oob = np.delete(np.arange(n_obs), indices, axis=0)
     tree_empty = mcf_fo_asdict.make_default_tree_dict(
-        np.min(cf_dic['n_min_values']), len(x_i), indices, indices_oob)
+        np.min(cf_dic['n_min_values']), len(x_i), indices, indices_oob,
+        obs_bigdata_bool=obs_bigdata_bool)
     # build trees for all m,n combinations
     grid_for_m = mcf_gp.check_if_iterable(cf_dic['m_values'])
     grid_for_n_min = mcf_gp.check_if_iterable(cf_dic['n_min_values'])
     grid_for_alpha_reg = mcf_gp.check_if_iterable(cf_dic['alpha_reg_values'])
-    tree_all = [None] * len(grid_for_m) * len(grid_for_n_min) * len(
-        grid_for_alpha_reg)
+    tree_all = [None for _ in range(len(grid_for_m) * len(grid_for_n_min) * len(
+        grid_for_alpha_reg))]
     j = 0
     for m_idx in grid_for_m:
         for n_min in grid_for_n_min:

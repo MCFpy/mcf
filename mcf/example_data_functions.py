@@ -7,15 +7,15 @@ Created on Wed Dec 21 15:37:16 2022.
 
 import numpy as np
 import pandas as pd
-from scipy.linalg import toeplitz
 import matplotlib.pyplot as plt
 
+from scipy.linalg import toeplitz
 from scipy.stats import logistic
 
 
 def example_data(obs_y_d_x_iate=1000, obs_x_iate=1000, no_features=20,
                  no_treatments=3, type_of_heterogeneity='WagerAthey',
-                 seed=12345, descr_stats=True):
+                 seed=12345, descr_stats=True, strength_iv=1):
     """
     Create example data to be used with mcf estimation and optimal policy.
 
@@ -37,6 +37,11 @@ def example_data(obs_y_d_x_iate=1000, obs_x_iate=1000, no_features=20,
         types are 'linear', 'nonlinear', 'quadratic', 'WagerAthey'.
     seed : Integer, optional
         Seed of numpy random number generator object. The default is 12345.
+    descr_stats :  Boolean, optional
+        Show descriptive statistics. The default is True.
+    strength_iv : Integer or Float, optional.
+        The larger this number is, the stronger the instrument will be.
+        Default is 1.
 
     Returns
     -------
@@ -73,6 +78,7 @@ def example_data(obs_y_d_x_iate=1000, obs_x_iate=1000, no_features=20,
     name_dict['x_name_ord'] = ['x_cont' + str(i) for i in range(k_cont)]
     name_dict['x_name_ord'].extend(['x_ord' + str(i) for i in range(k_ord_cat)])
     name_dict['x_name_unord'] = ['x_unord' + str(i) for i in range(k_unord)]
+    name_dict['inst_bin_name'] = ['binary_instrument',]
     x_name = [*name_dict['x_name_ord'], *name_dict['x_name_unord']]
     rng = np.random.default_rng(seed=seed)
 
@@ -80,9 +86,14 @@ def example_data(obs_y_d_x_iate=1000, obs_x_iate=1000, no_features=20,
     x_train = covariates_x(rng, k_all, obs_y_d_x_iate)
     x_pred = covariates_x(rng, k_all, obs_x_iate)
 
+    # Instrument
+    inst_train = instrument(rng, obs_y_d_x_iate)
+    inst_pred = instrument(rng, obs_x_iate)
     # Treatment
-    d_train = treatment_d(rng, no_treatments, k_all, x_train)
-    d_pred = treatment_d(rng, no_treatments, k_all, x_pred)
+    d_train = treatment_d(rng, no_treatments, k_all, x_train, inst_train,
+                          strength_iv=strength_iv)
+    d_pred = treatment_d(rng, no_treatments, k_all, x_pred, inst_pred,
+                         strength_iv=strength_iv)
 
     # Potential and observed outcomes
     y_pot_train, iate_train, ite_train, y_train = get_outcomes(
@@ -100,13 +111,14 @@ def example_data(obs_y_d_x_iate=1000, obs_x_iate=1000, no_features=20,
     weight_pred = rng.uniform(0.5, 1.5, size=obs_x_iate).reshape(-1, 1)
 
     train_np = np.concatenate(
-        (y_train, d_train, x_train, y_pot_train, iate_train, ite_train,
-         id_train, cluster_train, weight_train,
+        (y_train, d_train, x_train, inst_train, y_pot_train, iate_train,
+         ite_train, id_train, cluster_train, weight_train,
          np.zeros((len(ite_train), 1))), axis=1)
     train_df = pd.DataFrame(data=train_np,
                             columns=(name_dict['y_name'],
                                      name_dict['d_name'],
                                      *x_name,
+                                     *name_dict['inst_bin_name'],
                                      *name_dict['y_pot_name'],
                                      *name_dict['iate_name'],
                                      *name_dict['ite_name'],
@@ -114,11 +126,13 @@ def example_data(obs_y_d_x_iate=1000, obs_x_iate=1000, no_features=20,
                                      name_dict['cluster_name'],
                                      name_dict['weight_name'],
                                      name_dict['zero_name']))
-    pred = np.concatenate((d_pred, x_pred, y_pot_pred, iate_pred, ite_pred,
-                          id_pred, cluster_pred, weight_pred,
-                          np.zeros((len(ite_pred), 1))), axis=1)
+
+    pred = np.concatenate((d_pred, x_pred, inst_pred, y_pot_pred, iate_pred,
+                           ite_pred, id_pred, cluster_pred, weight_pred,
+                           np.zeros((len(ite_pred), 1))), axis=1)
     pred_df = pd.DataFrame(data=pred, columns=(name_dict['d_name'],
                                                *x_name,
+                                               *name_dict['inst_bin_name'],
                                                *name_dict['y_pot_name'],
                                                *name_dict['iate_name'],
                                                *name_dict['ite_name'],
@@ -135,6 +149,12 @@ def get_observed_outcome(y_pot, d_np):
     """Get the observed values from the potentials."""
     y_np = y_pot[np.arange(len(y_pot)), d_np[:, 0]].reshape(-1, 1)
     return y_np
+
+
+def instrument(rng, obs):
+    """Create instrument."""
+    instr_train = np.int8(rng.uniform(low=0, high=1, size=(obs, 1)) > 0.5)
+    return instr_train
 
 
 def get_outcomes(rng, x_np, d_np, k_all, iate_type='WagerAthey',
@@ -210,6 +230,7 @@ def plot_pot_iate(x_indx, iate, y_pot, noise):
     ax2.set_xlabel(label_x)
     ax2.set_title(titel[1])
     plt.show()
+    plt.close()
 
 
 def get_iate(rng, x_np, iate_type):
@@ -246,9 +267,10 @@ def coefficients(rng, k_cont, k_ord_cat=None, k_unord=None):
     return coeff_cont, coeff_ord, coeff_unord
 
 
-def treatment_d(rng, no_treat, k_all, x_np):
+def treatment_d(rng, no_treat, k_all, x_np, inst_np, strength_iv=1):
     """Create treatment variable."""
-    noise = rng.normal(loc=0, scale=1, size=(len(x_np), 1))
+    noise = (rng.normal(loc=0, scale=1, size=(len(x_np), 1))
+             + (inst_np - 0.5) * strength_iv)
     k_cont, k_ord_cat, k_unord = k_all
     x_cont = x_np[:, :k_cont]
     x_ord = x_np[:, k_cont:k_ord_cat+k_cont]

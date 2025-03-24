@@ -10,19 +10,19 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economic Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.1
+Version: 0.7.2
 
 This is an example to show how to use the mcf with full specification of all
-its keywords. It may be seen as an add on to the published mcf documentation.
+its keywords. It may be seen as an add-on to the published mcf documentation.
 
 """
-import os
+from pathlib import Path
 
 from mcf.example_data_functions import example_data
 from mcf.mcf_functions import ModifiedCausalForest
 from mcf.reporting import McfOptPolReport
 
-# ------------------ NOT parameters of the ModifiedCausalForest ---------------
+# ------------------ NOT parameters of the ModifiedCausalForest ----------------
 
 # ---------------------- Generate artificial data ------------------------------
 
@@ -32,7 +32,7 @@ TRAIN_OBS = 1000         # Number of observations of training data.
 #                          Training data must contain outcome, treatment
 #                          and features. Default is 1000.
 
-PRED_OBS = 1000          # Number of observations of prediction data.
+PRED_OBS = 1000           # Number of observations of prediction data.
 #                          Prediction data is used to compute the effects.
 #                          Prediction data must contain features. Treatment
 #                          effects on the treated additionally require
@@ -60,22 +60,22 @@ if PREDDATA_IS_TRAINDATA:
     prediction_df = None
 
 
-# ------------------ Parameters of the ModifiedCausalForest -------------------
+# ------------------ Parameters of the ModifiedCausalForest --------------------
 #   Whenever None is specified, parameter will be set to default values.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-GEN_OUTPATH = os.getcwd() + '/example/output'
+GEN_OUTPATH = Path.cwd() / 'example/output'
 #   Path were the output is written too (text, estimated effects, etc.)
 #   If this is None, a */out directory below the current directory is used.
 #   If specified directory does not exist, it will be created.
 #   OUTPATH is passed to ModifiedCausalForest.
 
-GEN_OUTFILETEXT = 'mcf.py.0.7.1'
+GEN_OUTFILETEXT = 'mcf.py.0.7.2'
 #   File for text output. If gen_outfiletext is None, 'txtFileWithOutput' is
 #   used. *.txt file extension will be added by the programme.
 
-#   ------------------------------------------------------------------------
+#   ----------------------------------------------------------------------------
 #   The following parameters are all used to initialise ModifiedCausalForest.
-#   ------------------------------------------------------------------------
+#   ----------------------------------------------------------------------------
 #   Convention: Internally all variable names are set to lowercase (including
 #   those in the DataFrames provided by user). Therefore, avoid having
 #   variables in the data with names that differ only with respect to
@@ -115,7 +115,7 @@ VAR_W_NAME = name_dict['weight_name']         # Name of weight, if weighting
 VAR_X_NAME_ALWAYS_IN_ORD = []
 VAR_X_NAME_ALWAYS_IN_UNORD = []
 
-#   ------------- Variables related to treatment heterogeneity -------------
+#   ------------- Variables related to treatment heterogeneity -----------------
 #   Variables to define policy relevant heterogeneity in multiple treatment
 #   procedure. If not already included, they will be added to the list of
 #    features. The default is no variable.
@@ -135,7 +135,7 @@ VAR_Z_NAME_UNORD = name_dict['x_name_unord'][:2]
 # distribution of these variables is kept constant when a BGATE is computed.
 # The default (or None) is to use the other heterogeneity variables if there
 # are any for balancing.
-VAR_BGATE_NAME = name_dict['x_name_ord'][3:5]
+VAR_X_NAME_BALANCE_BGATE = name_dict['x_name_ord'][3:5]
 
 #   Variables that cannot be removed by feature selection. Default is no
 #   variable.
@@ -145,22 +145,22 @@ VAR_X_NAME_REMAIN_UNORD = []
 #   Variables for balancing tests (cannot be removed by feature selection).
 #   Treatment specific descriptive statistics will only be printed for those
 #   variables.
-VAR_X_BALANCE_NAME_ORD = name_dict['x_name_ord'][:2]
-VAR_X_BALANCE_NAME_UNORD = name_dict['x_name_unord'][:2]
+VAR_X_NAME_BALANCE_TEST_ORD = name_dict['x_name_ord'][:2]
+VAR_X_NAME_BALANCE_TEST_UNORD = name_dict['x_name_unord'][:2]
 
-# --------------------- End of variables section ------------------------------
+# --------------------- End of variables section -------------------------------
 
-#   ------------- Where to direct the text output to ----------------------
+#   ------------- Where to direct the text output to ---------------------------
 GEN_OUTPUT_TYPE = None      # 0: Output goes to terminal
 #                             1: output goes to file
 #                             2: Output goes to file and terminal (default)
 
-#   ------------- Multiprocessing ------------------------------------------
+#   ------------- Multiprocessing ----------------------------------------------
 GEN_MP_PARALLEL = None       # Number of parallel processes  (>0)
 #   Default is to use 80% of logical cores (reduce if memory problems!)
 #   0, 1: no parallel computations
 
-#   ------------- Data cleaning --------------------------------------------
+#   ------------- Data cleaning ------------------------------------------------
 DC_SCREEN_COVARIATES = None  # If True (Default) screen covariates (sc)
 DC_CHECK_PERFECTCORR = None  # if sc=True: if True (default), var's that are
 #   perfectly correlated with each others will be deleted.
@@ -169,8 +169,8 @@ DC_MIN_DUMMY_OBS = None      # if > 0 dummy variables with observations in one
 DC_CLEAN_DATA = None         # if True (default), remove all rows with missing
 #      observations & unnecessary variables from DataFrame.
 
-#   ------------- Training the causal forest -------------------------------
-CF_BOOT = None               # Number of Causal Trees. Default is 1000.
+#   ------------- Training the causal forest -----------------------------------
+CF_BOOT = None              # Number of Causal Trees. Default is 1000.
 
 #   Estimation methods
 CF_MCE_VART = None  # Splitting rule
@@ -213,10 +213,10 @@ CF_COMPARE_ONLY_TO_ZERO = None      # If True, the computation of the MCE
 
 #   Subsampling
 CF_SUBSAMPLE_FACTOR_FOREST = None   # Size of subsampling sample to build tree
-#   Default subsample share is: min(0.67,(2*(n^0.8)/n));
+#   Default size of subsample is: max(min(0.67 n,(2*(n**0.85)/n)), n**0.5);
 #   N: sample size;  n: 2x sample size of the smallest treatment group
 #   >0: reduces (<1) or increases (>1) the default subsample size, max is 0.8
-#   Actual share of subsample = def_share * SUBSAMPLE_FACTOR_FOREST
+#   Actual share of subsample = default size * SUBSAMPLE_FACTOR_FOREST
 #   Default: SUBSAMPLE_FACTOR_FOREST = 1
 
 #   Tree-specific subsampling also in evaluation sample should increase speed
@@ -302,22 +302,24 @@ CF_M_RANDOM_POISSON = None
 #   If grid is used, optimal value is determined by out-of-bag estimation of
 #   objective function.
 
-#   Randomly split training data for large samples in chunks and take average
-#   to improve scalability.
-CF_CHUNKS_MAXSIZE = None  # Maximum number of observations allowed per block.
-#   If smaller than sample size --> random splitting
-#   If larger than sample size, no random splitting.
-#   Default: 75000 + (number of observations - 75000)**0.8/ (# of treatments-1)
-#   Random splitting may reduces computation time and memory demand.
-#   If no random splitting desired, set CF_CHUNKS_MAXSIZE to a value larger than
-#   sample size.
+#   For large samples, randomly split the training data into equally sized
+#   chunks, train a forest in each chunk, and estimate effects for each forest.
+#   Final effect estimates are obtained by averaging effects obtained for each
+#   forest. This procedures improves scalability by reducing computation time
+#   and memory demand.
+CF_CHUNKS_MAXSIZE = None  # Maximum number of observations allowed per chunk.
+#   If CF_CHUNKS_MAXSIZE is smaller than sample size: Random splitting
+#   If CF_CHUNKS_MAXSIZE is larger than sample size: No random splitting.
+#   Default: If less than 90000 training observations: No splitting. Otherwise,
+#   the maximal size of each chunksize is obtained as
+#   90000 + (number of observations - 90000)**0.8 / (# of treatments-1)
 
 #   Variable importance for causal forest
 CF_VI_OOB_YES = None
 #   True:  computes variable importance based on permuting every single x in
 #          oob prediction; time consuming. Default is False.
 
-#   ------------- Feature selection ---------------------------------------
+#   ------------- Feature selection --------------------------------------------
 FS_YES = None           # True: feature selection active.
 #                         False: no feature selection (default).
 FS_OTHER_SAMPLE = None  # False: Use sample used for causal forest estimation.
@@ -327,7 +329,7 @@ FS_OTHER_SAMPLE_SHARE = None  # If FS_OTHER_SAMPLE: share of sample (def: 0.33)
 FS_RF_THRESHOLD = None   # Threshold in terms of relative loss of variable
 #                          importanance in % (default is 1).
 
-# How to compute local centering (estimator choice and prediction)
+#   ---------How to compute local centering (estimator choice and prediction) --
 # & common support adjustment
 LC_CS_CV = None        # True: Use crossvalidation (default).
 #  False (estimator choice in local centering): Use LC_CS_SHARE for testing.
@@ -335,10 +337,14 @@ LC_CS_CV = None        # True: Use crossvalidation (default).
 #  random subsample of the data that will then not be used for training the CF.
 LC_CS_SHARE = None  # Share of data used for estimating E(y|x).
 #                     0.1-0.9 (def = 0.25)
-LC_CS_CV_K = None   # if LC_CS_CV: # of folds used in crossvalidation (def: 5).
+LC_CS_CV_K = None   # if LC_CS_CV: # of folds used in crossvalidation. Default
+#   depends on the size of the training sample (N): N < 100'000: 5.
+#                                                   100'000 <= N < 250'000: 4
+#                                                   250'000 <= N < 500'000: 3
+#                                                   500'000 <= N: 2
 
-#   ------------- Local centering -----------------------------------------
-LC_YES = None               # Local centering. Default is True.
+#   ------------- Local centering ----------------------------------------------
+LC_YES = None              # Local centering. Default is True.
 LC_ESTIMATOR = None         # The estimator used for local centering.
 
 #   Possible choices are scikit-learn's regression methods
@@ -357,7 +363,7 @@ LC_UNCENTER_PO = None       # Predicted potential outcomes for individual data
 #   points (IATEs) re-adjusted for local centering are added to data output.
 #   Default is True.
 
-#   ------------- Common support ------------------------------------------
+#   ------------- Common support -----------------------------------------------
 CS_TYPE = None
 #   0: No common support adjustment
 #   1,2: Support check based on estimated classification random forests.
@@ -389,7 +395,7 @@ GEN_IATE_EFF = None      # True: Second round of IATEs are estimated
 #   efficiency, but does not allow inference on these more efficient estimates.
 #   If False, execution time is faster. Default is False.
 
-#   ------------- Clustering and panel data ---------------------------------
+#   ------------- Clustering and panel data ------------------------------------
 GEN_PANEL_DATA = None    # True if panel data; None or False: no panel data.
 #   True activates the clustered standard error. Default is False.
 #   Use cluster_name to define variable that contains identifier for panel unit
@@ -398,7 +404,7 @@ GEN_PANEL_IN_RF = None   # Uses the panel structure also when building the
 P_CLUSTER_STD = None    # True: Clustered standard error. Default is False.
 #   Will be automatically set to True if panel data option is activated.
 
-#   ------------- Parameters for continuous treatment ------------------------
+#   ------------- Parameters for continuous treatment --------------------------
 #   Number of grid point for discretization of continuous treatment (with 0
 #   mass point).
 #   Grid is defined in terms of quantiles of continuous part of treatment.
@@ -406,7 +412,7 @@ CT_GRID_NN = None  # Used to aproximate the neighbourhood matching (def. is 10)
 CT_GRID_W = None   # Used to aproximate the weights (def. is 10)
 CT_GRID_DR = None  # Used to aproximate the dose response function (def.: 100)
 
-#   ------------- Balancing test (beta) --------------------------------------
+#   ------------- Balancing test (beta) ----------------------------------------
 P_BT_YES = None  # True: ATE based balancing test based on weights.
 #   Requires weight_based_inference. Relevance of this test in its current
 #   implementation is not fully clear. Default is False.
@@ -418,12 +424,12 @@ P_CHOICE_BASED_PROBS = None     # Sampling probabilities to be
 #   specified. These weights are used for (g,b)ates only. Treatment information
 #   must therefore be available in the prediction data.
 
-#   ------------- Sample weights ---------------------------------------------
+#   ------------- Sample weights -----------------------------------------------
 GEN_WEIGHTED = None          # True: use sampling weights. Default is False.
 #   Sampling weights specified in var_w_name will be used;
 #   slows down programme. Experimental.
 
-#   ------------- Predicting effects --------------------------------------
+#   ------------- Predicting effects -------------------------------------------
 #   Truncation of extreme weights
 P_MAX_WEIGHT_SHARE = None  # Maximum share of any weight, 0 <= 1, default=0.05
 #   Enforced by trimming excess weights and renormalisation for each
@@ -448,7 +454,8 @@ P_NW_BANDW = None   # Bandwidth for nw estimation; multiplier of Silverman's
 P_NW_KERN = None    # Kernel for nw estimation: 1: Epanechikov (def); 2: normal
 #                     Default is 1.
 
-# Bootstrap of standard errors (P_SE_BOOT_ATE, P_SE_BOOT_GATE, P_SE_BOOT_IATE)
+# Bootstrap of standard errors (P_SE_BOOT_ATE, P_SE_BOOT_GATE, P_SE_BOOT_IATE,
+# P_SE_BOOT_IATE)
 # Specify either a Boolean (if True, number of bootstrap replications will be
 # set to 199) or an integer corresponding to the number of bootstrap
 # replications; this implicity implies True). The default is False if
@@ -456,32 +463,34 @@ P_NW_KERN = None    # Kernel for nw estimation: 1: Epanechikov (def); 2: normal
 P_SE_BOOT_ATE = None     # (w_ji * y_i) are bootstrapped SE_BOOT_xATE times
 P_SE_BOOT_GATE = None    # False: No Bootstrap SE of effects
 P_SE_BOOT_IATE = None    # True: SE_BOOT_xATE = 199
+P_SE_BOOT_QIATE = None
 
 #   GATE estimation of variables with many values
 P_MAX_CATS_Z_VARS = None  # Maximum number of categories for discretizing
 #                           continuous z variables. Default is n**.3.
 
-#   Estimate treatment-group specific effects if possible
+P_ATE_NO_SE_ONLY = None  # True: Computes only the ATE without standard errors.
+#   Default is False.
+
+#   Treatment-group specific effects
 P_ATET = None      # True: Average effects computed for subpopulations by
 #   treatments (if available). Default is False.
 P_GATET = None     # True: Gate's for subpopulations by treatments. Default
 #   is False. If there no variables specified for gate estimation, p_bgate is
 #   set to False.
-P_CBGATE = None    # True: CBGATEs will be computed. Default is False.
-#   If there are no variables specified for gate estimation, p_cbgate is set to
-#   False.
+
+#  Balanced GATEs
 P_BGATE = None     # True: BGATEs will be computed. Default is False.
 #   True requires to specify the variable names to balance on in VAR_BGATE_NAME
 #   If no variables are specified for gate estimation, p_bgate is set to
 #   False.
+P_CBGATE = None    # True: CBGATEs will be computed. Default is False.
+#   If there are no variables specified for gate estimation, p_cbgate is set to
+#   False.
 
-#   More details for CBGATE estimation
+#   More details for (CB)GATE estimation
 P_GATES_NO_EVALU_POINTS = None  # Number of evluation points for
 #   continuous variables (GATE, BGATE, CBGATE). Default is 50.
-P_BGATE_SAMPLE_SHARE = None   # (0<1) Implementation is very cpu intensive.
-#   Random samples are used to speed up programme if more obs / # of evaluation
-#   points > 10. # Default is 1 if n_prediction < 1000; otherwise:
-#   (1000 + (n_pred-1000) ** (3/4))) / # of evaluation points
 P_GATES_SMOOTH = None  # Alternative way to estimate GATEs for continuous
 #   variables. Instead of discretizing variable, its GATE is evaluated at
 #   p_gates_smooth_no_evalu_points. Since there are likely to be no
@@ -493,18 +502,43 @@ P_GATES_MINUS_PREVIOUS = None   # GATES will not only be compared to ATE but
 #   also to GATES computed at the previous evaluation point. Default is False.
 #   If True, GATE estimation is slower as it is not optimized for
 #   multiprocessing and no plots are shown for this parameter.
+P_BGATE_SAMPLE_SHARE = None   # (0<1) Implementation is very cpu intensive.
+#   Random samples are used to speed up programme if more obs / # of evaluation
+#   points > 10. # Default is 1 if n_prediction < 1000; otherwise:
+#   (1000 + (n_pred-1000) ** (3/4))) / # of evaluation points
 
-#   Estimate IATEs and their standard errors
+#   Estimation of IATEs and their standard errors
 P_IATE = None         # True: IATEs will be estimated. Default is True.
 P_IATE_SE = None      # True: SE(IATE) will be estimated. Default is False.
 #   Estimating IATEs and their standard errors may be time consuming
-P_IATE_M_ATE = None      # True: IATE(x) - ATE is estimated, including
-#   inference if p_iate_se == True. Increaes computation time.
-#   Default is False.
-P_ATE_NO_SE_ONLY = None  # True: Computes only the ATE without standard errors.
+P_IATE_M_ATE = None      # True: IATE(x) - ATE is estimated,
+#   including inference if p_iate_se == True. Increaes computation time.
 #   Default is False.
 
-#   ------------- Analysis of effects -------------------------------
+#   Estimation of QIATEs and their standard errors
+P_QIATE = None         # True: QIATEs will be estimated. If True, p_iate will
+#   always be set to True. Default is False.
+P_QIATE_SE = None      # True: SE(QIATE) will be estimated. Default is False.
+#   Estimating IATEs and their standard errors may be time consuming
+P_QIATE_M_MQIATE = None      # True: QIATE(x) - median(IATE(x)) is estimated,
+#   including inference if p_qiate_se == True. Increaes computation time.
+#   Default is False.
+P_QIATE_M_OPP = True      # True: QIATE(x, q) - QIATE(x, 1-q) is estimated,
+#   including inference if p_qiate_se == True. Increaes computation time.
+#   Default is False.
+P_QIATE_NO_OF_QUANTILES = None   # Number of quantiles for which QIATEs are
+#   computed. Default is 99.
+P_QIATE_SMOOTH = None            # Smooth estimated QIATEs using kernel
+#   smoothing. Default is True.
+P_QIATE_SMOOTH_BANDWIDTH = None  # Multiplier applied to default bandwidth
+#   used for kernel smoothing of QIATE. Default is 1.
+P_QIATE_BIAS_ADJUST = None       # Bias correction procedure for QIATEs based on
+#   simulations. Default is True.
+#   If P_QIATE_BIAS_ADJUST is True, P_IATE_SE is set to True as well.
+P_QIATE_BIAS_ADJUST_DRAWS = None  # Number of random draws used in computing
+#   the bias adjustment. Default is 1000.
+
+#   ------------- Analysis of effects ------------------------------------------
 POST_EST_STATS = None   # Analyses the predictions by binary correlations
 #   or some regression type methods. Default is True. False if p_iate == False.
 POST_RELATIVE_TO_FIRST_GROUP_ONLY = None  # Use only effects relative to
@@ -534,7 +568,7 @@ POST_RANDOM_FOREST_VI = None     # Variable importance measure of predictive
 POST_TREE = None     # Regression trees (honest and standard) of Depth 2 to 5
 #   are estimated to describe IATES(x). Default (or None) is True.
 
-#   ----------------- Sensitivity method (experimental) --------------
+#   ----------------- Sensitivity method (experimental) ------------------------
 SENS_CBGATE = None
 #   Boolean (or None), optional. Compute CBGATEs for sensitivity analysis.
 #   Default is False.
@@ -586,23 +620,31 @@ _INT_DESCRIPTIVE_STATS = None   # Print descriptive stats of input+output files
 _INT_SHOW_PLOTS = None          # Execute plt.show() command. Default is True.
 #                                 turn off if programme runs on console.
 _INT_FONTSIZE = None            # Legend, 1(very small) to 7(very large); def:2
-_INT_DPI = None                 # > 0: def (None): 500
+_INT_DPI = None                 # > 0: default (or None): 500
 #   Only for (B, AM) GATEs: What type of plot to use for continuous variables.
 _INT_NO_FILLED_PLOT = None      # Use filled plot if more than x points(def:20)
-_INT_WEIGHT_AS_SPARSE = None    # Weights matrix as sparse matrix. Def is True.
-_INT_WEIGHT_AS_SPARSE_SPLITS = None  # Sparse weight matrix compute in several
-#   chuncks. Default: int(Rows of prediction data * rows of Fill_y data
-#                                                          / (20'000 * 20'000))
+_INT_WEIGHT_AS_SPARSE = None    # Weights matrix stored as sparse matrix.
+#                                 Default (or None) is True.
+
+_INT_IATE_CHUNK_SIZE = None     # Number of IATEs that are estimated in a
+#   ray worker. Default is number of prediction observations / workers.
+#   If programme crashes in IATE 2/2 because of excess memory consumption,
+#   reduce this number.
+
+_INT_WEIGHT_AS_SPARSE_SPLITS = None  # Sparse weight matrix computed in several
+#   chunks. Default is
+#   Rows of prediction data * rows of Fill_y data / number of forests /
+#   / (25'000 * 25'000))
 _INT_SHARE_FOREST_SAMPLE = None
 #   0-1: Share of sample used build forest. Default is 0.5.
 _INT_MAX_CATS_CONT_VARS = None  # Discretising of continuous variables: maximum
 #   number of categories for continuous variables n values < n speed up
-#   programme, def: not used.
+#   programme, default: not used.
 
-_INT_MAX_SAVE_VALUES = None       # Save value of x only if < 50 (cont. vars).
+_INT_MAX_SAVE_VALUES = None     # Save values of x only if < 50 (cont. vars).
 #                                 Default is 50.
 _INT_SEED_SAMPLE_SPLIT = None   # Seeding is redone when building forest
-#                               Default is 67567885.
+#                                 Default is 67567885.
 _INT_MP_VIM_TYPE = None         # Variable importance: type of mp
 #                                 1: variable based (fast, lots of memory)
 #                                 2: bootstrap based (slower, less memory)
@@ -611,15 +653,18 @@ _INT_MP_WEIGHTS_TYPE = None     # Weights computation: type of mp
 #                                 1: groups-of-obs based (fast, lots of memory)
 #                                 2: tree based (takes forever, less memory)
 #                                 Default is 1. Variable is overwritten (set to
-#                                 1 if multiprocessing is used.
-_INT_MP_WEIGHTS_TREE_BATCH = None  # Weight computation:Split forests
+#                                 1 if multiprocessing is used).
+_INT_MP_WEIGHTS_TREE_BATCH = None  # Weight computation: Split forests for
+#   variable importance computations.
 #   Few batches: More speed, more memory.  Default: Automatically determined.
-#   Will be depreciated soon (only relevant for variable importance)
+#   Soon to be depreciated.
+
 _INT_MP_RAY_DEL = None           # Tuple with any of the following:
 #   'refs': Delete references to object store (default)
 #   'rest': Delete all other objects of Ray task
 #   'none': Nothing is deleted.
 #   These 3 options can be combined.
+# Default (or None) is 'refs'
 _INT_MP_RAY_SHUTDOWN = None  # Shutdown ray task by task (default is False if
 #   N < 100'000 and True otherwise)
 #   If programme collapses because of excess memory reduce workers or set
@@ -629,6 +674,7 @@ _INT_MP_RAY_SHUTDOWN = None  # Shutdown ray task by task (default is False if
 _INT_MP_RAY_OBJSTORE_MULTIPLIER = None  # Increase internal default values for
 #   Ray object store above 1 if programme crashes because object store is full
 #   (default is 1); ONLY RELEVANT if _INT_MP_RAY_SHUTDOWN is True.
+
 _INT_RETURN_IATE_SP = None   # Return all data with predictions
 #   despite with_output = False (useful for cross-validation and simulations.
 #   Default is False.
@@ -639,6 +685,31 @@ _INT_DEL_FOREST = None     # Delete forests.
 #   Default is False.
 _INT_KEEP_W0 = None            # Keep all zeros weights when computing
 #   standard errors (slows down computation). Default is False.
+
+# The following keywords define upper limits for sample size. If actual number
+# is larger then the prespecified number, then the respective data will
+# randomly reduced to the specified upper limit.
+_INT_OBS_BIGDATA = None  # If number of training observations is larger
+# than _INT_OBS_BIGDATA, the following happens during training and prediction:
+#    (i) Number of workers is halved in local centering.
+#    (ii) Ray is explicitely shut down.
+#    (iii) The number of workers used is reduced to 75% of default.
+#    (iv) The data type for many numpy arrays is reduced from float64 to
+#         float32.
+#    Default is 1'000'000.
+_INT_MAX_OBS_TRAINING = None     # Training method: Reducing observations
+#    for training increases MSE and thus should be avoided.
+#    Default is infinity.
+_INT_MAX_OBS_PREDICTION = None   # Prediction method: Reducing observations
+#    for prediction does not much affect MSE. It may reduce detectable
+#    heterogeneity, but may also dramatically reduce computation time.
+#    Default is 250'000.
+_INT_MAX_OBS_KMEANS = None      # kmeans in analye method: Reducing observations
+#    may reduce detectable heterogeneity, but also reduces computation time.
+#    Default is 200'000.
+_INT_MAX_OBS_POST_REL_GRAPHS = None  # Figures showing relation of IATEs and
+#   features (in-built non-parametric regression is computationally intensive).
+#   Default is 50'000.
 
 # ---------------------------------------------------------------------------
 
@@ -709,12 +780,23 @@ params = {
     'p_nw_bandw': P_NW_BANDW, 'p_nw_kern': P_NW_KERN,
     'p_max_cats_z_vars': P_MAX_CATS_Z_VARS,
     'p_max_weight_share': P_MAX_WEIGHT_SHARE,
+    'p_qiate': P_QIATE, 'p_qiate_se': P_QIATE_SE,
+    'p_qiate_m_mqiate': P_QIATE_M_MQIATE,
+    'p_qiate_m_opp': P_QIATE_M_OPP,
+    'p_qiate_no_of_quantiles': P_QIATE_NO_OF_QUANTILES,
+    'p_qiate_smooth': P_QIATE_SMOOTH,
+    'p_qiate_smooth_bandwidth': P_QIATE_SMOOTH_BANDWIDTH,
+    'p_qiate_bias_adjust': P_QIATE_BIAS_ADJUST,
+    'p_qiate_bias_adjust_draws': P_QIATE_BIAS_ADJUST_DRAWS,
     'p_se_boot_ate': P_SE_BOOT_ATE, 'p_se_boot_gate': P_SE_BOOT_GATE,
-    'p_se_boot_iate': P_SE_BOOT_IATE, 'var_bgate_name': VAR_BGATE_NAME,
+    'p_se_boot_iate': P_SE_BOOT_IATE,
+    'var_x_name_balance_bgate': VAR_X_NAME_BALANCE_BGATE,
+    'p_se_boot_qiate': P_SE_BOOT_QIATE,
     'var_cluster_name': VAR_CLUSTER_NAME, 'var_d_name': VAR_D_NAME,
     'var_id_name': VAR_ID_NAME,
-    'var_w_name': VAR_W_NAME, 'var_x_balance_name_ord': VAR_X_BALANCE_NAME_ORD,
-    'var_x_balance_name_unord': VAR_X_BALANCE_NAME_UNORD,
+    'var_w_name': VAR_W_NAME,
+    'var_x_name_balance_test_ord': VAR_X_NAME_BALANCE_TEST_ORD,
+    'var_x_name_balance_test_unord': VAR_X_NAME_BALANCE_TEST_UNORD,
     'var_x_name_always_in_ord': VAR_X_NAME_ALWAYS_IN_ORD,
     'var_x_name_always_in_unord': VAR_X_NAME_ALWAYS_IN_UNORD,
     'var_x_name_remain_ord': VAR_X_NAME_REMAIN_ORD,
@@ -726,10 +808,17 @@ params = {
     '_int_cuda': _INT_CUDA,
     '_int_del_forest': _INT_DEL_FOREST,
     '_int_descriptive_stats': _INT_DESCRIPTIVE_STATS, '_int_dpi': _INT_DPI,
-    '_int_fontsize': _INT_FONTSIZE, '_int_keep_w0': _INT_KEEP_W0,
+    '_int_fontsize': _INT_FONTSIZE,
+    '_int_iate_chunk_size': _INT_IATE_CHUNK_SIZE,
+    '_int_keep_w0': _INT_KEEP_W0,
     '_int_no_filled_plot': _INT_NO_FILLED_PLOT,
     '_int_max_cats_cont_vars': _INT_MAX_CATS_CONT_VARS,
     '_int_max_save_values': _INT_MAX_SAVE_VALUES,
+    '_int_max_obs_training': _INT_MAX_OBS_TRAINING,
+    '_int_max_obs_prediction': _INT_MAX_OBS_PREDICTION,
+    '_int_max_obs_kmeans': _INT_MAX_OBS_KMEANS,
+    '_int_max_obs_post_rel_graphs': _INT_MAX_OBS_POST_REL_GRAPHS,
+    '_int_obs_bigdata': _INT_OBS_BIGDATA,
     '_int_report': _INT_REPORT,
     '_int_mp_ray_del': _INT_MP_RAY_DEL,
     '_int_mp_ray_objstore_multiplier': _INT_MP_RAY_OBJSTORE_MULTIPLIER,
@@ -765,7 +854,7 @@ results, _ = mymcf.predict(prediction_df)
 
 results_with_cluster_id_df, _ = mymcf.analyse(results)
 
-params['gen_outpath'] = GEN_OUTPATH + 'sensitivity'
+params['gen_outpath'] = GEN_OUTPATH / 'sensitivity'
 mymcf_sens = ModifiedCausalForest(**params)
 params_sensitivity['results'] = results
 results_all_dict, _ = mymcf_sens.sensitivity(training_df, **params_sensitivity)

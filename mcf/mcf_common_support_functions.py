@@ -38,7 +38,9 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
     if train:
         if lc_dic['cs_cv']:   # Crossvalidate ... only tree data is used
             tree_mcf_df, fill_y_mcf_df = tree_df.copy(), fill_y_df.copy()
-            d_tree_mcf_np = tree_mcf_df[d_name].to_numpy().ravel()
+            d_tree_mcf_np = mcf_gp.to_numpy_big_data(
+                tree_mcf_df[d_name], int_dic['obs_bigdata']).ravel()
+            # d_tree_mcf_np = tree_mcf_df[d_name].to_numpy().ravel()
         else:  # Use lc_dic['cs_share'] of data for common support estim. only
             # Take the same share of obs. from both input samples
             tree_mcf_df, tree_cs_df = train_test_split(
@@ -47,7 +49,8 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
                 fill_y_df, test_size=lc_dic['cs_share'], random_state=42)
             data_cs_df = pd.concat([tree_cs_df, fill_y_cs_df], axis=0)
             x_cs_df, _ = mcf_data.get_x_data(data_cs_df, x_name)
-            d_cs_np = data_cs_df[d_name].to_numpy().ravel()
+            d_cs_np = mcf_gp.to_numpy_big_data(
+                data_cs_df[d_name], int_dic['obs_bigdata']).ravel()
         x_fy_df, _ = mcf_data.get_x_data(fill_y_mcf_df, x_name)
     else:
         tree_mcf_df, fill_y_mcf_df = tree_df, None
@@ -66,8 +69,11 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
         else:
             dummy_names = None
         if not lc_dic['cs_cv']:
-            x_cs_np = x_cs_df.to_numpy()
-        x_fy_np, x_mcf_np = x_fy_df.to_numpy(), x_mcf_df.to_numpy()
+            x_cs_np = mcf_gp.to_numpy_big_data(x_cs_df, int_dic['obs_bigdata'])
+        x_fy_np = mcf_gp.to_numpy_big_data(x_fy_df,
+                                           int_dic['obs_bigdata'])
+        x_mcf_np = mcf_gp.to_numpy_big_data(x_mcf_df,
+                                            int_dic['obs_bigdata'])
         if gen_dic['with_output'] and gen_dic['verbose']:
             txt += '\n' + '-' * 100 + '\n'
             txt += 'Computing random forest based common support\n'
@@ -77,6 +83,9 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
             n_estimators=mcf_.cf_dict['boot'], max_features='sqrt',
             bootstrap=True, oob_score=False, n_jobs=max_workers,
             random_state=42, verbose=False, min_samples_split=5)
+        mcf_sys.print_mememory_statistics(gen_dic,
+                                          'Training: Common support before CV')
+
         if lc_dic['cs_cv']:   # Crossvalidate
             index = np.arange(obs_mcf)       # indices
             rng = np.random.default_rng(seed=9324561)
@@ -96,6 +105,8 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
                 forests.append(deepcopy(classif))
                 pred_mcf_np[index_pred, :] = classif.predict_proba(x_pred)
                 pred_fy_np_fold += classif.predict_proba(x_fy_np)
+                mcf_sys.print_mememory_statistics(
+                    gen_dic, 'Training: Common support during CV')
             pred_cs_np, d_cs_np = pred_mcf_np, d_tree_mcf_np  # To get cut-offs
             pred_fy_np = pred_fy_np_fold / lc_dic['cs_cv_k']
         else:
@@ -107,6 +118,8 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
             pred_mcf_np = classif.predict_proba(x_mcf_np)   # cut and return
             pred_fy_np = classif.predict_proba(x_fy_np)     # cut and return
             forests = [classif]
+            mcf_sys.print_mememory_statistics(
+                gen_dic, 'Prediction: Common support computation')
         cs_dic['forests'] = forests
         if gen_dic['with_output']:
             if names_unordered:
@@ -116,7 +129,8 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
             mcf_vi.print_variable_importance(
                 deepcopy(classif), x_mcf_df, tree_mcf_df[d_name], x_name,
                 names_unordered, dummy_names, gen_dic, summary=False,
-                name_label_dict=names_unordered_print)
+                name_label_dict=names_unordered_print,
+                obs_bigdata=int_dic['obs_bigdata'])
         # Normalize estimated probabilities to add up to 1
         pred_cs_np_sum = pred_cs_np.sum(axis=1, keepdims=True)
         pred_mcf_np_sum = pred_mcf_np.sum(axis=1, keepdims=True)
@@ -141,10 +155,16 @@ def common_support(mcf_, tree_df, fill_y_df, train=True):
         if names_unordered:  # List is not empty
             x_mcf_df, _ = mcf_data.dummies_for_unord(
                 x_mcf_df, names_unordered, data_train_dict=data_train_dic)
-        pred_mcf_np = np.zeros((len(x_mcf_df), no_of_treat))
+        if len(x_mcf_df) < int_dic['obs_bigdata']:
+            pred_mcf_np = np.zeros((len(x_mcf_df), no_of_treat))
+        else:
+            pred_mcf_np = np.zeros((len(x_mcf_df), no_of_treat),
+                                   dtype=np.float32)
         # If cross-validation, take average of forests in folds
         for forest in cs_dic['forests']:
-            pred_mcf_np += forest.predict_proba(x_mcf_df.to_numpy())
+            pred_mcf_np += forest.predict_proba(
+                mcf_gp.to_numpy_big_data(x_mcf_df, int_dic['obs_bigdata'])
+                )
         pred_mcf_np /= len(cs_dic['forests'])
     # Normalize estimated probabilities to add up to 1
     pred_mcf_np /= pred_mcf_np.sum(axis=1, keepdims=True)
@@ -321,20 +341,20 @@ def plot_support(mcf_, probs_np, d_np, titel_data=None):
         treat_prob = probs_np[:, idx_p]
         titel = f'Probability of treatment {ival_p} in different subsamples'
         f_titel = f'common_support_pr_treat{ival_p}'
-        file_name_csv = (cs_dic['common_support_fig_pfad_csv']
-                         + '/' + f_titel + '.csv')
+        file_name_csv = cs_dic['common_support_fig_pfad_csv'] / f'{f_titel}.csv'
         file_name_jpeg = (cs_dic['common_support_fig_pfad_jpeg']
-                          + '/' + f_titel + '.jpeg')
+                          / f'{f_titel}.jpeg')
         file_list_jpeg.append(file_name_jpeg)
-        file_name_pdf = (cs_dic['common_support_fig_pfad_pdf']
-                         + '/' + f_titel + '.pdf')
+        file_name_pdf = cs_dic['common_support_fig_pfad_pdf'] / f'{f_titel}.pdf'
         file_name_csv_d = (cs_dic['common_support_fig_pfad_csv']
-                           + '/' + f_titel + '_d.csv')
+                           / f'{f_titel}_d.csv'
+                           )
         file_name_jpeg_d = (cs_dic['common_support_fig_pfad_jpeg']
-                            + '/' + f_titel + '_d.jpeg')
+                            / f'{f_titel}_d.jpeg'
+                            )
         file_list_d_jpeg.append(file_name_jpeg_d)
         file_name_pdf_d = (cs_dic['common_support_fig_pfad_pdf']
-                           + '/' + f_titel + '_d.pdf')
+                           / f'{f_titel}_d.pdf')
         data_hist = [treat_prob[d_np == val] for val in d_values]
         fig, axs = plt.subplots()
         fig_d, axs_d = plt.subplots()
@@ -356,9 +376,9 @@ def plot_support(mcf_, probs_np, d_np, titel_data=None):
             fit_line_all.append(fit_line.copy())
         axs.set_title(titel)
         if titel_data is not None:
-            fig.text(0, 0, "Data: " + titel_data, ha='left',
+            fig.text(0.02, 0.02, "Data: " + titel_data, ha='left',
                      fontsize=int_dic['fontsize'])
-            fig_d.text(0, 0, "Data: " + titel_data, ha='left',
+            fig_d.text(0.02, 0.02, "Data: " + titel_data, ha='left',
                        fontsize=int_dic['fontsize'])
         axs.set_xlabel('Treatment probability')
         axs.set_ylabel('Observations')
@@ -402,8 +422,8 @@ def plot_support(mcf_, probs_np, d_np, titel_data=None):
         fig_d.savefig(file_name_pdf_d, dpi=int_dic['dpi'])
         if int_dic['show_plots']:
             plt.show()
-        else:
-            plt.close()
+        plt.close()
+
     return file_list_jpeg, file_list_d_jpeg
 
 

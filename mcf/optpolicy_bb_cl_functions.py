@@ -5,7 +5,7 @@ Created on Sun Jul 16 14:03:58 2023
 # -*- coding: utf-8 -*-
 @author: MLechner
 """
-from numpy import concatenate
+from numpy import column_stack
 from pandas import DataFrame
 
 from mcf.mcf_print_stats_functions import print_mcf
@@ -33,17 +33,21 @@ def bps_classifier_allocation(optp_, data_df, allocation_df, seed=234356):
 
         alloc_all.append(alloc)
         scikit_obj_all.append((scaler, scikit_obj))
-        alloc_name_all.append('classif_' + alloc_name)
-        txt_all += '\n' + f'{alloc_name+":":40s}' + ' ' + txt
+        alloc_name_all.append('bps_classif_' + alloc_name)
+        txt_all += f'\n{alloc_name+":":40s} ' + txt
 
-    alloc_all_np = concatenate([alloc.reshape(-1, 1) for alloc in alloc_all],
-                               axis=1)
+    # alloc_all_np = concatenate([alloc.reshape(-1, 1) for alloc in alloc_all],
+    #                            axis=1)
+    alloc_all_np = column_stack(alloc_all)
+
     allocations_df = DataFrame(data=alloc_all_np, columns=alloc_name_all)
     results_dic['scikit_obj_dict'] = dict(zip(alloc_name_all, scikit_obj_all))
     optp_.bps_class_dict['scikit_obj_dict'] = results_dic['scikit_obj_dict']
     optp_.bps_class_dict['x_name_train'] = x_name
+
     if optp_.gen_dict['with_output']:
         print_mcf(optp_.gen_dict, txt_all, summary=True)
+
     return allocations_df, results_dic, txt_all
 
 
@@ -55,13 +59,13 @@ def bps_class_prediction_only(optp_, data_df):
         data_df, optp_.var_dict, scaler=scaler,
         x_name_train=optp_.bps_class_dict['x_name_train'])
     alloc_all, alloc_name_all = [], []
-    for key, value in allocs_dict.items():
-        scikit_obj = value[1]
+    for key, (_, scikit_obj) in allocs_dict.items():
+        # scikit_obj = value[1]
         alloc_np = scikit_obj.predict(x_dat_scaled_np)
         alloc_all.append(alloc_np)
         alloc_name_all.append(key)
-    alloc_all_np = concatenate([alloc.reshape(-1, 1) for alloc in alloc_all],
-                               axis=1)
+
+    alloc_all_np = column_stack(alloc_all)
     allocations_df = DataFrame(data=alloc_all_np, columns=alloc_name_all)
     allocation_txt = ''
     return allocations_df, allocation_txt

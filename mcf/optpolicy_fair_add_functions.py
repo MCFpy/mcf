@@ -100,14 +100,17 @@ def remove_duplicates(lst):
         if item not in seen:
             result.append(item)
             seen.add(item)
+
     return result
 
 
 def unique_list(list_tuple):
     """Remove duplicate elements from list without changing order."""
     unique = []
-    _ = [unique.append(item)
-         for item in list_tuple if item not in unique]
+    for item in list_tuple:
+        if item not in unique:
+            unique.append(item)
+
     return unique
 
 
@@ -207,8 +210,14 @@ def data_quantilized(optp_, protected_in_np, material_in_np, seed=12345):
 def discretize_kmeans(data_in_np, max_groups, seed=12345):
     """Discretize using cells of similar size (for cont. features)."""
     data_np = KMeans(
-        n_clusters=max_groups, init='k-means++', n_init='auto', max_iter=1000,
-        algorithm='lloyd', random_state=seed, tol=1e-5, verbose=0, copy_x=True
+        n_clusters=max_groups,
+        init='k-means++',
+        n_init='auto',
+        max_iter=1000,
+        algorithm='lloyd',
+        random_state=seed,
+        tol=1e-5, verbose=0,
+        copy_x=True
         ).fit_predict(data_in_np.copy())
 
     return data_np.reshape(-1, 1)
@@ -223,7 +232,9 @@ def discretize_equalcell(data_in_np, max_groups):
         unique_val = np.unique(data_in_np[:, col_idx])
         if len(unique_val) > max_groups:
             data_np[:, col_idx] = pd.qcut(data_in_np[:, col_idx],
-                                          q=max_groups, labels=False)
+                                          q=max_groups,
+                                          labels=False)
     if cols > 1:
-        _, data_np = np.unique(data_np, axis=0, return_inverse=True)  # 2.0.0?
+        _, data_np = np.unique(data_np, axis=0, return_inverse=True)
+
     return data_np.reshape(-1, 1)

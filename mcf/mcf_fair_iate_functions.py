@@ -10,8 +10,9 @@ import pandas as pd
 
 import ray
 
-from mcf import mcf_general as gp
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_general as mcf_gp
+from mcf import mcf_print_stats_functions as mcf_ps
+from mcf import mcf_general_sys as mcf_sys
 
 
 def make_fair_iates(mcf_, data_df, with_output=None):
@@ -81,10 +82,14 @@ def make_fair_iates(mcf_, data_df, with_output=None):
                     mcf_, row_no, data_reference_df, data_not_blind_df,
                     no_of_treat, blind_ate_np)
                 if with_output:
-                    gp.share_completed(row_no, n_x)
+                    mcf_gp.share_completed(row_no, n_x)
         else:
             if not ray.is_initialized():
-                ray.init(num_cpus=mp_parallel, include_dashboard=False)
+                mcf_sys.init_ray_with_fallback(
+                    mp_parallel, mcf_.int_dict, mcf_.gen_dict,
+                    ray_err_txt='Ray initialisation error in fairness '
+                    'adjustment of IATEs.'
+                    )
             data_reference_df_ref = ray.put(data_reference_df)
             data_not_blind_df_ref = ray.put(data_not_blind_df)
             blind_ate_np_ref = ray.put(blind_ate_np)
@@ -100,7 +105,7 @@ def make_fair_iates(mcf_, data_df, with_output=None):
                     iix = res[1]
                     blind_pol_score_df.iloc[iix] = res[0]
                     if with_output:
-                        gp.share_completed(jdx, n_x)
+                        mcf_gp.share_completed(jdx, n_x)
                         jdx += 1
         potout_dic[polscore_labels_dic[-1]] = blind_pol_score_df
 
@@ -123,16 +128,16 @@ def descriptives_of_allocation(mcf_, potout_dic, polscore_labels_dic):
     """Create descriptive stats of policy scores."""
     txt = ('\n' * 2 + '-' * 100 + 'Descriptive of policy scores\n'
            + '- ' * 50)
-    ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+    mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
     for label in polscore_labels_dic:
-        ps.print_mcf(mcf_.gen_dict, '\n' + str(label) + '\n', summary=True)
+        mcf_ps.print_mcf(mcf_.gen_dict, '\n' + str(label) + '\n', summary=True)
         with pd.option_context(
                 'display.max_rows', 500, 'display.max_columns', 500,
                 'display.expand_frame_repr', True, 'display.width', 150,
                 'chop_threshold', 1e-13):
             data = potout_dic[label].copy()
-            ps.print_mcf(mcf_.gen_dict, data.describe().transpose(),
-                         summary=True)
+            mcf_ps.print_mcf(mcf_.gen_dict, data.describe().transpose(),
+                             summary=True)
 
 
 @ray.remote
@@ -175,15 +180,15 @@ def compute_reference_data(mcf_, data_df, with_output=True):
         random_state=mcf_.blind_dict['seed'])
     data_reference_df.reset_index(drop=True, inplace=True)
     if with_output:
-        ps.print_mcf(mcf_.gen_dict, '\n' * 2
-                     + 'Reference data set (randomly drawn)\n' + '- ' * 50,
-                     summary=False)
+        mcf_ps.print_mcf(mcf_.gen_dict, '\n' * 2
+                         + 'Reference data set (randomly drawn)\n' + '- ' * 50,
+                         summary=False)
         with pd.option_context(
                 'display.max_rows', 500, 'display.max_columns', 500,
                 'display.expand_frame_repr', True, 'display.width', 150,
                 'chop_threshold', 1e-13):
-            ps.print_mcf(mcf_.gen_dict, data_df.describe().transpose(),
-                         summary=False)
+            mcf_ps.print_mcf(mcf_.gen_dict, data_df.describe().transpose(),
+                             summary=False)
     return data_reference_df
 
 
@@ -193,11 +198,11 @@ def check_fair_vars(mcf_, with_output):
     x_type = mcf_.var_x_type
 
     # Clean variable names
-    mcf_.blind_dict['var_x_protected_name'] = gp.cleaned_var_names(
+    mcf_.blind_dict['var_x_protected_name'] = mcf_gp.cleaned_var_names(
         mcf_.blind_dict['var_x_protected_name'])
-    mcf_.blind_dict['var_x_policy_name'] = gp.cleaned_var_names(
+    mcf_.blind_dict['var_x_policy_name'] = mcf_gp.cleaned_var_names(
         mcf_.blind_dict['var_x_policy_name'])
-    mcf_.blind_dict['var_x_unrestricted_name'] = gp.cleaned_var_names(
+    mcf_.blind_dict['var_x_unrestricted_name'] = mcf_gp.cleaned_var_names(
         mcf_.blind_dict['var_x_unrestricted_name'])
 
     # Classify variables
@@ -279,7 +284,7 @@ def print_variable_output(mcf_, var_blind=None, var_policy=None):
         mcf_.blind_dict['var_x_protected_name']) + '\n' + '- ' * 50
     txt += '\nUnrestricted variables:                  ' + ' '.join(
         mcf_.blind_dict['var_x_unrestricted_name']) + '\n' + '- ' * 50
-    ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+    mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
 
     txt = ('\n' + '-' * 100
            + '\nClassification of all features used for IATE estimation'
@@ -306,7 +311,7 @@ def print_variable_output(mcf_, var_blind=None, var_policy=None):
     txt += ('\n' + '- ' * 50 + '\nVariables not explicity designated by user'
             ' as "Other unblinded" will be treated as "Protected."\n'
             + '-' * 100)
-    ps.print_mcf(mcf_.gen_dict, txt, summary=False)
+    mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=False)
 
 
 def pols_names_from_res(mcf_, results_dic):

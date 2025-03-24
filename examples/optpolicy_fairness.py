@@ -13,15 +13,15 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.1
+Version: 0.7.2
 
 This is an example to show how to use the OptimalPolicy class of the mcf
 module with full specification of all its keywords. It may be seen as an add on
 to the published mcf documentation.
 
 """
-import os
 from copy import deepcopy
+from pathlib import Path
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -36,7 +36,7 @@ from mcf.reporting import McfOptPolReport
 
 # ------------- NOT passed to OptimalPolicy -----------------------------------
 #  Define data to be used in this example
-APPLIC_PATH = os.getcwd() + '/example'
+APPLIC_PATH = Path.cwd() / 'example'
 
 # ---------------------- Generate artificial data ------------------------------
 
@@ -88,14 +88,14 @@ GEN_METHOD_ALL = ('best_policy_score', 'policy tree', 'bps_classifier',)
 # -------- All what follows are parameters of the OptimalPolicy --------
 #   Whenever None is specified, parameter will be set to default values.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-GEN_OUTPATH = os.getcwd() + '/example/outputOPT'  # Directory for output.
+GEN_OUTPATH = Path.cwd() / 'example/outputOPT'  # Directory for output.
 #   If it does not exist, it will be created. Default is an *.out directory
 #   just below to the directory where the programme is run.
 
-WEIGHTPLOT_PATH = os.getcwd() + '/out'
+WEIGHTPLOT_PATH = Path.cwd() / 'out'
 #   Path to put the plots for the different fairness weighting
 
-GEN_OUTFILETEXT = "OptPolicy_0_7_1_Fairness"  # File for text output
+GEN_OUTFILETEXT = "OptPolicy_0_8_0_Fairness"  # File for text output
 #   Default is 'txtFileWithOutput'.
 #   *.txt file extension will be added by the programme
 
@@ -182,6 +182,7 @@ VAR_VI_TO_DUMMY_NAME = list(VAR_VI_TO_DUMMY_NAME).extend(
 #  Fairness adjustment methods for policy scores
 #     (see Bearth, Lechner, Muny, Mareckova, 2024, for details)
 FAIR_TYPE_ALL = ('Quantiled', 'Mean', 'MeanVar', )
+
 #  Method to choose the type of correction for the policy scores.
 #  'Mean':  Mean dependence of the policy score on protected var's is removed.
 #  'MeanVar':  Mean dependence and heteroscedasticity is removed.
@@ -312,8 +313,8 @@ params_org = {
     'var_x_name_ord': VAR_X_NAME_ORD,
     'var_x_name_unord': VAR_X_NAME_UNORD,
     }
-if not os.path.exists(APPLIC_PATH):
-    os.makedirs(APPLIC_PATH)
+if not APPLIC_PATH.exists():
+    APPLIC_PATH.mkdir(parents=True)
 
 first_time = True
 for fair_type in FAIR_TYPE_ALL:
@@ -323,7 +324,7 @@ for fair_type in FAIR_TYPE_ALL:
         for fair_protected_disc_method in FAIR_PROTECTED_DISC_METHOD_ALL:
             params_org['fair_protected_disc_method'
                        ] = fair_protected_disc_method
-            fig, ax = plt.subplots()
+
             if fair_type in ('Mean', 'MeanVar',):
                 liste = ('Fair', fair_type)
             else:
@@ -332,6 +333,11 @@ for fair_type in FAIR_TYPE_ALL:
                          'Prot', fair_protected_disc_method)
             titel = '_'.join(liste)
             titel_plot = ' '.join(liste)
+
+            fig, ax = plt.subplots()
+            ax.set_title(titel_plot)
+            ax.set_xlabel('Weight of fairness score')
+            ax.set_ylabel('Normalized welfare')
 
             # --- Fairness correction ------
             params = params_org.copy()
@@ -352,7 +358,8 @@ for fair_type in FAIR_TYPE_ALL:
                 first_time = False
 
             # Different methods for allocation rules
-            for idx, gen_method in enumerate(GEN_METHOD_ALL):
+            colors_plot = ('b', 'g', 'r', 'c', 'm', 'k',)
+            for midx, gen_method in enumerate(GEN_METHOD_ALL):
                 print('Optp_method:', gen_method, titel_plot)
                 myoptp = deepcopy(myoptp_fair)
                 myoptp.gen_dict['method'] = gen_method
@@ -420,19 +427,20 @@ for fair_type in FAIR_TYPE_ALL:
                                                          new_alloc_np]
                     welfare.append(np.sum(welfare_np))
                     del myoptp
-                welfare_norm = [welf / welfare[0] * 100 for welf in welfare]
-                if gen_method == 'best_policy_score':
-                    ax.plot(grid, welfare_norm, label=gen_method+'TrainData')
-                else:
-                    ax.plot(grid, welfare_norm, label=gen_method)
 
-            ax.set_title(titel_plot)
-            ax.set_xlabel('Weight of fairness score')
-            ax.set_ylabel('Normalized welfare')
-            ax.legend()
-            plt.savefig(WEIGHTPLOT_PATH + '/' + titel + '.jpeg', format='jpeg')
-            plt.savefig(WEIGHTPLOT_PATH + '/' + titel + '.pdf', format='pdf')
+                welfare_norm = [welf / welfare[0] * 100 for welf in welfare]
+                label = gen_method
+                if gen_method == 'best_policy_score':
+                    label += 'TrainData'
+                ax.plot(grid, welfare_norm, label=label,
+                        color=colors_plot[midx])
+                ax.legend()
+
+            fig.savefig(WEIGHTPLOT_PATH / (titel + '.jpeg'), format='jpeg')
+            fig.savefig(WEIGHTPLOT_PATH / (titel + '.pdf'), format='pdf')
             plt.show()
+            plt.close()
+
             del myoptp_fair
             if fair_type in ('Mean', 'MeanVar', ):  # Use innerloop only once
                 break

@@ -12,6 +12,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import accuracy_score, r2_score
 
+from mcf.mcf_general import to_numpy_big_data
 from mcf import mcf_print_stats_functions as ps
 
 
@@ -90,8 +91,13 @@ def feature_selection(mcf_, data_df):
         y_rf_obj = RandomForestClassifier(**params)
     else:
         y_rf_obj = RandomForestRegressor(**params)
-    d_rf_obj.fit(x_train_df.to_numpy(), d_train_df.to_numpy().ravel())
-    y_rf_obj.fit(x_train_df.to_numpy(), y_train_df.to_numpy().ravel())
+
+    d_rf_obj.fit(to_numpy_big_data(x_train_df, int_dic['obs_bigdata']),
+                 to_numpy_big_data(d_train_df, int_dic['obs_bigdata']
+                                   ).ravel()
+                 )
+    y_rf_obj.fit(x_train_df.to_numpy(),
+                 y_train_df.to_numpy().ravel())
     d_pred = d_rf_obj.predict(x_test_df.to_numpy())
     y_pred = y_rf_obj.predict(x_test_df.to_numpy())
     d_np = d_test_df.to_numpy().ravel()
@@ -112,8 +118,12 @@ def feature_selection(mcf_, data_df):
         x_all_rnd_df = x_test_df.copy().reset_index(drop=True)
         x_rnd_df = x_test_df[names_to_shuffle].sample(frac=1, random_state=42)
         x_all_rnd_df[names_to_shuffle] = x_rnd_df.reset_index(drop=True)
-        d_pred_rnd = d_rf_obj.predict(x_all_rnd_df.to_numpy())
-        y_pred_rnd = y_rf_obj.predict(x_all_rnd_df.to_numpy())
+        d_pred_rnd = d_rf_obj.predict(
+            to_numpy_big_data(x_all_rnd_df, int_dic['obs_bigdata'])
+            )
+        y_pred_rnd = y_rf_obj.predict(
+            to_numpy_big_data(x_all_rnd_df, int_dic['obs_bigdata'])
+            )
         d_score = accuracy_score(d_np, d_pred_rnd, normalize=True)
         y_score = score_for_y(y_np, y_pred_rnd, y_as_classifier)
         d_rel_diff = (score_d_full - d_score) / score_d_full

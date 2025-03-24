@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-from mcf import mcf_general as gp
+from mcf import mcf_general as mcf_gp
 from mcf import mcf_print_stats_functions as ps
 
 
@@ -27,12 +27,14 @@ def screen_adjust_variables(mcf_, data_df):
     """Screen and adjust variables."""
     # Used by mcf and optpolicy. Therefore, instance is not modified directly
     _, variables_deleted = screen_variables(mcf_, data_df)
+
     if variables_deleted:
         gen_dic, var_dic, var_x_type, var_x_values = adjust_variables(
             mcf_, variables_deleted)
     else:
         gen_dic, var_dic = mcf_.gen_dict, mcf_.var_dict
         var_x_type, var_x_values = mcf_.var_x_type, mcf_.var_x_values
+
     return gen_dic, var_dic, var_x_type, var_x_values, variables_deleted
 
 
@@ -41,10 +43,10 @@ def screen_variables(mcf_, data_df):
     gen_dic, dc_dic = mcf_.gen_dict, mcf_.dc_dict
     var_names = mcf_.var_dict['x_name']
     data = data_df[var_names].copy()
-    gp.check_if_not_number(data, var_names)
+    mcf_gp.check_if_not_number(data, var_names)
     k = data.shape[1]
     #    all_variable = set(data.columns)
-    all_variable = gp.remove_dupl_keep_order(data.columns)
+    all_variable = mcf_gp.remove_dupl_keep_order(data.columns)
     # Remove variables without any variation
     to_keep = data.std(axis=0) > 1e-10
     datanew = data.loc[:, to_keep].copy()  # Keeps the respective columns
@@ -52,7 +54,7 @@ def screen_variables(mcf_, data_df):
     if gen_dic['with_output']:
         txt += '\n' + '-' * 100 + '\nControl variables checked'
         kk1 = datanew.shape[1]
-        all_variable1 = gp.remove_dupl_keep_order(datanew.columns)
+        all_variable1 = mcf_gp.remove_dupl_keep_order(datanew.columns)
         if kk1 != k:
             deleted_vars = [var for var in all_variable
                             if var not in all_variable1]
@@ -67,7 +69,7 @@ def screen_variables(mcf_, data_df):
             datanew = datanew.drop(columns=to_delete)
     if gen_dic['with_output']:
         kk2 = datanew.shape[1]
-        all_variable2 = gp.remove_dupl_keep_order(datanew.columns)
+        all_variable2 = mcf_gp.remove_dupl_keep_order(datanew.columns)
         if kk2 != kk1:
             deleted_vars = [var for var in all_variable1
                             if var not in all_variable2]
@@ -88,7 +90,7 @@ def screen_variables(mcf_, data_df):
         datanew = datanew.loc[:, to_keep]
     if gen_dic['with_output']:
         kk3 = datanew.shape[1]
-        all_variable3 = gp.remove_dupl_keep_order(datanew.columns)
+        all_variable3 = mcf_gp.remove_dupl_keep_order(datanew.columns)
         if kk3 != kk2:
             deleted_vars = [var for var in all_variable2
                             if var not in all_variable3]
@@ -125,17 +127,17 @@ def adjust_variables(mcf_, del_var):
     var_dic, gen_dic = mcf_.var_dict, mcf_.gen_dict
     var_x_type, var_x_values = mcf_.var_x_type, mcf_.var_x_values
     # Do note remove variables in v['x_name_remain']
-    del_var = gp.adjust_vars_vars(del_var, var_dic['x_name_remain'])
+    del_var = mcf_gp.adjust_vars_vars(del_var, var_dic['x_name_remain'])
     vnew_dic = deepcopy(var_dic)
-    vnew_dic['x_name'] = gp.adjust_vars_vars(var_dic['x_name'], del_var)
-    vnew_dic['z_name'] = gp.adjust_vars_vars(var_dic['z_name'], del_var)
-    vnew_dic['name_ordered'] = gp.adjust_vars_vars(var_dic['name_ordered'],
-                                                   del_var)
-    vnew_dic['name_unordered'] = gp.adjust_vars_vars(
+    vnew_dic['x_name'] = mcf_gp.adjust_vars_vars(var_dic['x_name'], del_var)
+    vnew_dic['z_name'] = mcf_gp.adjust_vars_vars(var_dic['z_name'], del_var)
+    vnew_dic['name_ordered'] = mcf_gp.adjust_vars_vars(var_dic['name_ordered'],
+                                                       del_var)
+    vnew_dic['name_unordered'] = mcf_gp.adjust_vars_vars(
         var_dic['name_unordered'], del_var)
-    vnew_dic['x_balance_name'] = gp.adjust_vars_vars(
-            var_dic['x_balance_name'], del_var)
-    vnew_dic['x_name_always_in'] = gp.adjust_vars_vars(
+    vnew_dic['x_name_balance_test'] = mcf_gp.adjust_vars_vars(
+            var_dic['x_name_balance_test'], del_var)
+    vnew_dic['x_name_always_in'] = mcf_gp.adjust_vars_vars(
         var_dic['x_name_always_in'], del_var)
     vn_x_type = {key: var_x_type[key] for key in var_x_type
                  if key not in del_var}
@@ -151,35 +153,40 @@ def clean_data(mcf_, data_df, train=True):
     int_dic, var_dic, gen_dic = mcf_.int_dict, mcf_.var_dict, mcf_.gen_dict
     obs = len(data_df)
     if train:
-        namen_to_inc = gp.add_var_names(
+        namen_to_inc = mcf_gp.add_var_names(
             var_dic['id_name'], var_dic['y_name'], var_dic['cluster_name'],
             var_dic['w_name'], var_dic['d_name'], var_dic['y_tree_name'],
-            var_dic['x_balance_name'], var_dic['x_name'])
+            var_dic['x_name_balance_test'], var_dic['x_name'])
         if gen_dic['d_type'] == 'continuous':
             namen_to_inc.append(*var_dic['grid_nn_name'])
+        if int_dic['iv']:
+            namen_to_inc = mcf_gp.add_var_names(namen_to_inc,
+                                                var_dic['iv_name'])
     else:
-        namen_to_inc = gp.add_var_names(
+        namen_to_inc = mcf_gp.add_var_names(
             var_dic['id_name'], var_dic['w_name'],
-            var_dic['x_balance_name'], var_dic['x_name'])
+            var_dic['x_name_balance_test'], var_dic['x_name'])
         if mcf_.p_dict['d_in_pred']:
-            namen_to_inc = gp.add_var_names(namen_to_inc, var_dic['d_name'])
+            namen_to_inc = mcf_gp.add_var_names(namen_to_inc, var_dic['d_name'])
             if gen_dic['d_type'] == 'continuous':
                 namen_to_inc.append(*var_dic['grid_nn_name'])
         if mcf_.p_dict['cluster_std']:
-            namen_to_inc = gp.add_var_names(namen_to_inc,
-                                            var_dic['cluster_name'])
+            namen_to_inc = mcf_gp.add_var_names(namen_to_inc,
+                                                var_dic['cluster_name'])
 
-    namen_to_inc = gp.include_org_variables(namen_to_inc[:], data_df.columns)
+    namen_to_inc = mcf_gp.include_org_variables(namen_to_inc[:],
+                                                data_df.columns)
     data_df, var_dic['id_name'] = clean_reduce_data(
         data_df, namen_to_inc, gen_dic, var_dic['id_name'],
-        int_dic['descriptive_stats'])
+        int_dic['descriptive_stats'], obs_bigdata=int_dic['obs_bigdata'])
     obs_del = obs - len(data_df)
     mcf_.var_dict = var_dic
     return data_df, (obs, obs_del,)
 
 
 def clean_reduce_data(data_df, names_to_inc_, gen_dic, id_name_,
-                      descriptive_stats=None, add_missing_vars=False):
+                      descriptive_stats=None, add_missing_vars=False,
+                      obs_bigdata=10000000):
     """Remove obs. with missings and variables not needed."""
     shape = data_df.shape
     data_df.columns = [var.casefold() for var in data_df.columns]
@@ -211,7 +218,7 @@ def clean_reduce_data(data_df, names_to_inc_, gen_dic, id_name_,
     data_new_df.dropna(inplace=True, axis=0, how='any')
     nan_mask = (data_new_df.astype(str) == 'nan').any(axis=1)
     data_new_df = data_new_df.loc[~nan_mask]
-    stop_if_df_contains_nan(data_new_df)
+    stop_if_df_contains_nan(data_new_df, obs_bigdata)
     shapenew = data_new_df.shape
     if gen_dic['with_output']:
         txt = '\nCheck for missing and unnecessary variables.'
@@ -226,8 +233,8 @@ def clean_reduce_data(data_df, names_to_inc_, gen_dic, id_name_,
                 txt += '\nNo variables deleted'
             else:
                 txt += f'\n{shape[1]-shapenew[1]:<4} variables deleted:'
-                all_var = gp.remove_dupl_keep_order(data_df.columns)
-                keep_var = gp.remove_dupl_keep_order(data_new_df.columns)
+                all_var = mcf_gp.remove_dupl_keep_order(data_df.columns)
+                keep_var = mcf_gp.remove_dupl_keep_order(data_new_df.columns)
                 del_var = [var for var in all_var if var not in keep_var]
                 vars_str = ' '.join(del_var)
                 txt += vars_str
@@ -238,9 +245,9 @@ def clean_reduce_data(data_df, names_to_inc_, gen_dic, id_name_,
     return data_new_df, id_name
 
 
-def stop_if_df_contains_nan(data_df):
+def stop_if_df_contains_nan(data_df, obs_bigdata=10000000):
     """Raise informative exception if array contains NaN."""
-    data_np = data_df.to_numpy()
+    data_np = mcf_gp.to_numpy_big_data(data_df, obs_bigdata)
     is_nan_np = np.isnan(data_np)
     if is_nan_np.any():   # False means there are NaN somewhere
         loc_nan = np.nonzero(is_nan_np)[1]
@@ -431,34 +438,36 @@ def create_xz_variables(mcf_, data_df, train=True):
                           if name not in z_name_cont_remove]
                 var_dic['z_name_ord'] = z_name_ord
                 var_dic['z_name'] = z_name
-        var_dic['z_name_ord'] = gp.cleaned_var_names(var_dic['z_name_ord'])
-        var_dic['z_name'] = gp.cleaned_var_names(var_dic['z_name'])
+        var_dic['z_name_ord'] = mcf_gp.cleaned_var_names(var_dic['z_name_ord'])
+        var_dic['z_name'] = mcf_gp.cleaned_var_names(var_dic['z_name'])
         var_dic['x_name'].extend(var_dic['z_name'])
-        if var_dic['bgate_name']:
-            bad_vars = [var for var in var_dic['bgate_name']
+        if var_dic['x_name_balance_bgate']:
+            bad_vars = [var for var in var_dic['x_name_balance_bgate']
                         if var not in var_dic['x_name']]
             if bad_vars:
                 raise ValueError(f'{bad_vars} not included among features. Add'
                                  ' them.')
-            var_dic['x_name_remain'].extend(var_dic['bgate_name'])
+            var_dic['x_name_remain'].extend(var_dic['x_name_balance_bgate'])
         var_dic['x_name_remain'].extend(var_dic['z_name'])
-        var_dic['x_balance_name'].extend(var_dic['z_name'])
+        var_dic['x_name_balance_test'].extend(var_dic['z_name'])
         var_dic['name_ordered'].extend(var_dic['z_name_ord'])
         var_dic['name_ordered'].extend(var_dic['z_name_list'])
         var_dic['name_unordered'].extend(var_dic['z_name_unord'])
-        var_dic['x_name'] = gp.cleaned_var_names(var_dic['x_name'])
-        var_dic['x_name_remain'] = gp.cleaned_var_names(
+        var_dic['x_name'] = mcf_gp.cleaned_var_names(var_dic['x_name'])
+        var_dic['x_name_remain'] = mcf_gp.cleaned_var_names(
             var_dic['x_name_remain'])
-        var_dic['x_balance_name'] = gp.cleaned_var_names(
-            var_dic['x_balance_name'])
-        var_dic['name_ordered'] = gp.cleaned_var_names(var_dic['name_ordered'])
-        var_dic['name_unordered'] = gp.cleaned_var_names(
+        var_dic['x_name_balance_test'] = mcf_gp.cleaned_var_names(
+            var_dic['x_name_balance_test'])
+        var_dic['name_ordered'] = mcf_gp.cleaned_var_names(
+            var_dic['name_ordered'])
+        var_dic['name_unordered'] = mcf_gp.cleaned_var_names(
             var_dic['name_unordered'])
     # Part 2: Recoding ordered and unordered variables
     x_name_type_unord,  x_name_values = [], []
     if train:
         q_inv_cr_dict, prime_values_dict, unique_val_dict = {}, {}, {}
         prime_new_name_dict, prime_old_name_dict = {}, {}
+    list_of_missing_vars = []
     for variable in var_dic['x_name']:
         if variable in var_dic['name_ordered']:  # Ordered variable
             unique_val = data_df[variable].unique()
@@ -486,8 +495,9 @@ def create_xz_variables(mcf_, data_df, train=True):
                 means = data_df.groupby(new_variable).mean(numeric_only=True)
                 new_dic = means[data_s.name].to_dict()
                 data_df = data_df.replace({new_variable: new_dic})
-                var_dic = gp.substitute_variable_name(var_dic, variable,
-                                                      new_variable)
+                var_dic = mcf_gp.substitute_variable_name(
+                    var_dic, variable, new_variable
+                    )
                 if gen_dic['with_output'] and gen_dic['verbose']:
                     txt = f'Variable recoded: {variable} -> {new_variable}'
                     ps.print_mcf(gen_dic, txt, summary=False)
@@ -512,7 +522,7 @@ def create_xz_variables(mcf_, data_df, train=True):
 
                 # Recode categorical variables by running integers such that
                 # groups of them can be efficiently translated into primes
-                prime_values = gp.primes_list(k)
+                prime_values = mcf_gp.primes_list(k)
                 if len(prime_values) != len(unique_val):
                     raise RuntimeError(
                         'Not enough prime values available for recoding. Most '
@@ -550,14 +560,18 @@ def create_xz_variables(mcf_, data_df, train=True):
                 x_name_type_unord += [2]  # > 18 categories: dtype=object
             values_pd = data_df[prime_variable].unique()
             x_name_values.append(sorted(values_pd.tolist()))
-            var_dic = gp.substitute_variable_name(var_dic, variable,
-                                                  prime_variable)
+            var_dic = mcf_gp.substitute_variable_name(
+                var_dic, variable, prime_variable
+                )
             if gen_dic['with_output'] and gen_dic['verbose']:
                 txt = f'Variable recoded: {variable} -> {prime_variable}'
                 ps.print_mcf(gen_dic, txt, summary=False)
         else:
-            raise ValueError(f'{variable} is neither contained in list or '
-                             'of ordered nor list of unordered variables.')
+            list_of_missing_vars.extend(variable)
+    if list_of_missing_vars:
+        raise ValueError(f'{" ".join(list_of_missing_vars)} is neither '
+                         'contained in list of ordered nor list of unordered '
+                         'variables.')
     # Define dummy to see if particular type of UO exists at all in data
     type_0, type_1, type_2 = unordered_types_overall(x_name_type_unord)
     var_x_type = dict(zip(var_dic['x_name'], x_name_type_unord))

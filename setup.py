@@ -7,7 +7,7 @@ def read(fname):
 setup(
   name = 'mcf',
   packages = ['mcf'],
-  version = '0.7.1',
+  version = '0.7.2',
   license='MIT',
   description = 'The Python package mcf implements the Modified Causal Forest introduced by Lechner (2018). This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, mcf offers the capability to learn optimal policy allocations.',
   author = 'mlechner',
@@ -30,6 +30,8 @@ setup(
      'scikit-learn>=1.5.2',
      'scipy>=1.14.1',
      'torch>=2.4.1',
-     'fpdf2>=2.7.9'
+     'fpdf2>=2.7.9', 
+     'seaborn>=0.13.2', 
+     'statsmodels>=0.14.4'
      ]
 )

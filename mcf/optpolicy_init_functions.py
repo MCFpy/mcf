@@ -4,6 +4,7 @@ Contains the functions needed for initialising the parameters.
 @author: MLechner
 -*- coding: utf-8 -*-
 """
+from pathlib import Path
 from psutil import cpu_count
 
 import numpy as np
@@ -12,9 +13,8 @@ from mcf import mcf_general as gp
 from mcf import mcf_general_sys as mcf_sys
 
 
-def init_int(cuda=None, how_many_parallel=None, parallel_processing=None,
-             output_no_new_dir=None, report=None, with_numba=None,
-             with_output=None, xtr_parallel=False):
+def init_int(cuda=None, output_no_new_dir=None, report=None, with_numba=None,
+             with_output=None, xtr_parallel=False, dpi=500, fontsize=2):
     """Initialise basic technical pamameters."""
     dic = {}
     if cuda is not True:
@@ -22,26 +22,47 @@ def init_int(cuda=None, how_many_parallel=None, parallel_processing=None,
     else:
         # dic['cuda'] = torch.cuda.is_available()
         raise NotImplementedError('GPU is not used for Optimal Policy')
-    dic['parallel_processing'] = parallel_processing is not False
-    if dic['parallel_processing']:
-        if how_many_parallel is None or how_many_parallel < 0.5:
-            dic['mp_parallel'] = round(cpu_count(logical=True)*0.8)
-        else:
-            dic['mp_parallel'] = round(how_many_parallel)
-    else:
-        dic['mp_parallel'] = 1
+    # TODO
+  
+    #     if how_many_parallel is None or how_many_parallel < 0.5:
+    #         dic['mp_parallel'] = round(cpu_count(logical=True)*0.8)
+    #     else:
+    #         dic['mp_parallel'] = round(how_many_parallel)
+    # else:
+    #     dic['mp_parallel'] = 1
     dic['output_no_new_dir'] = output_no_new_dir is True
     dic['report'] = report is not False
     dic['with_numba'] = with_numba is not False
     dic['with_output'] = with_output is not False
-    dic['xtr_parallel'] = xtr_parallel is not False and dic['mp_parallel'] > 1
+    dic['xtr_parallel'] = xtr_parallel is not False
+
+    dic['dpi'] = 500 if (dpi is None or dpi < 10) else round(dpi)
+    if fontsize is not None and 0.5 < fontsize < 7.5:
+        dic['fontsize'] = round(fontsize)
+    else:
+        dic['fontsize'] = 2
+    dic['all_fonts'] = ('xx-small', 'x-small', 'small', 'medium', 'large',
+                        'x-large', 'xx-large')
+    for i, i_lab in enumerate(dic['all_fonts']):
+        if dic['fontsize'] == i + 1:
+            dic['fontsize'] = i_lab
+    dic['legend_loc'] = 'best'
+
     return dic
 
 
-def init_gen(method=None, outfiletext=None, outpath=None, output_type=None,
-             variable_importance=None, with_output=None, new_outpath=None):
+def init_gen(method=None, mp_parallel=None, outfiletext=None, outpath=None,
+             output_type=None, variable_importance=None, with_output=None,
+             new_outpath=None):
     """Initialise general parameters."""
     dic = {}
+    # Number of cores for multiprocessiong
+    if mp_parallel is None or not isinstance(mp_parallel, (float, int)):
+        dic['mp_parallel'] = round(cpu_count(logical=True)*0.8)
+    elif mp_parallel <= 1.5:
+        dic['mp_parallel'] = 1
+    else:
+        dic['mp_parallel'] = round(mp_parallel)
     dic['method'] = 'best_policy_score' if method is None else method
     if dic['method'] not in ('best_policy_score', 'policy tree',
                              'policy tree old', 'bps_classifier'):
@@ -54,6 +75,9 @@ def init_gen(method=None, outfiletext=None, outpath=None, output_type=None,
         dir_nam = 'PT_OLD'
     elif dic['method'] == 'bps_classifier':
         dir_nam = 'BPS_CLASSIF'
+    else:
+        dir_nam = ''
+
     dic['variable_importance'] = variable_importance is not False
 
     dic['output_type'] = 2 if output_type is None else output_type
@@ -70,11 +94,12 @@ def init_gen(method=None, outfiletext=None, outpath=None, output_type=None,
         dic['outpath'] = mcf_sys.define_outpath(None, new_outpath
                                                 ) if with_output else None
     else:
-        dic['outpath'] = mcf_sys.define_outpath(outpath + dir_nam, new_outpath)
-    dic['outfiletext'] = ('txtFileWithOutput'
-                          if outfiletext is None else outfiletext)
-    dic['outfiletext'] = dic['outpath'] + '/' + dic['outfiletext'] + '.txt'
-    dic['outfilesummary'] = dic['outfiletext'][:-4] + '_Summary.txt'
+        if not isinstance(outpath, Path):
+            outpath = Path(outpath)
+        dic['outpath'] = mcf_sys.define_outpath(outpath / dir_nam, new_outpath)
+    outfiletext = 'txtFileWithOutput' if outfiletext is None else outfiletext
+    dic['outfiletext'] = dic['outpath'] / (outfiletext + '.txt')
+    dic['outfilesummary'] = dic['outpath'] / (outfiletext + '_Summary.txt')
     if with_output:
         mcf_sys.delete_file_if_exists(dic['outfiletext'])
         mcf_sys.delete_file_if_exists(dic['outfilesummary'])
@@ -114,10 +139,11 @@ def init_fair(consistency_test=None, material_disc_method=None,
         ok_types_cfold = [name.casefold() for name in ok_types]
         try:
             position = ok_types_cfold.index(adj_type.casefold())
-        except ValueError:
+        except ValueError as exc:
             raise ValueError(f'Specified adjustment method {adj_type} '
                              'to correct scores for protected variables is not '
-                             f'among acceptable methods {" ".join(ok_types)}')
+                             f'among acceptable methods {" ".join(ok_types)}'
+                             ) from exc
         dic['adj_type'] = ok_types[position]
     else:
         dic['adj_type'] = 'Quantiled'
@@ -223,7 +249,7 @@ def init_pt(depth_tree_1=None, depth_tree_2=None, enforce_restriction=None,
         dic['enforce_restriction'] = False
     if (eva_cat_mult is None or not isinstance(eva_cat_mult, (float, int))
             or eva_cat_mult < 0.1):
-        dic['eva_cat_mult'] = 1
+        dic['eva_cat_mult'] = 2
     else:
         dic['eva_cat_mult'] = eva_cat_mult
     return dic
@@ -310,7 +336,7 @@ def init_var(bb_restrict_name=None, d_name=None, effect_vs_0=None,
     var_dic['material_unord_name'] = check_var_no_none(material_unord_name)
 
     var_dic['name_ordered'] = var_dic['z_name'] = var_dic['x_name_remain'] = []
-    var_dic['name_unordered'] = var_dic['x_balance_name'] = []
+    var_dic['name_unordered'] = var_dic['x_name_balance_test'] = []
     var_dic['x_name_always_in'] = []
 
     return var_dic

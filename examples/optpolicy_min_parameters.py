@@ -13,7 +13,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.1
+Version: 0.7.2
 
 This is an example to show the optimal policy package can be implemented with
 a minimum number of specification (it could be even more further simplified
@@ -22,7 +22,7 @@ allocations; or when only one solving method is used which makes some more
 method-specific parameters redundant).
 
 """
-import os
+from pathlib import Path
 
 from mcf.example_data_functions import example_data
 from mcf.optpolicy_functions import OptimalPolicy
@@ -31,7 +31,7 @@ from mcf.reporting import McfOptPolReport
 
 # ------------- NOT passed to OptimalPolicy -----------------------------------
 #  Define data to be used in this example
-APPLIC_PATH = os.getcwd() + '/example'
+APPLIC_PATH = Path.cwd() / 'example/output'
 
 training_df, prediction_df, name_dict = example_data()
 
@@ -52,11 +52,12 @@ VAR_POLSCORE_NAME = ('y_pot0', 'y_pot1', 'y_pot2')
 VAR_X_NAME_ORD = ('x_cont0',)  # Alternatively specify VAR_X_NAME_UNORD
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-if not os.path.exists(APPLIC_PATH):
-    os.makedirs(APPLIC_PATH)
+if not APPLIC_PATH.exists():
+    APPLIC_PATH.mkdir(parents=True)
 
 for method in METHODS:
-    myoptp = OptimalPolicy(gen_method=method,
+    myoptp = OptimalPolicy(gen_outpath=APPLIC_PATH,
+                           gen_method=method,
                            var_polscore_name=VAR_POLSCORE_NAME,
                            var_x_name_ord=VAR_X_NAME_ORD)
 

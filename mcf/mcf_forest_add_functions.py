@@ -46,9 +46,9 @@ def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, cf_dic, mmm, rng,
     qqq = len(x_ind_pos)
     if cf_dic['m_random_poisson'] and mmm > cf_dic['m_random_poisson_min']:
         m_l = 1 + rng.poisson(lam=mmm-1, size=1)
-        if m_l < 1:
-            m_l = 1
-        elif m_l > qqq:
+        # if m_l < 1:
+        #     m_l = 1
+        if m_l > qqq:
             m_l = qqq
     else:
         m_l = mmm
@@ -140,6 +140,8 @@ def describe_forest(forest, m_n_min_ar, var_dic, cf_dic, gen_dic, pen_mult=0,
         splitting_rule = '-Var(effect)'
     elif cf_dic['mtot'] == 4:
         splitting_rule = 'Random switching'
+    else:
+        splitting_rule = 'No splitting rule specified.'
     txt += f'\nSplitting rule used:        {splitting_rule:<4}'
     if cf_dic['p_diff_penalty'] > 0:
         txt += f'\nPenalty used in splitting:  {pen_mult}'
@@ -220,6 +222,7 @@ def get_tree_infos(forest):
     leaf_info[2] = np.median(leaf_info_tmp[:, 2])   # Med size of leaves
     leaf_info[3] = np.min(leaf_info_tmp[:, 3])      # Min size of leaves
     leaf_info[4] = np.max(leaf_info_tmp[:, 4])      # Max size of leaves
+
     return leaf_info
 
 
@@ -259,6 +262,7 @@ def get_terminal_leaf_no(tree_dict, x_dat):
         else:
             leaf_id = terminal_leaf_recursive_numba(leaf_info_int, cut_off_cont,
                                                     x_dat, first_leaf_id)
+
     return leaf_id
 
 
@@ -270,10 +274,11 @@ def terminal_leaf_loop_numba(leaf_info_int, cut_off_cont, x_dat, leaf_id):
         leaf = leaf_info_int[leaf_id]
         if leaf[7] == 1:             # Terminal leaf
             return leaf[0]
-        elif leaf[7] == 0:
+        if leaf[7] == 0:
             leaf_id = get_next_leaf_no_numba(leaf, leaf_id, x_dat, cut_off_cont)
         else:
             raise RuntimeError(f'Leaf is still active. {leaf[4]}')
+
     return leaf_id
 
 
@@ -296,7 +301,7 @@ def terminal_leaf_loop(leaf_info_int, cut_off_cont, cats_prime, x_dat, leaf_id):
         leaf = leaf_info_int[leaf_id, :]
         if leaf[7] == 1:             # Terminal leaf
             return leaf[0]
-        elif leaf[7] == 0:
+        if leaf[7] == 0:
             leaf_id = get_next_leaf_no(leaf, leaf_id, x_dat, cut_off_cont,
                                        cats_prime)
         else:
@@ -312,12 +317,14 @@ def terminal_leaf_recursive_numba(leaf_info_int, cut_off_cont, x_dat, leaf_id):
     # leaf = leaf_info_int[leaf_id, :]   old
     if leaf[7] == 1:             # Terminal leaf, leave recursion
         return leaf[0]
-    elif leaf[7] == 0:
+
+    if leaf[7] == 0:
         # Not final leave, so continue search and update leaf_id
         next_leaf_id = get_next_leaf_no_numba(leaf, leaf_id, x_dat,
                                               cut_off_cont)
     else:
         raise RuntimeError(f'Leaf is still active. {leaf[4]}')
+
     return terminal_leaf_recursive_numba(leaf_info_int, cut_off_cont,
                                          x_dat, next_leaf_id)
 
@@ -328,7 +335,8 @@ def terminal_leaf_recursive(leaf_info_int, cut_off_cont, cats_prime, x_dat,
     leaf = leaf_info_int[leaf_id, :]
     if leaf[7] == 1:             # Terminal leaf, leave recursion
         return leaf[0]
-    elif leaf[7] == 0:
+
+    if leaf[7] == 0:
         # Not final leave, so continue search and update leaf_id
         next_leaf_id = get_next_leaf_no(leaf, leaf_id, x_dat, cut_off_cont,
                                         cats_prime)
@@ -342,19 +350,16 @@ def terminal_leaf_recursive(leaf_info_int, cut_off_cont, cats_prime, x_dat,
 @njit
 def get_next_leaf_no_numba(leaf, leaf_id, x_dat, cut_off_cont):
     """Get next deeper leaf number for a non-active and non-terminal leaf."""
-    # if leaf[7] not in (0, 1):
-    #     raise RuntimeError(f'Leaf is still active. {leaf[4]}')
     if leaf[5] == 0:        # Continuous variable
         condition = (x_dat[leaf[4]] - 1e-15) <= cut_off_cont[leaf_id]
     else:                   # Categorical variable
         raise ValueError("""There should be no categorical variables.""")
+
     return leaf[2] if condition else leaf[3]
 
 
 def get_next_leaf_no(leaf, leaf_id, x_dat, cut_off_cont, cats_prime):
     """Get next deeper leaf number for a non-active and non-terminal leaf."""
-    # if leaf[7] not in (0, 1):
-    #     raise RuntimeError(f'Leaf is still active. {leaf[4]}')
     if leaf[5] == 0:        # Continuous variable
         condition = (x_dat[leaf[4]] - 1e-15) <= cut_off_cont[leaf_id]
     else:                   # Categorical variable
@@ -367,6 +372,7 @@ def get_next_leaf_no(leaf, leaf_id, x_dat, cut_off_cont, cats_prime):
 def prime_in_leaf(cats_prime_leaf_id, x_dat_leaf4):
     """Check if primefactor is in primeproduct."""
     prime_factors = mcf_gp.primes_reverse(cats_prime_leaf_id, False)
+
     return x_dat_leaf4 in prime_factors
 
 
@@ -407,7 +413,7 @@ def fill_trees_with_y_indices_mp(mcf_, data_df, forest):
         x_dat = data_np[:, x_i]
         d_dat = np.int16(np.round(data_np[:, d_i]))
     obs = len(x_dat)
-    terminal_nodes = [None] * cf_dic['boot']
+    terminal_nodes = [None for _ in range(cf_dic['boot'])]
     nodes_empty = np.zeros(cf_dic['boot'])
     nodes_merged = np.zeros_like(nodes_empty)
     if gen_dic['mp_parallel'] < 1.5:
@@ -418,26 +424,23 @@ def fill_trees_with_y_indices_mp(mcf_, data_df, forest):
                       if gen_dic['mp_automatic'] else gen_dic['mp_parallel'])
     if int_dic['with_output'] and int_dic['verbose']:
         print('Number of parallel processes: ', maxworkers)
-    if maxworkers == 1:
-        for idx in range(cf_dic['boot']):
-            (_, forest[idx], terminal_nodes[idx], nodes_empty[idx],
-             nodes_merged[idx]) = fill_mp(forest[idx], obs, d_dat, x_dat,
-                                          idx, gen_dic, cf_dic)
-            if int_dic['with_output'] and int_dic['verbose']:
-                mcf_gp.share_completed(idx+1, cf_dic['boot'])
-    else:
-        if int_dic['ray_or_dask'] == 'ray':
-            if int_dic['mem_object_store_2'] is None:
-                if not ray.is_initialized():
-                    ray.init(num_cpus=maxworkers, include_dashboard=False)
-            else:
-                if not ray.is_initialized():
-                    ray.init(num_cpus=maxworkers, include_dashboard=False,
-                             object_store_memory=int_dic['mem_object_store_2'])
-                if int_dic['with_output'] and int_dic['verbose']:
-                    num = round(int_dic["mem_object_store_2"] / (1024 * 1024))
-                    txt = f'\nSize of Ray Object Store: {num} MB'
-                    ps.print_mcf(gen_dic, txt, summary=False)
+
+    if maxworkers > 1:
+        if not ray.is_initialized():
+            ray_err_txt = 'Problems starting ray when filling forests.'
+            ray_is_running = mcf_sys.init_ray_with_fallback(
+                maxworkers, int_dic, gen_dic,
+                mem_object_store=int_dic['mem_object_store_2'],
+                ray_err_txt=ray_err_txt)
+        else:
+            ray_is_running = True
+
+        if ray_is_running:
+            if (int_dic['with_output'] and int_dic['verbose']
+                    and int_dic['mem_object_store_2'] is not None):
+                num = round(int_dic["mem_object_store_2"] / (1024 * 1024))
+                txt = f'\nSize of Ray Object Store: {num} MB'
+                ps.print_mcf(gen_dic, txt, summary=False)
             x_dat_ref = ray.put(x_dat)
             still_running = [ray_fill_mp.remote(
                 forest[idx], obs, d_dat, x_dat_ref, idx, gen_dic, cf_dic)
@@ -461,6 +464,17 @@ def fill_trees_with_y_indices_mp(mcf_, data_df, forest):
                 del finished_res, finished
             if int_dic['mp_ray_shutdown']:
                 ray.shutdown()
+        else:  # Ray did not start. No multiprocessing.
+            maxworkers = 1
+
+    if maxworkers == 1:
+        for idx in range(cf_dic['boot']):
+            (_, forest[idx], terminal_nodes[idx], nodes_empty[idx],
+             nodes_merged[idx]) = fill_mp(forest[idx], obs, d_dat, x_dat,
+                                          idx, gen_dic, cf_dic)
+            if int_dic['with_output'] and int_dic['verbose']:
+                mcf_gp.share_completed(idx+1, cf_dic['boot'])
+
     no_of_avg_enodes = np.mean(nodes_empty)
     no_of_avg_mnodes = np.mean(nodes_merged)
     if int_dic['with_output'] and int_dic['verbose']:
@@ -475,6 +489,7 @@ def fill_trees_with_y_indices_mp(mcf_, data_df, forest):
         mem = round(mcf_sys.total_size(forest) / (1024 * 1024), 2)
         txt += f'\nSize of forest: {mem} MB' + '\n' + '-' * 100
         ps.print_mcf(gen_dic, txt, summary=True)
+
     return forest, terminal_nodes, no_of_avg_mnodes
 
 
@@ -534,6 +549,7 @@ def fill_mp(tree_dict_g, obs, d_dat, x_dat, b_idx, gen_dic, cf_dic):
             merged_leaves += 1
     empty_share = empty_leaves / len(unique_leafs)
     merge_share = merged_leaves / len(unique_leafs)
+
     return b_idx, tree_dict, unique_leafs, empty_share, merge_share
 
 
@@ -547,6 +563,7 @@ def make_zeros(obs):
         obs_in_leaf = np.zeros((obs, 1), dtype=np.uint32)
     else:
         obs_in_leaf = np.zeros((obs, 1), dtype=np.uint64)
+
     return obs_in_leaf
 
 
@@ -589,6 +606,7 @@ def merge_leaves(tree_dict, leaf_id, obs_in_leaf, indices, d_dat, no_of_treat):
             still_empty = 0
     else:  # Leaves will not be merged as they might need too deep aggregation
         still_empty = 1
+
     return tree_dict, still_empty
 
 
@@ -600,6 +618,7 @@ def save_forests_in_cf_dic(forest_dic, forest_list, fold, no_folds, reg_round,
         innerlist = [None, None] if eff_iate else [None]
         forest_list = [innerlist for idx in range(no_folds)]
     forest_list[fold][0 if reg_round else 1] = deepcopy(forest_dic)
+
     return forest_list
 
 
@@ -616,12 +635,13 @@ def train_save_data(mcf_, data_df, forest):
     else:
         w_train_df = None
     if mcf_.p_dict['bt_yes']:
-        x_bala_train_df = data_df[mcf_.var_dict['x_balance_name']]
+        x_bala_train_df = data_df[mcf_.var_dict['x_name_balance_test']]
     else:
         x_bala_train_df = None
     forest_dic = {'forest': forest, 'y_train_df': y_train_df,
                   'd_train_df': d_train_df, 'x_bala_df': x_bala_train_df,
                   'cl_train_df': cl_train_df, 'w_train_df': w_train_df}
+
     return forest_dic
 
 
@@ -629,6 +649,7 @@ def not_enough_treated(continuous, n_min_treat, d_dat, no_of_treat):
     """If there are NOT enough treated in new leaf."""
     if continuous or n_min_treat == 1:
         return len(np.unique(d_dat)) < no_of_treat
-    else:
-        ret = np.unique(d_dat, return_counts=True)
-        return len(ret[0]) < no_of_treat or np.any(ret[1] < n_min_treat)
+
+    ret = np.unique(d_dat, return_counts=True)
+
+    return len(ret[0]) < no_of_treat or np.any(ret[1] < n_min_treat)

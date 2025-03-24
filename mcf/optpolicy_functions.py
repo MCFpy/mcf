@@ -148,7 +148,7 @@ class OptimalPolicy:
         knowledge of the policy scores. The actual classifier used is selected
         among four different classifiers offered by sci-kit learn, namely a
         simple neural network, two classification random forests with minimum
-        leaf size of 2 and 5, and ADDABoost. The selection is a made according
+        leaf size of 2 and 5, and ADDABoost. The selection is made according
         to the out-of-sample performance on scikit-learns Accuracy Score.
         The implemented ``'policy tree'`` 's are optimal trees, i.e. all
         possible trees are checked if they lead to a better performance.
@@ -160,12 +160,18 @@ class OptimalPolicy:
         attractive theoretical properties.\
         Default (or None) is ``'best_policy_score'``.
 
+    gen_mp_parallel : Integer (or None), optional
+        Number of parallel processes (using ray on CPU). The smaller this
+        value is, the slower the programme, the smaller its demands on RAM.
+        None : 80% of logical cores.
+        Default is None.
+
     gen_outfiletext : String (or None), optional
-        File for text output. (\*.txt) file extension will be automatically
+        File for text output. (.txt) file extension will be automatically
         added.
         Default (or None) is 'txtFileWithOutput'.
 
-    gen_outpath : String (or None), optional
+    gen_outpath : String, Pathlib object (or None), optional
         Directory to where to put text output and figures. If it does not
         exist, it will be created.
         None : (\*.out) directory just below to the directory where the
@@ -237,7 +243,7 @@ class OptimalPolicy:
         for the unordered (categorical) variables to:
         :math:`\\text{pt_eva_cat_mult} \\times \\text{pt_no_of_evalupoints}`
         (available only for the method 'policy tree').
-        Default (or None is 1).
+        Default (or None) is 2.
 
     pt_no_of_evalupoints : Integer (or None), optional
         No of evaluation points for continuous variables. The lower this
@@ -267,9 +273,10 @@ class OptimalPolicy:
         search among optimal trees, for categorical variables variables we
         need to check for all possible combinations of the different values
         that lead to binary splits. Thus number could indeed be huge.
-        Therefore, we compare only :math:`\\text{pt_no_of_evalupoints} \\times 2` different
-        combinations. Method 1 (pt_select_values_cat == True) does this by
-        randomly drawing values from the particular categorical variable
+        Therefore, we compare only
+        :math:`\\text{pt_no_of_evalupoints} \\times \\text{pt_eva_cat_mult}`
+        different combinations. Method 1 (pt_select_values_cat == True) does
+        this by randomly drawing values from the particular categorical variable
         and forming groups only using those values. Method 2
         (pt_select_values_cat == False) sorts the values of the categorical
         variables according to a values of the policy score as one would do
@@ -379,6 +386,16 @@ class OptimalPolicy:
         Name of unordered variables used to build policy tree and classifier.
         They are also used to characterise the allocation. Default is None.
 
+    _int_dpi : Integer (or None), optional
+        dpi in plots.
+        Default (or None) is 500.
+        Internal variable, change default only if you know what you do.
+
+    _int_fontsize : Integer (or None), optional
+        Font for legends, from 1 (very small) to 7 (very large).
+        Default (or None) is 2.
+        Internal variable, change default only if you know what you do.
+
     _int_how_many_parallel : Integer (or None), optional
         Number of parallel process.
         None : 80% of logical cores, if this can be effectively implemented.
@@ -412,15 +429,19 @@ class OptimalPolicy:
         Only used for 'policy tree' and
         only used if _int_parallel_processing > 1 (or None)
 
-    <NOT-ON-API>
 
     Attributes
     ----------
 
+    version : String
+        Version of mcf module used to create the instance.
+
+    <NOT-ON-API>
+
     dc_dict : Dictionary
         Parameters used in data cleaning.
 
-    fair_dict : Dictionary.
+    fair_dict : Dictionary
         Parameters used in fairness adjustment of scores.
 
     gen_dict : Dictionary
@@ -465,7 +486,8 @@ class OptimalPolicy:
         fair_material_disc_method='Kmeans', fair_protected_disc_method='Kmeans',
         fair_material_max_groups=5, fair_regression_method='RandomForest',
         fair_protected_max_groups=5,
-        gen_method='best_policy_score', gen_outfiletext='txtFileWithOutput',
+        gen_method='best_policy_score', gen_mp_parallel='None',
+        gen_outfiletext='txtFileWithOutput',
         gen_outpath=None, gen_output_type=2, gen_variable_importance=True,
         other_costs_of_treat=None, other_costs_of_treat_mult=None,
         other_max_shares=None,
@@ -480,20 +502,23 @@ class OptimalPolicy:
         var_polscore_name=None, var_protected_name_ord=None,
         var_protected_name_unord=None, var_vi_x_name=None,
         var_vi_to_dummy_name=None, var_x_name_ord=None, var_x_name_unord=None,
+        _int_dpi=500, _int_fontsize=2,
         _int_how_many_parallel=None, _int_output_no_new_dir=False,
         _int_parallel_processing=True, _int_report=True, _int_with_numba=True,
-        _int_with_output=True, _int_xtr_parallel=True
+        _int_with_output=True, _int_xtr_parallel=True,
             ):
 
+        self.version = '0.7.2'
+
         self.int_dict = op_init.init_int(
-            cuda=False, how_many_parallel=_int_how_many_parallel,
-            output_no_new_dir=_int_output_no_new_dir,
-            parallel_processing=_int_parallel_processing, report=_int_report,
-            with_numba=_int_with_numba, with_output=_int_with_output,
-            xtr_parallel=_int_xtr_parallel)
+            cuda=False, output_no_new_dir=_int_output_no_new_dir,
+            report=_int_report, with_numba=_int_with_numba,
+            with_output=_int_with_output, xtr_parallel=_int_xtr_parallel,
+            dpi=_int_dpi, fontsize=_int_fontsize)
 
         self.gen_dict = op_init.init_gen(
-            method=gen_method, outfiletext=gen_outfiletext,
+            method=gen_method, mp_parallel=gen_mp_parallel,
+            outfiletext=gen_outfiletext,
             outpath=gen_outpath, output_type=gen_output_type,
             variable_importance=gen_variable_importance,
             with_output=self.int_dict['with_output'],
@@ -569,7 +594,7 @@ class OptimalPolicy:
             Input data with additional fairness adjusted scores.
         names_fair_scores : List of strings.
             Names of adjusted scores.
-        outpath : String
+        outpath : Pathlib object
             Location of directory in which output is saved.
         """
         time_start = time()
@@ -592,6 +617,9 @@ class OptimalPolicy:
             time_str = ps.print_timing(
                 self.gen_dict, 'Fairness correction ', time_name,
                 time_difference, summary=True)
+        else:
+            time_str = ''
+
         key = 'fairness correction ' + data_title
         self.time_strings[key] = time_str
 
@@ -638,6 +666,7 @@ class OptimalPolicy:
             print_dic_values_all_optp(self, summary_top=True,
                                       summary_dic=False, stage='Training')
         allocation_df = allocation_txt = None
+
         if method in ('policy tree', 'policy tree old', 'best_policy_score',
                       'bps_classifier'):
             (data_new_df, bb_rest_variable) = op_data.prepare_data_bb_pt(
@@ -699,22 +728,26 @@ class OptimalPolicy:
         allocation_df : DataFrame
             data_df with optimal allocation appended.
 
-        outpath : String
+        outpath : Pathlib object
             Location of directory in which output is saved.
 
         """
         time_start = time()
         method = self.gen_dict['method']
-
         self.report['allocation'] = True
         data_train = (op_data.dataframe_checksum(data_df)
                       == self.report['training_data_chcksm'])
+
+        data_df.reset_index(drop=True, inplace=True)
+
         if method == 'policy tree':
             method_str = 'Policy Tree'
         elif method == 'best_policy_score':
             method_str = 'Best Policy Score'
         elif method == 'bps_classifier':
             method_str = 'Classifier for Best Policy Score Allocation'
+        else:
+            method_str = ''
 
         self.report['txt'] = ('\nAllocation of unit to treatments using '
                               f'{method_str}.'
@@ -776,7 +809,7 @@ class OptimalPolicy:
         results_dic : Dictory
             Collected results of evaluation with self-explanatory keys.
 
-        outpath : String
+        outpath : Pathlib object
             Location of directory in which output is saved.
 
         """
@@ -802,9 +835,12 @@ class OptimalPolicy:
             allocation_df['observed'] = data_df[var_dic['d_name']]
         allocation_df['random'] = op_eval.get_random_allocation(
             self, len(data_df), seed)
+        if polscore_ok:
+            allocation_df['best ATE'] = op_eval.get_best_ate_allocation(
+                self, data_df)
         results_dic = op_eval.evaluate_fct(
             self, data_df, allocation_df, d_ok, polscore_ok, polscore_desc_ok,
-            desc_var)
+            desc_var, data_title)
         if (self.gen_dict['with_output']
                 and self.gen_dict['variable_importance']):
             op_eval.variable_importance(self, data_df, allocation_df, seed)
@@ -815,6 +851,8 @@ class OptimalPolicy:
                 self.gen_dict, f'Evaluation of {data_title} with '
                 f'{gen_dic["method"]}', time_name, time_difference,
                 summary=True)
+        else:
+            time_str = ''
         key = 'evaluate_' + data_title
         self.time_strings[key] = time_str
 

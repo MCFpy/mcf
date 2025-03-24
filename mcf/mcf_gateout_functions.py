@@ -48,23 +48,21 @@ def make_gate_figures_discr(
     titel_f = titel.replace(' ', '')
     titel_f = titel_f.replace('-', 'M')
     titel_f = titel_f.replace('.', '')
+    label_m, gate_str, ate_label = '', '', ''
     if gate_type == 'GATE':
-        file_name_jpeg = p_dic['gate_fig_pfad_jpeg'] + '/' + titel_f + '.jpeg'
-        file_name_pdf = p_dic['gate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
-        file_name_csv = (p_dic['gate_fig_pfad_csv'] + '/' + titel_f
-                         + 'plotdat.csv')
+        file_name_jpeg = p_dic['gate_fig_pfad_jpeg'] / f'{titel_f}.jpeg'
+        file_name_pdf = p_dic['gate_fig_pfad_pdf'] / f'{titel_f}.pdf'
+        file_name_csv = p_dic['gate_fig_pfad_csv'] / f'{titel_f}plotdat.csv'
     elif gate_type == 'CBGATE':
-        file_name_jpeg = (p_dic['cbgate_fig_pfad_jpeg'] + '/' + titel_f
-                          + '.jpeg')
-        file_name_pdf = p_dic['cbgate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
-        file_name_csv = (p_dic['cbgate_fig_pfad_csv'] + '/' + titel_f
-                         + 'plotdat.csv')
+        file_name_jpeg = p_dic['cbgate_fig_pfad_jpeg'] / f'{titel_f}.jpeg'
+        file_name_pdf = p_dic['cbgate_fig_pfad_pdf'] / f'{titel_f}.pdf'
+        file_name_csv = p_dic['cbgate_fig_pfad_csv'] / f'{titel_f}plotdat.csv'
     elif gate_type == 'BGATE':
-        file_name_jpeg = (p_dic['bgate_fig_pfad_jpeg'] + '/' + titel_f
-                          + '.jpeg')
-        file_name_pdf = p_dic['bgate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
-        file_name_csv = (p_dic['bgate_fig_pfad_csv'] + '/' + titel_f
-                         + 'plotdat.csv')
+        file_name_jpeg = p_dic['bgate_fig_pfad_jpeg'] / f'{titel_f}.jpeg'
+        file_name_pdf = p_dic['bgate_fig_pfad_pdf'] / f'{titel_f}.pdf'
+        file_name_csv = p_dic['bgate_fig_pfad_csv'] / f'{titel_f}plotdat.csv'
+    else:
+        file_name_jpeg = file_name_pdf = file_name_csv = None
     if ate_se is None:
         gate_str_y = 'Effect - average'
         if gate_type == 'GATE':
@@ -100,19 +98,27 @@ def make_gate_figures_discr(
         if z_smooth:
             if gate_type == 'GATE':
                 file_name_f_jpeg = (p_dic['gate_fig_pfad_jpeg']
-                                    + '/' + titel_f + 'fill.jpeg')
+                                    / f'{titel_f}fill.jpeg'
+                                    )
                 file_name_f_pdf = (p_dic['gate_fig_pfad_pdf']
-                                   + '/' + titel_f + 'fill.pdf')
+                                   / f'{titel_f}fill.pdf'
+                                   )
             elif gate_type == 'CBGATE':
                 file_name_f_jpeg = (p_dic['cbgate_fig_pfad_jpeg']
-                                    + '/' + titel_f + 'fill.jpeg')
+                                    / f'{titel_f}fill.jpeg'
+                                    )
                 file_name_f_pdf = (p_dic['cbgate_fig_pfad_pdf']
-                                   + '/' + titel_f + 'fill.pdf')
+                                   / f'{titel_f}fill.pdf'
+                                   )
             elif gate_type == 'BGATE':
                 file_name_f_jpeg = (p_dic['bgate_fig_pfad_jpeg']
-                                    + '/' + titel_f + 'fill.jpeg')
+                                    / f'{titel_f}fill.jpeg'
+                                    )
                 file_name_f_pdf = (p_dic['bgate_fig_pfad_pdf']
-                                   + '/' + titel_f + 'fill.pdf')
+                                   / f'{titel_f}fill.pdf'
+                                   )
+            else:
+                file_name_f_jpeg = file_name_f_pdf = ''
             figs, axs = plt.subplots()
             axs.plot(z_values, effects, label=label_m, color='b')
             axs.fill_between(z_values, upper, lower, alpha=0.3, color='b',
@@ -139,8 +145,7 @@ def make_gate_figures_discr(
             figs.savefig(file_name_f_pdf, dpi=int_dic['dpi'])
             if int_dic['show_plots']:
                 plt.show()
-            else:
-                plt.close()
+            plt.close()
         e_line, u_line, l_line = '_-', 'v-', '^-'
     else:
         e_line, u_line, l_line = 'o', 'v', '^'
@@ -218,19 +223,19 @@ def make_gate_figures_cont(titel, z_name, z_vals, effects, int_dic, p_dic,
     titel_f = titel_f.replace('-', 'M')
     titel_f = titel_f.replace('.', '')
     if gate_type == 'GATE':
-        file_name_jpeg = p_dic['gate_fig_pfad_jpeg'] + '/' + titel_f + '.jpeg'
-        file_name_pdf = p_dic['gate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
+        file_name_jpeg = p_dic['gate_fig_pfad_jpeg'] / f'{titel_f}.jpeg'
+        file_name_pdf = p_dic['gate_fig_pfad_pdf'] / f'{titel_f}.pdf'
         gate_str = 'GATE-ATE' if ate is not None else 'GATE'
     elif gate_type == 'CBGATE':
-        file_name_jpeg = (p_dic['cbgate_fig_pfad_jpeg'] + '/' + titel_f
-                          + '.jpeg')
-        file_name_pdf = p_dic['cbgate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
+        file_name_jpeg = p_dic['cbgate_fig_pfad_jpeg'] / f'{titel_f}.jpeg'
+        file_name_pdf = p_dic['cbgate_fig_pfad_pdf'] / f'{titel_f}.pdf'
         gate_str = 'CBGATE-avg(CBGATE)' if ate is not None else 'CBGATE'
     elif gate_type == 'BGATE':
-        file_name_jpeg = (p_dic['bgate_fig_pfad_jpeg'] + '/' + titel_f
-                          + '.jpeg')
-        file_name_pdf = p_dic['bgate_fig_pfad_pdf'] + '/' + titel_f + '.pdf'
+        file_name_jpeg = p_dic['bgate_fig_pfad_jpeg'] / f'{titel_f}.jpeg'
+        file_name_pdf = p_dic['bgate_fig_pfad_pdf'] / f'{titel_f}.pdf'
         gate_str = 'BGATE-avg(BGATE)' if ate is not None else 'BGATE'
+    else:
+        file_name_jpeg = file_name_pdf = gate_str = None
     fig, axe = plt.subplots(subplot_kw={"projection": "3d"})
     z_plt = np.transpose(effects)
     x_plt, y_plt = np.meshgrid(z_values, d_values[1:])
@@ -247,8 +252,7 @@ def make_gate_figures_cont(titel, z_name, z_vals, effects, int_dic, p_dic,
     fig.savefig(file_name_pdf, dpi=int_dic['dpi'])
     if int_dic['show_plots']:
         plt.show()
-    else:
-        plt.close()
+    plt.close()
     return file_name_jpeg
 
 
@@ -318,7 +322,7 @@ def gate_tables_nice_by_hugo_bodory(path, filenames, treatments):
 
     Parameters
     ----------
-    path : STRING
+    path : Pathlib object
         Directory storing CSV files for GATEs or CBGATEs
         For example: r'D:/uni/wia0/cbgate/csv
     filenames : LIST
@@ -402,18 +406,21 @@ def generate_gate_table(p_dict, label_row=False):
 
     for i_co, j_co in enumerate(p_dict['combi']):
         if i_co == 0:
-            data = pd.DataFrame(pd.read_csv(name + str(j_co[1]) + "vs" +
-                                str(j_co[0]) + "plotdat.csv"))
+            file_name = f'{name}{j_co[1]}vs{j_co[0]}plotdat.csv'
+            data = pd.DataFrame(pd.read_csv(file_name))
             if 'x_values' in data.columns:
                 data = data.rename(columns={'x_values': 'z_values'})
             data['d'] = i_co
         else:
-            dat = pd.DataFrame(pd.read_csv(name + str(j_co[1]) + "vs" +
-                               str(j_co[0]) + "plotdat.csv"))
+            file_name = f'{name}{j_co[1]}vs{j_co[0]}plotdat.csv'
+            dat = pd.DataFrame(pd.read_csv(file_name))
             if 'x_values' in dat.columns:
                 dat = dat.rename(columns={'x_values': 'z_values'})
             dat['d'] = i_co
             data = pd.concat((data, dat))
+    has_duplicates = data['z_values'].duplicated().any()
+    if has_duplicates:
+        return None
 
     data_0 = np.array(data.pivot(index='z_values', columns="d",
                                  values="effects"))
@@ -500,7 +507,7 @@ def tables(params):
     Parameters
     ----------
     params : DICTIONARY
-        path: STRING. Directory for CSV files.
+        path: Pathlib object. Directory for CSV files.
         effect_name : STRING. Effect name based on CSV file name.
         low : INTEGER. Lowest treatment level (>=0)
         high : INTEGER Highest treatment level.
@@ -516,28 +523,31 @@ def tables(params):
 
     """
     params['treatment_names'] = generate_treatment_names(params)
-    params['directory_effect'] = params['path'] + '/' + params['effect_name']
+    params['directory_effect'] = params['path'] / params['effect_name']
     stats_table = generate_gate_table(params)
-    d_f = create_dataframe_for_results(stats_table,
-                                       n_1=params['multiplier_rows'],
-                                       n_2=params['number_of_stats'])
-    for k_int in range(0, d_f.shape[0], params['multiplier_rows']):
-        for l_int in range(d_f.shape[1]):
-            d_f.iloc[k_int, l_int] = stats_table.iloc[
-                int(k_int / params['multiplier_rows']), l_int]
-            c_int = create_confidence_interval(
-                stats_table.iloc[int(k_int / params['multiplier_rows']),
-                                 l_int + params['number_of_combi']],
-                stats_table.iloc[int(k_int / params['multiplier_rows']),
-                                 l_int + 2 * params['number_of_combi']])
-            d_f.iloc[int(k_int) + 1, l_int] = c_int
-        if not isnan(d_f.index[k_int]) and d_f.index[k_int] == int(d_f.index[k_int]):  # No decimal if int.
-            idx_list = d_f.index.tolist()
-            d_f.index = idx_list[:k_int] + [int(d_f.index[k_int])] + \
-                idx_list[int(k_int) + 1:]
-    directory_table = \
-        params['path'] + '/' + '_' + params['effect_name'] + '_table.csv'
-    d_f.to_csv(directory_table)
+    if stats_table is not None:
+        d_f = create_dataframe_for_results(stats_table,
+                                           n_1=params['multiplier_rows'],
+                                           n_2=params['number_of_stats'])
+        for k_int in range(0, d_f.shape[0], params['multiplier_rows']):
+            for l_int in range(d_f.shape[1]):
+                d_f.iloc[k_int, l_int] = stats_table.iloc[
+                    int(k_int / params['multiplier_rows']), l_int]
+                c_int = create_confidence_interval(
+                    stats_table.iloc[int(k_int / params['multiplier_rows']),
+                                     l_int + params['number_of_combi']],
+                    stats_table.iloc[int(k_int / params['multiplier_rows']),
+                                     l_int + 2 * params['number_of_combi']])
+                d_f.iloc[int(k_int) + 1, l_int] = c_int
+            if not isnan(d_f.index[k_int]) and d_f.index[k_int] == int(
+                    d_f.index[k_int]):  # No decimal if int.
+                idx_list = d_f.index.tolist()
+                d_f.index = idx_list[:k_int] + [int(d_f.index[k_int])] + \
+                    idx_list[int(k_int) + 1:]
+        directory_table = (
+            params['path'] / ('_' + params['effect_name'] + '_table.csv')
+            )
+        d_f.to_csv(directory_table)
 
 
 def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
@@ -568,9 +578,9 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
         effect_type_label = (gate_type, gate_type + '(change)')
     else:
         effect_type_label = (gate_type, gate_type + ' - ATE')
-    gate = [None] * len(var_dic['z_name'])
+    gate = [None for _ in range(len(var_dic['z_name']))]
     gate_se, gate_diff,  gate_se_diff = gate[:], gate[:], gate[:]
-    z_type_l = [None] * len(var_dic['z_name'])
+    z_type_l = [None for _ in range(len(var_dic['z_name']))]
     z_values_l = z_type_l[:]
     z_smooth_l = [False] * len(var_dic['z_name'])
     for zj_idx, z_name in enumerate(var_dic['z_name']):
@@ -587,6 +597,8 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
         y_pot_var = deepcopy(y_pot_var_all[z_name_j])
         if gate_type == 'GATE':
             txt_weight = txt_all[z_name_j]
+        else:
+            txt_weight = ''
         txt = ''
         if m_ate_yes:
             y_pot_m_ate = deepcopy(y_pot_m_ate_all[z_name_j])
@@ -613,8 +625,8 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
                 if int_dic['with_output']:
                     txt += f'Reference population: {ref_pop_lab[a_idx]}'
                     txt += '\n' + '- ' * 50
-                ret_gate = [None] * no_of_zval
-                ret_gate_mate = [None] * no_of_zval
+                ret_gate = [None for _ in range(no_of_zval)]
+                ret_gate_mate = [None for _ in range(no_of_zval)]
                 for zj_idx, _ in enumerate(z_values):
                     ret = mcf_est.effect_from_potential(
                         y_pot[zj_idx, a_idx, :, o_idx].reshape(-1),
@@ -733,6 +745,8 @@ def get_names_values(mcf_, gate_est_dic, bgate_est_dic, cbgate_est_dic):
         est_dic = bgate_est_dic
     elif cbgate_est_dic is not None:
         est_dic = cbgate_est_dic
+    else:
+        est_dic = None
     gate_names_values = {'z_names_list': est_dic['var_dic']['z_name']}
     # for idx, z_name in enumerate(est_dic['var_dic']['z_name']):
     for z_name in est_dic['var_dic']['z_name']:

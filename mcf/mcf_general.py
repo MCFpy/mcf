@@ -265,7 +265,8 @@ def recode_if_all_prime(values, name):
         List of positions of prime in list of consequative primes.
 
     """
-    values_l = [int(val) if not isnan(val) else val for val in values]   # list of integers
+    values_l = [int(val) if not isnan(val) else val for val in values]
+    # list of integers
     is_prime = set(values_l).issubset(primes_list())
     new_name = name
     if is_prime:
@@ -496,15 +497,67 @@ def share_completed(current, total):
         print('Task completed')
 
 
+def bound_norm_weights_not_one(weight, max_weight, renormalize=True):
+    """Bound and renormalized weights that do not add up to 1.
+
+    Parameters
+    ----------
+    weight : 1d Numpy array. Weights.
+    max_weight : Scalar Float. Maximum value of any weight (if weights sum to 1)
+    renormalize : Boolean, optional. If True renormalize the weights that they
+               add to their previous sum. The default is True.
+
+    Returns
+    -------
+    weight_norm : Numpy array of same size as input. Normalized weights.
+    no_censored: NP float. Number of censored observations.
+    share_censored: NP float. Share of censored observations (0-1).
+
+    """
+    weight_norm = weight.flatten()
+    sum_w_org = np.sum(weight_norm)
+    sum_w_org_abs = np.sum(np.abs(weight_norm))
+
+    # Define threshold (no change if sum of weights equals 1)
+    max_weight_adj = max_weight * sum_w_org_abs
+
+    # Restrict weights that that are too positive or too negative
+    too_large = (weight + 1e-15) > max_weight_adj
+    too_small = (weight - 1e-15) < -max_weight_adj
+    no_censored = 0
+
+    # Set too large weights to max_weight_adj
+    if np.any(too_large):
+        no_censored += np.count_nonzero(too_large)
+        weight_norm[too_large] = max_weight_adj
+
+    # Set too small negative weights to minus max_weight_adj
+    if np.any(too_small):
+        no_censored += np.count_nonzero(too_large)
+        weight_norm[too_small] = -max_weight_adj
+
+    share_censored = no_censored / len(weight)
+
+    # Renormalize sum of weights to orginal sum of weights
+    if renormalize:
+        factor = sum_w_org / np.sum(weight_norm)
+
+        # Require no sign change and sufficiently different from 1
+        if factor > 1e-10 and not 1-1e-10 < factor < 1+1e-10:
+            weight_norm = weight_norm * factor
+
+    return weight_norm, no_censored, share_censored
+
+
 def bound_norm_weights(weight, max_weight, renormalize=True):
     """Bound and renormalized weights.
 
     Parameters
     ----------
     weight : 1d Numpy array. Weights.
-    max_weight : Scalar Float. Maximum value of any weight
+    max_weight : Scalar Float. Maximum value of any weight.
     renormalize : Boolean, optional. If True renormalize the weights that they
-               add to 1. The default is True.
+               add to their previous sum. The default is True.
 
     Returns
     -------
@@ -534,7 +587,7 @@ def bound_norm_weights_cuda(weight, max_weight, renormalize=True):
     Parameters
     ----------
     weight : 1d Tensor. Weights.
-    max_weight : Scalar Float. Maximum value of any weight
+    max_weight : Scalar Float. Maximum value of any weight.
     renormalize : Boolean, optional. If True renormalize the weights that they
                add to 1. The default is True.
 
@@ -557,6 +610,58 @@ def bound_norm_weights_cuda(weight, max_weight, renormalize=True):
         sum_w = torch.sum(weight_norm)
         if not ((-1e-10 < sum_w < 1e-10) or (1-1e-10 < sum_w < 1+1e-10)):
             weight_norm = weight_norm / sum_w
+    return weight_norm, no_censored, share_censored
+
+
+def bound_norm_weights_not_one_cuda(weight, max_weight, renormalize=True):
+    """Bound and renormalized weights that do not add up to 1 (tensor version).
+
+    Parameters
+    ----------
+    weight : 1d Tensor. Weights.
+    max_weight : Scalar Float. Maximum value of any weight (if weights sum to 1)
+    renormalize : Boolean, optional. If True renormalize the weights that they
+               add to their previous sum. The default is True.
+
+    Returns
+    -------
+    weight_norm : Numpy array of same size as input. Normalized weights.
+    no_censored: NP float. Number of censored observations.
+    share_censored: NP float. Share of censored observations (0-1).
+
+    """
+    weight_norm = weight.reshape(-1)
+    sum_w_org = torch.sum(weight_norm)
+    sum_w_org_abs = torch.sum(torch.abs(weight_norm))
+
+    # Define threshold (no change if sum of weights equals 1)
+    max_weight_adj = max_weight * sum_w_org_abs
+
+    # Restrict weights that that are too positive or too negative
+    too_large = (weight + 1e-15) > max_weight_adj
+    too_small = (weight - 1e-15) < -max_weight_adj
+    no_censored = 0
+
+    # Set too large weights to max_weight_adj
+    if torch.any(too_large):
+        no_censored += torch.count_nonzero(too_large)
+        weight_norm[too_large] = max_weight_adj
+
+    # Set too small negative weights to minus max_weight_adj
+    if torch.any(too_small):
+        no_censored += torch.count_nonzero(too_large)
+        weight_norm[too_small] = -max_weight_adj
+
+    share_censored = no_censored / len(weight)
+
+    # Renormalize sum of weights to orginal sum of weights
+    if renormalize:
+        factor = sum_w_org / torch.sum(weight_norm)
+
+        # Require no sign change and sufficiently different from 1
+        if factor > 1e-10 and not 1-1e-10 < factor < 1+1e-10:
+            weight_norm = weight_norm * factor
+
     return weight_norm, no_censored, share_censored
 
 
@@ -584,3 +689,29 @@ def include_org_variables(names, names_in_data):
                     if name[:-6] not in names:
                         new_names.append(name[:-6])
     return new_names
+
+
+def check_reduce_dataframe(data_df, title='', max_obs=100000, seed=124535,
+                           ignore_index=True):
+    """Randomly reduce dataframe to a certain number of observations."""
+    total_obs = len(data_df)
+    if rnd_reduce := total_obs > max_obs:
+        data_df = data_df.sample(n=max_obs,
+                                 random_state=seed,
+                                 replace=False,
+                                 ignore_index=ignore_index)
+        txt = (f'{title}: Sample randomly reduced from {total_obs} to '
+               f'{max_obs} observations.')
+    else:
+        txt = ''
+    return data_df, rnd_reduce, txt
+
+
+def to_numpy_big_data(data_df, obs_bigdata):
+    """Determine datatype when transforming to numpy."""
+    data_np = data_df.to_numpy()
+
+    if len(data_np) > obs_bigdata and data_np.dtype == np.float64:
+        data_np = data_np.astype(np.float32)
+
+    return data_np

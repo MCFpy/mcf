@@ -16,7 +16,8 @@ from mcf import mcf_estimation_generic_functions as mcf_est_g
 
 
 def effect_from_potential(pot_y, pot_y_var, d_values, se_yes=True,
-                          continuous=False, return_comparison=True):
+                          continuous=False, return_comparison=True,
+                          sequential=False, sequential_dic=None):
     """Compute effects and stats from potential outcomes.
 
     Parameters
@@ -37,44 +38,66 @@ def effect_from_potential(pot_y, pot_y_var, d_values, se_yes=True,
     p_val : Numpy array.
 
     """
-    if continuous:
-        # This legazy code for the continuous case is not yet optimized
-        no_of_comparisons = len(d_values) - 1
-        est = np.empty(no_of_comparisons)
-        if se_yes:
-            var = np.empty_like(est)
-        comparison = [None] * no_of_comparisons
-        j = 0
-        for idx, treat1 in enumerate(d_values):
-            for jnd, treat2 in enumerate(d_values):
-                if jnd <= idx:
-                    continue
-                est[j] = pot_y[jnd] - pot_y[idx]
-                if se_yes:
-                    var[j] = pot_y_var[jnd] + pot_y_var[idx]
-                comparison[j] = [treat2, treat1]
-                j += 1
-                break
-        if se_yes:
-            stderr, t_val, p_val = compute_inference(est, var)
+    if sequential:
+        if continuous:
+            raise NotImplementedError('QIATEs are not yet implemented for '
+                                      'continuous treatments.')
         else:
-            stderr = t_val = p_val = None
-    else:  # Optimized for discrete case
-        idx, jnd = np.triu_indices(len(d_values), k=1)
-        est = pot_y[jnd] - pot_y[idx]
-        if se_yes:
-            var = pot_y_var[jnd] + pot_y_var[idx]
-            stderr, t_val, p_val = compute_inference(est, var)
-        else:
-            stderr = t_val = p_val = None
-        d_values = np.array(d_values)
-        no_of_comparisons = round(len(d_values) * (len(d_values) - 1) / 2)
-        if return_comparison:
-            comparison = np.empty((no_of_comparisons, 2), dtype=np.int16)
-            comparison[:, 0] = d_values[jnd]
-            comparison[:, 1] = d_values[idx]
-        else:
-            comparison = None
+            # dim of pot_y: (no_of_comparisons, 2)
+            est = pot_y[:, 1] - pot_y[:, 0]
+            if se_yes:
+                var = pot_y_var[:, 1] + pot_y_var[:, 0]
+                stderr, t_val, p_val = compute_inference(est, var)
+            else:
+                stderr = t_val = p_val = None
+            if return_comparison:
+                no_of_comparisons = round(len(d_values) * (len(d_values) - 1)
+                                          / 2)
+                comparison = np.empty((no_of_comparisons, 2), dtype=np.int16)
+                for _, values in sequential_dic.items():
+                    comparison[values[0], 0] = d_values[values[2]]
+                    comparison[values[0], 1] = d_values[values[1]]
+            else:
+                comparison = None
+    else:
+        if continuous:
+            # This legazy code for the continuous case is not yet optimized
+            no_of_comparisons = len(d_values) - 1
+            est = np.empty(no_of_comparisons)
+            if se_yes:
+                var = np.empty_like(est)
+            comparison = [None for _ in range(no_of_comparisons)]
+            j = 0
+            for idx, treat1 in enumerate(d_values):
+                for jnd, treat2 in enumerate(d_values):
+                    if jnd <= idx:
+                        continue
+                    est[j] = pot_y[jnd] - pot_y[idx]
+                    if se_yes:
+                        var[j] = pot_y_var[jnd] + pot_y_var[idx]
+                    comparison[j] = [treat2, treat1]
+                    j += 1
+                    break
+            if se_yes:
+                stderr, t_val, p_val = compute_inference(est, var)
+            else:
+                stderr = t_val = p_val = None
+        else:  # Optimized for discrete case
+            idx, jnd = np.triu_indices(len(d_values), k=1)
+            est = pot_y[jnd] - pot_y[idx]
+            if se_yes:
+                var = pot_y_var[jnd] + pot_y_var[idx]
+                stderr, t_val, p_val = compute_inference(est, var)
+            else:
+                stderr = t_val = p_val = None
+            d_values = np.array(d_values)
+            no_of_comparisons = round(len(d_values) * (len(d_values) - 1) / 2)
+            if return_comparison:
+                comparison = np.empty((no_of_comparisons, 2), dtype=np.int16)
+                comparison[:, 0] = d_values[jnd]
+                comparison[:, 1] = d_values[idx]
+            else:
+                comparison = None
     return est, stderr, t_val, p_val, comparison
 
 
@@ -137,7 +160,8 @@ def compute_inference(estimate, variance):
 def aggregate_pots(mcf_, y_pot_f, y_pot_var_f, txt, effect_dic, fold,
                    pot_is_list=False, title=''):
     """Aggregate the effects from the independent training data folds."""
-    first_fold, last_fold = fold == 0, fold == mcf_.cf_dict['folds'] - 1
+    first_fold = fold == 0
+    last_fold = fold == mcf_.cf_dict['folds'] - 1
     if pot_is_list:
         len_list = len(y_pot_f)
     w_text = f'\n\n{title}: Analysis of weights in fold {fold}\n'
@@ -159,7 +183,7 @@ def aggregate_pots(mcf_, y_pot_f, y_pot_var_f, txt, effect_dic, fold,
         effect_dic['y_pot'] += y_pot_f
         if y_pot_var_f is not None:
             effect_dic['y_pot_var'] += y_pot_var_f
-    if last_fold:   # counting starts with 0
+    if last_fold:   # counting folds starts with 0
         if pot_is_list:
             y_pot = deepcopy(effect_dic['y_pot'])
             effect_dic['y_pot'] = [x / (fold + 1) for x in y_pot]
@@ -387,7 +411,7 @@ def aggregate_cluster_pos_w(cl_dat, w_dat, y_dat=None, norma=True, w2_dat=None,
 
 
 def analyse_weights(weights, title, gen_dic, p_dic, ate=True, continuous=False,
-                    no_of_treat_cont=None, d_values_cont=None):
+                    no_of_treat_cont=None, d_values_cont=None, late=False):
     """Describe the weights.
 
     Parameters
@@ -419,7 +443,10 @@ def analyse_weights(weights, title, gen_dic, p_dic, ate=True, continuous=False,
     txt = ''
     if ate:
         txt += '\n' * 2 + '=' * 100
-        txt += '\nAnalysis of weights (normalised to add to 1): ' + title
+        if late:
+            txt += '\nAnalysis of weights: ' + title
+        else:
+            txt += '\nAnalysis of weights (normalised to add to 1): ' + title
     no_of_treat = no_of_treat_cont if continuous else gen_dic['no_of_treat']
     larger_0 = np.empty(no_of_treat, dtype=np.uint32)
     equal_0, mean_pos = np.empty_like(larger_0), np.empty(no_of_treat)
@@ -431,11 +458,11 @@ def analyse_weights(weights, title, gen_dic, p_dic, ate=True, continuous=False,
     sum_weights = np.sum(weights, axis=1)
     for j in range(no_of_treat):
         if not (((1 - 1e-10) < sum_weights[j] < (1 + 1e-10))
-                or (-1e-15 < sum_weights[j] < 1e-15)):
+                or (-1e-15 < sum_weights[j] < 1e-15)) and not late:
             w_j = weights[j] / sum_weights[j]
         else:
             w_j = weights[j]
-        w_pos = w_j[w_j > 1e-15]
+        w_pos = w_j[np.abs(w_j) > 1e-15]
         n_pos = len(w_pos)
         larger_0[j] = n_pos
         n_all = len(w_j)
@@ -443,6 +470,7 @@ def analyse_weights(weights, title, gen_dic, p_dic, ate=True, continuous=False,
         mean_pos[j], std_pos[j] = np.mean(w_pos), np.std(w_pos)
         gini_all[j] = mcf_est_g.gini_coeff_pos(w_j) * 100
         gini_pos[j] = mcf_est_g.gini_coeff_pos(w_pos) * 100
+        w_pos = np.abs(w_pos)
         if n_pos > 5:
             qqq = np.quantile(w_pos, (0.99, 0.95, 0.9))
             for i in range(3):

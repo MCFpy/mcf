@@ -25,10 +25,14 @@ mcf/mcf_general_sys.py
 mcf/mcf_iate_cuda_functions.py
 mcf/mcf_iate_functions.py
 mcf/mcf_init_functions.py
+mcf/mcf_iv_functions.py
+mcf/mcf_iv_functions_add.py
 mcf/mcf_local_centering_functions.py
 mcf/mcf_post_functions.py
 mcf/mcf_print_stats_functions.py
+mcf/mcf_qiate_functions.py
 mcf/mcf_sensitivity_functions.py
+mcf/mcf_unconfound_functions.py
 mcf/mcf_variable_importance_functions.py
 mcf/mcf_weight_functions.py
 mcf/optpolicy_bb_cl_functions.py

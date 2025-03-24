@@ -17,7 +17,48 @@ from mcf import mcf_print_stats_functions as mcf_ps
 
 
 def prepare_data_fair(optp_, data_df):
-    """Prepare data for fairness correction of policy scores."""
+    """Prepare data for fairness correction of policy scores.
+
+    Prepare data for fairness correction of policy scores:
+    1) Convert relevant variable names to lowercase.
+    2) Check presence of protected and material features in data_df.
+    3) Ensure no overlap between protected and material features.
+    4) Remove protected variables from x_ord/x_unord in optp_.var_dict.
+    5) Create dummy variables for unordered protected and material features.
+    6) Print informational text if desired.
+
+    Parameters
+    ----------
+    optp_ : object
+        An object (likely a parameter container) with attributes:
+        - var_dict : dict with keys like 'protected_ord_name',
+                     'protected_unord_name', 'material_ord_name',
+                     'material_unord_name', 'polscore_name',
+                     'x_ord_name', 'x_unord_name', etc.
+        - gen_dict : dict controlling output (e.g., 'with_output').
+        - fair_dict : dict controlling fairness adjustment methods
+                      (e.g., 'adj_type').
+        - report   : dict to store diagnostic strings,
+                     e.g. 'fairscores_delete_x_vars_txt'.
+    data_df : pd.DataFrame
+        Input data containing the features specified in optp_.var_dict.
+
+    Returns
+    -------
+    data_df : pd.DataFrame
+        Modified DataFrame where:
+        - Protected unordered features have been replaced by dummy variables.
+        - Material unordered features have also been replaced by dummy
+          variables.
+        - Protected features have been removed from x_ord/x_unord in var_dict.
+
+    Raises
+    ------
+    ValueError
+        If required protected features are missing or if there's an overlap
+        between protected and material features or if no protected features
+        are available for fairness correction.
+    """
     var_dic = optp_.var_dict
 
     # Recode all variables to lower case
@@ -130,7 +171,76 @@ def prepare_data_fair(optp_, data_df):
 
 def prepare_data_for_classifiers(data_df, var_dic, scaler=None,
                                  x_name_train=None):
-    """Prepare the data to be used in the classifier."""
+    """
+    Prepare numeric & dummy-encoded feature data for classifier.
+
+    This function:
+      1) Ensures case-insensitivity for input variable names.
+      2) Identifies ordered and unordered feature names specified in `var_dic`,
+         then extracts those columns from `data_df`.
+      3) Creates dummy variables for any unordered categorical features.
+      4) (Optionally) checks that the generated feature columns match a
+         previously recorded training feature set (`x_name_train`). If they
+         differ, it raises an error.
+      5) Applies standard scaling to the numeric feature matrix (either by
+         fitting a new `StandardScaler` if `scaler` is None, or by using the
+         provided one).
+
+    Parameters
+    ----------
+    data_df : pd.DataFrame
+        The input DataFrame containing all potential features. Its column names
+        may be in various cases (upper/lower). This function expects that
+        columns specified in `var_dic` exist in `data_df`.
+    var_dic : dict
+        A dictionary with entries like:
+          - 'x_ord_name': list of strings for ordered (numeric) features.
+          - 'x_unord_name': list of strings for unordered (categorical)
+                            features.
+          (These keys must exist or be empty lists.)
+    scaler : sklearn.preprocessing.StandardScaler, optional
+        If provided, this scaler object (already fitted) will be used to
+        transform the feature matrix. If None, a new StandardScaler is
+        created and fitted on `data_df`’s features.
+    x_name_train : list of str, optional
+        The expected feature column names in the final transformed data (as
+        used in training). If provided, the function checks that the new
+        dummy-encoded and numeric feature columns match exactly (both names
+        and order). Raises ValueError if they differ.
+
+    Returns
+    -------
+    x_dat_trans_np : np.ndarray
+        A 2D NumPy array of shape (n_samples, n_features), containing scaled
+        and/or dummy-encoded features.
+    x_name : list of str
+        The list of feature names corresponding to the columns of
+        `x_dat_trans_np`.
+    scaler : sklearn.preprocessing.StandardScaler
+        The fitted StandardScaler (either newly created or the same one
+        passed in).
+
+    Raises
+    ------
+    ValueError
+        - If no features are found in the DataFrame (i.e., neither ordered
+          nor unordered features are available).
+        - If `x_name_train` is not None and the newly generated feature names
+          do not match `x_name_train`.
+
+    Notes
+    -----
+    - Ordered features (`x_ord_name`) are presumed numeric and directly
+      concatenated.
+    - Unordered features (`x_unord_name`) are converted into dummy variables
+      with `pd.get_dummies`.
+    - The feature matrix is standardized via scikit-learn's StandardScaler
+      (mean=0, std=1). If `scaler` is given, the existing scaler is used;
+      otherwise, a new scaler is fitted.
+    - If the user supplies `x_name_train`, the function strictly enforces
+      matching feature columns so that the trained model can be applied
+      consistently at prediction time.
+    """
     # ensure case insensitivity of variable names
     var_dic['x_ord_name'] = case_insensitve(var_dic['x_ord_name'].copy())
     var_dic['x_unord_name'] = case_insensitve(var_dic['x_unord_name'].copy())
@@ -143,6 +253,8 @@ def prepare_data_for_classifiers(data_df, var_dic, scaler=None,
     if x_ordered:
         x_name.extend(var_dic['x_ord_name'])
         x_ord_np = data_df[var_dic['x_ord_name']].to_numpy()
+    else:
+        x_ord_np = None
 
     if x_unordered:
         x_dummies_df = pd.get_dummies(data_df[var_dic['x_unord_name']],
@@ -150,6 +262,8 @@ def prepare_data_for_classifiers(data_df, var_dic, scaler=None,
                                       dtype=int)
         x_name.extend(x_dummies_df.columns)
         x_dummies_np = x_dummies_df.to_numpy()
+    else:
+        x_dummies_np = None
 
     if x_name_train is not None:
         if x_name != x_name_train:
@@ -255,6 +369,7 @@ def classify_var_for_pol_tree(optp_, data_df, all_var_names, eff=False):
     var_dic, pt_dic, gen_dic = optp_.var_dict, optp_.pt_dict, optp_.gen_dict
     x_continuous = x_ordered = x_unordered = False
     x_type_dic, x_value_dic = {}, {}
+    list_of_missing_vars = []
     for var in all_var_names:
         values = np.unique(data_df[var].to_numpy())  # Sorted values
         if var in var_dic['x_ord_name']:
@@ -283,7 +398,12 @@ def classify_var_for_pol_tree(optp_, data_df, all_var_names, eff=False):
             x_value_dic.update({var: values.tolist()})
             x_unordered = True
         else:
-            raise ValueError(var + 'is neither ordered nor unordered.')
+            list_of_missing_vars.append(var)
+    if list_of_missing_vars:
+        raise ValueError(f'{' '.join(list_of_missing_vars)} is neither '
+                         'contained in list of ordered nor in list of '
+                         'unordered variables.')
+
     gen_dic.update({'x_cont_flag': x_continuous, 'x_ord_flag': x_ordered,
                    'x_unord_flag': x_unordered})
     return x_type_dic, x_value_dic, gen_dic
@@ -340,24 +460,25 @@ def var_available(variable_all, var_names, needed='nice_to_have',
     variable_all_ci = [variable.casefold() for variable in variable_all]
     var_names_ci = [variable.casefold() for variable in var_names]
 
-    count = [var_names_ci.count(variable) for variable in variable_all_ci]
-    for idx, variable in enumerate(variable_all_ci):
-        if count[idx] == 0:
-            if needed == 'must_have':
-                if error_message is None:
-                    raise ValueError(f'Required variable/s {variable} is/are '
-                                     'not available. Available variables are'
-                                     f'{var_names}')
-                else:
-                    raise ValueError(error_message + f'{var_names}')
-            return False   # returns False if at least one variable is missing
-        if count[idx] > 1:
-            raise ValueError(f'{variable} appears more than once in data '
-                             f'{(" ".join(var_names_ci))}. All '
-                             'variables are transformed to lower case. Maybe '
-                             'variable names are case sensitive. In this case,'
-                             ' change names.')
-    return True
+    count0 = [variable for variable in variable_all_ci
+              if variable not in var_names_ci]
+    if count0 and needed == 'must_have':
+        if error_message is None:
+            raise ValueError(f'Required variable/s {" ".join(count0)} '
+                             'is/are not available. Available variables are'
+                             f'{" ".join(var_names)}')
+        raise ValueError(error_message + f'{" ".join(var_names)}')
+
+    count2p = [variable for variable in variable_all_ci
+               if var_names_ci.count(variable) > 1]
+    if count2p:
+        raise ValueError(f'{" ".join(count2p)} appears more than once in data '
+                         f'{(" ".join(var_names_ci))}. All '
+                         'variables are transformed to lower case. Maybe '
+                         'variable names are case sensitive. In this case, '
+                         'change names.')
+
+    return not count0
 
 
 def case_insensitve(variables):

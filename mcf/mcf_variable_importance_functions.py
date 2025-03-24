@@ -18,9 +18,9 @@ from sklearn.metrics import accuracy_score
 from mcf import mcf_forest_add_functions as mcf_fo_add
 from mcf import mcf_forest_data_functions as mcf_data
 from mcf import mcf_forest_functions as mcf_fo
-from mcf import mcf_general as gp
+from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_print_stats_functions as mcf_ps
 
 
 def variable_importance(mcf_, data_df, forest, x_name_mcf):
@@ -57,7 +57,7 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
     cuda, cython = int_dic['cuda'], int_dic['cython']
     if int_dic['with_output'] and int_dic['verbose']:
         txt = '\nVariable importance measures (OOB data)\nSingle variables'
-        ps.print_mcf(gen_dic, txt, summary=True)
+        mcf_ps.print_mcf(gen_dic, txt, summary=True)
     (x_name, _, _, cf_dic, _, data_np, y_i, y_nn_i, x_i, _, _, d_i, w_i, _, _
      ) = mcf_data.prepare_data_for_forest(mcf_, data_df)
     no_of_vars = len(x_name)
@@ -66,7 +66,7 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
     if x_name != x_name_mcf:
         raise ValueError('Wrong order of variable names', x_name, x_name_mcf)
     number_of_oobs = 1 + no_of_vars
-    oob_values = [None] * number_of_oobs
+    oob_values = [None for _ in range(number_of_oobs)]
     if gen_dic['mp_parallel'] < 1.5:
         maxworkers = 1
     else:
@@ -77,54 +77,53 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
             maxworkers = gen_dic['mp_parallel']
     if int_dic['with_output'] and int_dic['verbose']:
         txt = f'\nNumber of parallel processes: {maxworkers}'
-        ps.print_mcf(gen_dic, txt, summary=False)
-    if maxworkers > 1 and int_dic['ray_or_dask'] == 'ray':
-        if int_dic['mem_object_store_2'] is None:
-            if not ray.is_initialized():
-                ray.init(num_cpus=maxworkers, include_dashboard=False)
-        else:
-            if not ray.is_initialized():
-                ray.init(num_cpus=maxworkers, include_dashboard=False,
-                         object_store_memory=int_dic['mem_object_store_2'])
-            if int_dic['with_output'] and int_dic['verbose']:
-                txt = '\nSize of Ray Object Store: '
-                txt += f'{round(int_dic["mem_object_store_2"]/(1024*1024))} MB'
-                ps.print_mcf(gen_dic, txt, summary=False)
+        mcf_ps.print_mcf(gen_dic, txt, summary=False)
+    if maxworkers > 1:
+        if not ray.is_initialized():
+            mcf_sys.init_ray_with_fallback(
+                maxworkers, int_dic, gen_dic,
+                mem_object_store=int_dic['mem_object_store_2'],
+                ray_err_txt='Ray does not start up in variable importance '
+                'computation.')
+        if (int_dic['mem_object_store_2'] is not None
+            and int_dic['with_output']
+                and int_dic['verbose']):
+            txt = '\nSize of Ray Object Store: '
+            txt += f'{round(int_dic["mem_object_store_2"]/(1024*1024))} MB'
+            mcf_ps.print_mcf(gen_dic, txt, summary=False)
         data_np_ref, forest_ref = ray.put(data_np), ray.put(forest)
 
-    if (int_dic['mp_vim_type'] == 2 and int_dic['ray_or_dask'] != 'ray') or (
-            maxworkers == 1):
+    if maxworkers == 1:
         for jdx in range(number_of_oobs):
             oob_values[jdx], _ = get_oob_mcf(
                 data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
                 jdx, True, [], forest, False, partner_k[jdx], cuda=cuda,
                 cython=cython)
             if int_dic['with_output'] and int_dic['verbose']:
-                gp.share_completed(jdx+1, number_of_oobs)
+                mcf_gp.share_completed(jdx+1, number_of_oobs)
     else:  # Fast but needs a lot of memory because it copied a lot
         maxworkers = min(maxworkers, number_of_oobs)
-        if int_dic['ray_or_dask'] == 'ray':
-            still_running = [ray_get_oob_mcf.remote(
-                data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
-                cf_dic, idx, True, [], forest_ref, True, partner_k[idx], cuda,
-                cython) for idx in range(number_of_oobs)]
-            jdx = 0
-            while len(still_running) > 0:
-                finished, still_running = ray.wait(still_running)
-                finished_res = ray.get(finished)
-                for res in finished_res:
-                    iix = res[1]
-                    oob_values[iix] = res[0]
-                    if int_dic['with_output'] and int_dic['verbose']:
-                        gp.share_completed(jdx+1, number_of_oobs)
-                        jdx += 1
+        still_running = [ray_get_oob_mcf.remote(
+            data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
+            cf_dic, idx, True, [], forest_ref, True, partner_k[idx], cuda,
+            cython) for idx in range(number_of_oobs)]
+        jdx = 0
+        while len(still_running) > 0:
+            finished, still_running = ray.wait(still_running)
+            finished_res = ray.get(finished)
+            for res in finished_res:
+                iix = res[1]
+                oob_values[iix] = res[0]
+                if int_dic['with_output'] and int_dic['verbose']:
+                    mcf_gp.share_completed(jdx+1, number_of_oobs)
+                    jdx += 1
     oob_values = np.array(oob_values)
     oob_values = oob_values.reshape(-1)
     mse_ref = oob_values[0]   # reference value
     vim, txt = vim_print(mse_ref, oob_values[1:], x_name, 0,
                          int_dic['with_output'], True, partner_k)
     if int_dic['with_output']:
-        ps.print_mcf(gen_dic, txt, summary=True)
+        mcf_ps.print_mcf(gen_dic, txt, summary=True)
     # Variables are grouped
     no_g, no_m_g = number_of_groups_vi(no_of_vars)
     partner_k = None
@@ -133,8 +132,8 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
             print('\nGroups of variables')
         ind_groups = vim_grouping(vim, no_g)
         n_g = len(ind_groups)
-        oob_values = [None] * n_g
-        if maxworkers > 1 and int_dic['ray_or_dask'] == 'ray':
+        oob_values = [None for _ in range(n_g)]
+        if maxworkers > 1:
             still_running = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
                 cf_dic, idx, False, ind_groups, forest_ref, True, partner_k,
@@ -148,7 +147,7 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
                     iix = res[1]
                     oob_values[iix] = res[0]
                     if int_dic['with_output'] and int_dic['verbose']:
-                        gp.share_completed(idx+1, n_g)
+                        mcf_gp.share_completed(idx+1, n_g)
                         idx += 1
         else:
             for idx in range(n_g):
@@ -157,21 +156,22 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
                     cf_dic, idx, False, ind_groups, forest, False, partner_k,
                     cuda, cython)
                 if int_dic['with_output'] and int_dic['verbose']:
-                    gp.share_completed(idx+1, n_g)
+                    mcf_gp.share_completed(idx+1, n_g)
         vim_g, txt = vim_print(mse_ref, np.array(oob_values), x_name,
                                ind_groups, int_dic['with_output'], False)
         if int_dic['with_output']:
-            ps.print_mcf(gen_dic, txt, summary=True)
+            mcf_ps.print_mcf(gen_dic, txt, summary=True)
     else:
         vim_g = None
     # Groups are accumulated from worst to best
     if no_m_g > 0:
         if int_dic['with_output']:
-            ps.print_mcf(gen_dic, '\nMerged groups of variables', summary=True)
+            mcf_ps.print_mcf(gen_dic, '\nMerged groups of variables',
+                             summary=True)
         ind_groups = vim_grouping(vim_g, no_m_g, True)
         n_g = len(ind_groups)
-        oob_values = [None] * n_g
-        if maxworkers > 1 and int_dic['ray_or_dask'] == 'ray':
+        oob_values = [None for _ in range(n_g)]
+        if maxworkers > 1:
             still_running = [ray_get_oob_mcf.remote(
                 data_np_ref, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic,
                 cf_dic, idx, False, ind_groups, forest_ref, True, partner_k,
@@ -185,7 +185,7 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
                     iix = res[1]
                     oob_values[iix] = res[0]
                     if int_dic['with_output'] and int_dic['verbose']:
-                        gp.share_completed(idx+1, n_g)
+                        mcf_gp.share_completed(idx+1, n_g)
                         idx += 1
         else:
             for idx in range(n_g):
@@ -194,14 +194,14 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
                     cf_dic, idx, False, ind_groups, forest, False, partner_k,
                     cuda, cython)
                 if int_dic['with_output'] and int_dic['verbose']:
-                    gp.share_completed(idx+1, n_g)
+                    mcf_gp.share_completed(idx+1, n_g)
         vim_mg, txt = vim_print(mse_ref, np.array(oob_values), x_name,
                                 ind_groups, int_dic['with_output'], False)
         if int_dic['with_output']:
-            ps.print_mcf(gen_dic, txt, summary=True)
+            mcf_ps.print_mcf(gen_dic, txt, summary=True)
     else:
         vim_mg = None
-    if int_dic['ray_or_dask'] == 'ray' and maxworkers > 1:
+    if maxworkers > 1:
         if 'refs' in int_dic['mp_ray_del']:
             del data_np_ref, forest_ref
         if 'rest' in int_dic['mp_ray_del']:
@@ -231,6 +231,8 @@ def vim_grouping(vim, no_groups, accu=False):
         group_size = no_ind / no_groups
         group_size_int = floor(group_size)
         one_more, start_i, ind_groups = 0, 0, []
+    else:
+        group_size_int = None
     for idx in range(no_groups):
         if accu:
             if idx < 2:
@@ -404,8 +406,8 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
         else:
             maxworkers = gen_dic['mp_parallel']
     if int_dic['with_output'] and not no_mp and int_dic['verbose']:
-        ps.print_mcf(gen_dic, f'Number of parallel processes: {maxworkers}',
-                     summary=False)
+        mcf_ps.print_mcf(gen_dic, f'Number of parallel processes: {maxworkers}',
+                         summary=False)
     if (maxworkers == 1) or no_mp:
         for idx in range(cf_dic['boot']):
             data_np_oob = data_np[forest[idx]['oob_indices']]
@@ -423,13 +425,13 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
             no_of_boot_splits, txt = mcf_sys.no_of_boot_splits_fct(
                 size_of_forest_mb, maxworkers)
             if int_dic['with_output'] and int_dic['verbose']:
-                ps.print_mcf(gen_dic, txt, summary=False)
+                mcf_ps.print_mcf(gen_dic, txt, summary=False)
             split_forest = bool(no_of_boot_splits < cf_dic['boot'])
         else:
             split_forest = False
         if split_forest and int_dic['with_output'] and int_dic['verbose']:
             txt = f'Number of tree chuncks: {no_of_boot_splits:5d}'
-            ps.print_mcf(gen_dic, txt, summary=False)
+            mcf_ps.print_mcf(gen_dic, txt, summary=False)
         if split_forest:
             b_ind_list = np.array_split(range(cf_dic['boot']),
                                         no_of_boot_splits)
@@ -461,7 +463,7 @@ def get_oob_mcf_b(data, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k, single,
                   group_ind_list, tree_dict, partner_k=None, cuda=False,
                   cython=True):
     """Generate OOB contribution for single bootstrap."""
-    x_dat, y_dat = data[:, x_i], data[:, y_i]
+    x_dat, y_dat = data[:, x_i].copy(), data[:, y_i]
     y_nn = data[:, y_nn_i]
     d_dat = np.int16(np.round(data[:, d_i]))
     w_dat = data[:, [w_i]] if gen_dic['weighted'] else None
@@ -502,8 +504,8 @@ def determine_partner_k(x_name):
 
     """
     no_of_vars = len(x_name)
-    partner_k = [None] * (no_of_vars + 1)
-    x_partner_name = [None] * (no_of_vars + 1)
+    partner_k = [None for _ in range((no_of_vars + 1))]
+    x_partner_name = [None for _ in range(no_of_vars + 1)]
     for idx, val in enumerate(x_name):  # check if it ends with catv & remove
         if len(val) > 4:
             if val.endswith('catv'):
@@ -519,15 +521,15 @@ def determine_partner_k(x_name):
 
 def print_variable_importance(clas_obj, x_df, d_df, x_name, names_uo,
                               unordered_dummy_names, gen_dic, summary=False,
-                              name_label_dict=None):
+                              name_label_dict=None, obs_bigdata=10000000):
     """Compute and print variable importance by permutation for CS."""
     x_train_df, x_test_df, d_train_df, d_test_df = train_test_split(
         x_df, d_df, test_size=0.25, random_state=42)
-    x_train_np = x_train_df.to_numpy()
-    d_train_np = d_train_df.to_numpy().ravel()
+    x_train_np = mcf_gp.to_numpy_big_data(x_train_df, obs_bigdata)
+    d_train_np = mcf_gp.to_numpy_big_data(d_train_df, obs_bigdata).ravel()
     clas_obj.fit(x_train_np, d_train_np)
-    x_test_np = x_test_df.to_numpy()
-    d_test_np = d_test_df.to_numpy().ravel()
+    x_test_np = mcf_gp.to_numpy_big_data(x_test_df, obs_bigdata)
+    d_test_np = mcf_gp.to_numpy_big_data(d_test_df, obs_bigdata)
     score_d_full = accuracy_score(d_test_np, clas_obj.predict(x_test_np),
                                   normalize=True)
     vi_information = pd.DataFrame(0, columns=x_name, index=['score_w/o_x_d',
@@ -540,17 +542,21 @@ def print_variable_importance(clas_obj, x_df, d_df, x_name, names_uo,
         x_all_rnd_df = x_test_df.copy().reset_index(drop=True)
         x_rnd_df = x_test_df[names_to_shuffle].sample(frac=1, random_state=42)
         x_all_rnd_df[names_to_shuffle] = x_rnd_df.reset_index(drop=True)
-        d_pred_rnd = clas_obj.predict(x_all_rnd_df.to_numpy())
+        d_pred_rnd = clas_obj.predict(
+            mcf_gp.to_numpy_big_data(x_all_rnd_df, obs_bigdata)
+            )
         d_score = accuracy_score(d_test_np, d_pred_rnd, normalize=True)
         d_rel_diff = (score_d_full - d_score) / score_d_full
         vi_information[name] = [d_score, d_rel_diff*100]
     if name_label_dict is not None:
         vi_information.rename(columns=name_label_dict, inplace=True)
 
-    ps.print_mcf(gen_dic, f'Score based on all features: {score_d_full:6.3f} ',
-                 summary=summary)
+    mcf_ps.print_mcf(gen_dic,
+                     f'Score based on all features: {score_d_full:6.3f} ',
+                     summary=summary
+                     )
     with pd.option_context('display.max_rows', None,
                            'display.expand_frame_repr', True,
                            'chop_threshold', 1e-13):
-        ps.print_mcf(gen_dic, vi_information.transpose().sort_values(
+        mcf_ps.print_mcf(gen_dic, vi_information.transpose().sort_values(
             by=['rel_diff_d_%'], ascending=False), summary=summary)

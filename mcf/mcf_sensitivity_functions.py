@@ -6,6 +6,7 @@ Contains the functions needed for the sensitivity analysis.
 -*- coding: utf-8 -*-
 """
 from copy import deepcopy
+from time import time
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -22,6 +23,114 @@ from mcf import mcf_general as mcf_gp
 from mcf import mcf_init_functions as mcf_init
 from mcf import mcf_print_stats_functions as ps
 from mcf import mcf_general_sys as mcf_sys
+
+
+def sensitivity_main(self, train_df, predict_df=None, results=None,
+                     sens_cbgate=None, sens_bgate=None, sens_gate=None,
+                     sens_iate=None, sens_iate_se=None, sens_scenarios=None,
+                     sens_cv_k=None, sens_replications=2,
+                     sens_reference_population=None):
+    """
+    Compute simulation based sensitivity indicators.
+
+    Parameters
+    ----------
+    train_df : DataFrame.
+        Data with real outcomes, treatments, and covariates. Data will be
+        transformed to compute sensitivity indicators.
+
+    predict_df : DataFrame (or None), optinal.
+        Prediction data to compute all effects for. This data will not be
+        changed in the computation process. Only covariate information is
+        used from this dataset. If predict_df is not a DataFrame,
+        train_df will be used instead.
+
+    results : dictionary, optional.
+        The standard output dictionary from the
+        :meth:`~ModifiedCausalForest.predict` method is expected.
+        If this dictionary contains estimated IATEs, the same data as in
+        the :meth:`~ModifiedCausalForest.predict` method will be used,
+        IATEs are computed under the no effect (basic) scenario and these
+        IATEs are compared to the IATEs contained in the results dictionary.
+        If the dictionary does not contain estimated IATEs, passing it has
+        no consequence.
+
+    sens_cbgate : Boolean (or None), optional
+        Compute CBGATEs for sensitivity analysis. Default is False.
+
+    sens_bgate : Boolean (or None), optional
+        Compute BGATEs for sensitivity analysis. Default is False.
+
+    sens_gate : Boolean (or None), optional
+        Compute GATEs for sensitivity analysis. Default is False.
+
+    sens_iate : Boolean (or None), optional
+        Compute IATEs for sensitivity analysis. If the results dictionary
+        is passed, and it contains IATEs, then the default value is True,
+        and False otherwise.
+
+    sens_iate_se : Boolean (or None), optional
+        Compute Standard errors of IATEs for sensitivity analysis. Default
+        is False.
+
+    sens_scenarios : List or tuple of strings, optional.
+        Different scenarios considered. Default is ('basic',).
+        'basic' : Use estimated treatment probabilities for simulations.
+        No confounding.
+
+    sens_cv_k : Integer (or None), optional
+        Data to be used for any cross-validation: Number of folds in
+        cross-validation. Default (or None) is 5.
+
+    sens_replications : Integer (or None), optional.
+        Number of replications for simulating placebo treatments. Default
+        is 2.
+
+    sens_reference_population: integer or float (or None)
+        Defines the treatment status of the reference population used by
+        the sensitivity analysis. Default is to use the treatment with most
+        observed observations.
+
+    outpath : String
+        Location of directory in which output is saved.
+
+    Returns
+    -------
+    results_avg : Dictionary
+        Same content as for the
+        :meth:`~ModifiedCausalForest.predict` method but (if applicable)
+        averaged over replications.
+
+    outpath : String
+        Location of directory in which output is saved.
+    """
+    if (isinstance(results, dict)
+        and 'iate_data_df' in results and 'iate_names_dic' in results
+            and isinstance(results['iate_data_df'], pd.DataFrame)):
+        predict_df = results['iate_data_df']
+        iate_df = predict_df[results['iate_names_dic'][0]['names_iate']]
+    else:
+        iate_df = None
+    if not isinstance(predict_df, pd.DataFrame):
+        predict_df = train_df.copy()
+    self.sens_dict = mcf_init.sens_init(
+        self.p_dict, cbgate=sens_cbgate, bgate=sens_bgate, gate=sens_gate,
+        iate=sens_iate, iate_se=sens_iate_se, scenarios=sens_scenarios,
+        cv_k=sens_cv_k, replications=sens_replications,
+        reference_population=sens_reference_population, iate_df=iate_df)
+    if self.int_dict['with_output']:
+        time_start = time()
+    results_avg, plots_iate, txt_ate = sensitivity_analysis(
+        self, train_df, predict_df, self.int_dict['with_output'], iate_df,
+        seed=9345467)
+    self.report['sens_plots_iate'] = plots_iate
+    self.report['sens_txt_ate'] = txt_ate
+    if self.int_dict['with_output']:
+        time_difference = [time() - time_start]
+        time_string = ['Total time for sensitivity analysis:            ']
+        ps.print_timing(self.gen_dict, 'Sensitiviy analysis', time_string,
+                        time_difference, summary=True)
+    return results_avg, self.gen_dict['outpath']
 
 
 def sensitivity_analysis(mcf_, train_df, predict_df, with_output, iate_df=None,
@@ -119,9 +228,12 @@ def print_iate(mcf_, results_avg_dict, iate_df, scenario):
             files_jpeg.append(file_name_jpeg)
     ps.print_mcf(mcf_.gen_dict, txt, summary=True)
     names_iate_se = results_scen_dict['iate_names_dic'][0]['names_iate_se']
+    cluster_lab_np = None
     if names_iate_se is not None:
-        t_values_np, t_values_df = cluster_var_t_value(data_df, names_iate,
-                                                       names_iate_se)
+        t_values_np, t_values_df = cluster_var_t_value(
+            data_df, names_iate, names_iate_se,
+            mcf_.int_dict['obs_bigdata']
+            )
         silhouette_avg_prev = -1
         txt = '\n' + '- ' * 50 + '\nScenario: {scenario} K-Means++ clustering'
         txt += ' of t-values of IATE \n' + '- ' * 50
@@ -138,6 +250,7 @@ def print_iate(mcf_, results_avg_dict, iate_df, scenario):
             if silhouette_avg > silhouette_avg_prev:
                 cluster_lab_np = np.copy(cluster_lab_tmp)
                 silhouette_avg_prev = np.copy(silhouette_avg)
+
         txt += ('\n\nBest value of average silhouette score:'
                 f' {silhouette_avg_prev: 8.3f}')
         # Reorder labels for better visible inspection of results
@@ -170,8 +283,17 @@ def print_iate(mcf_, results_avg_dict, iate_df, scenario):
 
 def plot_iate(mcf_, data_df, iate_df, name_iate):
     """Plot IATE under no effects against IATE from main estimation."""
-    iate_sim = data_df[name_iate].to_numpy()
-    iate_est = iate_df[name_iate].to_numpy()
+    iate_sim = mcf_gp.to_numpy_big_data(data_df[name_iate],
+                                        mcf_.int_dict['obs_bigdata'])
+    iate_est = mcf_gp.to_numpy_big_data(iate_df[name_iate],
+                                        mcf_.int_dict['obs_bigdata'])
+    if len(iate_sim) != len(iate_est):
+        raise RuntimeError(
+            f'Number of observations in simulated IATEs ({len(iate_sim)}) are '
+            'different from number of observations in estimated IATEs '
+            f'({len(iate_est)}). This may happen when the number of '
+            'observations used for predictions is too small for the '
+            'sensitivity analysis.')
     # Sort values according to estimated values
     sorted_ind = np.argsort(iate_est)
     iate_sim = iate_sim[sorted_ind]
@@ -179,10 +301,9 @@ def plot_iate(mcf_, data_df, iate_df, name_iate):
     k = np.round(mcf_.p_dict['knn_const'] * np.sqrt(len(iate_sim)) * 2)
     iate_sim = moving_avg_mean_var(iate_sim, k, False)[0]
 
-    file_name = mcf_.gen_dict['outpath'] + '/' + name_iate + 'plac_est.'
-    file_name_jpeg = file_name + 'jpeg'
-    file_name_pdf = file_name + 'pdf'
-    file_name_csv = file_name + 'csv'
+    file_name_jpeg = mcf_.gen_dict['outpath'] / f'{name_iate}plac_est.jpeg'
+    file_name_pdf = mcf_.gen_dict['outpath'] / f'{name_iate}plac_est.pdf'
+    file_name_csv = mcf_.gen_dict['outpath'] / f'{name_iate}plac_est.csv'
 
     fig, axe = plt.subplots()
     axe.plot(iate_est, iate_est, 'blue', label='Estimated IATE')
@@ -199,6 +320,7 @@ def plot_iate(mcf_, data_df, iate_df, name_iate):
     fig.savefig(file_name_jpeg, dpi=mcf_.int_dict['dpi'])
     fig.savefig(file_name_pdf, dpi=mcf_.int_dict['dpi'])
     plt.show()
+    plt.close()
     data_to_save = np.concatenate((iate_sim.reshape(-1, 1),
                                    iate_est.reshape(-1, 1)), axis=1)
     datasave = pd.DataFrame(data=data_to_save,
@@ -208,10 +330,10 @@ def plot_iate(mcf_, data_df, iate_df, name_iate):
     return file_name_jpeg
 
 
-def cluster_var_t_value(data_df, names_iate, names_iate_se):
+def cluster_var_t_value(data_df, names_iate, names_iate_se, obs_bigdata):
     """Compute t-values to cluster on."""
-    est_np = data_df[names_iate].to_numpy()
-    se_np = data_df[names_iate_se].to_numpy()
+    est_np = mcf_gp.to_numpy_big_data(data_df[names_iate], obs_bigdata)
+    se_np = mcf_gp.to_numpy_big_data(data_df[names_iate_se], obs_bigdata)
     t_val_np = est_np / se_np
     t_val_names = [name + '_t_val' for name in names_iate]
     t_val_df = pd.DataFrame(data=t_val_np, columns=t_val_names)
@@ -453,8 +575,10 @@ def get_treat_probs_del_treat(mcf_, data_df, with_output):
     x_name, x_type = mcf_gp.get_key_values_in_list(var_x_type)
     names_unordered = [x_name[j] for j, val in enumerate(x_type) if val > 0]
     x_df, obs = mcf_data.get_x_data(data_df, x_name)
-    x_np = x_df.to_numpy()
-    d_np = data_df[d_name].to_numpy().ravel()
+    x_np = mcf_gp.to_numpy_big_data(x_df, int_dic['obs_bigdata'])
+    d_np = mcf_gp.to_numpy_big_data(data_df[d_name],
+                                    int_dic['obs_bigdata']
+                                    ).ravel()
     if names_unordered:  # List is not empty
         x_df, dummy_names = mcf_data.dummies_for_unord(
             x_df, names_unordered, data_train_dict=data_train_dic)

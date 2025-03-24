@@ -22,7 +22,8 @@ from mcf import mcf_general_sys as mcf_sys
 from mcf import mcf_print_stats_functions as ps
 
 
-def iate_est_mp(mcf_, weights_dic, w_ate, reg_round=True):
+def iate_est_mp(mcf_, weights_dic, w_ate=None, reg_round=True, iv_scaling=False,
+                late=False):
     """
     Estimate IATE and their standard errors, MP version.
 
@@ -52,7 +53,7 @@ def iate_est_mp(mcf_, weights_dic, w_ate, reg_round=True):
               ' = False).')
     p_dic, int_dic, gen_dic = mcf_.p_dict, mcf_.int_dict, mcf_.gen_dict
     var_dic, ct_dic = mcf_.var_dict, mcf_.ct_dict
-    if reg_round:
+    if reg_round and not iv_scaling:
         iate_se_flag, se_boot_iate = p_dic['iate_se'], p_dic['se_boot_iate']
         iate_m_ate_flag = p_dic['iate_m_ate']
     else:
@@ -91,7 +92,7 @@ def iate_est_mp(mcf_, weights_dic, w_ate, reg_round=True):
         w_ate = w_ate[0, :, :]
     if not p_dic['iate_m_ate']:
         w_ate = None
-    l1_to_9 = [None] * n_x
+    l1_to_9 = [None for _ in range(n_x)]
     if gen_dic['mp_automatic']:
         maxworkers = mcf_sys.find_no_of_workers(gen_dic['mp_parallel'],
                                                 gen_dic['sys_share'])
@@ -148,14 +149,14 @@ def iate_est_mp(mcf_, weights_dic, w_ate, reg_round=True):
         else:
             for idx in range(n_x):
                 if int_dic['weight_as_sparse']:
-                    weights_idx = [weights[t_idx].getrow(idx) for
+                    weights_idx = [weights[t_idx][idx, :] for
                                    t_idx in range(iterator)]
                 else:
                     weights_idx = weights[idx]
                 ret_all_i = iate_func1_for_mp(
                     idx, weights_idx, cl_dat, no_of_cluster, w_dat, w_ate,
                     y_dat, no_of_out, n_y, ct_dic, int_dic, gen_dic, p_dic,
-                    iate_se_flag, se_boot_iate, iate_m_ate_flag)
+                    iate_se_flag, se_boot_iate, iate_m_ate_flag, late=late)
                 (pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var, l1_to_9,
                  share_censored) = assign_ret_all_i(
                      pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var, l1_to_9,
@@ -171,22 +172,22 @@ def iate_est_mp(mcf_, weights_dic, w_ate, reg_round=True):
                   f'{n_x / no_of_splits:5.2f}.',
                   ' Number of splits: ', no_of_splits)
         obs_idx_list = np.array_split(np.arange(n_x), no_of_splits)
-        if int_dic['mem_object_store_3'] is None:
-            if not ray.is_initialized():
-                ray.init(num_cpus=maxworkers, include_dashboard=False)
-        else:
-            if not ray.is_initialized():
-                ray.init(num_cpus=maxworkers, include_dashboard=False,
-                         object_store_memory=int_dic['mem_object_store_3'])
-            if int_dic['with_output'] and int_dic['verbose']:
-                print("Size of Ray Object Store: ", round(
-                    int_dic['mem_object_store_3']/(1024*1024)), ' MB')
+        if not ray.is_initialized():
+            mcf_sys.init_ray_with_fallback(
+                maxworkers, int_dic, gen_dic,
+                mem_object_store=int_dic['mem_object_store_3'],
+                ray_err_txt='Ray does not start up in IATE estimation 1/2')
+        if (int_dic['mem_object_store_3'] is not None
+            and int_dic['with_output']
+                and int_dic['verbose']):
+            print("Size of Ray Object Store: ", round(
+                  int_dic['mem_object_store_3']/(1024*1024)), ' MB')
         if int_dic['weight_as_sparse']:
             still_running = [ray_iate_func1_for_mp_many_obs.remote(
                 idx, [weights[t_idx][idx, :] for t_idx in range(iterator)],
                 cl_dat, no_of_cluster, w_dat, w_ate, y_dat, no_of_out, n_y,
                 ct_dic, int_dic, gen_dic, p_dic, iate_se_flag, se_boot_iate,
-                iate_m_ate_flag) for idx in obs_idx_list]
+                iate_m_ate_flag, late=late) for idx in obs_idx_list]
             if int_dic['with_output'] and int_dic['verbose']:
                 warn_text_to_console()
         else:
@@ -194,7 +195,8 @@ def iate_est_mp(mcf_, weights_dic, w_ate, reg_round=True):
                 idx, [weights[idxx] for idxx in idx], cl_dat,
                 no_of_cluster, w_dat, w_ate, y_dat, no_of_out, n_y,
                 ct_dic, int_dic, gen_dic, p_dic, iate_se_flag,
-                se_boot_iate, iate_m_ate_flag) for idx in obs_idx_list]
+                se_boot_iate, iate_m_ate_flag, late=late)
+                for idx in obs_idx_list]
         jdx = 0
         while len(still_running) > 0:
             finished, still_running = ray.wait(still_running)
@@ -242,7 +244,7 @@ def iate_est_mp(mcf_, weights_dic, w_ate, reg_round=True):
 
 
 def iate_effects_print(mcf_, effect_dic, effect_m_ate_dic, effect_eff_dic,
-                       y_pred_x_df):
+                       y_pred_x_df, extra_title='', late=False):
     """Compute, print effects, add potential outcomes to prediction data."""
     p_dic, int_dic, gen_dic = mcf_.p_dict, mcf_.int_dict, mcf_.gen_dict
     var_dic, ct_dic, lc_dic = mcf_.var_dict, mcf_.ct_dict, mcf_.lc_dict
@@ -254,7 +256,10 @@ def iate_effects_print(mcf_, effect_dic, effect_m_ate_dic, effect_eff_dic,
         no_of_treat, d_values = gen_dic['no_of_treat'], gen_dic['d_values']
         no_of_treat_dr, d_values_dr = no_of_treat, d_values
     if int_dic['with_output'] and int_dic['verbose']:
-        print('\nComputing IATEs 2/2 (effects)')
+        if late:
+            print('\nComputing LIATEs 2/2 (effects)' + extra_title)
+        else:
+            print('\nComputing IATEs 2/2 (effects)' + extra_title)
     if gen_dic['d_type'] == 'continuous':
         dim_3 = round(no_of_treat_dr - 1)
     else:
@@ -287,6 +292,7 @@ def iate_effects_print(mcf_, effect_dic, effect_m_ate_dic, effect_eff_dic,
             maxworkers = gen_dic['mp_parallel']
     if int_dic['with_output'] and int_dic['verbose']:
         print('Number of parallel processes: ', maxworkers)
+    effect_list = None
     if maxworkers == 1:
         for idx in range(n_x):
             if p_dic['iate_se'] and p_dic['iate_m_ate']:
@@ -322,42 +328,79 @@ def iate_effects_print(mcf_, effect_dic, effect_m_ate_dic, effect_eff_dic,
                     mcf_gp.share_completed(idx+1, n_x)
                 iate_eff[idx, :, :, :] = ret_all_idx[1]
     else:
-        if int_dic['ray_or_dask'] == 'ray':
-            if int_dic['mem_object_store_3'] is None:
-                if not ray.is_initialized():
-                    ray.init(num_cpus=maxworkers, include_dashboard=False)
-            else:
-                if not ray.is_initialized():
-                    ray.init(num_cpus=maxworkers, include_dashboard=False,
-                             object_store_memory=int_dic['mem_object_store_3'])
-                if int_dic['with_output'] and int_dic['verbose']:
-                    print("Size of Ray Object Store: ", round(
-                        int_dic['mem_object_store_3']/(1024*1024)), " MB")
-            if p_dic['iate_se'] and p_dic['iate_m_ate']:
-                still_running = [ray_iate_func2_for_mp.remote(
+        if int_dic['iate_chunk_size'] is None:
+            number_indices_chunk = np.ceil(n_x / maxworkers)
+        else:
+            number_indices_chunk = int_dic['iate_chunk_size']
+        if number_indices_chunk > 1:
+            indices_chuncks = get_chunck_of_indices(n_x, number_indices_chunk)
+        else:
+            indices_chuncks = None
+        if int_dic['with_output'] and int_dic['verbose']:
+            print(f'Number of chunks: {len(indices_chuncks)}')
+            print('Maximum number of observations in each chunk: '
+                  f'{number_indices_chunk}')
+        if not ray.is_initialized():
+            mcf_sys.init_ray_with_fallback(
+                maxworkers, int_dic, gen_dic,
+                mem_object_store=int_dic['mem_object_store_3'],
+                ray_err_txt='Ray does not start up in IATE estimation 2/2')
+        if (int_dic['mem_object_store_3'] is not None
+            and int_dic['with_output']
+                and int_dic['verbose']):
+            print("Size of Ray Object Store: ", round(
+                int_dic['mem_object_store_3']/(1024*1024)), " MB")
+        if p_dic['iate_se'] and p_dic['iate_m_ate']:
+            if number_indices_chunk == 1:
+                still_running = [ray_iate_func2_for_mp_single.remote(
                     idx, no_of_out, y_pot[idx], y_pot_var[idx],
                     y_pot_m_ate[idx], y_pot_m_ate_var[idx], gen_dic['d_type'],
                     d_values_dr, no_of_treat_dr, True, True)
                     for idx in range(n_x)]
-            elif p_dic['iate_se'] and not p_dic['iate_m_ate']:
-                still_running = [ray_iate_func2_for_mp.remote(
+            else:
+                still_running = [ray_iate_func2_for_mp_mult.remote(
+                    idx_ch, no_of_out, y_pot[idx_ch], y_pot_var[idx_ch],
+                    y_pot_m_ate[idx_ch], y_pot_m_ate_var[idx_ch],
+                    gen_dic['d_type'], d_values_dr, no_of_treat_dr, True, True)
+                    for idx_ch in indices_chuncks]
+        elif p_dic['iate_se'] and not p_dic['iate_m_ate']:
+            if number_indices_chunk == 1:
+                still_running = [ray_iate_func2_for_mp_single.remote(
                     idx, no_of_out, y_pot[idx], y_pot_var[idx], None, None,
                     gen_dic['d_type'], d_values_dr, no_of_treat_dr, True,
                     False) for idx in range(n_x)]
-            elif not p_dic['iate_se'] and p_dic['iate_m_ate']:
-                still_running = [ray_iate_func2_for_mp.remote(
+            else:
+                still_running = [ray_iate_func2_for_mp_mult.remote(
+                    idx_ch, no_of_out,  y_pot[idx_ch], y_pot_var[idx_ch], None,
+                    None, gen_dic['d_type'], d_values_dr, no_of_treat_dr, True,
+                    False) for idx_ch in indices_chuncks]
+        elif not p_dic['iate_se'] and p_dic['iate_m_ate']:
+            if number_indices_chunk == 1:
+                still_running = [ray_iate_func2_for_mp_single.remote(
                     idx, no_of_out, y_pot[idx], None, y_pot_m_ate[idx], None,
                     gen_dic['d_type'], d_values_dr, no_of_treat_dr, False,
                     True) for idx in range(n_x)]
             else:
-                still_running = [ray_iate_func2_for_mp.remote(
+                still_running = [ray_iate_func2_for_mp_mult.remote(
+                    idx_ch, no_of_out, y_pot[idx_ch], None, y_pot_m_ate[idx_ch],
+                    None, gen_dic['d_type'], d_values_dr, no_of_treat_dr, False,
+                    True) for idx_ch in indices_chuncks]
+        else:
+            if number_indices_chunk == 1:
+                still_running = [ray_iate_func2_for_mp_single.remote(
                     idx, no_of_out, y_pot[idx], None, None, None,
                     gen_dic['d_type'], d_values_dr, no_of_treat_dr, False,
                     False) for idx in range(n_x)]
-            jdx = 0
-            while len(still_running) > 0:
-                finished, still_running = ray.wait(still_running)
-                finished_res = ray.get(finished)
+            else:
+                still_running = [ray_iate_func2_for_mp_mult.remote(
+                    idx_ch, no_of_out, y_pot[idx_ch], None, None, None,
+                    gen_dic['d_type'], d_values_dr, no_of_treat_dr, False,
+                    False) for idx_ch in indices_chuncks]
+        jdx = 0
+        while len(still_running) > 0:
+            finished, still_running = ray.wait(still_running)
+            finished_res = ray.get(finished)
+            if number_indices_chunk == 1:
                 for ret_all_i2 in finished_res:
                     iix = ret_all_i2[0]
                     iate[iix, :, :, :] = ret_all_i2[1]
@@ -369,13 +412,33 @@ def iate_effects_print(mcf_, effect_dic, effect_m_ate_dic, effect_eff_dic,
                     if int_dic['with_output'] and int_dic['verbose']:
                         mcf_gp.share_completed(jdx+1, n_x)
                     jdx += 1
-            if iate_eff_yes:
-                still_running = [ray_iate_func2_for_mp.remote(
+            else:
+                for ret_all_i2_all in finished_res:
+                    for ret_all_i2 in ret_all_i2_all:
+                        iix = ret_all_i2[0]
+                        iate[iix, :, :, :] = ret_all_i2[1]
+                        if p_dic['iate_se']:
+                            iate_se[iix, :, :, :] = ret_all_i2[2]
+                            iate_p[iix, :, :, :] = ret_all_i2[3]
+                        if jdx == n_x-1:
+                            effect_list = ret_all_i2[4]
+                        if int_dic['with_output'] and int_dic['verbose']:
+                            mcf_gp.share_completed(jdx+1, len(indices_chuncks))
+                        jdx += 1
+        if iate_eff_yes:
+            if number_indices_chunk == 1:
+                still_running = [ray_iate_func2_for_mp_single.remote(
                     idx, no_of_out, y_pot_eff[idx], None, None, None,
                     gen_dic['d_type'], d_values_dr, no_of_treat_dr, False,
                     False) for idx in range(n_x)]
-                jdx = 0
-                while len(still_running) > 0:
+            else:
+                still_running = [ray_iate_func2_for_mp_mult.remote(
+                    idx_ch, no_of_out, y_pot_eff[idx_ch], None, None, None,
+                    gen_dic['d_type'], d_values_dr, no_of_treat_dr, False,
+                    False) for idx_ch in indices_chuncks]
+            jdx = 0
+            while len(still_running) > 0:
+                if number_indices_chunk == 1:
                     finished, still_running = ray.wait(still_running)
                     finished_res = ray.get(finished)
                     for ret_all_i3 in finished_res:
@@ -384,13 +447,27 @@ def iate_effects_print(mcf_, effect_dic, effect_m_ate_dic, effect_eff_dic,
                         if int_dic['with_output'] and int_dic['verbose']:
                             mcf_gp.share_completed(jdx+1, n_x)
                         jdx += 1
-            if 'rest' in int_dic['mp_ray_del']:
-                del finished_res, finished
-            if int_dic['mp_ray_shutdown']:
-                ray.shutdown()
+                else:
+                    finished, still_running = ray.wait(still_running)
+                    finished_res = ray.get(finished)
+                    for ret_all_i3_all in finished_res:
+                        for ret_all_i3 in ret_all_i3_all:
+                            iix = ret_all_i3[0]
+                            iate_eff[iix, :, :, :] = ret_all_i3[1]
+                            if (int_dic['with_output']
+                                    and int_dic['verbose']):
+                                mcf_gp.share_completed(jdx+1,
+                                                       len(indices_chuncks))
+                            jdx += 1
+
+        if 'rest' in int_dic['mp_ray_del']:
+            del finished_res, finished
+        if int_dic['mp_ray_shutdown']:
+            ray.shutdown()
     if int_dic['with_output']:
         txt_iate_long, txt_iate = ps.print_iate(
-            iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic)
+            iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic,
+            extra_title=extra_title)
         ps.print_mcf(gen_dic, txt_iate_long, summary=True, non_summary=False)
         if p_dic['iate_m_ate']:
             ps.print_mcf(gen_dic, effect_dic['txt_weights'], summary=False)
@@ -431,9 +508,10 @@ def iate_effects_print(mcf_, effect_dic, effect_m_ate_dic, effect_eff_dic,
             y_tree_name = var_dic['y_tree_name'][0]
         else:
             y_tree_name = var_dic['y_tree_name']
-        y_pred_x_np = y_pred_x_df.to_numpy()
+        y_pred_x_np = mcf_gp.to_numpy_big_data(y_pred_x_df,
+                                               int_dic['obs_bigdata'])
     else:
-        name_pot_unlc = y_tree_name = name_y_pot_unlc = None
+        name_pot_unlc = y_tree_name = name_y_pot_unlc = y_pred_x_np = None
         name_pot_eff_unlc = y_pot_eff_unlc_np = None
     for o_idx, o_name in enumerate(var_dic['y_name']):
         for t_idx, t_name in enumerate(d_values_dr):
@@ -473,40 +551,52 @@ def iate_effects_print(mcf_, effect_dic, effect_m_ate_dic, effect_eff_dic,
                                                     (pd.Series, pd.DataFrame))
     if uncenter:
         name_y_pot_unlc = [s + '_pot' for s in name_pot_unlc]
-    name_iate = [s + '_iate' for s in name_eff]
-    name_iate0 = [s + '_iate' for s in name_eff0]
+    txt = '_liate' if late else '_iate'
+    name_iate = [s + txt for s in name_eff]
+    name_iate0 = [s + txt for s in name_eff0]
     name_y_pot_eff = name_iate_eff = name_iate0_eff = None
     name_y_pot_eff_unlc = name_y_pot_se = name_iate_se = None
     name_iate_mate = name_iate_mate0 = name_iate_mate_se = None
     name_iate_se0 = name_iate_mate_se0 = None
     if p_dic['iate_m_ate']:
-        name_iate_mate = [s + '_iatemate' for s in name_eff]
-        name_iate_mate0 = [s + '_iatemate' for s in name_eff0]
+        txt = '_liatemlate' if late else '_iatemate'
+        name_iate_mate = [s + txt for s in name_eff]
+        name_iate_mate0 = [s + txt for s in name_eff0]
     if iate_eff_yes:
         name_y_pot_eff = [s + '_pot_eff' for s in name_pot]
         if uncenter:
             name_y_pot_eff_unlc = [s + '_pot_eff' for s in name_pot_unlc]
-        name_iate_eff = [s + '_iate_eff' for s in name_eff]
-        name_iate0_eff = [s + '_iate_eff' for s in name_eff0]
+        txt = '_liate_eff' if late else '_iate_eff'
+        name_iate_eff = [s + txt for s in name_eff]
+        name_iate0_eff = [s + txt for s in name_eff0]
+
     if p_dic['iate_se']:
         name_y_pot_se = [s + '_pot_se' for s in name_pot]
-        name_iate_se = [s + '_iate_se' for s in name_eff]
-        name_iate_se0 = [s + '_iate_se' for s in name_eff0]
+        txt = '_liate_se' if late else '_iate_se'
+        name_iate_se = [s + txt for s in name_eff]
+        name_iate_se0 = [s + txt for s in name_eff0]
         if p_dic['iate_m_ate']:
-            name_iate_mate_se = [s + '_iatemate_se' for s in name_eff]
-            name_iate_mate_se0 = [s + '_iatemate_se' for s in name_eff0]
+            txt = '_liatemlate_se' if late else '_iatemate_se'
+            name_iate_mate_se = [s + txt for s in name_eff]
+            name_iate_mate_se0 = [s + txt for s in name_eff0]
     if int_dic['with_output'] or int_dic['return_iate_sp']:
         y_pot_df = pd.DataFrame(data=y_pot_np, columns=name_y_pot)
         iate_df = pd.DataFrame(data=iate_np, columns=name_iate)
         if p_dic['iate_m_ate']:
             iate_mate_df = pd.DataFrame(data=iate_mate_np,
                                         columns=name_iate_mate)
+        else:
+            iate_mate_df = None
         if p_dic['iate_se']:
             y_pot_se_df = pd.DataFrame(data=y_pot_se_np, columns=name_y_pot_se)
             iate_se_df = pd.DataFrame(data=iate_se_np, columns=name_iate_se)
             if p_dic['iate_m_ate']:
                 iate_mate_se_df = pd.DataFrame(data=iate_mate_se_np,
                                                columns=name_iate_mate_se)
+            else:
+                iate_mate_se_df = None
+        else:
+            y_pot_se_df = iate_se_df = iate_mate_se_df = None
         if iate_eff_yes:
             y_pot_eff_df = pd.DataFrame(data=y_pot_eff_np,
                                         columns=name_y_pot_eff)
@@ -534,7 +624,8 @@ def iate_effects_print(mcf_, effect_dic, effect_m_ate_dic, effect_eff_dic,
                 df_list.append(y_pot_eff_unlc_df)
         results_df = pd.concat(df_list, axis=1)
         if int_dic['with_output']:
-            ps.print_mcf(gen_dic, '\nIndividualized ATE', summary=True)
+            ps.print_mcf(gen_dic, '\nIndividualized ATE ' + extra_title,
+                         summary=True)
             ps.print_descriptive_df(gen_dic, results_df, varnames='all',
                                     summary=True)
     names_pot_iate = {
@@ -566,7 +657,7 @@ def iate_effects_print(mcf_, effect_dic, effect_m_ate_dic, effect_eff_dic,
 
 def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                       y_dat, no_of_out, n_y, ct_dic, int_dic, gen_dic, p_dic,
-                      iate_se_flag, se_boot_iate, iate_m_ate_flag):
+                      iate_se_flag, se_boot_iate, iate_m_ate_flag, late=False):
     """
     Compute function to be looped over observations for Multiprocessing.
 
@@ -603,9 +694,6 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
         w_all_i_unc[w_index] = w_i_unc
         return w_all_i, w_all_i_unc
 
-    if (gen_dic['with_output'] and (idx == 0)
-            and int_dic['ray_or_dask'] != 'ray' and gen_dic['verbose']):
-        print('Starting to compute IATE - procedure 1', flush=True)
     if gen_dic['d_type'] == 'continuous':
         continuous, d_values_dr = True, ct_dic['d_values_dr_np']
         no_of_treat = ct_dic['grid_w']
@@ -615,6 +703,7 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
     else:
         continuous, d_values_dr = False, gen_dic['d_values']
         no_of_treat = no_of_treat_dr = gen_dic['no_of_treat']
+        i_w01 = i_w10 = index_full = None
     pot_y_i = np.empty((no_of_treat_dr, no_of_out))
     pot_y_m_ate_i = np.empty_like(pot_y_i) if iate_m_ate_flag else None
     share_i = np.zeros(no_of_treat_dr)
@@ -631,14 +720,14 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
     for t_idx in range(no_of_treat):
         extra_weight_p1 = continuous and t_idx < no_of_treat-1
         if int_dic['weight_as_sparse']:
-            w_index = weights_i[t_idx].indices
+            w_index = weights_i[t_idx].col    # formerly scr with indices
             w_i_t = weights_i[t_idx].data
         else:
             w_index = weights_i[t_idx][0]    # Indices of non-zero weights
             w_i_t = weights_i[t_idx][1].copy()
         if extra_weight_p1:
             if int_dic['weight_as_sparse']:
-                w_index_p1 = weights_i[t_idx+1].indices
+                w_index_p1 = weights_i[t_idx+1].col  # ex scr with indices
             else:
                 w_index_p1 = weights_i[t_idx+1][0]
             w_index_both = np.unique(np.concatenate((w_index, w_index_p1)))
@@ -665,12 +754,16 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
             if extra_weight_p1:
                 w_t_p1 = None
         w_i_sum = np.sum(w_i)
-        if (not (1-1e-10) < w_i_sum < (1+1e-10)) and not continuous:
+        if (not (1-1e-10) < w_i_sum < (1+1e-10)) and not (continuous or late):
             w_i = w_i / w_i_sum
         w_i_unc = np.copy(w_i)
         if p_dic['max_weight_share'] < 1 and not continuous:
-            w_i, _, share_i[t_idx] = mcf_gp.bound_norm_weights(
-                w_i, p_dic['max_weight_share'])
+            if late:
+                w_i, _, share_i[t_idx] = mcf_gp.bound_norm_weights_not_one(
+                    w_i, p_dic['max_weight_share'])
+            else:
+                w_i, _, share_i[t_idx] = mcf_gp.bound_norm_weights(
+                    w_i, p_dic['max_weight_share'])
         if extra_weight_p1:
             w_i_unc_p1 = np.copy(w_i_p1)
         if cluster_std:
@@ -680,6 +773,8 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                 w_all_i_p1, w_all_i_unc_p1 = get_walli(w_index_p1, n_y, w_i_p1,
                                                        w_i_unc_p1)
                 cl_i_both = cl_dat[w_index_both]
+            else:
+                cl_i_both = None
         else:
             cl_i = cl_i_both = None
         for o_idx in range(no_of_out):
@@ -700,14 +795,20 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         w_t_cont = w_t_cont / np.sum(w_t_cont)
                     w_i_unc_cont = w_i_unc_cont / np.sum(w_i_unc_cont)
                     if p_dic['max_weight_share'] < 1:
-                        w_i_cont, _, share_cont = mcf_gp.bound_norm_weights(
-                            w_i_cont, p_dic['max_weight_share'])
+                        if late:
+                            (w_i_cont, _, share_cont
+                             ) = mcf_gp.bound_norm_weights_not_one(
+                                 w_i_cont, p_dic['max_weight_share'])
+                        else:
+                            w_i_cont, _, share_cont = mcf_gp.bound_norm_weights(
+                                w_i_cont, p_dic['max_weight_share'])
                         if i == 0:
                             share_i[t_idx] = share_cont
                     ret = mcf_est.weight_var(
                         w_i_cont, y_dat_cont, cl_i_cont, gen_dic, p_dic,
                         weights=w_t_cont, se_yes=iate_se_flag,
-                        bootstrap=se_boot_iate, keep_all=int_dic['keep_w0'])
+                        bootstrap=se_boot_iate, keep_all=int_dic['keep_w0'],
+                        normalize=not late)
                     ti_idx = index_full[t_idx, i]  # pylint: disable=E1136
                     pot_y_i[ti_idx, o_idx] = ret[0]
                     if iate_se_flag:
@@ -772,7 +873,7 @@ def iate_func1_for_mp(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                 ret = mcf_est.weight_var(
                     w_i, y_dat[w_index, o_idx], cl_i, gen_dic, p_dic,
                     weights=w_t, se_yes=iate_se_flag, bootstrap=se_boot_iate,
-                    keep_all=int_dic['keep_w0'])
+                    keep_all=int_dic['keep_w0'], normalize=not late)
                 pot_y_i[t_idx, o_idx] = ret[0]
                 if iate_se_flag:
                     pot_y_var_i[t_idx, o_idx] = ret[1]
@@ -842,45 +943,87 @@ def assign_ret_all_i(pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var, l1_to_9,
 def ray_iate_func1_for_mp_many_obs(
         idx_list, weights_list, cl_dat, no_of_cluster, w_dat, w_ate, y_dat,
         no_of_out, n_y, ct_dic, int_dic, gen_dic, p_dic, iate_se_flag,
-        se_boot_iate, iate_m_ate_flag):
+        se_boot_iate, iate_m_ate_flag, late=False):
     """Compute IATE for several obs in one loop (MP)."""
     return iate_func1_for_mp_many_obs(
         idx_list, weights_list, cl_dat, no_of_cluster, w_dat, w_ate, y_dat,
         no_of_out, n_y, ct_dic, int_dic, gen_dic, p_dic, iate_se_flag,
-        se_boot_iate, iate_m_ate_flag)
+        se_boot_iate, iate_m_ate_flag, late)
 
 
 def iate_func1_for_mp_many_obs(idx_list, weights_list, cl_dat, no_of_cluster,
                                w_dat, w_ate, y_dat, no_of_out, n_y, ct_dic,
                                int_dic, gen_dic, p_dic, iate_se_flag,
-                               se_boot_iate, iate_m_ate_flag):
+                               se_boot_iate, iate_m_ate_flag, late=False):
     """Compute IATE for several obs in one loop (MP)."""
     ret_all = []
     if int_dic['weight_as_sparse']:
         iterator = len(weights_list)
     for i, idx_org in enumerate(idx_list):
         if int_dic['weight_as_sparse']:
-            weights_i = [weights_list[t_idx].getrow(i)
+            weights_i = [weights_list[t_idx][i, :]
                          for t_idx in range(iterator)]
         else:
             weights_i = weights_list[i]
         ret = iate_func1_for_mp(idx_org, weights_i, cl_dat, no_of_cluster,
                                 w_dat, w_ate, y_dat, no_of_out, n_y, ct_dic,
                                 int_dic, gen_dic, p_dic, iate_se_flag,
-                                se_boot_iate, iate_m_ate_flag)
+                                se_boot_iate, iate_m_ate_flag, late)
         ret_all.append(ret)
     return ret_all
 
 
 @ray.remote
-def ray_iate_func2_for_mp(idx, no_of_out, pot_y_i, pot_y_var_i, pot_y_m_ate_i,
-                          pot_y_m_ate_var_i, d_type, d_values, no_of_treat,
-                          iate_se_flag, iate_m_ate_flag):
+def ray_iate_func2_for_mp_single(
+        idx, no_of_out, pot_y_i, pot_y_var_i, pot_y_m_ate_i, pot_y_m_ate_var_i,
+        d_type, d_values, no_of_treat, iate_se_flag, iate_m_ate_flag):
     """Make function compatible with Ray."""
     return iate_func2_for_mp(idx, no_of_out, pot_y_i, pot_y_var_i,
                              pot_y_m_ate_i, pot_y_m_ate_var_i, d_type,
                              d_values, no_of_treat, iate_se_flag,
                              iate_m_ate_flag)
+
+
+@ray.remote
+def ray_iate_func2_for_mp_mult(
+        idx_list, no_of_out, pot_y_chunk, pot_y_var_chunk, pot_y_m_ate_chunk,
+        pot_y_m_ate_var_chunk, d_type, d_values, no_of_treat, iate_se_flag,
+        iate_m_ate_flag):
+    """Make function compatible with Ray for multiple indices."""
+    if (pot_y_var_chunk is None and pot_y_m_ate_chunk is None
+            and pot_y_m_ate_var_chunk is None):
+        iate_list = [
+            iate_func2_for_mp(
+                idx, no_of_out, pot_y_chunk[pos], None, None, None, d_type,
+                d_values, no_of_treat, iate_se_flag, iate_m_ate_flag)
+            for pos, idx in enumerate(idx_list)
+            ]
+    elif pot_y_var_chunk is None and pot_y_m_ate_var_chunk is None:
+        iate_list = [
+            iate_func2_for_mp(
+                idx, no_of_out, pot_y_chunk[pos], None,
+                pot_y_m_ate_chunk[pos], None, d_type,
+                d_values, no_of_treat, iate_se_flag, iate_m_ate_flag)
+            for pos, idx in enumerate(idx_list)
+            ]
+    elif pot_y_m_ate_chunk is None and pot_y_m_ate_var_chunk is None:
+        iate_list = [
+            iate_func2_for_mp(
+                idx, no_of_out, pot_y_chunk[pos], pot_y_var_chunk[pos],
+                None, None, d_type,
+                d_values, no_of_treat, iate_se_flag, iate_m_ate_flag)
+            for pos, idx in enumerate(idx_list)
+            ]
+    else:
+        iate_list = [
+            iate_func2_for_mp(
+                idx, no_of_out, pot_y_chunk[pos], pot_y_var_chunk[pos],
+                pot_y_m_ate_chunk[pos], pot_y_m_ate_var_chunk[pos], d_type,
+                d_values, no_of_treat, iate_se_flag, iate_m_ate_flag)
+            for pos, idx in enumerate(idx_list)
+            ]
+
+    return iate_list
 
 
 def iate_func2_for_mp(idx, no_of_out, pot_y_i, pot_y_var_i, pot_y_m_ate_i,
@@ -891,7 +1034,7 @@ def iate_func2_for_mp(idx, no_of_out, pot_y_i, pot_y_var_i, pot_y_m_ate_i,
 
     Parameters
     ----------
-    i : Int. Counter.
+    idx : Int. Counter.
     no_of_out : Int. Number of outcomes.
     pot_y_i : Numpy array.
     pot_y_var_i : Numpy array.
@@ -920,6 +1063,7 @@ def iate_func2_for_mp(idx, no_of_out, pot_y_i, pot_y_var_i, pot_y_m_ate_i,
     iterator = 2 if iate_m_ate_flag else 1
     compute_comparison_label = True
     warnings.filterwarnings('error', category=RuntimeWarning)
+    effect_list = None
     for o_i in range(no_of_out):
         for jdx in range(iterator):
             if jdx == 0:
@@ -943,3 +1087,10 @@ def iate_func2_for_mp(idx, no_of_out, pot_y_i, pot_y_var_i, pot_y_m_ate_i,
             compute_comparison_label = False
     warnings.resetwarnings()
     return idx, iate_i, iate_se_i, iate_p_i, effect_list
+
+
+def get_chunck_of_indices(n_x, size_per_chunk):
+    """Create chuncks of indices as list to be used for array splitting."""
+    indices = np.arange(n_x)
+    num_chunks = np.ceil(size_per_chunk)
+    return np.array_split(indices, num_chunks)

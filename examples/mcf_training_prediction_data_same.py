@@ -10,13 +10,13 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.1
+Version: 0.7.2
 
 This is an example to show how a minimal specification of the mcf can be
 implemented that uses the same data from training and prediction.
 
 """
-import os
+from pathlib import Path
 
 from mcf.example_data_functions import example_data
 from mcf.mcf_functions import ModifiedCausalForest
@@ -25,7 +25,7 @@ from mcf.reporting import McfOptPolReport
 
 # ------------------ NOT parameters of the ModifiedCausalForest ---------------
 #  Define data to be used in this example
-APPLIC_PATH = os.getcwd() + '/example'
+APPLIC_PATH = Path.cwd() / 'example'
 
 # ---------------------- Generate artificial data ------------------------------
 
@@ -38,8 +38,8 @@ VAR_X_NAME_ORD = ('x_cont0',)
 VAR_X_NAME_UNORD = ('x_unord0',)
 # Using VAR_X_NAME_UNORD or VAR_X_NAME_ORD only is sufficient
 # -----------------------------------------------------------------------------
-if not os.path.exists(APPLIC_PATH):
-    os.makedirs(APPLIC_PATH)
+if not Path.exists(APPLIC_PATH):
+    APPLIC_PATH.mkdir(parents=True)
 # -----------------------------------------------------------------------------
 mymcf = ModifiedCausalForest(var_d_name=VAR_D_NAME,
                              var_y_name=VAR_Y_NAME,

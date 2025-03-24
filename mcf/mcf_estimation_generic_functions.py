@@ -76,7 +76,7 @@ def moving_avg_mean_var(data, k, mean_and_var=True):
 
 
 # Kernel density estimation and kernel regression
-def bandwidth_nw_rule_of_thumb(data):
+def bandwidth_nw_rule_of_thumb(data, kernel=1):
     """Compute rule of thumb for Nadaraya Watson Kernel regression.
 
     Li & Racine, 2004, Nonparametric Econometrics: Theory & Practice,
@@ -98,6 +98,12 @@ def bandwidth_nw_rule_of_thumb(data):
     std = np.std(data)
     sss = min(std, iqr) if iqr > 1e-15 else std
     bandwidth = sss * (obs ** (-0.2))
+    if kernel not in (1, 2):
+        raise ValueError('Wrong type of kernel in Silverman bandwidth.')
+    if kernel == 1:  # Epanechikov
+        bandwidth *= 2.34
+    elif kernel == 2:  # Normal distribution
+        bandwidth *= 1.06
     if bandwidth < 1e-15:
         bandwidth = 1
     return bandwidth
@@ -196,11 +202,11 @@ def kernel_density_y(y_dat, x_dat, grid, kernel, bandwidth):
 
     """
     differ = np.subtract.outer(x_dat, grid)  # This builds a matrix
-    y_dach_i = kernel_proc(differ / bandwidth, kernel)
+    w_dach_i = kernel_proc(differ / bandwidth, kernel)
     if y_dat.ndim == 2:
-        f_grid = np.mean(y_dach_i * y_dat, axis=0) / bandwidth
+        f_grid = np.mean(w_dach_i * y_dat, axis=0) / bandwidth
     else:
-        f_grid = np.mean(y_dach_i * np.reshape(y_dat, (len(grid), 1)),
+        f_grid = np.mean(w_dach_i * np.reshape(y_dat, (len(grid), 1)),
                          axis=0) / bandwidth
     return f_grid
 
@@ -217,17 +223,17 @@ def kernel_proc(data, kernel):
 
     Returns
     -------
-    y : Numpy array. Kernel applied to data.
+    y_dat : Numpy array. Kernel weights applied to data.
 
     """
     if kernel == 1:
         abs_data = np.abs(data)
-        y_dat = np.where(abs_data < 1, 3/4 * (1 - abs_data**2), 0)
+        w_dat = np.where(abs_data < 1, 3/4 * (1 - abs_data**2), 0)
     elif kernel == 2:  # This works for matrices
-        y_dat = norm.pdf(data)
+        w_dat = norm.pdf(data)
     else:
         raise ValueError('Only Epanechikov and normal kernel supported.')
-    return y_dat
+    return w_dat
 
 
 def gini_coeff_pos(x_dat):
@@ -239,6 +245,7 @@ def gini_coeff_pos(x_dat):
         gini = 1 - 2 * (np.sum((ranks - 1) * x_dat[rrr]) + sss) / (len(x_dat)
                                                                    * sss)
         return gini
+
     return 0
 
 
@@ -368,6 +375,7 @@ def random_forest_scikit(
         alpha = [alpha]
     if not isinstance(n_min, (list, tuple, np.ndarray)):
         n_min = [n_min]
+    m_opt = n_opt = a_opt = regr_best = None
     for nval in n_min:
         for mval in no_features:
             for aval in alpha:
@@ -428,6 +436,7 @@ def random_forest_scikit(
     else:
         vi_names_shares = None
     if pred_uncertainty and (pred_t_flag or pred_p_flag):
+        upper_t = lower_t = upper_p = lower_p = None
         resid_oob = y_1d - pred_oob
         skewness_res_oob = skew(resid_oob)
         if with_output:
@@ -672,8 +681,14 @@ def find_indices_vi(names, x_names):
 
 def best_regression(x_np, y_np, estimator=None, boot=1000, seed=123,
                     max_workers=None, test_share=0.25, cross_validation_k=0,
-                    absolute_values_pred=False):
+                    absolute_values_pred=False, obs_bigdata=1000000):
     """Select regression estimator for local centring (no centering of X)."""
+    # Reduce number of workers for very large data (because of memory demand)
+    if (len(y_np) > obs_bigdata
+            and max_workers is not None and max_workers > 1):
+        max_workers /= 2
+        max_workers = max(1, int(max_workers))
+
     # Initialise estimators
     regress_dic, estimator, key_list = init_scikit(boot, seed, max_workers,
                                                    estimator)
@@ -753,6 +768,7 @@ def best_regression(x_np, y_np, estimator=None, boot=1000, seed=123,
     best_transform_x = regress_dic[best_key]['transform_x']
     labels = [regress_dic[key]['label'] for key in key_list]
     mse_string = print_performance_mse(labels, mse, r_2, best_lables)
+
     return (best_method, best_params, best_lables, best_mse,
             best_transform_x, mse_string)
 
@@ -967,7 +983,7 @@ def best_classifier(x_np, y_np, boot=1000, seed=123, max_workers=None,
     params_rf2 = params_rf5.copy()
     params_rf2['min_samples_split'] = 2
     params_mlpc = {'alpha': 1, 'max_iter': 1000, 'random_state': seed}
-    params_ada = {'algorithm': "SAMME", 'random_state': seed}
+    params_ada = {'random_state': seed}
 
     rfc_5 = RandomForestClassifier(**params_rf5)
     rfc_2 = RandomForestClassifier(**params_rf2)

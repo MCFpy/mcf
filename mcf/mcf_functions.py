@@ -665,7 +665,7 @@ class ModifiedCausalForest:
     p_qiate_bias_adjust : Boolean (or None), optional
         Bias correction procedure for QIATEs based on simulations.
         Default is True.
-    If p_qiate_bias_adjust is True, P_IATE_SE is set to True as well.
+        If p_qiate_bias_adjust is True, P_IATE_SE is set to True as well.
 
     p_qiate_bias_adjust_draws : Integer or Float (or None), optional
         Number of random draws used in computing the bias adjustment.

@@ -17,7 +17,6 @@ import sys
 # sys.path.insert(0, os.path.abspath('../../mcf/mcf'))
 sys.path.insert(0, os.path.abspath('../../mcf'))
 
-
 # -- Project information -----------------------------------------------------
 
 project = 'mcf 0.7.1'

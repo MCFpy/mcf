@@ -1007,12 +1007,12 @@ class ModifiedCausalForest:
         Default (or None) is 0.5.
         Internal variable, change default only if you know what you do.
 
-    _int_verbose :  Boolean (or None), optional
+    _int_verbose : Boolean (or None), optional
         Additional output about running of mcf if _int_with_output is True.
         Default (or None) is True.
         Internal variable, change default only if you know what you do.
 
-    _int_weight_as_sparse :  Boolean (or None), optional
+    _int_weight_as_sparse : Boolean (or None), optional
         Save weights matrix as sparse matrix.
         Default (or None) is True.
         Internal variable, change default only if you know what you do.

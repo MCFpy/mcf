@@ -13,11 +13,11 @@ The Modified Causal Forest runs balancing tests for the features specified in th
 +------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Parameter                    | Description                                                                                                                                           |
 +==============================+=======================================================================================================================================================+
-| ``p_bt_yes``                 | If True, balancing tests for the features specified in ``var_x_balance_name_ord`` and ``var_x_balance_name_unord`` are conducted. The default is True.|
+| ``p_bt_yes``                 | If True, balancing tests for the features specified in ``var_x_name_balance_test_ord`` and ``var_x_name_balance_test_unord`` are conducted. The default is True.|
 +------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``var_x_balance_name_ord``   | Only relevant if ``p_bt_yes`` is True. Ordered features for which balancing tests are conducted.                                                      |
+| ``var_x_name_balance_test_ord``   | Only relevant if ``p_bt_yes`` is True. Ordered features for which balancing tests are conducted.                                                      |
 +------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``var_x_balance_name_unord`` | Only relevant if ``p_bt_yes`` is True. Unordered features for which balancing tests are conducted.                                                    |
+| ``var_x_name_balance_test_unord`` | Only relevant if ``p_bt_yes`` is True. Unordered features for which balancing tests are conducted.                                                    |
 +------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 Please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` for more details.
@@ -58,8 +58,8 @@ Example
         var_x_name_unord=["x_unord0"],
         # Parameters for balancing tests:
         p_bt_yes=True,
-        var_x_balance_name_ord=["x_cont0", "x_cont1", "x_ord1"],
-        var_x_balance_name_unord=["x_unord0"]
+        var_x_name_balance_test_ord=["x_cont0", "x_cont1", "x_ord1"],
+        var_x_name_balance_test_unord=["x_unord0"]
     )
     
     my_mcf.train(training_df)

@@ -34,13 +34,13 @@ We provide several example scripts `in our example folder on GitHub <https://git
 
 **Modified Causal Forest**
 
-- `Minimal example <https://github.com/MCFpy/mcf/blob/main/examples/min_parameters_mcf.py>`__
-- `Minimal example that uses the same data for training and prediction <https://github.com/MCFpy/mcf/blob/main/examples/training_prediction_data_same_mcf.py>`__
-- `Full example with all parameters used <https://github.com/MCFpy/mcf/blob/main/examples/all_parameters_mcf.py>`__
+- `Minimal example <https://github.com/MCFpy/mcf/blob/main/examples/mcf_min_parameters.py>`__
+- `Minimal example that uses the same data for training and prediction <https://github.com/MCFpy/mcf/blob/main/examples/mcf_training_prediction_data_same.py>`__
+- `Full example with all parameters used <https://github.com/MCFpy/mcf/blob/main/examples/mcf_all_parameters.py>`__
 
 **Optimal Policy**
 
-- `Minimal example <https://github.com/MCFpy/mcf/blob/main/examples/min_parameters_optpolicy.py>`__
+- `Minimal example <https://github.com/MCFpy/mcf/blob/main/examples/optpolicy_min_parameters.py>`__
 - `Minimal example that jointly estimates a Modified Causal Forest and an Optimal Policy Tree <https://github.com/MCFpy/mcf/blob/main/examples/mcf_optpol_combined.py>`__
-- `Full example with all parameters used <https://github.com/MCFpy/mcf/blob/main/examples/all_parameters_optpolicy.py>`__
-- `Example on fairscores method <https://github.com/MCFpy/mcf/blob/main/examples/fairness_optpolicy.py>`__
+- `Full example with all parameters used <https://github.com/MCFpy/mcf/blob/main/examples/optpolicy_all_parameters.py>`__
+- `Example on fairscores method <https://github.com/MCFpy/mcf/blob/main/examples/optpolicy_fairness.py>`__

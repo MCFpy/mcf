@@ -8,7 +8,7 @@ Balancing Tests
 
 Treatment effects may be subject to selection bias if the distribution of the confounding features differs across treatment arms. The class :py:class:`~mcf_functions.ModifiedCausalForest` provides the option to conduct balancing tests to assess whether the feature distributions are equal across treatment arms after adjustment by the Modified Causal Forest. The balancing tests are based on the estimation of average treatment effects (:math:`\text{ATE's}`) with user-specified features as outcomes. If the features are balanced across treatment arms, the estimated :math:`\text{ATE's}` should be close to zero.
 
-The Modified Causal Forest runs balancing tests for the features specified in the parameters ``var_x_balance_name_ord`` and ``var_x_balance_name_unord`` if the parameter ``p_bt_yes`` is set to True. See also the table below. 
+The Modified Causal Forest runs balancing tests for the features specified in the parameters ``var_x_name_balance_test_ord`` and ``var_x_name_balance_test_unord`` if the parameter ``p_bt_yes`` is set to True. See also the table below. 
 
 +------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Parameter                    | Description                                                                                                                                           |

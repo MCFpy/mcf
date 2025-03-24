@@ -27,8 +27,7 @@ jobs:
         make -C docs clean  # Clean old build files to prevent issues
     
     - name: Build HTML
-      run: |
-        make -C docs html  # Run sphinx build directly for better control
+      uses: ammaraskar/sphinx-action@master
       
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

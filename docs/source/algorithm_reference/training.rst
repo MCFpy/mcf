@@ -205,6 +205,7 @@ Example
 
 .. code-block:: python
 
+
     my_mcf = ModifiedCausalForest(
         var_y_name="outcome",
         var_d_name="treat",
@@ -224,18 +225,18 @@ Example
         # Number of parallel processes
         gen_mp_parallel=None,
         # Tune all parameters
-        cf_tune_all=True
+        cf_tune_all=True,
         # Smallest minimum leaf size
-        _int_iate_chunk_size==None,
+        _int_iate_chunk_size=None,  # Corrected here
         # Largest minimum leaf size
         _int_weight_as_sparse_splits=None,
         # Number of parallel processes
         _int_max_obs_training=None,
         # Tune all parameters
-        _int_max_obs_prediction==None
+        _int_max_obs_prediction=None,
         # Number of parallel processes
         _int_max_obs_kmeans=None,
         # Tune all parameters
-        _int_max_obs_post_rel_graphs==None
+        _int_max_obs_post_rel_graphs=None,
     )
 

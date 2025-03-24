@@ -63,7 +63,7 @@ class ModifiedCausalForest:
         Default is None.
 
     var_x_name_balance_test_unord : String or List of strings (or None),
-        optional
+                                    optional
         Name of ordered variables to be used in balancing tests. Treatment
         specific descriptive statistics are only printed for those
         variables.

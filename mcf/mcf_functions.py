@@ -62,8 +62,7 @@ class ModifiedCausalForest:
         relevant if p_bt_yes is True.
         Default is None.
 
-    var_x_name_balance_test_unord : String or List of strings (or None),
-                                    optional
+    var_x_name_balance_test_unord : String or List of strings (or None), optional
         Name of ordered variables to be used in balancing tests. Treatment
         specific descriptive statistics are only printed for those
         variables.
@@ -75,8 +74,7 @@ class ModifiedCausalForest:
         :meth:`~ModifiedCausalForest.train` method.
         Default is None.
 
-    var_x_name_always_in_unord : String or List of strings (or None),
-                                 optional
+    var_x_name_always_in_unord : String or List of strings (or None), optional
         Name of unordered variables that always checked on when deciding on
         the next split during tree building. Only relevant for
         :meth:`~ModifiedCausalForest.train`  method.

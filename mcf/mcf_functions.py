@@ -974,7 +974,7 @@ class ModifiedCausalForest:
          (ii) Ray is explicitely shut down.
          (iii) The number of workers used is reduced to 75% of default.
          (iv) The data type for some numpy arrays is reduced from float64 to
-              float32.
+         float32.
          Default is 1'000'000.
 
     _int_output_no_new_dir : Boolean (or None), optional

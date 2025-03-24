@@ -41,7 +41,7 @@ Below, you find a table with a brief description of the relevant keyword argumen
 +-------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``lc_cs_share``   | Data for local centering & common support adjustment. Share of trainig data (if lc_cs_cv is False). Default is 0.25.                                               |
 +-------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``lc_cs_cv_k``    | Number of folds in cross-validation (if lc_cs_cv is True). Default is 5.                                                                                           |
+| ``lc_cs_cv_k``    | Number of folds in cross-validation (if lc_cs_cv is True). This is dependent on the size of the training sample and ranges from 2 to 5.                            |
 +-------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 Example

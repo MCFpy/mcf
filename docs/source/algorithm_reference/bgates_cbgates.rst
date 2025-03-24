@@ -39,7 +39,7 @@ Parameters
 
    * - Parameter
      - Description
-   * - ``var_bgate_name``
+   * - ``var_x_name_balance_bgate``
      - This parameter, which can be a string or a list of strings, specifies the variables that the GATEs should be balanced on. It's only relevant if p_bgate is set to True. When a BGATE is computed, the distribution of these specified variables remains constant, ensuring that the effect of the treatment is estimated in a balanced manner across these variables. This helps to control for potential confounding effects that these variables might have on the treatment effect. If set to None, the program defaults to using the other heterogeneity variables (specified in var_z) for balancing. This means that the GATEs will be balanced across the distribution of these heterogeneity variables. 
    * - ``p_bgate``
      - Activates the estimation of a Balanced Group Average Treatment Effect (BGATE). 
@@ -68,7 +68,7 @@ Examples
        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
        var_z_name_list=["x_cont0", "x_cont1"],
        # Variables to balance the GATEs on
-       var_bgate_name=["x_cont0", "x_cont1"],
+       var_x_name_balance_bgate=["x_cont0", "x_cont1"],
        # Estimate a balanced GATE in selected features
        p_bgate=True,
        # Random samples to speed up the programme

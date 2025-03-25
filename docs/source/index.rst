@@ -173,7 +173,8 @@ We use the :py:func:`~example_data_functions.example_data` function to generate 
 Source code and contributing
 -----------------------------
 
-The Python source code is available on `GitHub <https://github.com/MCFpy/mcf>`_. If you have questions, want to report bugs, or have feature requests, please use the `issue tracker <https://github.com/MCFpy/mcf/issues>`__.
+The Python source code is available on `GitHub <https://github.com/MCFpy/mcf>`_. 
+If you have questions, want to report bugs, or have feature requests, please use the `issue tracker <https://github.com/MCFpy/mcf/issues>`__.
 
 References
 ----------

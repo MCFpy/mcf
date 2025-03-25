@@ -1042,6 +1042,7 @@ class ModifiedCausalForest:
         computation and may lead to undesirable behaviour).
         Default is False.
 
+
    Attributes
    ----------
 

@@ -241,7 +241,7 @@ The columns ``outcome_lc1vs0_iate``, ``outcome_lc2vs0_iate``, and ``outcome_lc2v
 
 
 
-**Note 1**: If you specify the methods as in the provided example files, you have access to all the elements discussed above directly from the ``results`` tuple. For example,
+**Note (1)**, if you specify the methods as in the provided example files, you have access to all the elements discussed above directly from the ``results`` tuple. For example,
 
 .. code-block:: python
 
@@ -264,7 +264,7 @@ You can use the :py:meth:`~mcf_functions.ModifiedCausalForest.analyse` method to
 
     my_mcf.analyse(results)
 
-**Note 2**: the above code runs after using the :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method as shown in the example files (see **Note 1**).
+**Note (2)**, the above code runs after using the :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method as shown in the example files (see **Note 1**).
     
 Learning an optimal policy rule
 -------------------------------
@@ -304,7 +304,7 @@ as follows:
         )
 
 
-**Note 3**: The ``pt_depth_tree_1`` parameter specifies the depth of the (first) policy tree. For demonstration purposes we set it to 2. In practice, you should choose a larger value which will increase the computational burden. See the :doc:`User guide <user_guide/optimal-policy_example>` and the :doc:`Algorithm reference <algorithm_reference/optimal-policy_algorithm>` for more detailed explanations.
+**Note (3)**, the ``pt_depth_tree_1`` parameter specifies the depth of the (first) policy tree. For demonstration purposes we set it to 2. In practice, you should choose a larger value which will increase the computational burden. See the :doc:`User guide <user_guide/optimal-policy_example>` and the :doc:`Algorithm reference <algorithm_reference/optimal-policy_algorithm>` for more detailed explanations.
 
 Accessing results
 ~~~~~~~~~~~~~~~~~

@@ -7,6 +7,7 @@ This guide will walk you through using the **mcf** package to:
 
 - estimate heterogeneous treatment effects using the Modified Causal Forest
 - learn an optimal policy rule based on a Policy Tree
+- navigate through the output files structure
 
 
 Example data

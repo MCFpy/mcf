@@ -49,12 +49,12 @@ Documentation
 
   The precision of the results is (almost) entirely determined by the training data, while the prediction data mainly defines the population for which the ATE and other effects are computed.
 
-  mcf deals as follows with large training data: When the training data becomes larger than `cf_chunks_maxsize`, the data is randomly split and for each split a new forest is estimated. In the prediction part, effects are estimated for each forest and subsequently averaged.
+  mcf deals as follows with large training data: When the training data --> larger than `cf_chunks_maxsize`, the data is randomly split and for each split a new forest is estimated. In the prediction part, effects are estimated for each forest and subsequently averaged.
 
   mcf deals as follows with large prediction data: The critical part when computing the effects is the weight matrix. Its size is `N_Tf x N_P`, where `N_P` is the number of observations in the prediction data and `N_Tf` is the number of observations used for the forest `f` estimated. The weight matrix is estimated for each forest (to save memory it is deleted from memory and stored on disk). Although the weight matrix is (as default) using a sparse data format, it can still be very large and it can be very time-consuming to compute.
 
   Reducing computation and demand on memory with minimal performance loss:
-  Tests for very large data (1 million and more) have shown that indeed the prediction part becomes the bottleneck, while the training part computes reasonably fast. Therefore, one way to speed up the mcf and reduce the demand on RAM is to reduce the size of the prediction data (e.g., take a x% random sample). For this approach, tests have shown, for example, that with 1 million training observations, the effect estimates (and standard errors) are very similar if 1 million or only 100,000 prediction observations are used.
+  Tests for very large data (1 million and more) have shown that indeed the prediction part --> the bottleneck, while the training part computes reasonably fast. Therefore, one way to speed up the mcf and reduce the demand on RAM is to reduce the size of the prediction data (e.g., take a x% random sample). For this approach, tests have shown, for example, that with 1 million training observations, the effect estimates (and standard errors) are very similar if 1 million or only 100,000 prediction observations are used.
 
 - **New keywords** (`_int_max_obs_training`, `_int_max_obs_prediction`, `_int_max_obs_kmeans`, `_int_max_obs_post_rel_graphs`) allow setting these parameters accordingly.
 
@@ -109,7 +109,7 @@ ModifiedCausalForest Class
 
 **Change of Default Values**
 
-- Default value of `lc_cs_cv_k` becomes dependent on the size of the training sample (`N`):
+- Default value of `lc_cs_cv_k` --> dependent on the size of the training sample (`N`):
   - `N < 100,000`: 5
   - `100,000 <= N < 250,000`: 4
   - `250,000 <= N < 500,000`: 3
@@ -120,9 +120,9 @@ ModifiedCausalForest Class
 
 **Change of Keywords**
 
-- `var_x_balance_name_ord` becomes `var_x_name_balance_test_ord`
-- `var_x_balance_name_unord` becomes `var_x_name_balance_test_unord`
-- `var_bgate_name` becomes `var_x_name_balance_bgate`
+- `var_x_balance_name_ord` --> `var_x_name_balance_test_ord`
+- `var_x_balance_name_unord` --> `var_x_name_balance_test_unord`
+- `var_bgate_name` --> `var_x_name_balance_bgate`
 
 OptimalPolicy Class
 ~~~~~~~~~~~~~~~~~~~
@@ -183,7 +183,7 @@ Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
 
 - **Name change of keywords**
 
-    - ``post_k_means_single`` becomes ``post_kmeans_single``
+    - ``post_k_means_single`` --> ``post_kmeans_single``
 
 New keywords
 +++++++++++++
@@ -396,10 +396,10 @@ Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
 
 - **Name change of keywords**
 
-    - ``gen_replication`` becomes ``_int_replication``
-    - ``p_amgate`` becomes ``p_cbgate``
-    - ``p_gmate_no_evalu_points`` becomes ``p_gates_no_evalu_points``
-    - ``p_gmate_sample_share`` becomes ``p_bgate_sample_share``
+    - ``gen_replication`` --> ``_int_replication``
+    - ``p_amgate`` --> ``p_cbgate``
+    - ``p_gmate_no_evalu_points`` --> ``p_gates_no_evalu_points``
+    - ``p_gmate_sample_share`` --> ``p_bgate_sample_share``
 
 - **New keyword**
 
@@ -426,8 +426,8 @@ Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
 
     (to use the same names as in the :py:class:`~mcf_functions.ModifiedCausalForest` class)
 
-    - ``var_x_ord_name`` becomes ``var_x_name_ord``
-    - ``var_x_unord_name`` becomes ``var_x_name_unord``
+    - ``var_x_ord_name`` --> ``var_x_name_ord``
+    - ``var_x_unord_name`` --> ``var_x_name_unord``
 
 - **Change of default values**
 
@@ -706,18 +706,18 @@ Name Changes and Default Updates
 
 - Name changes:
 
-    - ``m_share_min`` becomes ``m_min_share``
-    - ``m_share_max`` becomes ``m_max_share``
-    - ``nw_kern_flag`` becomes ``nw_kern``
-    - ``atet_flag`` becomes ``atet``
-    - ``gatet_flag`` becomes ``gatet``
-    - ``iate_flag`` becomes ``iate``
-    - ``iate_se_flag`` becomes ``iate_se``
-    - ``iate_eff_flag`` becomes ``iate_eff``
-    - ``iate_cv_flag`` becomes ``iate_cv``
-    - ``cond_var_flag`` becomes ``cond_var``
-    - ``knn_flag`` becomes ``knn``
-    - ``clean_data_flag`` becomes ``clean_data``
+    - ``m_share_min`` --> ``m_min_share``
+    - ``m_share_max`` --> ``m_max_share``
+    - ``nw_kern_flag`` --> ``nw_kern``
+    - ``atet_flag`` --> ``atet``
+    - ``gatet_flag`` --> ``gatet``
+    - ``iate_flag`` --> ``iate``
+    - ``iate_se_flag`` --> ``iate_se``
+    - ``iate_eff_flag`` --> ``iate_eff``
+    - ``iate_cv_flag`` --> ``iate_cv``
+    - ``cond_var_flag`` --> ``cond_var``
+    - ``knn_flag`` --> ``knn``
+    - ``clean_data_flag`` --> ``clean_data``
 
 - Default values
 
@@ -904,17 +904,17 @@ What's New
 - Keyword modifications:
 
     - ``stop_empty`` removed as parameter,
-    - ``descriptive_stats`` becomes ``_descriptive_stats``,
-    - ``dpi`` becomes ``_dpi``,
-    - ``fontsize`` becomes ``_fontsize``,
-    - ``mp_vim_type`` becomes ``_mp_vim_type``,
-    - ``mp_weights_tree_batch`` becomes ``_mp_weights_tree_batch``,
-    - ``mp_weights_type`` becomes ``_mp_weights_type``,
-    - ``mp_with_ray`` becomes ``_mp_with_ray``,
-    - ``no_filled_plot`` becomes ``_no_filled_plot``,
-    - ``show_plots`` becomes ``_show_plots``,
-    - ``verbose`` becomes ``_verbose``,
-    - ``weight_as_sparse`` becomes ``_weight_as_sparse``,
+    - ``descriptive_stats`` --> ``_descriptive_stats``,
+    - ``dpi`` --> ``_dpi``,
+    - ``fontsize`` --> ``_fontsize``,
+    - ``mp_vim_type`` --> ``_mp_vim_type``,
+    - ``mp_weights_tree_batch`` --> ``_mp_weights_tree_batch``,
+    - ``mp_weights_type`` --> ``_mp_weights_type``,
+    - ``mp_with_ray`` --> ``_mp_with_ray``,
+    - ``no_filled_plot`` --> ``_no_filled_plot``,
+    - ``show_plots`` --> ``_show_plots``,
+    - ``verbose`` --> ``_verbose``,
+    - ``weight_as_sparse`` --> ``_weight_as_sparse``,
     - ``support_adjust_limits`` new keyword for common support.
 
 - Experimental version of continuous treatment. Newly introduced keywords here
@@ -1011,7 +1011,7 @@ What's New
 
     - ``_mp_ray_del``
     - ``_mp_ray_shutdown``
-    - ``mp_ray_objstore_multiplier`` becomes ``_mp_ray_objstore_multiplier``
+    - ``mp_ray_objstore_multiplier`` --> ``_mp_ray_objstore_multiplier``
 
 - New options to deal with larger data sets:
 

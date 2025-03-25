@@ -97,7 +97,8 @@ Computational Speed and Ressources for Effect Estimation
 This section provides key considerations regarding computation and resource management. It includes speed- and resource-related information necessary for tuning the forest via grid search, setting parameter values to optimize runtime, and reducing RAM consumption.
 
 
-- **Forest Tuning via Grid Search**:
+Forest Tuning via Grid Search
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The **mcf** allows for a grid search mainly over three types of parameters: 
 
@@ -109,8 +110,7 @@ The **mcf** allows for a grid search mainly over three types of parameters:
 
 In practical terms, a forest is estimated for all possible combinations of these parameters, with a fixed random seed. Below are the main parameters that you can adjust to either tune your forest or increase computational speed.
 
-
-- **Forest Growing and Subsampling**: 
+**Forest Growing and Subsampling**
 
   - ``cf_boot`` defines the number of trees forming the forest. The larger number will increase processing time. 
 
@@ -134,13 +134,19 @@ In practical terms, a forest is estimated for all possible combinations of these
 
   - ``cf_tune_all``: Tune all parameters. If True, all *_grid keywords will be set to 3. User specified values are respected if larger than 3. Default (or None) is False.
 
-- **Parallel Processing**: 
+**Parallel Processing**
 
   - ``gen_mp_parallel`` defines the number of parallel processes. A smaller value will slow down the program and reduce its demand on RAM. The default value is None, which means 80% of logical cores. If you run into memory problems, reduce the number of parallel processes.
   
-- **Minimization of RAM usage**:
+Minimization of RAM usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When datasets are large, the computational burden (incl. demands on RAM) may increase rapidly. First of all, it is important to remember that the mcf estimation consists of two steps:  (1) Train the forest with the training data (outcome, treatment, features); (2) Predict the effects with the prediction data (needs features only, or treatment and features if e.g. treatment effects on the treated are estimated). The precision of the results is (almost) entirely determined by the training data, while the prediction data (mainly) defines the population which the ATE and other effects are computed for.
+When datasets are large, the computational burden (incl. demands on RAM) may increase rapidly. First of all, it is important to remember that the mcf estimation consists of two steps:
+
+1. Train the forest with the training data (outcome, treatment, features);
+2. Predict the effects with the prediction data (needs features only, or treatment and features if, e.g., treatment effects on the treated are estimated). 
+
+The precision of the results is (almost) entirely determined by the training data, while the prediction data (mainly) defines the population which the ATE and other effects are computed for.
 
 The **mcf** deals as follows with large training data: When the training data becomes larger than ``cf_chunks_maxsize``, the data is randomly split and for each split a new forest is estimated. In the prediction part, effects are estimated for each forest and subsequently averaged.
        

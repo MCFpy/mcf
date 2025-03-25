@@ -69,7 +69,7 @@ If you prefer a graphical interface, do the following:
 
 An alternative to the third step, installing the **mcf** package, is to use `this <https://docs.anaconda.com/free/navigator/getting-started/#managing-packages>`__ guide. It is recommended to prioritize ``conda install`` for package installations before using ``pip install``.
 
-**Note** that if you plan to use Spyder as your IDE on a Windows machine, make sure to execute ``conda install spyder`` before proceeding with ``pip install mcf``. This reduces the risk of errors during installation.
+**Note (1), if you plan to use Spyder as your IDE on a Windows machine, make sure to execute ``conda install spyder`` before proceeding with ``pip install mcf``. This reduces the risk of errors during installation.
 
 .. _usage-example:
 
@@ -162,6 +162,13 @@ We use the :py:func:`~example_data_functions.example_data` function to generate 
                                 optpol=my_optimal_policy,
                                 outputfile='mcf_report')
     my_report.report()
+
+**Note (2)**, to check the version of the **mcf** module used to create an instance, you can additionally run the following code:
+
+.. code-block:: python
+    
+    print(my_mcf.version)
+
 
 Source code and contributing
 -----------------------------

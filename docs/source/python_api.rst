@@ -21,7 +21,6 @@ Modified Causal Forest
 
 .. autoclass:: ModifiedCausalForest
 
-
 Methods
 ^^^^^^^
 
@@ -38,13 +37,11 @@ Methods
       ModifiedCausalForest.analyse
       ModifiedCausalForest.sensitivity
 
-
 .. autosummary:: 
     ~ModifiedCausalForest.train
     ~ModifiedCausalForest.predict
     ~ModifiedCausalForest.analyse
     ~ModifiedCausalForest.sensitivity
-
 
 Optimal Policy
 --------------
@@ -52,7 +49,6 @@ Optimal Policy
 .. currentmodule:: optpolicy_functions
 
 .. autoclass:: OptimalPolicy
-
 
 Methods
 ^^^^^^^
@@ -72,7 +68,6 @@ Methods
       OptimalPolicy.evaluate_multiple
       OptimalPolicy.print_time_strings_all_steps
 
-
 .. autosummary:: 
     ~OptimalPolicy.fairscores
     ~OptimalPolicy.solve
@@ -81,14 +76,12 @@ Methods
     ~OptimalPolicy.evaluate_multiple
     ~OptimalPolicy.print_time_strings_all_steps
 
-
 Reporting
 --------------
 
 .. currentmodule:: reporting
 
 .. autoclass:: McfOptPolReport
-
 
 Methods
 ^^^^^^^
@@ -103,10 +96,8 @@ Methods
       :toctree:
       McfOptPolReport.report
 
-
 .. autosummary:: 
     ~McfOptPolReport.report
-
 
 Example Data function
 ---------------------

@@ -1,37 +1,37 @@
 Modified Causal Forests
 =======================
 
-Welcome to the documentation of **mcf**, the Python package implementing the Modified Causal Forest introduced by `Lechner (2018) <https://doi.org/10.48550/arXiv.1812.09487>`_. This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, mcf offers the capability to learn optimal policy allocations.
+Welcome to the documentation of **mcf**, the Python package implementing the **m**odified **c**ausal **f**orest introduced by `Lechner (2018) <https://doi.org/10.48550/arXiv.1812.09487>`_. This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, it allows to learn optimal policy allocations.
 
 If you're new to the **mcf** package, we recommend following these steps:
 
-- `Installation Guide`_: Learn how to install mcf on your system.
-- `Usage Example`_: Explore a simple example to quickly understand how to apply mcf to your data.
-- :doc:`getting_started`: Dive into a more detailed example to get a better feel for working with mcf.
+- `Installation Guide`_: Learn about the installation procedure for your system.
+- `Usage Example`_: Explore a simple example to see how to apply the **mcf** to your data.
+- :doc:`getting_started`: Dive into a more detailed example.
 
-For those seeking further information:
+For further information:
 
-- The :doc:`user_guide` offers explanations on additional features of the mcf package and provides several example scripts.
-- Check out the :doc:`python_api` for details on interacting with the mcf package.
-- The :doc:`algorithm_reference` provides a technical description of the methods used in the package.
+- :doc:`user_guide`: Explore further features of the package and example scripts.
+- :doc:`python_api`: Get to know the details on how to interact with the package.
+- :doc:`algorithm_reference`: Learn about the technical background of the methods applied in the package.
 
 .. _installation-guide:
 
 Installation Guide
 ------------------
 
-The current version of **mcf** is compatible with **Python 3.12**. You can install mcf from PyPI using:
+The current **mcf** version is compatible with Python 3.12. For the installation you proceed in different ways. 
+
+You can install the package from PyPI using:
 
 .. code-block:: bash
 
     pip install mcf
 
-For a smoother experience and to avoid conflicts with other packages, we strongly recommend using a virtual environment based on **conda**. 
-
-You can manage conda environments either via the command line or a graphical interface. 
+For a smooth experience without conflicts with other packages, use a virtual environment based on conda. You can manage conda environments either via the command line or a graphical interface. 
 The command line offers a compatible solution for all operating systems, making it our recommended choice. However, the graphical interface is more user-friendly.
 
-If you prefer to use the command line, first install conda as described `here <https://docs.conda.io/projects/conda/en/latest/user-guide/install/>`__. Next follow the steps below in your Anaconda Prompt (Windows) or terminal (macOS and Linux):
+If you prefer the command line, install conda as described `here <https://docs.conda.io/projects/conda/en/latest/user-guide/install/>`__. Next open your Anaconda Prompt (Windows) or terminal (macOS and Linux) and do the following:
 
 1. Set up and activate a conda environment named *mcf-env*:
 
@@ -43,25 +43,23 @@ If you prefer to use the command line, first install conda as described `here <h
 
       conda activate mcf-env
 
-2. Install Python **3.12**:
+2. Install Python 3.12:
 
   .. code-block:: bash
 
       conda install Python="3.12"
 
-3. Finally, install **mcf** in this environment using **pip**:
+3. Install **mcf** in this environment using pip:
 
   .. code-block:: bash
 
       pip install mcf
 
+If you prefer a graphical interface, do the following:
 
+1. Install Anaconda distribution including Anaconda navigator from `here <https://docs.anaconda.com/free/navigator/install/>`__.
 
-If you prefer a graphical interface, you can:
-
-1. Install Anaconda distribution including Anaconda navigator by downloading it `here <https://docs.anaconda.com/free/navigator/install/>`__.
-
-2. Set up an environment, follow the guide `here <https://docs.anaconda.com/free/navigator/getting-started/#managing-environments>`__ and make sure you choose **Python=3.12.5** for your environment.
+2. Set up an environment as described `here <https://docs.anaconda.com/free/navigator/getting-started/#managing-environments>`__ and make sure you choose Python=3.12.5 for your environment.
 
 3. Install the **mcf** package by using pip install in your IDE console:
 
@@ -69,17 +67,16 @@ If you prefer a graphical interface, you can:
 
       pip install mcf
 
-An alternative to the step above is to install the **mcf** package using this guide `here <https://docs.anaconda.com/free/navigator/getting-started/#managing-packages>`__.
+An alternative to the third step, installing the **mcf** package, is to use `this <https://docs.anaconda.com/free/navigator/getting-started/#managing-packages>`__ guide. It is recommended to prioritize ``conda install`` for package installations before using ``pip install``.
 
-Note: It is recommended to prioritize ``conda install`` for package installations before using ``pip install``. On a Windows machine, if you plan to use Spyder as your IDE, make sure to execute ``conda install spyder`` before proceeding with ``pip install mcf`` to reduce the risk of errors during installation.
-
+**Note** that if you plan to use Spyder as your IDE on a Windows machine, make sure to execute ``conda install spyder`` before proceeding with ``pip install mcf``. This reduces the risk of errors during installation.
 
 .. _usage-example:
 
 Usage Example
 -------------
 
-To demonstrate how to use **mcf**, we will use the :py:func:`~example_data_functions.example_data` function to generate synthetic datasets for training and prediction, and subsequently apply the :py:class:`~mcf_functions.ModifiedCausalForest`. 
+We use the :py:func:`~example_data_functions.example_data` function to generate synthetic datasets for training and prediction to showcase an application of the :py:class:`~mcf_functions.ModifiedCausalForest`. 
 
 .. code-block:: python
 
@@ -165,9 +162,6 @@ To demonstrate how to use **mcf**, we will use the :py:func:`~example_data_funct
                                 optpol=my_optimal_policy,
                                 outputfile='mcf_report')
     my_report.report()
-
-
-For a more detailed example, see the :doc:`getting_started` section.
 
 Source code and contributing
 -----------------------------

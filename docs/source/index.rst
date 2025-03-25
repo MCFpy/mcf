@@ -1,7 +1,7 @@
 Modified Causal Forests
 =======================
 
-Welcome to the documentation of **mcf**, the Python package implementing the **m**odified **c**ausal **f**orest introduced by `Lechner (2018) <https://doi.org/10.48550/arXiv.1812.09487>`_. This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, it allows to learn optimal policy allocations.
+Welcome to the documentation of **mcf**, the Python package implementing the Modified Causal Forest introduced by `Lechner (2018) <https://doi.org/10.48550/arXiv.1812.09487>`_. This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, it allows to learn optimal policy allocations.
 
 If you're new to the **mcf** package, we recommend following these steps:
 
@@ -69,7 +69,7 @@ If you prefer a graphical interface, do the following:
 
 An alternative to the third step, installing the **mcf** package, is to use `this <https://docs.anaconda.com/free/navigator/getting-started/#managing-packages>`__ guide. It is recommended to prioritize ``conda install`` for package installations before using ``pip install``.
 
-**Note (1), if you plan to use Spyder as your IDE on a Windows machine, make sure to execute ``conda install spyder`` before proceeding with ``pip install mcf``. This reduces the risk of errors during installation.
+**Note (1)**, if you plan to use Spyder as your IDE on a Windows machine, make sure to execute ``conda install spyder`` before proceeding with ``pip install mcf``. This reduces the risk of errors during installation.
 
 .. _usage-example:
 

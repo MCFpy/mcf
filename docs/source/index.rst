@@ -178,23 +178,23 @@ If you have questions, want to report bugs, or have feature requests, please use
 
 References
 ----------
-Conceptual foundation
-^^^^^^^^^^^^^^^^^^^^^
+**Conceptual foundation**:
+
 - Lechner M (2018). **Modified Causal Forests for Estimating Heterogeneous Causal Effects**. `Read Paper <https://doi.org/10.48550/arXiv.1812.09487>`__
 - Lechner M, Mareckova J (2022). **Modified Causal Forest**. `Read Paper <https://doi.org/10.48550/arXiv.2209.03744>`__
 - Lechner M, Bearth N (2024). **Causal Machine Learning for Moderation Effects**. `Read Paper <https://arxiv.org/abs/2401.08290>`__
 
-Algorithm demonstrations
-^^^^^^^^^^^^^^^^^^^^^^^^
+**Algorithm demonstrations**:
+
 - Bodory H, Busshoff H, Lechner M (2022). **High Resolution Treatment Effects Estimation: Uncovering Effect Heterogeneities with the Modified Causal Forest**. *Entropy*. 24(8):1039. `Read Paper <https://doi.org/10.3390/e24081039>`__
 - Bodory H, Mascolo F, Lechner M (2024). **Enabling Decision Making with the Modified Causal Forest: Policy Trees for Treatment Assignment**. *Algorithms*. 17(7):318. `Read Paper <https://doi.org/10.3390/a17070318>`__
 
-Simulations
-^^^^^^^^^^^
+**Simulations**:
+
 - Lechner M, Mareckova J (2024). **Comprehensive Causal Causal Machine Learning**. `Read Paper <https://doi.org/10.48550/arXiv.2405.10198>`__
 
-Applications in diverse fields
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+**Applications in diverse fields**:
+
 - Audrino F, Chassot J, Huang C, Knaus M, Lechner M, Ortega JP (2024). **How does post-earnings announcement affect firms’ dynamics? New evidence from causal machine learning**. *Journal of Financial Econometrics*. 22(3), 575–604. `Read paper <https://academic.oup.com/jfec/article/22/3/575/6640191>`__
 
 - Burlat H (2024). **Everybody’s got to learn sometime? A causal machine learning evaluation of training programmes for jobseekers in France**. *Labour Economics*. In Press. Paper 102573. `Read paper <https://doi.org/10.1016/j.labeco.2024.102573>`__

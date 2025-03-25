@@ -92,11 +92,11 @@ ModifiedCausalForest Class
         Number of IATEs that are estimated in a single ray worker. Default is number of prediction observations / workers. If programme crashes in second part of IATE because of excess memory consumption, reduce _int_iate_chunk_size.
 - The following new keywords define upper limits for sample size. If the actual number is larger than the prespecified number, the respective data will be randomly reduced to the specified upper limit:
 
-  - `_int_max_obs_training`: Integer or None, optional. Reducing observations for training increases MSE and thus should be avoided. Default is infinity.
-  - `_int_max_obs_prediction`: Integer or None, optional. Reducing observations for prediction does not much affect MSE. It may reduce detectable heterogeneity but may also dramatically reduce computation time. Default is 250,000.
-  - `_int_max_obs_kmeans`: Integer or None, optional. Reducing observations for analyzing IATEs does not much affect MSE. It may reduce detectable heterogeneity but also reduces computation time. Default is 200,000.
-  - `_int_max_obs_post_rel_graphs`: Integer or None, optional. Figures showing the relation of IATEs and features (in-built non-parametric regression is computationally intensive). Default is 50,000.
-  - `_int_obs_bigdata`: Integer or None, optional. If the number of training observations is larger than this number, the following happens during training:
+  - **`_int_max_obs_training`**: Integer or None, optional. Reducing observations for training increases MSE and thus should be avoided. Default is infinity.
+  - **`_int_max_obs_prediction`**: Integer or None, optional. Reducing observations for prediction does not much affect MSE. It may reduce detectable heterogeneity but may also dramatically reduce computation time. Default is 250,000.
+  - **`_int_max_obs_kmeans`**: Integer or None, optional. Reducing observations for analyzing IATEs does not much affect MSE. It may reduce detectable heterogeneity but also reduces computation time. Default is 200,000.
+  - **`_int_max_obs_post_rel_graphs`**: Integer or None, optional. Figures showing the relation of IATEs and features (in-built non-parametric regression is computationally intensive). Default is 50,000.
+  - **`_int_obs_bigdata`**: Integer or None, optional. If the number of training observations is larger than this number, the following happens during training:
 
     1. Number of workers is halved in local centering.
     2. Ray is explicitly shut down.
@@ -137,8 +137,8 @@ OptimalPolicy Class
 
 **New Keywords**
 
-- `_int_dpi`: Integer (or None), optional. DPI in plots. Default (or None) is 500. Internal variable, change default only if you know what you do.
-- `_int_fontsize`: Integer (or None), optional. Font for legends, from 1 (very small) to 7 (very large). Default (or None) is 2. Internal variable, change default only if you know what you do.
+- **`_int_dpi`**: Integer (or None), optional. DPI in plots. Default (or None) is 500. Internal variable, change default only if you know what you do.
+- **`_int_fontsize`**: Integer (or None), optional. Font for legends, from 1 (very small) to 7 (very large). Default (or None) is 2. Internal variable, change default only if you know what you do.
 
 **Change of Default Values**
 
@@ -148,8 +148,7 @@ OptimalPolicy Class
 
 To increase the consistency between the mcf and the optimal policy module:
 
-- `_int_parallel_processing` and `_int_how_many_parallel` are deprecated. Instead, the following keyword is used (as in mcf):
-  - `gen_mp_parallel`: Integer (or None), optional. Number of parallel processes (>0). 0, 1: no parallel computations. Default is to use 80% of logical cores (reduce if memory problems!).
+- **`_int_parallel_processing`** and **`_int_how_many_parallel`** are deprecated and replaced by **`gen_mp_parallel`**: Integer (or None), optional. Number of parallel processes (>0). 0, 1: no parallel computations. Default is to use 80% of logical cores (reduce if memory problems!).
 
 
 Version 0.7.1

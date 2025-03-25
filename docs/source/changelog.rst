@@ -35,14 +35,14 @@ Version 0.7.2
 Documentation
 ~~~~~~~~~~~~~~
 
-- The user guide contains a new section on Computational Speed and Resources for effect estimation. This new section summarizes some considerations about computation and resource use.
+- The user guide contains a **new section** on Computational Speed and Resources for effect estimation. This new section summarizes considerations about computation and resource use.
 
-  a) It consists of the (speed and resource relevant) content that is already in section 1.2 of the Algorithmic Reference.
-  b) It now also contains the information on how to reduce the demand on RAM using the parameters `_int_iate_chunk_size` and `_int_weight_as_sparse_splits`.
+  a. It consists of the (speed and resource relevant) content that is already in section 1.2 of the Algorithmic Reference.
+  b. It now also contains the information on how to reduce the demand on RAM using the parameters `_int_iate_chunk_size` and `_int_weight_as_sparse_splits`.
 
   Finally, it contains the following considerations for large data sets:
 
-  "When datasets are large, the computational burden (incl. demands on RAM) may increase rapidly. First of all, it is important to remember that the mcf estimation consists of two steps:
+  When datasets are large, the computational burden (including demands on RAM) may increase rapidly. First of all, it is important to remember that the mcf estimation consists of two steps:
   
   1. Train the forest with the training data (Y, D, X).
   2. Predict the effects with the prediction data (needs X only, or D and X if e.g. treatment effects on the treated are estimated).
@@ -56,53 +56,58 @@ Documentation
   Reducing computation and demand on memory with minimal performance loss:
   Tests for very large data (1 million and more) have shown that indeed the prediction part becomes the bottleneck, while the training part computes reasonably fast. Therefore, one way to speed up the mcf and reduce the demand on RAM is to reduce the size of the prediction data (e.g., take a x% random sample). For this approach, tests have shown, for example, that with 1 million training observations, the effect estimates (and standard errors) are very similar if 1 million or only 100,000 prediction observations are used.
 
-  New keywords (`_int_max_obs_training`, `_int_max_obs_prediction`, `_int_max_obs_kmeans`, `_int_max_obs_post_rel_graphs`) allow setting these parameters accordingly.
+- **New keywords** (`_int_max_obs_training`, `_int_max_obs_prediction`, `_int_max_obs_kmeans`, `_int_max_obs_post_rel_graphs`) allow setting these parameters accordingly.
 
 Example Programs
-----------------
+~~~~~~~~~~~~~~
 
-- `mcf_bgate` (name change): This program was called `min_parameters_mcf_bgate` in previous versions.
-- All example programs have been renamed so that they either start with `mcf_`, `optpolicy_`, or `mcf_optpolicy_` to better indicate their purpose.
-- `mcf_opt_combined` now includes a cross-fitting version that uses the data more effectively at the cost of additional computing costs. Additional information has been added to the file and is also reflected in the updated documentation.
-- Small improvements to some other example programs.
+- **Name change of programs**:
+
+  a. The `mcf_bgate` program was called `min_parameters_mcf_bgate` in previous versions.
+  b. All example programs have been renamed so that they either start with `mcf_`, `optpolicy_`, or `mcf_optpolicy_` to better indicate their purpose.
+
+- **`mcf_opt_combined`** now includes a cross-fitting version that uses the data more effectively at the cost of additional computing costs. Additional information has been added to the file and is also reflected in the updated documentation.
+
+- **Small improvements** to some other example programs.
 
 All Classes
------------
+~~~~~~~~~~~~~~
 
-- `os` module substituted by `pathlib` module for better platform interoperability.
+- *os* **module substituted** by *pathlib* module for better platform interoperability.
 - New public attribute:
-  - `version`: String
-    - Version of the mcf module used to create the instance.
+
+  `version`: String
+    Version of the mcf module used to create the instance.
 
 ModifiedCausalForest Class
---------------------------
+~~~~~~~~~~~~~~
 
-- Fixing bug in variance estimation of BGATE (variance accounts for duplicates in matching).
+- Bug fixes in variance estimation of BGATE (variance accounts for duplicates in matching).
 - Minor bug fixes.
 - Several smaller changes to increase robustness and speed when using very large data.
 
-New Keywords
-~~~~~~~~~~~~
+**New Keywords**
 
-- `_int_iate_chunk_size`: Integer or None, optional. Number of IATEs that are estimated in a ray worker. Default is the number of prediction observations divided by workers. If the program crashes in IATE 2/2 because of excess memory consumption, reduce this number. In the previous version, the value of `_int_iate_chunk_size` was implicitly set to 1.
-- The following new keywords define upper limits for sample size. If the actual number is larger than the prespecified number, then the respective data will be randomly reduced to the specified upper limit:
+- `_int_iate_chunk_size`: Integer or None, optional
+        Number of IATEs that are estimated in a single ray worker. Default is number of prediction observations / workers. If programme crashes in second part of IATE because of excess memory consumption, reduce _int_iate_chunk_size.
+- The following new keywords define upper limits for sample size. If the actual number is larger than the prespecified number, the respective data will be randomly reduced to the specified upper limit:
+
   - `_int_max_obs_training`: Integer or None, optional. Reducing observations for training increases MSE and thus should be avoided. Default is infinity.
   - `_int_max_obs_prediction`: Integer or None, optional. Reducing observations for prediction does not much affect MSE. It may reduce detectable heterogeneity but may also dramatically reduce computation time. Default is 250,000.
   - `_int_max_obs_kmeans`: Integer or None, optional. Reducing observations for analyzing IATEs does not much affect MSE. It may reduce detectable heterogeneity but also reduces computation time. Default is 200,000.
   - `_int_max_obs_post_rel_graphs`: Integer or None, optional. Figures showing the relation of IATEs and features (in-built non-parametric regression is computationally intensive). Default is 50,000.
   - `_int_obs_bigdata`: Integer or None, optional. If the number of training observations is larger than this number, the following happens during training:
+
     1. Number of workers is halved in local centering.
     2. Ray is explicitly shut down.
     3. The number of workers used is reduced to 75% of default.
     4. The data type for some numpy arrays is reduced from float64 to float32. Default is 1,000,000.
 
-New Features
-~~~~~~~~~~~~
+**New Features**
 
 - New figures showing the univariate relations of IATE to single features. Depending on the type of features, these are box or scatter plots (with nonlinear smoother).
 
-Change of Default Values
-~~~~~~~~~~~~~~~~~~~~~~~~~
+**Change of Default Values**
 
 - Default value of `lc_cs_cv_k` becomes dependent on the size of the training sample (`N`):
   - `N < 100,000`: 5
@@ -113,36 +118,32 @@ Change of Default Values
 - The base value in the formula of `cf_chunks_maxsize` has been increased from 75,000 to 90,000, leading to somewhat deeper forests at the expense of some additional memory consumption.
 - The default value for the size of the subsamples drawn in the data part used to be the forest has a new lower bound. It cannot be smaller than the square root of the number of training observations used for finding the splits.
 
-Change of Keywords
-~~~~~~~~~~~~~~~~~~
+**Change of Keywords**
 
-- `var_x_balance_name_ord` -> `var_x_name_balance_test_ord`
-- `var_x_balance_name_unord` -> `var_x_name_balance_test_unord`
-- `var_bgate_name` -> `var_x_name_balance_bgate`
+- `var_x_balance_name_ord` becomes `var_x_name_balance_test_ord`
+- `var_x_balance_name_unord` becomes `var_x_name_balance_test_unord`
+- `var_bgate_name` becomes `var_x_name_balance_bgate`
 
 OptimalPolicy Class
--------------------
+~~~~~~~~~~~~~~~~~~~
 
-- Minor bug fixes.
+- Minor **bug fixes**.
 - Improved readability of output.
-- More statistics describing the respective allocations:
+- **More statistics** describing the respective allocations:
   - An additional reference allocation has been added: It shows the allocation when every unit is allocated to the treatment which is best on average for the data used to evaluate the allocation.
-  - A standard error for the mean of the main welfare measure is printed. This standard error reflects the variability in the evaluation data for a given assignment rule. The variability in the training data when learning the assignment rule is not captured.
-  - New Qini-like plots are added. These plots compare the optimal allocation to a reference allocation (3 allocations are used as such reference allocations, if available: (i) observed, (ii) random, (iii) the treatment with the highest ATE is allocated to everybody). They show the mean welfare when an increasing share of observations (starting with those who gain most from the optimal allocation compared to the reference allocation) is allocated using the optimal allocation rule.
+  - A **standard error for the mean** of the main welfare measure is printed. This standard error reflects the variability in the evaluation data for a given assignment rule. The variability in the training data when learning the assignment rule is not captured.
+  - New **Qini-like plots** are added. These plots compare the optimal allocation to a reference allocation (3 allocations are used as such reference allocations, if available: (i) observed, (ii) random, (iii) the treatment with the highest ATE is allocated to everybody). They show the mean welfare when an increasing share of observations (starting with those who gain most from the optimal allocation compared to the reference allocation) is allocated using the optimal allocation rule.
 
-New Keywords
-~~~~~~~~~~~~
+**New Keywords**
 
 - `_int_dpi`: Integer (or None), optional. DPI in plots. Default (or None) is 500. Internal variable, change default only if you know what you do.
 - `_int_fontsize`: Integer (or None), optional. Font for legends, from 1 (very small) to 7 (very large). Default (or None) is 2. Internal variable, change default only if you know what you do.
 
-Change of Default Values
-~~~~~~~~~~~~~~~~~~~~~~~~~
+**Change of Default Values**
 
 - The default value `pt_eva_cat_mult` has been changed to 2.
 
-Change of Keywords
-~~~~~~~~~~~~~~~~~~
+**Change of Keywords**
 
 To increase the consistency between the mcf and the optimal policy module:
 
@@ -182,7 +183,7 @@ Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
 
 - **Name change of keywords**
 
-    - ``post_k_means_single`` -> ``post_kmeans_single``
+    - ``post_k_means_single`` becomes ``post_kmeans_single``
 
 New keywords
 +++++++++++++
@@ -395,10 +396,10 @@ Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
 
 - **Name change of keywords**
 
-    - ``gen_replication`` --> ``_int_replication``
-    - ``p_amgate`` --> ``p_cbgate``
-    - ``p_gmate_no_evalu_points`` --> ``p_gates_no_evalu_points``
-    - ``p_gmate_sample_share`` --> ``p_bgate_sample_share``
+    - ``gen_replication`` becomes ``_int_replication``
+    - ``p_amgate`` becomes ``p_cbgate``
+    - ``p_gmate_no_evalu_points`` becomes ``p_gates_no_evalu_points``
+    - ``p_gmate_sample_share`` becomes ``p_bgate_sample_share``
 
 - **New keyword**
 
@@ -425,8 +426,8 @@ Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
 
     (to use the same names as in the :py:class:`~mcf_functions.ModifiedCausalForest` class)
 
-    - ``var_x_ord_name`` --> ``var_x_name_ord``
-    - ``var_x_unord_name`` --> ``var_x_name_unord``
+    - ``var_x_ord_name`` becomes ``var_x_name_ord``
+    - ``var_x_unord_name`` becomes ``var_x_name_unord``
 
 - **Change of default values**
 
@@ -705,18 +706,18 @@ Name Changes and Default Updates
 
 - Name changes:
 
-    - ``m_share_min`` --> ``m_min_share``
-    - ``m_share_max`` --> ``m_max_share``
-    - ``nw_kern_flag`` --> ``nw_kern``
-    - ``atet_flag`` --> ``atet``
-    - ``gatet_flag`` --> ``gatet``
-    - ``iate_flag`` --> ``iate``
-    - ``iate_se_flag`` --> ``iate_se``
-    - ``iate_eff_flag`` --> ``iate_eff``
-    - ``iate_cv_flag`` --> ``iate_cv``
-    - ``cond_var_flag`` --> ``cond_var``
-    - ``knn_flag`` --> ``knn``
-    - ``clean_data_flag`` --> ``clean_data``
+    - ``m_share_min`` becomes ``m_min_share``
+    - ``m_share_max`` becomes ``m_max_share``
+    - ``nw_kern_flag`` becomes ``nw_kern``
+    - ``atet_flag`` becomes ``atet``
+    - ``gatet_flag`` becomes ``gatet``
+    - ``iate_flag`` becomes ``iate``
+    - ``iate_se_flag`` becomes ``iate_se``
+    - ``iate_eff_flag`` becomes ``iate_eff``
+    - ``iate_cv_flag`` becomes ``iate_cv``
+    - ``cond_var_flag`` becomes ``cond_var``
+    - ``knn_flag`` becomes ``knn``
+    - ``clean_data_flag`` becomes ``clean_data``
 
 - Default values
 

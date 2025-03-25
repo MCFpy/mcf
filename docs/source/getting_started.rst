@@ -99,7 +99,7 @@ Below you find a selected list of optional parameters that are often used to ini
 Accessing and customizing output location
 ------------------------------------------
 
-The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder where these results are stored.
+The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder where these results are stored. 
 Any method you are using, returns the location of these output files as last return (the reporting method returns the full file name of the pdf file in addition). 
 Manually, you can find the location of the output folder by accessing the ``outpath`` entry of the ``gen_dict`` attribute of your Modified Causal Forest:
 
@@ -108,6 +108,25 @@ Manually, you can find the location of the output folder by accessing the ``outp
     my_mcf.gen_dict["outpath"]
 
 We recommend you specify your preferred location for the output folder using the ``gen_outpath`` parameter of the class :py:class:`~mcf_functions.ModifiedCausalForest`.
+
+Output Folder Structure
+------------------------
+
+The outputs are organized into folders under your specified or default working directory. The structure is as follows:
+
+1. **Reports**: The main PDF report summarizing the results is stored in the `out` folder. This report provides an overview of the analysis and key findings.
+
+2. **ATE, IATE, and GATE Results**: Results for the Average Treatment Effects (ATE), Individualized Average Treatment Effects (IATE), and Group Average Treatment Effects (GATE) are stored in separate subfolders:
+
+- `ate_iate`: Contains graphs and visualizations of ATE and IATE estimators.
+- `gate`: Contains results and visualizations for GATE estimators.
+
+3. **Common Support**: The `common_support` folder contains graphs of common support plots.
+
+4. **Text Outputs**: Two text files are generated for detailed and summarized outputs:
+
+- `txtFileWithOutput`: Contains detailed output logs.
+- `txtFileWithOutput_Summary`: Provides a concise summary of the results.
 
 Training a Modified Causal Forest
 -----------------------------------

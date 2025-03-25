@@ -43,7 +43,7 @@ The type of penalty can be controlled using the ``cf_penalty_type`` keyword, whi
     
 For both options, you can define a multiplier using the ``cf_p_diff_penalty`` keyword to adjust the penalty's impact. An advantage of the 'mse_d' option is that it can be computed using the out-of-bag observations, making it useful when tuning the forest. 
 
-**Note (2)** the random switching option (3) in ``cf_mce_vart`` requires a penalty to function properly, as it does not work without one.
+**Note (2)**, the random switching option (3) in ``cf_mce_vart`` requires a penalty to function properly, as it does not work without one.
 
 Once the forest is ready for training, the splits obtained in the training dataset are transferred to all data subsamples (by treatment state) in the held-out data set. Finally, the mean of the outcomes in each leaf is the prediction.
 

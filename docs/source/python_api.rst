@@ -20,7 +20,7 @@ Modified Causal Forest
 .. currentmodule:: mcf_functions
 
 .. autoclass:: ModifiedCausalForest
-    :attributes:
+
 
 Methods
 ^^^^^^^

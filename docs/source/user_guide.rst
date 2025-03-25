@@ -17,6 +17,7 @@ Modified Causal Forest
     user_guide/feature_selection
     user_guide/post_estimation_diagnostics
     user_guide/experimental_features
+    user_guide/computational_speed
 
 Optimal Policy
 --------------

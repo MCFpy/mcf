@@ -118,7 +118,7 @@ In practical terms, a forest is estimated for all possible combinations of these
 
   - ``cf_m_share_max`` sets the maximum share of variables used at each new split of tree. 
 
-  - ``cf_m_grid`` this parameter determines the number of variables used at each new split of the tree. If grid is used, optimal value is determined by out-of-bag estimation of objective function. The default value is 1. **Note(3)**, the finer the grid-search, the more forests are estimated, which slows down computation time. To identify the best values from the grid-search, the program implements the out-of-bag estimation of the chosen objective. The best performing forest based on its out-of-bag value of its objective function is taken for further computations.
+  - ``cf_m_grid`` this parameter determines the number of variables used at each new split of the tree. If grid is used, optimal value is determined by out-of-bag estimation of objective function. The default value is 1. The finer the grid-search, the more forests are estimated, which slows down computation time. To identify the best values from the grid-search, the program implements the out-of-bag estimation of the chosen objective. The best performing forest based on its out-of-bag value of its objective function is taken for further computations.
 
   - ``cf_n_min_min`` smallest minimum leaf size. Decreasing this minimum leaf size prolongs computation time as it prompts the tree to grow deeper. This augmentation in computation time can be significant with extensive datasets.
 
@@ -155,7 +155,7 @@ Please refer to the :py:class:`API <mcf_functions.ModifiedCausalForest>` for a d
 
 Adjusting these options can help to significantly reduce the computational time, but it may also affect the accuracy of the results. Therefore, it is recommended to understand the implications of each option before adjusting them. Below you find a list and a coding example indicating the discussed parameters that are relevant for parameter tuning and computational speed.
 
-**Note (4)**, the **mcf** achieves faster performance when binary features, such as gender, are defined as ordered, using ``var_x_name_ord`` instead of ``var_x_name_unord``.
+**Note (3)**, the **mcf** achieves faster performance when binary features, such as gender, are defined as ordered, using ``var_x_name_ord`` instead of ``var_x_name_unord``.
 
 .. list-table:: 
    :widths: 30 70

@@ -953,16 +953,16 @@ class ModifiedCausalForest:
 
     _int_mp_weights_tree_batch : Integer (or None), optional
         Number of batches to split data in weight computation for variable
-        importance statistics: The smaller the number of batches, the faster
-        the programme and the more memory is needed.
-        None : Automatically determined.
+        importance statistics. The smaller the number of batches, the faster
+        the program and the more memory is needed.
+        None: Automatically determined.
         Default is None.
         Internal variable, change default only if you know what you do.
 
     _int_mp_weights_type : Integer (or None), optional
         Type of multiprocessing when computing weights:
-        1 : Groups-of-obs based (fast, lots of memory).
-        2 : Tree based (takes forever, less memory).
+        1: Groups-of-obs based (fast, lots of memory).
+        2: Tree based (takes forever, less memory).
         Value of 2 will be internally changed to 1 if multiprocessing.
         Default (or None) is 1.
         Internal variable, change default only if you know what you do.

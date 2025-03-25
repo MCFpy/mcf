@@ -35,10 +35,7 @@ Version 0.7.2
 Documentation
 ~~~~~~~~~~~~~~
 
-- The user guide contains a **new section** on Computational Speed and Resources for effect estimation. This new section summarizes considerations about computation and resource use.
-
-  a. It consists of the (speed and resource relevant) content that is already in section 1.2 of the Algorithmic Reference.
-  b. It now also contains the information on how to reduce the demand on RAM using the parameters **`_int_iate_chunk_size`** and **`_int_weight_as_sparse_splits`**.
+- The user guide contains a **new section** on Computational Speed and Resources for effect estimation. This new section summarizes considerations about computation and resource use. It consists of the (speed and resource relevant) content on grid search, forest growing, and parallel processing that has already been displayed in the documentation. In addition, it now also contains the information on how to reduce the demand on RAM using the parameters **`_int_iate_chunk_size`** and **`_int_weight_as_sparse_splits`**.
 
   Finally, it contains the following considerations for large data sets:
 
@@ -49,9 +46,9 @@ Documentation
 
   The precision of the results is (almost) entirely determined by the training data, while the prediction data mainly defines the population for which the ATE and other effects are computed.
 
-  mcf deals as follows with large training data: When the training data –> larger than **`cf_chunks_maxsize`**, the data is randomly split and for each split a new forest is estimated. In the prediction part, effects are estimated for each forest and subsequently averaged.
+  mcf deals as follows with large *training data*: When the training data –> larger than **`cf_chunks_maxsize`**, the data is randomly split and for each split a new forest is estimated. In the prediction part, effects are estimated for each forest and subsequently averaged.
 
-  mcf deals as follows with large prediction data: The critical part when computing the effects is the weight matrix. Its size is `N_Tf x N_P`, where `N_P` is the number of observations in the prediction data and `N_Tf` is the number of observations used for the forest `f` estimated. The weight matrix is estimated for each forest (to save memory it is deleted from memory and stored on disk). Although the weight matrix is (as default) using a sparse data format, it can still be very large and it can be very time-consuming to compute.
+  mcf deals as follows with large *prediction data*: The critical part when computing the effects is the weight matrix. Its size is :math:`N_{Tf}` x :math:`N_{P}`, where :math:`N_{P}` is the number of observations in the prediction data and :math:`N_{Tf}` is the number of observations used for the forest `f` estimated. The weight matrix is estimated for each forest (to save memory it is deleted from memory and stored on disk). Although the weight matrix is (as default) using a sparse data format, it can still be very large and it can be very time-consuming to compute.
 
   Reducing computation and demand on memory with minimal performance loss:
   Tests for very large data (1 million and more) have shown that indeed the prediction part –> the bottleneck, while the training part computes reasonably fast. Therefore, one way to speed up the mcf and reduce the demand on RAM is to reduce the size of the prediction data (e.g., take a x% random sample). For this approach, tests have shown, for example, that with 1 million training observations, the effect estimates (and standard errors) are very similar if 1 million or only 100,000 prediction observations are used.

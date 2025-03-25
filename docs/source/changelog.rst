@@ -130,6 +130,7 @@ OptimalPolicy Class
 - Minor **bug fixes**.
 - Improved readability of output.
 - **More statistics** describing the respective allocations:
+
   - An additional reference allocation has been added: It shows the allocation when every unit is allocated to the treatment which is best on average for the data used to evaluate the allocation.
   - A **standard error for the mean** of the main welfare measure is printed. This standard error reflects the variability in the evaluation data for a given assignment rule. The variability in the training data when learning the assignment rule is not captured.
   - New **Qini-like plots** are added. These plots compare the optimal allocation to a reference allocation (3 allocations are used as such reference allocations, if available: (i) observed, (ii) random, (iii) the treatment with the highest ATE is allocated to everybody). They show the mean welfare when an increasing share of observations (starting with those who gain most from the optimal allocation compared to the reference allocation) is allocated using the optimal allocation rule.

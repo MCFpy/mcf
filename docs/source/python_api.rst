@@ -38,6 +38,7 @@ Methods
       ModifiedCausalForest.analyse
       ModifiedCausalForest.sensitivity
 
+
 .. autosummary:: 
     ~ModifiedCausalForest.train
     ~ModifiedCausalForest.predict

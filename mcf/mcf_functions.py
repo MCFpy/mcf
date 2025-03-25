@@ -12,7 +12,7 @@ from mcf.mcf_unconfound_functions import blinder_iates_main
 
 class ModifiedCausalForest:
     """
-    Estimation of treatment effects with the Modified Causal Forest.
+    Estimation of treatment effects with the Modified Causal Forest
     
     Parameters
     ----------

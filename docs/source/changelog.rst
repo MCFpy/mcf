@@ -80,7 +80,7 @@ All Classes
     Version of the mcf module used to create the instance.
 
 ModifiedCausalForest Class
-~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Bug fixes in variance estimation of BGATE (variance accounts for duplicates in matching).
 - Minor bug fixes.

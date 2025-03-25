@@ -20,7 +20,7 @@ For further information:
 Installation Guide
 ------------------
 
-The current **mcf** version is compatible with Python 3.12. For the installation you proceed in different ways. 
+The current **mcf** version is compatible with Python 3.12. For the installation you can proceed in different ways. 
 
 You can install the package from PyPI using:
 

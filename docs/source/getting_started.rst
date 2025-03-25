@@ -112,7 +112,7 @@ We recommend you specify your preferred location for the output folder using the
 Output Folder Structure
 ------------------------
 
-The outputs **files** are organized into folders under your specified or default working directory. The structure is as follows:
+The output files are organized into folders under your specified or default working directory. The structure is as follows:
 
 1. **Reports**: The main PDF report summarizing the results is stored in the `out` folder. This report provides an overview of the analysis and key findings.
 
@@ -123,7 +123,7 @@ The outputs **files** are organized into folders under your specified or default
 
 3. **Common Support**: The `common_support` folder contains graphs of common support plots.
 
-4. **Text Outputs**: Two text files are generated for detailed and summarized outputs:
+4. **Text Outputs**: Two .txt files are generated for detailed and summarized outputs:
 
 - `txtFileWithOutput`: Contains detailed output logs.
 - `txtFileWithOutput_Summary`: Provides a concise summary of the results.

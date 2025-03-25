@@ -28,11 +28,12 @@ Changelog
     Note the absence of the tilde '~' in this case. 
 
 
+
 Version 0.7.2
-====================
+-------------
 
 Documentation
--------------
+~~~~~~~~~~~~~~
 
 - The user guide contains a new section on Computational Speed and Resources for effect estimation. This new section summarizes some considerations about computation and resource use.
 

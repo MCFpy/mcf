@@ -1,8 +1,8 @@
 Estimation of treatment effects
 ===============================
 
-Different types of treatment effects
-------------------------------------
+Types of treatment effects
+---------------------------
 
 The Modified Causal Forest estimates three types of treatment effects, which differ in their aggregation level and are discussed in depth by `Lechner (2018) <https://doi.org/10.48550/arXiv.1812.09487>`_. These effects are the average treatment effect (:math:`\textrm{ATE}`), the group average treatment effect (:math:`\textrm{GATE}`), and the individualized average treatment effect (:math:`\textrm{IATE}`). [1]_
 

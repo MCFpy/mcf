@@ -13,7 +13,7 @@ from mcf.mcf_unconfound_functions import blinder_iates_main
 class ModifiedCausalForest:
     """
     Estimation of treatment effects with the Modified Causal Forest.
-
+f
     Parameters
     ----------
     var_y_name : String or List of strings (or None), optional

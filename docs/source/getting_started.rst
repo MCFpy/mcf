@@ -112,7 +112,7 @@ We recommend you specify your preferred location for the output folder using the
 Output Folder Structure
 ------------------------
 
-The outputs are organized into folders under your specified or default working directory. The structure is as follows:
+The outputs **files** are organized into folders under your specified or default working directory. The structure is as follows:
 
 1. **Reports**: The main PDF report summarizing the results is stored in the `out` folder. This report provides an overview of the analysis and key findings.
 

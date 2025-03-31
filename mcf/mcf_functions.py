@@ -325,7 +325,7 @@ class ModifiedCausalForest:
         Size of subsampling sample used to populate tree.
         False: No subsampling in evaluation subsample.
         True or None: :math:(2 \\times \\text{subsample size}) used for
-            tree building (to avoid too many empty leaves).
+        tree building (to avoid too many empty leaves).
         Float (>0): Multiplier of subsample size used for tree building.
         In particular for larger samples, using subsampling in evaluation
         will speed up computations and reduces demand on memory.

@@ -21,6 +21,7 @@ Modified Causal Forest
 
 .. autoclass:: ModifiedCausalForest
 
+
 Methods
 ^^^^^^^
 

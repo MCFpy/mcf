@@ -13,7 +13,7 @@ from mcf.mcf_unconfound_functions import blinder_iates_main
 class ModifiedCausalForest:
     """
     Estimation of treatment effects with the Modified Causal Forest
-    
+
     Parameters
     ----------
     var_y_name : String or List of strings (or None), optional
@@ -43,7 +43,7 @@ class ModifiedCausalForest:
         BGATE is computed. None: Use the other heterogeneity variables
         (var_z_...) (if there are any) for balancing. Default is None.
 
-    var_cluster_name :  String or List of string (or None), optional
+    var_cluster_name :  String or List of string (or None)
         Name of variable defining clusters. Only relevant if p_cluster_std
         is True.
         Default is None.
@@ -62,19 +62,22 @@ class ModifiedCausalForest:
         relevant if p_bt_yes is True.
         Default is None.
 
-    var_x_name_balance_test_unord : String or List of strings (or None), optional
+    var_x_name_balance_test_unord : String or List of strings (or None),
+                               optional
         Name of ordered variables to be used in balancing tests. Treatment
         specific descriptive statistics are only printed for those
         variables.
         Default is None.
 
-    var_x_name_always_in_ord : String or List of strings (or None), optional
+    var_x_name_always_in_ord : String or List of strings (or None),
+                               optional
         Name of ordered variables that are always checked on when deciding on
         the next split during tree building. Only relevant for
         :meth:`~ModifiedCausalForest.train` method.
         Default is None.
 
-    var_x_name_always_in_unord : String or List of strings (or None), optional
+    var_x_name_always_in_unord : String or List of strings (or None),
+                                 optional
         Name of unordered variables that always checked on when deciding on
         the next split during tree building. Only relevant for
         :meth:`~ModifiedCausalForest.train`  method.
@@ -97,7 +100,7 @@ class ModifiedCausalForest:
 
     var_z_name_list : String or List of strings (or None), optional
         Names of ordered variables with many values to define
-        causal heterogeneity. They will be discretized and (dependening
+        causal heterogeneity. They will be discretized (and dependening
         p_gates_smooth) also treated as continuous. If not already included
         in var_x_name_ord, they will be added to the list of features.
         Default is None.
@@ -265,29 +268,29 @@ class ModifiedCausalForest:
         Default (or None) is 1.
 
     cf_p_diff_penalty : Integer (or None), optional
-        Penalty function (depends on the value of `mce_vart`).
-
-    `mce_vart == 0`
-        Irrelevant (no penalty).
-
-    `mce_vart == 1`
-        Multiplier of penalty (in terms of `var(y)`).
-        0 : No penalty.
-        None :
-
-        .. math::
-
-            \\frac{2 \\times (\\text{n} \\times \\text{subsam_share})^{0.9}}{\\text{n} \\times \\text{subsam_share}} \\times \\sqrt{\\frac{\\text{no_of_treatments} \\times (\\text{no_of_treatments} - 1)}{2}}
-
-    `mce_vart == 2`
-        Multiplier of penalty (in terms of MSE(y) value function without splits) for penalty.  
-        0 : No penalty.
-        None :
-
-        .. math::
-
-            \\frac{100 \\times 4 \\times (n \\times \\text{f_c.subsam_share})^{0.8}}{n \\times \\text{f_c.subsam_share}}
-
+            Penalty function (depends on the value of `mce_vart`).
+    
+        `mce_vart == 0`
+            Irrelevant (no penalty).
+    
+        `mce_vart == 1`
+            Multiplier of penalty (in terms of `var(y)`).
+            0 : No penalty.
+            None :
+    
+            .. math::
+    
+                \\frac{2 \\times (\\text{n} \\times \\text{subsam_share})^{0.9}}{\\text{n} \\times \\text{subsam_share}} \\times \\sqrt{\\frac{\\text{no_of_treatments} \\times (\\text{no_of_treatments} - 1)}{2}}
+    
+        `mce_vart == 2`
+            Multiplier of penalty (in terms of MSE(y) value function without splits) for penalty.  
+            0 : No penalty.
+            None :
+    
+            .. math::
+    
+                \\frac{100 \\times 4 \\times (n \\times \\text{f_c.subsam_share})^{0.8}}{n \\times \\text{f_c.subsam_share}}
+    
     cf_penalty_type : String (or None), optional
         Type of penalty function.
         'mse_d':  MSE of treatment prediction in daughter leaf (new in 0.7.0)
@@ -322,7 +325,7 @@ class ModifiedCausalForest:
         Size of subsampling sample used to populate tree.
         False: No subsampling in evaluation subsample.
         True or None: :math:(2 \\times \\text{subsample size}) used for
-        tree building (to avoid too many empty leaves).
+            tree building (to avoid too many empty leaves).
         Float (>0): Multiplier of subsample size used for tree building.
         In particular for larger samples, using subsampling in evaluation
         will speed up computations and reduces demand on memory.
@@ -477,7 +480,7 @@ class ModifiedCausalForest:
         Default is None.
 
     gen_outfiletext : String (or None), optional
-        File for text output. (.txt) file extension will be added.
+        File for text output. (\*.txt) file extension will be added.
         None : 'txtFileWithOutput'.
         Default is None.
 
@@ -682,10 +685,10 @@ class ModifiedCausalForest:
         Default (or None) is True.
 
     p_knn : Boolean (or None), optional
-        True : k-NN estimation. False: Nadaraya-Watson estimation.
-        Nadaray-Watson estimation gives a better approximaton of the
-        variance, but k-NN is much faster, in particular for larger datasets.
-        Default (or None) is True.
+      True : k-NN estimation. False: Nadaraya-Watson estimation.
+      Nadaray-Watson estimation gives a better approximaton of the
+      variance, but k-NN is much faster, in particular for larger datasets.
+      Default (or None) is True.
 
     p_knn_min_k : Integer (or None), optional
         Minimum number of neighbours k-nn estimation.
@@ -736,7 +739,7 @@ class ModifiedCausalForest:
         implies True).
         None : 199 replications p_cluster_std is True, and False otherwise.
         Default is None.
-
+    
     p_se_boot_qiate : Integer or Boolean (or None), optional
         Bootstrap of standard errors for QIATE. Specify either a Boolean (if
         True, number of bootstrap replications will be set to 199) or an
@@ -852,7 +855,7 @@ class ModifiedCausalForest:
         Internal variable, change default only if you know what you do.
 
     _int_dpi : Integer (or None), optional
-        dpi in plots.
+        Dpi in plots.
         Default (or None) is 500.
         Internal variable, change default only if you know what you do.
 
@@ -923,7 +926,7 @@ class ModifiedCausalForest:
         Internal variable, change default only if you know what you do.
 
     _int_mp_ray_objstore_multiplier : Float (or None), optional
-        Changes internal default values for size of Ray object store. Change to
+        Changes internal default values for  Ray object store. Change above
         1 if programme crashes because object store is full. Only relevant
         if _int_mp_ray_shutdown is True.
         Default (or None) is 1.
@@ -958,7 +961,7 @@ class ModifiedCausalForest:
         None: Automatically determined.
         Default is None.
         Internal variable, change default only if you know what you do.
-    
+
     _int_mp_weights_type : Integer (or None), optional
         Type of multiprocessing when computing weights:
         1 : Groups-of-obs based (fast, lots of memory).
@@ -966,7 +969,7 @@ class ModifiedCausalForest:
         Value of 2 will be internally changed to 1 if multiprocessing.
         Default (or None) is 1.
         Internal variable, change default only if you know what you do.
-    
+
     _int_obs_bigdata : Integer (or None), optional
         If number of training observations is larger than this number, the
         following happens during training:
@@ -1007,12 +1010,12 @@ class ModifiedCausalForest:
         Default (or None) is 0.5.
         Internal variable, change default only if you know what you do.
 
-    _int_verbose : Boolean (or None), optional
+    _int_verbose :  Boolean (or None), optional
         Additional output about running of mcf if _int_with_output is True.
         Default (or None) is True.
         Internal variable, change default only if you know what you do.
 
-    _int_weight_as_sparse : Boolean (or None), optional
+    _int_weight_as_sparse :  Boolean (or None), optional
         Save weights matrix as sparse matrix.
         Default (or None) is True.
         Internal variable, change default only if you know what you do.
@@ -1042,14 +1045,14 @@ class ModifiedCausalForest:
         computation and may lead to undesirable behaviour).
         Default is False.
 
-   <NOT-ON-API>
-    
-   Attributes
-   ----------
+    Attributes
+    ----------
 
     version : String
         Version of mcf module used to create the instance.
 
+    <NOT-ON-API>
+        
     blind_dict : Dictionary
         Parameters to compute (partially) blinded IATEs.
 

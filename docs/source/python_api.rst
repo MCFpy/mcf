@@ -51,6 +51,7 @@ Optimal Policy
 
 .. autoclass:: OptimalPolicy
 
+
 Methods
 ^^^^^^^
 
@@ -77,12 +78,14 @@ Methods
     ~OptimalPolicy.evaluate_multiple
     ~OptimalPolicy.print_time_strings_all_steps
 
+
 Reporting
 --------------
 
 .. currentmodule:: reporting
 
 .. autoclass:: McfOptPolReport
+
 
 Methods
 ^^^^^^^

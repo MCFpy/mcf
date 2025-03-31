@@ -1,0 +1,665 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>8. Computational Speed and Ressources for Effect Estimation &#8212; mcf 0.7.2  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=5b4479735964841361fd" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=5b4479735964841361fd" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=5b4479735964841361fd" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=5b4479735964841361fd" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/design-style.1e8bd061cd6da7fc9cf755528e8ffc24.min.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=5b4479735964841361fd" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=5b4479735964841361fd" />
+  <script src="../_static/vendor/fontawesome/6.1.2/js/all.min.js?digest=5b4479735964841361fd"></script>
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/clipboard.min.js"></script>
+    <script src="../_static/copybutton.js"></script>
+    <script src="../_static/design-tabs.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user_guide/computational_speed';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="1. Learning an optimal policy" href="optimal-policy_example.html" />
+    <link rel="prev" title="7. Experimental features" href="experimental_features.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>
+    Back to top
+  </button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">mcf 0.7.2  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../getting_started.html">
+                        Getting started
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="../user_guide.html">
+                        User Guide
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../algorithm_reference.html">
+                        Algorithm Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../python_api.html">
+                        Python API
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../FAQ.html">
+                        FAQ
+                      </a>
+                    </li>
+                
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+                    <li class="nav-item">
+                      <a class="nav-link dropdown-item nav-internal" href="../changelog.html">
+                        Changelog
+                      </a>
+                    </li>
+                
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MCFpy/mcf" title="GitHub" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/mcf/" title="PyPI" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+ <script>
+ document.write(`
+   <button class="btn navbar-btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+    <span class="search-button__default-text">Search</span>
+    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+   </button>
+ `);
+ </script>
+    </div>
+  
+
+  
+    <label class="sidebar-toggle secondary-toggle" for="__secondary" tabindex="0">
+      <span class="fa-solid fa-outdent"></span>
+    </label>
+  
+</div>
+
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item">
+<nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../getting_started.html">
+                        Getting started
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="../user_guide.html">
+                        User Guide
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../algorithm_reference.html">
+                        Algorithm Reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../python_api.html">
+                        Python API
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../FAQ.html">
+                        FAQ
+                      </a>
+                    </li>
+                
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links-2">
+                    More
+                </button>
+                <ul id="pst-nav-more-links-2" class="dropdown-menu">
+                    
+                    <li class="nav-item">
+                      <a class="nav-link dropdown-item nav-internal" href="../changelog.html">
+                        Changelog
+                      </a>
+                    </li>
+                
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch nav-link" data-mode="light"><i class="fa-solid fa-sun fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="dark"><i class="fa-solid fa-moon fa-lg"></i></span>
+    <span class="theme-switch nav-link" data-mode="auto"><i class="fa-solid fa-circle-half-stroke fa-lg"></i></span>
+  </button>
+`);
+</script></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MCFpy/mcf" title="GitHub" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/mcf/" title="PyPI" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i></span>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../user_guide.html" class="nav-link">User Guide</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <div class="section" id="computational-speed-and-ressources-for-effect-estimation">
+<span id="computational-speed"></span><h1><span class="section-number">8. </span>Computational Speed and Ressources for Effect Estimation<a class="headerlink" href="#computational-speed-and-ressources-for-effect-estimation" title="Permalink to this heading">#</a></h1>
+<p>This section provides key considerations regarding computation and resource management. It includes speed- and resource-related information necessary for tuning the forest via grid search, setting parameter values to optimize runtime, and reducing RAM consumption.</p>
+<div class="section" id="forest-tuning-via-grid-search">
+<h2><span class="section-number">8.1. </span>Forest Tuning via Grid Search<a class="headerlink" href="#forest-tuning-via-grid-search" title="Permalink to this heading">#</a></h2>
+<p>The <strong>mcf</strong> allows for a grid search mainly over three types of parameters:</p>
+<ul class="simple">
+<li><p>Number of variables drawn at each split</p></li>
+<li><p>Alpha-Regularity</p></li>
+<li><p>Minimum leaf size</p></li>
+</ul>
+<p>In practical terms, a forest is estimated for all possible combinations of these parameters, with a fixed random seed. Below are the main parameters that you can adjust to either tune your forest or increase computational speed.</p>
+<p><strong>Forest Growing and Subsampling</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">cf_boot</span></code> defines the number of trees forming the forest. The larger number will increase processing time.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cf_m_share_min</span></code> determines the minimum share of variables used at each new split of tree.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cf_m_share_max</span></code> sets the maximum share of variables used at each new split of tree.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cf_m_grid</span></code> this parameter determines the number of variables used at each new split of the tree. If grid is used, optimal value is determined by out-of-bag estimation of objective function. The default value is 1. The finer the grid-search, the more forests are estimated, which slows down computation time. To identify the best values from the grid-search, the program implements the out-of-bag estimation of the chosen objective. The best performing forest based on its out-of-bag value of its objective function is taken for further computations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cf_n_min_min</span></code> smallest minimum leaf size. Decreasing this minimum leaf size prolongs computation time as it prompts the tree to grow deeper. This augmentation in computation time can be significant with extensive datasets.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cf_n_min_max</span></code> largest minimum leaf size.  Similar to its counterpart, adjusting this parameter influences computation time.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cf_chunks_maxsize</span></code> this parameter randomly splits training data in chunks and takes the average of the estimated parameters to improve scalability. This can increase speed and reduce memory demand, but may slightly increase finite sample bias. If <code class="docutils literal notranslate"><span class="pre">cf_chunks_maxsize</span></code> is larger than sample size, there is no random splitting.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cf_subsample_factor_eval</span></code> this parameter determines the fraction of the data to be used for evaluation.  When it’s set to False, no subsampling is performed in the evaluation subsample. If it’s set to True or None, the subsample size used for tree building is employed, which helps to avoid too many empty leaves. If a float value greater than 0 is provided, it’s used as a multiplier of the subsample size for tree building.  This parameter is particularly useful for larger samples, as using subsampling during evaluation can speed up computations and reduce memory demand. It also increases the speed at which asymptotic bias disappears, albeit at the expense of a slower reduction in variance. However, simulations so far show no significant impact from this trade-off.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cf_random_thresholds</span></code> this option can be used to enable the use of random thresholds in the decision trees, which can speed up the tree generation process. If this parameter is set to a value greater than 0, the program doesn’t examine all possible split values of ordered variables. Instead, it only checks a number of random thresholds, with a new randomization for each split. A value of 0 for this parameter means no random thresholds are used. A value greater than 0 specifies the number of random thresholds used for ordered variables. Using fewer thresholds can speed up the program, but it might lead to less accurate results.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">p_choice_based_sampling</span></code> this option allows choice-based sampling to speed up programme if treatment groups have very different sizes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cf_tune_all</span></code>: Tune all parameters. If True, all <a href="#id1"><span class="problematic" id="id2">*</span></a>_grid keywords will be set to 3. User specified values are respected if larger than 3. Default (or None) is False.</p></li>
+</ul>
+<p><strong>Parallel Processing</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">gen_mp_parallel</span></code> defines the number of parallel processes. A smaller value will slow down the program and reduce its demand on RAM. The default value is None, which means 80% of logical cores. If you run into memory problems, reduce the number of parallel processes.</p></li>
+</ul>
+</div>
+<div class="section" id="minimization-of-ram-usage">
+<h2><span class="section-number">8.2. </span>Minimization of RAM usage<a class="headerlink" href="#minimization-of-ram-usage" title="Permalink to this heading">#</a></h2>
+<p>When datasets are large, the computational burden (incl. demands on RAM) may increase rapidly. First of all, it is important to remember that the mcf estimation consists of two steps:</p>
+<ol class="arabic simple">
+<li><p>Train the forest with the training data (outcome, treatment, features);</p></li>
+<li><p>Predict the effects with the prediction data (needs features only, or treatment and features if, e.g., treatment effects on the treated are estimated).</p></li>
+</ol>
+<p>The precision of the results is (almost) entirely determined by the training data, while the prediction data (mainly) defines the population which the ATE and other effects are computed for.</p>
+<p>The <strong>mcf</strong> deals as follows with large training data: When the training data becomes larger than <code class="docutils literal notranslate"><span class="pre">cf_chunks_maxsize</span></code>, the data is randomly split and for each split a new forest is estimated. In the prediction part, effects are estimated for each forest and subsequently averaged.</p>
+<p>The <strong>mcf</strong> deals as follows with large prediction data: The critical part when computing the effects is the weight matrix. Its size is <span class="math notranslate nohighlight">\(N_{Tf}\)</span> x <span class="math notranslate nohighlight">\(N_{P}\)</span>, where <span class="math notranslate nohighlight">\(N_{P}\)</span> is number of observations in the prediction data and <span class="math notranslate nohighlight">\(N_{Tf}\)</span> is the number of observations used for forest estimation. The weight matrix is estimated for each forest (to save memory it is deleted from memory and stored on disk). Although the weight matrix uses (by default) a sparse data format, it may still be very large and it can be very time consuming to compute.</p>
+<p>Reducing computation and demand on memory without much performance loss: Tests for very large data (1 million and more) have shown that indeed the prediction part becomes the bottleneck,while the training part computes reasonably fast. Therefore, one way to speed up the mcf and reduce the demand on RAM is to reduce the size of the prediction data (e.g. take a x% random sample). Tests have shown that, for this approach, effect estimates and standard errors remain very similar whether 1 million or only 100,000 prediction observations are used, even with 1 million training observations.</p>
+<p>The keywords <code class="docutils literal notranslate"><span class="pre">_int_max_obs_training</span></code>, <code class="docutils literal notranslate"><span class="pre">_int_max_obs_prediction</span></code>, <code class="docutils literal notranslate"><span class="pre">_int_max_obs_kmeans</span></code>, and <code class="docutils literal notranslate"><span class="pre">_int_max_obs_post_rel_graphs</span></code> allow one to set these parameters accordingly.</p>
+<p>Please refer to the <a class="reference internal" href="../python_api.html#mcf_functions.ModifiedCausalForest" title="mcf_functions.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">API</span></code></a> for a detailed description of these and other options.</p>
+<p>Adjusting these options can help to significantly reduce the computational time, but it may also affect the accuracy of the results. Therefore, it is recommended to understand the implications of each option before adjusting them. Below you find a list and a coding example indicating the discussed parameters that are relevant for parameter tuning and computational speed.</p>
+<p><strong>Note</strong>, the <strong>mcf</strong> achieves faster performance when binary features, such as gender, are defined as ordered, using <code class="docutils literal notranslate"><span class="pre">var_x_name_ord</span></code> instead of <code class="docutils literal notranslate"><span class="pre">var_x_name_unord</span></code>.</p>
+</div>
+<div class="section" id="example">
+<h2><span class="section-number">8.3. </span>Example<a class="headerlink" href="#example" title="Permalink to this heading">#</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">my_mcf</span> <span class="o">=</span> <span class="n">ModifiedCausalForest</span><span class="p">(</span>
+    <span class="n">var_y_name</span><span class="o">=</span><span class="s2">&quot;outcome&quot;</span><span class="p">,</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">,</span> <span class="s2">&quot;x_ord1&quot;</span><span class="p">],</span>
+    <span class="c1"># Number of trees</span>
+    <span class="n">cf_boot</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+    <span class="c1"># Maximum share of variables used at each new split of tree</span>
+    <span class="n">cf_m_share_max</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>
+    <span class="c1"># Minimum share of variables used at each new split of tree</span>
+    <span class="n">cf_m_share_min</span><span class="o">=</span><span class="mf">0.15</span><span class="p">,</span>
+    <span class="c1"># Number of variables used at each new split of tree</span>
+    <span class="n">cf_m_grid</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="c1"># Smallest minimum leaf size</span>
+    <span class="n">cf_n_min_min</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="c1"># Largest minimum leaf size</span>
+    <span class="n">cf_n_min_max</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="c1"># Number of parallel processes</span>
+    <span class="n">gen_mp_parallel</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="c1"># Tune all parameters</span>
+    <span class="n">cf_tune_all</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># Smallest minimum leaf size</span>
+    <span class="n">_int_iate_chunk_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># Corrected here</span>
+    <span class="c1"># Largest minimum leaf size</span>
+    <span class="n">_int_weight_as_sparse_splits</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="c1"># Number of parallel processes</span>
+    <span class="n">_int_max_obs_training</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="c1"># Tune all parameters</span>
+    <span class="n">_int_max_obs_prediction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="c1"># Number of parallel processes</span>
+    <span class="n">_int_max_obs_kmeans</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="c1"># Tune all parameters</span>
+    <span class="n">_int_max_obs_post_rel_graphs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="experimental_features.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title"><span class="section-number">7. </span>Experimental features</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="optimal-policy_example.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title"><span class="section-number">1. </span>Learning an optimal policy</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#forest-tuning-via-grid-search">8.1. Forest Tuning via Grid Search</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#minimization-of-ram-usage">8.2. Minimization of RAM usage</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example">8.3. Example</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+
+  <div class="tocsection sourcelink">
+    <a href="../_sources/user_guide/computational_speed.rst.txt">
+      <i class="fa-solid fa-file-lines"></i> Show Source
+    </a>
+  </div>
+</div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=5b4479735964841361fd"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=5b4479735964841361fd"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2024, Michael Lechner.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 5.0.2.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.14.4.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

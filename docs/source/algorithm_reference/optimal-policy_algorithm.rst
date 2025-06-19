@@ -31,16 +31,16 @@ Let us look into this method further:
 
 Inputs
 ~~~~~~
-- :math:`({(X_i, \hat{\Theta}_i(j))}_{i=1}^{n})` : A set of observations where :math:`X_i` represents the features of the :math:`i`-th observation and :math:`\hat{\Theta}_i(j)` represents the potential outcome for each observation :math:`i` for each treatment :math:`j`.
-- :math:`(L)` : An integer indicating the depth of the tree plus one.
-- :math:`(p_1)`: The number of ordered features.
-- :math:`(p_2)` : The number of unordered features.
+- :math:`{(X_i, \hat{\Theta}_i(j))}_{i=1}^{n}` : A set of observations where :math:`X_i` represents the features of the :math:`i`-th observation and :math:`\hat{\Theta}_i(j)` represents the potential outcome for each observation :math:`i` for each treatment :math:`j`.
+- :math:`L` : An integer indicating the depth of the tree plus one.
+- :math:`p_1`: The number of ordered features.
+- :math:`p_2` : The number of unordered features.
 
 Outputs
 ~~~~~~~
 
-- :math:`(\mathcal{R})` : The reward, which is the maximum cumulative potential outcome.
-- :math:`(\mathcal{T})` : The policy tree constructed through the algorithm.
+- :math:`\mathcal{R}` : The reward, which is the maximum cumulative potential outcome.
+- :math:`\mathcal{T}` : The policy tree constructed through the algorithm.
 
 Purpose
 ~~~~~~~
@@ -54,20 +54,20 @@ Steps
 
 Here is a step-by-step explanation on how ``policy tree`` works:
 
-1. Case :math:`(L = 1)`, i.e., no further splits are possible. The algorithm defines the best treatment by summing the potential outcomes for each treatment across all observations and selecting the treatment that maximizes this sum. The algorithm returns this maximum sum of potential outcomes across all treatments and the corresponding treatment.
+1. Case :math:`L = 1`, i.e., no further splits are possible. The algorithm defines the best treatment by summing the potential outcomes for each treatment across all observations and selecting the treatment that maximizes this sum. The algorithm returns this maximum sum of potential outcomes across all treatments and the corresponding treatment.
 
-2. Case :math:`(L > 1)`, i.e., further splits are possible. The algorithm initializes the reward :math:`(\mathcal{R})` to negative infinity and the policy tree :math:`(\mathcal{T})` to empty. Loop over all features :math:`X_{m,i}` where :math:`(m = 1, 2, \ldots, p_1 + p_2)`:
+2. Case :math:`L > 1`, i.e., further splits are possible. The algorithm initializes the reward :math:`\mathcal{R}` to negative infinity and the policy tree :math:`\mathcal{T}` to empty. Loop over all features :math:`X_{m,i}` where :math:`(m = 1, 2, \ldots, p_1 + p_2)`:
 
    For each feature, consider all possible split points:
      - Split the data into two sets: left and right, based on the split value.
-     - Recursively apply the tree search algorithm to both sets, reducing the depth :math:`(L)` by 1.
+     - Recursively apply the tree search algorithm to both sets, reducing the depth :math:`L` by 1.
      - Compute the rewards for the left and right splits.
-     - If the sum of the rewards from the left and right splits exceeds the current maximum reward :math:`(\mathcal{R})`, update :math:`(\mathcal{R})` and :math:`(\mathcal{T})` to reflect the new best split.
+     - If the sum of the rewards from the left and right splits exceeds the current maximum reward :math:`\mathcal{R}`, update :math:`\mathcal{R}` and :math:`\mathcal{T}` to reflect the new best split.
 
    After considering all features and all possible splits, return the best reward and the corresponding policy tree.
     Essentially, the algorithm explores potential splits of the data by looping over all features. 
     For each feature, it considers sorted values of ordered features or unique categories of categorical features as potential split points.
-    For each split point, it divides the data into left and right subsets and applies the tree search recursively on these subsets with depth :math:`(L - 1)`.
+    For each split point, it divides the data into left and right subsets and applies the tree search recursively on these subsets with depth :math:`L - 1`.
     The rewards from the left and right recursive calls are summed to determine the effectiveness of the split.
     If a new split yields a higher reward than the current best, the algorithm updates the reward and the structure of the policy tree.
 

@@ -1,0 +1,6 @@
+﻿reporting.McfOptPolReport.report
+================================
+
+.. currentmodule:: reporting
+
+.. automethod:: McfOptPolReport.report

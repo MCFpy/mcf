@@ -1,0 +1,6 @@
+﻿optpolicy\_functions.OptimalPolicy.print\_time\_strings\_all\_steps
+===================================================================
+
+.. currentmodule:: optpolicy_functions
+
+.. automethod:: OptimalPolicy.print_time_strings_all_steps

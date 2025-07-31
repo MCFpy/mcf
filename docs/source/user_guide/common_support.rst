@@ -13,6 +13,7 @@ When common support adjustments are enabled, the **mcf** package will display st
 
 The output text file provides additional information on the common support bounds. For each treatment (excluding the first treatment arm, as the propensity scores sum to one across all treatments), it reports the upper and lower limits of the propensity scores. The cut-off values, defined as the smallest upper bound and the largest lower bound across treatments, are determined from the training dataset and then applied consistently to the dataset used for predicting the effects.
 
+
 .. code-block:: python
 
     from mcf.example_data_functions import example_data

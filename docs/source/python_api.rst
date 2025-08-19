@@ -17,7 +17,7 @@ Overview of classes
 Modified Causal Forest
 ----------------------
 
-.. currentmodule:: mcf_functions
+.. currentmodule:: mcf_main
 
 .. autoclass:: ModifiedCausalForest
 
@@ -47,7 +47,7 @@ Methods
 Optimal Policy
 --------------
 
-.. currentmodule:: optpolicy_functions
+.. currentmodule:: optpolicy_main
 
 .. autoclass:: OptimalPolicy
 

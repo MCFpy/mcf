@@ -107,7 +107,7 @@ Example Data function
 
 .. currentmodule:: example_data_functions
 
-.. autofunction:: example_data
+.. autoclass:: example_data
 
    .. autosummary:: 
       :toctree:

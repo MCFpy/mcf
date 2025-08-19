@@ -12,6 +12,7 @@ Overview of classes
     ~mcf_main.ModifiedCausalForest
     ~optpolicy_main.OptimalPolicy
     ~reporting.McfOptPolReport
+    ~example_data_functions.example_data
 
 
 Modified Causal Forest

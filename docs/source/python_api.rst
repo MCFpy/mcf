@@ -12,7 +12,6 @@ Overview of classes
     ~mcf_main.ModifiedCausalForest
     ~optpolicy_main.OptimalPolicy
     ~reporting.McfOptPolReport
-    ~example_data_functions.example_data
 
 
 Modified Causal Forest
@@ -102,16 +101,4 @@ Methods
 .. autosummary:: 
     ~McfOptPolReport.report
 
-Example Data function
----------------------
 
-.. currentmodule:: example_data_functions
-
-.. autoclass:: example_data
-
-   .. autosummary:: 
-      :toctree:
-      example_data_functions.example_data
-
-.. autosummary:: 
-    ~example_data_functions.example_data

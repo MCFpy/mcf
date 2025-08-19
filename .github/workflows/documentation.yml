@@ -1,4 +1,4 @@
-name: Build Documentation
+name: Build and Deploy Documentation
 
 on:
   push:
@@ -33,3 +33,9 @@ jobs:
       - name: Build documentation
         working-directory: docs
         run: make html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/_build/html

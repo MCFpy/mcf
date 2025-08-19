@@ -19,7 +19,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"   # adjust if your package requires another version
+          python-version: "3.12"   
 
       - name: Upgrade pip
         run: python -m pip install --upgrade pip setuptools wheel

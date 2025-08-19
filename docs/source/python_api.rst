@@ -5,10 +5,10 @@ Overview of classes
 -------------------
 
 .. autosummary::
-    ~mcf.mcf_main.ModifiedCausalForest
-    ~mcf.optpolicy_main.OptimalPolicy
-    ~mcf.reporting.McfOptPolReport
-    ~mcf.example_data_functions.example_data
+    ~mcf_main.ModifiedCausalForest
+    ~optpolicy_main.OptimalPolicy
+    ~reporting.McfOptPolReport
+    ~example_data_functions.example_data
 
 
 Modified Causal Forest

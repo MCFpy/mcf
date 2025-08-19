@@ -10,7 +10,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.2
+Version: 0.8.0
 
 This is an example to show how to combine the ModifiedCausalForest class and
 the OptimalPolicy class for joint estimation. Please note that there could be
@@ -20,12 +20,13 @@ may be superior to the simple split used here.
 """
 from pathlib import Path
 import math
+import warnings
 
 import pandas as pd
 
 from mcf.example_data_functions import example_data
-from mcf.mcf_functions import ModifiedCausalForest
-from mcf.optpolicy_functions import OptimalPolicy
+from mcf.mcf_main import ModifiedCausalForest
+from mcf.optpolicy_main import OptimalPolicy
 from mcf.reporting import McfOptPolReport
 
 
@@ -58,7 +59,7 @@ APPLIC_PATH = Path.cwd() / 'example2'
 # Parameters to generate artificial data (DataFrame) for this example
 TRAIN_OBS = 4000        # Number of observations of training data.
 #      For 'best_policy_score': Training data must contain policy scores.
-#      For 'policy tree': Training data must contain policy scores and features.
+#      For 'policy_tree': Training data must contain policy scores and features.
 #                         Default is 1000.
 
 alldata_df, _, name_dict = example_data(obs_y_d_x_iate=TRAIN_OBS)
@@ -72,17 +73,20 @@ VAR_X_NAME_UNORD = ('x_unord0',)
 # In this example the policy scores will be outputed from mcf predict method.
 
 # ------------------ Define parameters for policy learning ---------------------
-GEN_METHOD = 'policy tree'
+GEN_METHOD = 'policy_tree'
 PT_DEPTH_TREE_1 = 2  # Too small for real application, for demonstration only
 PT_DEPTH_TREE_2 = 2
 
 # --- Crossfitting ---
-CROSSFITTING = True    # Boolean, determines if cross-fitting is used.
+CROSSFITTING = True   # Boolean, determines if cross-fitting is used.
 # ------------------------------------------------------------------------------
 # Check if application path exists, if not create it
 
 if not APPLIC_PATH.exists():
     APPLIC_PATH.mkdir(parents=True)
+
+# Modules may sent many irrelevant warnings: Globally ignore them
+warnings.filterwarnings('ignore')
 
 # Get data ready, if crossfitting:
 #                       - 80% used for training of mcf and policy learner
@@ -123,7 +127,7 @@ mymcf1 = ModifiedCausalForest(var_d_name=VAR_D_NAME,
 mymcf1.train(train_mcf_df)
 
 # Predict policy scores (IATEs) for data used to train allocation rules
-results1, _ = mymcf1.predict(pred_mcf_train_pt_df)
+results1 = mymcf1.predict(pred_mcf_train_pt_df)
 
 if CROSSFITTING:
     # --------- reverse role of train_mcf_df and pred_mcf_train_pt_df ----------
@@ -138,7 +142,7 @@ if CROSSFITTING:
     mymcf2.train(pred_mcf_train_pt_df)
 
     # Predict policy scores for data used to train allocation rules
-    results2, _ = mymcf2.predict(train_mcf_df)
+    results2 = mymcf2.predict(train_mcf_df)
     results = results1.copy()
     # The ATE can be computed as average of the two ATEs
     results['ate'] = (results1['ate'] + results2['ate']) / 2
@@ -156,8 +160,8 @@ mymcf1.analyse(results)
 # Predict policy scores for data used to evaluate allocation rules
 if CROSSFITTING:
     # Both forests are used to predict the policy score in the evaluation data
-    results_oos1, _ = mymcf1.predict(evaluate_pt_df)
-    results_oos2, _ = mymcf2.predict(evaluate_pt_df)
+    results_oos1 = mymcf1.predict(evaluate_pt_df)
+    results_oos2 = mymcf2.predict(evaluate_pt_df)
 
     # Provide ID to deal with common support that might slightly differ for the
     # different forests
@@ -176,7 +180,7 @@ if CROSSFITTING:
     results_oos['ate'] = (results_oos1['ate'] + results_oos2['ate']) / 2
     results_oos['iate_data_df'] = iate_data_df
 else:
-    results_oos, _ = mymcf1.predict(evaluate_pt_df)
+    results_oos = mymcf1.predict(evaluate_pt_df)
 
 # ------------------- Train and evaluate the policy tree -----------------------
 # Get the data for training and evaluation
@@ -207,21 +211,25 @@ myoptp = OptimalPolicy(var_d_name=VAR_D_NAME,
                        gen_method=GEN_METHOD)
 
 # Learn the policy tree
-alloc_train_df, _, _ = myoptp.solve(data_train_pt,
-                                    data_title='Training PT data'
-                                    )
+solve_dict = myoptp.solve(data_train_pt, data_title='Training PT data')
 # Evaluate the learned policy tree on the training data
-results_eva_train, _ = myoptp.evaluate(alloc_train_df, data_train_pt,
-                                       data_title='Training PT data'
-                                       )
+myoptp.evaluate(solve_dict['allocation_df'],
+                data_train_pt,
+                data_title='Training PT data'
+                )
 # Allocate the treatments according to the learned tree for the evaluation data
-alloc_eva_df, _ = myoptp.allocate(oos_df, data_title='')
+results_alloc = myoptp.allocate(oos_df, data_title='')
 
 # Evaluate the learned policy tree on the evaluation data
-results_eva_test, _ = myoptp.evaluate(alloc_eva_df, oos_df,
-                                      data_title='Evaluate PT data'
-                                      )
+myoptp.evaluate(results_alloc['allocation_df'],
+                oos_df,
+                data_title='Evaluate PT data'
+                )
 myoptp.print_time_strings_all_steps()
+
+# Some inference for allocations
+
+mymcf1.predict_different_allocations(oos_df, results_alloc['allocation_df'])
 
 if CROSSFITTING:
     print('Crossfitting used.')

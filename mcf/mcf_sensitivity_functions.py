@@ -7,6 +7,7 @@ Contains the functions needed for the sensitivity analysis.
 """
 from copy import deepcopy
 from time import time
+from typing import TYPE_CHECKING
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,15 +22,28 @@ from mcf import mcf_data_functions as mcf_data
 from mcf.mcf_estimation_generic_functions import moving_avg_mean_var
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_init_functions as mcf_init
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_init_update_helper_functions as mcf_init_update
+from mcf import mcf_print_stats_functions as mcf_ps
 from mcf import mcf_general_sys as mcf_sys
 
+if TYPE_CHECKING:
+    from mcf.mcf_main import ModifiedCausalForest
 
-def sensitivity_main(self, train_df, predict_df=None, results=None,
-                     sens_cbgate=None, sens_bgate=None, sens_gate=None,
-                     sens_iate=None, sens_iate_se=None, sens_scenarios=None,
-                     sens_cv_k=None, sens_replications=2,
-                     sens_reference_population=None):
+
+def sensitivity_main(mcf_: 'ModifiedCausalForest',
+                     train_df: pd.DataFrame | None,
+                     predict_df: pd.DataFrame | None = None,
+                     results: dict | None = None,
+                     sens_cbgate: bool | None = None,
+                     sens_bgate: bool | None = None,
+                     sens_gate: bool | None = None,
+                     sens_iate: bool | None = None,
+                     sens_iate_se: bool | None = None,
+                     sens_scenarios: list | tuple | None = None,
+                     sens_cv_k: int | None = None,
+                     sens_replications: int = 2,
+                     sens_reference_population: int | float | None = None
+                     ) -> dict:
     """
     Compute simulation based sensitivity indicators.
 
@@ -91,8 +105,6 @@ def sensitivity_main(self, train_df, predict_df=None, results=None,
         the sensitivity analysis. Default is to use the treatment with most
         observed observations.
 
-    outpath : String
-        Location of directory in which output is saved.
 
     Returns
     -------
@@ -101,8 +113,6 @@ def sensitivity_main(self, train_df, predict_df=None, results=None,
         :meth:`~ModifiedCausalForest.predict` method but (if applicable)
         averaged over replications.
 
-    outpath : String
-        Location of directory in which output is saved.
     """
     if (isinstance(results, dict)
         and 'iate_data_df' in results and 'iate_names_dic' in results
@@ -113,24 +123,25 @@ def sensitivity_main(self, train_df, predict_df=None, results=None,
         iate_df = None
     if not isinstance(predict_df, pd.DataFrame):
         predict_df = train_df.copy()
-    self.sens_dict = mcf_init.sens_init(
-        self.p_dict, cbgate=sens_cbgate, bgate=sens_bgate, gate=sens_gate,
+    mcf_.sens_dict = mcf_init.sens_init(
+        mcf_.p_dict, cbgate=sens_cbgate, bgate=sens_bgate, gate=sens_gate,
         iate=sens_iate, iate_se=sens_iate_se, scenarios=sens_scenarios,
         cv_k=sens_cv_k, replications=sens_replications,
         reference_population=sens_reference_population, iate_df=iate_df)
-    if self.int_dict['with_output']:
+    if mcf_.int_dict['with_output']:
         time_start = time()
     results_avg, plots_iate, txt_ate = sensitivity_analysis(
-        self, train_df, predict_df, self.int_dict['with_output'], iate_df,
+        mcf_, train_df, predict_df, mcf_.int_dict['with_output'], iate_df,
         seed=9345467)
-    self.report['sens_plots_iate'] = plots_iate
-    self.report['sens_txt_ate'] = txt_ate
-    if self.int_dict['with_output']:
+    mcf_.report['sens_plots_iate'] = plots_iate
+    mcf_.report['sens_txt_ate'] = txt_ate
+    if mcf_.int_dict['with_output']:
         time_difference = [time() - time_start]
         time_string = ['Total time for sensitivity analysis:            ']
-        ps.print_timing(self.gen_dict, 'Sensitiviy analysis', time_string,
-                        time_difference, summary=True)
-    return results_avg, self.gen_dict['outpath']
+        mcf_ps.print_timing(mcf_.gen_dict, 'Sensitiviy analysis', time_string,
+                            time_difference, summary=True)
+
+    return results_avg
 
 
 def sensitivity_analysis(mcf_, train_df, predict_df, with_output, iate_df=None,
@@ -138,8 +149,9 @@ def sensitivity_analysis(mcf_, train_df, predict_df, with_output, iate_df=None,
     """Check sensitivity with respect to possible violations."""
     mcf_.p_dict['bt_yes'] = False
     if with_output:
-        ps.print_mcf(mcf_.gen_dict,
-                     '\n' + '=' * 100 + '\nSensitivity analysis', summary=True)
+        mcf_ps.print_mcf(mcf_.gen_dict,
+                         '\n' + '=' * 100 + '\nSensitivity analysis',
+                         summary=True)
     if mcf_.gen_dict['d_type'] == 'continuous':
         raise NotImplementedError('Sensitivity tests not (yet) implemented'
                                   'for continuous treatments.')
@@ -154,9 +166,9 @@ def sensitivity_analysis(mcf_, train_df, predict_df, with_output, iate_df=None,
     for scenario in mcf_.sens_dict['scenarios']:
         if with_output:
             if with_output:
-                ps.print_mcf(mcf_.gen_dict, '\n' + 'x' * 100
-                             + '\nSensitivity: Scenario: 'f'{scenario}',
-                             summary=True)
+                mcf_ps.print_mcf(mcf_.gen_dict, '\n' + 'x' * 100
+                                 + '\nSensitivity: Scenario: 'f'{scenario}',
+                                 summary=True)
         results_repl = []
         for repl in range(mcf_.sens_dict['replications']):
             # simulate pseudo.treated
@@ -165,15 +177,15 @@ def sensitivity_analysis(mcf_, train_df, predict_df, with_output, iate_df=None,
                 treat_values, rng)
             if with_output:
                 d_probs_str = [str(round(p * 100, 2)) + '%' for p in d_probs]
-                ps.print_mcf(mcf_.gen_dict,
-                             f'\nSensitivity - Scenario: {scenario}, '
-                             f'Replication: {repl+1}, '
-                             'Simulated treatment shares: '
-                             f'{", ".join(d_probs_str)}',
-                             summary=True)
+                mcf_ps.print_mcf(mcf_.gen_dict,
+                                 f'\nSensitivity - Scenario: {scenario}, '
+                                 f'Replication: {repl+1}, '
+                                 'Simulated treatment shares: '
+                                 f'{", ".join(d_probs_str)}',
+                                 summary=True)
             mcf_repl = deepcopy(mcf_)
             if not mcf_.sens_dict['gate']:
-                mcf_repl.var_dict['z_name_list'] = []
+                mcf_repl.var_dict['z_name_cont'] = []
                 mcf_repl.var_dict['z_name_ord'] = []
                 mcf_repl.var_dict['z_name_unord'] = []
             mcf_repl.p_dict['bgate'] = mcf_.sens_dict['bgate']
@@ -190,15 +202,15 @@ def sensitivity_analysis(mcf_, train_df, predict_df, with_output, iate_df=None,
 
             # Estimate and predict
             mcf_repl.train(train_placebo_df)
-            results_tmp, _ = mcf_repl.predict(predict_df)
+            results_tmp = mcf_repl.predict(predict_df)
             results_repl.append(results_tmp)
         results_all_dict[scenario] = deepcopy(results_repl)
     results_avg_dict = average_sens_results(mcf_repl, results_all_dict)
     if with_output:
         for scenario in mcf_.sens_dict['scenarios']:
-            ps.print_mcf(mcf_.gen_dict, '\n' + '-' * 100 +
-                         f'\nSensitivity - Result scenario: {scenario}',
-                         summary=True)
+            mcf_ps.print_mcf(mcf_.gen_dict, '\n' + '-' * 100 +
+                             f'\nSensitivity - Result scenario: {scenario}',
+                             summary=True)
             txt_ate = print_output_ate(mcf_repl, results_avg_dict, scenario)
             if (mcf_.sens_dict['gate'] or mcf_.sens_dict['bgate']
                     or mcf_.sens_dict['cbgate']):
@@ -226,7 +238,7 @@ def print_iate(mcf_, results_avg_dict, iate_df, scenario):
         if do_plots:
             file_name_jpeg = plot_iate(mcf_, data_df, iate_df, name_iate)
             files_jpeg.append(file_name_jpeg)
-    ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+    mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
     names_iate_se = results_scen_dict['iate_names_dic'][0]['names_iate_se']
     cluster_lab_np = None
     if names_iate_se is not None:
@@ -271,12 +283,12 @@ def print_iate(mcf_, results_avg_dict, iate_df, scenario):
         txt += '\n' + '-' * 100 + '\nt-values\n' + '- ' * 50
         cl_means = t_values_df.groupby(by=cl_group).mean(numeric_only=True)
         txt += '\n' + cl_means.transpose().to_string()
-        ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+        mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
         txt += '\n' + '-' * 100 + '\nAll other variables\n' + '- ' * 50
         cl_means = data_df.groupby(by=cl_group).mean(numeric_only=True)
         txt = cl_means.transpose().to_string() + '\n' + '-' * 100
         pd.set_option('display.max_rows', 1000, 'display.max_columns', 100)
-        ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+        mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
         pd.set_option('display.max_rows', None, 'display.max_columns', None)
     return files_jpeg
 
@@ -355,7 +367,7 @@ def print_output_gate(mcf_, results_avg_dict, scenario):
     continuous = mcf_.gen_dict['d_type'] == 'continuous'
     d_values = (mcf_.ct_dict['d_values_dr_np']
                 if continuous else mcf_.gen_dict['d_values'])
-    effect_list = results_scen_dict['ate effect_list']
+    effect_list = results_scen_dict['ate_effect_list']
     gates = ('gate', 'bgate', 'cbgate')
     gates_se = ('gate_se', 'bgate_se', 'cbgate_se')
     txt = ''
@@ -395,7 +407,7 @@ def print_output_gate(mcf_, results_avg_dict, scenario):
                             est = gate_z[o_idx, a_idx]
                             stderr = gate_se_z[o_idx, a_idx]
                             t_val, p_val = get_t_val_pal(est, stderr)
-                            txt += ps.print_effect(
+                            txt += mcf_ps.print_effect(
                                 est, stderr, t_val, p_val, effect_list,
                                 continuous=continuous,
                                 print_first_line=idx == 0,
@@ -408,7 +420,7 @@ def print_output_gate(mcf_, results_avg_dict, scenario):
                                     out_name, mcf_.var_dict['d_name'][0], est,
                                     stderr, d_values[1:], mcf_.int_dict,
                                     mcf_.p_dict)
-            ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+            mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
 
 
 def print_output_ate(mcf_, results_avg_dict, scenario):
@@ -417,7 +429,7 @@ def print_output_ate(mcf_, results_avg_dict, scenario):
     txt = '\n' + '- ' * 50 + '\nATEs (only if p-value < 10%)'
     continuous = mcf_.gen_dict['d_type'] == 'continuous'
     ate, ate_se = results_scen_dict['ate'], results_scen_dict['ate_se']
-    effect_list = results_scen_dict['ate effect_list']
+    effect_list = results_scen_dict['ate_effect_list']
     d_values = (mcf_.ct_dict['d_values_dr_np']
                 if continuous else mcf_.gen_dict['d_values'])
     for o_idx, out_name in enumerate(mcf_.var_dict['y_name']):
@@ -432,14 +444,14 @@ def print_output_ate(mcf_, results_avg_dict, scenario):
             txt += '\n' + '- ' * 50
             est, stderr = ate[o_idx, a_idx], ate_se[o_idx, a_idx]
             t_val, p_val = get_t_val_pal(est, stderr)
-            txt += ps.print_effect(est, stderr, t_val, p_val, effect_list,
-                                   continuous=continuous,
-                                   small_p_val_only=True)
+            txt += mcf_ps.print_effect(est, stderr, t_val, p_val, effect_list,
+                                       continuous=continuous,
+                                       small_p_val_only=True)
             if continuous and a_idx == 0:
                 mcf_ate.dose_response_figure(
                     out_name, mcf_.var_dict['d_name'][0], est, stderr,
                     d_values[1:], mcf_.int_dict, mcf_.p_dict)
-    ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+    mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
     return txt
 
 
@@ -544,13 +556,13 @@ def get_treat_probs_del_treat(mcf_, data_df, with_output):
 
     # Initialise again with data information (only relevant for simulation,
     # not the other steps outside this function.)
-    mcf_init.var_update_train(mcf_copy, data_df)
-    mcf_init.gen_update_train(mcf_copy, data_df)
-    mcf_init.ct_update_train(mcf_copy, data_df)
-    mcf_init.cs_update_train(mcf_copy)
-    mcf_init.cf_update_train(mcf_copy, data_df)
-    mcf_init.int_update_train(mcf_copy)
-    mcf_init.p_update_train(mcf_copy)
+    mcf_init_update.var_update_train(mcf_copy, data_df)
+    mcf_init_update.gen_update_train(mcf_copy, data_df)
+    mcf_init_update.ct_update_train(mcf_copy, data_df)
+    mcf_init_update.cs_update_train(mcf_copy)
+    mcf_init_update.cf_update_train(mcf_copy, data_df)
+    mcf_init_update.int_update_train(mcf_copy)
+    mcf_init_update.p_update_train(mcf_copy)
 
     data_df = mcf_data.create_xz_variables(mcf_copy, data_df, train=True)
 
@@ -567,7 +579,7 @@ def get_treat_probs_del_treat(mcf_, data_df, with_output):
 
     # Estimate out-of-sample probabilities by k-fold cross-validation
     if with_output:
-        ps.print_mcf(
+        mcf_ps.print_mcf(
             gen_dic, '\n' + '-' * 100 + '\nSensitivity: Computing '
                      f'treatment probabilities (by {sens_dic["cv_k"]}'
                      '-fold cross-validation)', summary=True)
@@ -626,5 +638,5 @@ def get_treat_probs_del_treat(mcf_, data_df, with_output):
                 '\n' + f'Share of observations kept: {obs_keep/obs:4.2%}'
                 '\n' + 'Sensivity analysis continues with observations kept'
                 ' only' + '\n' + '-' * 100)
-        ps.print_mcf(gen_dic, txt, summary=True)
+        mcf_ps.print_mcf(gen_dic, txt, summary=True)
     return treatment_prob_np, data_reduced_df, d_name, np.unique(d_np)

@@ -10,16 +10,20 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economic Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.2
+Version: 0.8.0
 
 This is an example to show how to use the mcf with full specification of all
 its keywords. It may be seen as an add-on to the published mcf documentation.
 
 """
 from pathlib import Path
+import warnings
+
+import numpy as np
+import pandas as pd
 
 from mcf.example_data_functions import example_data
-from mcf.mcf_functions import ModifiedCausalForest
+from mcf.mcf_main import ModifiedCausalForest
 from mcf.reporting import McfOptPolReport
 
 # ------------------ NOT parameters of the ModifiedCausalForest ----------------
@@ -27,12 +31,12 @@ from mcf.reporting import McfOptPolReport
 # ---------------------- Generate artificial data ------------------------------
 
 # Parameters to generate artificial data (DataFrame) for this example
-TRAIN_OBS = 1000         # Number of observations of training data.
+TRAIN_OBS = 1000        # Number of observations of training data.
 #                          Training data is used to train the causal forest.
 #                          Training data must contain outcome, treatment
 #                          and features. Default is 1000.
 
-PRED_OBS = 1000           # Number of observations of prediction data.
+PRED_OBS = 1000          # Number of observations of prediction data.
 #                          Prediction data is used to compute the effects.
 #                          Prediction data must contain features. Treatment
 #                          effects on the treated additionally require
@@ -54,7 +58,9 @@ training_df, prediction_df, name_dict = example_data(
     no_treatments=NO_TREATMENTS,
     seed=12345,
     type_of_heterogeneity='WagerAthey',
-    descr_stats=True)
+    descr_stats=True,
+    correlation_x='high'
+    )
 
 if PREDDATA_IS_TRAINDATA:
     prediction_df = None
@@ -63,13 +69,13 @@ if PREDDATA_IS_TRAINDATA:
 # ------------------ Parameters of the ModifiedCausalForest --------------------
 #   Whenever None is specified, parameter will be set to default values.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-GEN_OUTPATH = Path.cwd() / 'example/output'
+GEN_OUTPATH = Path.cwd() / 'example/output'    # Path object, String, or None
 #   Path were the output is written too (text, estimated effects, etc.)
 #   If this is None, a */out directory below the current directory is used.
 #   If specified directory does not exist, it will be created.
 #   OUTPATH is passed to ModifiedCausalForest.
 
-GEN_OUTFILETEXT = 'mcf.py.0.7.2'
+GEN_OUTFILETEXT = 'mcf.py.0.8.0'
 #   File for text output. If gen_outfiletext is None, 'txtFileWithOutput' is
 #   used. *.txt file extension will be added by the programme.
 
@@ -123,7 +129,7 @@ VAR_X_NAME_ALWAYS_IN_UNORD = []
 #   Ordered variables with many values (put discrete variables with only few
 #   values in categories below). They are discretized as well as treated as
 #   continuous for GATE estimation.
-VAR_Z_NAME_LIST = name_dict['x_name_ord'][:2]
+VAR_Z_NAME_CONT = name_dict['x_name_ord'][:2]
 
 # Ordered variables with few values
 VAR_Z_NAME_ORD = name_dict['x_name_ord'][-2:]
@@ -156,8 +162,9 @@ GEN_OUTPUT_TYPE = None      # 0: Output goes to terminal
 #                             2: Output goes to file and terminal (default)
 
 #   ------------- Multiprocessing ----------------------------------------------
-GEN_MP_PARALLEL = None       # Number of parallel processes  (>0)
+GEN_MP_PARALLEL = None      # Number of parallel processes  (>0)
 #   Default is to use 80% of logical cores (reduce if memory problems!)
+#   If _int_obs_bigdata, it is reduced to 75% of specified value.
 #   0, 1: no parallel computations
 
 #   ------------- Data cleaning ------------------------------------------------
@@ -170,7 +177,7 @@ DC_CLEAN_DATA = None         # if True (default), remove all rows with missing
 #      observations & unnecessary variables from DataFrame.
 
 #   ------------- Training the causal forest -----------------------------------
-CF_BOOT = None              # Number of Causal Trees. Default is 1000.
+CF_BOOT = None    # Number of Causal Trees. Default is 1000.
 
 #   Estimation methods
 CF_MCE_VART = None  # Splitting rule
@@ -213,9 +220,9 @@ CF_COMPARE_ONLY_TO_ZERO = None      # If True, the computation of the MCE
 
 #   Subsampling
 CF_SUBSAMPLE_FACTOR_FOREST = None   # Size of subsampling sample to build tree
-#   Default size of subsample is: max(min(0.67 n,(2*(n**0.85)/n)), n**0.5);
+#   Default size of subsample is: max(min(0.67*n,(2*(n**0.85)/n)), n**0.5);
 #   N: sample size;  n: 2x sample size of the smallest treatment group
-#   >0: reduces (<1) or increases (>1) the default subsample size, max is 0.8
+#   >0: reduces (<1) or increases (>1) the default subsample size, max is 0.67
 #   Actual share of subsample = default size * SUBSAMPLE_FACTOR_FOREST
 #   Default: SUBSAMPLE_FACTOR_FOREST = 1
 
@@ -312,7 +319,7 @@ CF_CHUNKS_MAXSIZE = None  # Maximum number of observations allowed per chunk.
 #   If CF_CHUNKS_MAXSIZE is larger than sample size: No random splitting.
 #   Default: If less than 90000 training observations: No splitting. Otherwise,
 #   the maximal size of each chunksize is obtained as
-#   90000 + (number of observations - 90000)**0.8 / (# of treatments-1)
+#   100000 + (number of observations - 100000)**0.8 / (# of treatments-1)
 
 #   Variable importance for causal forest
 CF_VI_OOB_YES = None
@@ -388,8 +395,16 @@ CS_MAX_DEL_TRAIN = None
 #   If share of observations in training data used that are
 #   OFF support is larger than SUPPORT_MAX_DEL_TRAIN (0-1), programme will be
 #   terminated and user should change input data. Default is 0.5.
+CS_DETECT_CONST_VARS_STOP = None
+#   Control variables that have no variation inside a treatment arm violate the
+#   common support condition. If CS_DETECT_VARS_NO_VAR_STOP is True, data will
+#   checked for such variables and an exception is raised if such a variable is
+#   detected. Then, the user has to decide to either adjust the data (by
+#   deleting observations with the value of the variable that creates the
+#   problem) or delete this variable. Default is True.
 
-#   --- Switch role of forest and y-sample and average prediction, no inference
+#   --- Switch role of forest and y-sample and average prediction
+#                    -- inference is not possible --
 GEN_IATE_EFF = None      # True: Second round of IATEs are estimated
 #   based on switching training and estimation subsamples. This increase their
 #   efficiency, but does not allow inference on these more efficient estimates.
@@ -535,8 +550,6 @@ P_QIATE_SMOOTH_BANDWIDTH = None  # Multiplier applied to default bandwidth
 P_QIATE_BIAS_ADJUST = None       # Bias correction procedure for QIATEs based on
 #   simulations. Default is True.
 #   If P_QIATE_BIAS_ADJUST is True, P_IATE_SE is set to True as well.
-P_QIATE_BIAS_ADJUST_DRAWS = None  # Number of random draws used in computing
-#   the bias adjustment. Default is 1000.
 
 #   ------------- Analysis of effects ------------------------------------------
 POST_EST_STATS = None   # Analyses the predictions by binary correlations
@@ -628,8 +641,8 @@ _INT_WEIGHT_AS_SPARSE = None    # Weights matrix stored as sparse matrix.
 
 _INT_IATE_CHUNK_SIZE = None     # Number of IATEs that are estimated in a
 #   ray worker. Default is number of prediction observations / workers.
-#   If programme crashes in IATE 2/2 because of excess memory consumption,
-#   reduce this number.
+#   If programme If programme crashes in IATE in the second part of IATE
+#   estimation (2/2) because of excess memory consumption, reduce this number.
 
 _INT_WEIGHT_AS_SPARSE_SPLITS = None  # Sparse weight matrix computed in several
 #   chunks. Default is
@@ -692,9 +705,8 @@ _INT_KEEP_W0 = None            # Keep all zeros weights when computing
 _INT_OBS_BIGDATA = None  # If number of training observations is larger
 # than _INT_OBS_BIGDATA, the following happens during training and prediction:
 #    (i) Number of workers is halved in local centering.
-#    (ii) Ray is explicitely shut down.
-#    (iii) The number of workers used is reduced to 75% of default.
-#    (iv) The data type for many numpy arrays is reduced from float64 to
+#    (ii) The number of workers used is reduced to 75% of default.
+#    (iii) The data type for many numpy arrays is reduced from float64 to
 #         float32.
 #    Default is 1'000'000.
 _INT_MAX_OBS_TRAINING = None     # Training method: Reducing observations
@@ -712,7 +724,6 @@ _INT_MAX_OBS_POST_REL_GRAPHS = None  # Figures showing relation of IATEs and
 #   Default is 50'000.
 
 # ---------------------------------------------------------------------------
-
 # For convenience the mcf parameters are collected and passed as a dictionary.
 # Of course, they can also be passed as single parameters (or not at all, in
 # which case default values are used).
@@ -787,7 +798,6 @@ params = {
     'p_qiate_smooth': P_QIATE_SMOOTH,
     'p_qiate_smooth_bandwidth': P_QIATE_SMOOTH_BANDWIDTH,
     'p_qiate_bias_adjust': P_QIATE_BIAS_ADJUST,
-    'p_qiate_bias_adjust_draws': P_QIATE_BIAS_ADJUST_DRAWS,
     'p_se_boot_ate': P_SE_BOOT_ATE, 'p_se_boot_gate': P_SE_BOOT_GATE,
     'p_se_boot_iate': P_SE_BOOT_IATE,
     'var_x_name_balance_bgate': VAR_X_NAME_BALANCE_BGATE,
@@ -803,7 +813,7 @@ params = {
     'var_x_name_remain_unord': VAR_X_NAME_REMAIN_UNORD,
     'var_x_name_ord': VAR_X_NAME_ORD, 'var_x_name_unord': VAR_X_NAME_UNORD,
     'var_y_name': VAR_Y_NAME, 'var_y_tree_name': VAR_Y_TREE_NAME,
-    'var_z_name_list': VAR_Z_NAME_LIST, 'var_z_name_ord': VAR_Z_NAME_ORD,
+    'var_z_name_cont': VAR_Z_NAME_CONT, 'var_z_name_ord': VAR_Z_NAME_ORD,
     'var_z_name_unord': VAR_Z_NAME_UNORD,
     '_int_cuda': _INT_CUDA,
     '_int_del_forest': _INT_DEL_FOREST,
@@ -845,19 +855,37 @@ params_sensitivity = {
     'sens_reference_population': SENS_REFERENCE_POPULATION
      }
 
+# ------------------------------------------------------------------------------
+# Modules may sent many irrelevant warnings: Globally ignore them
+warnings.filterwarnings('ignore')
+
+# Some data to be used by the method
+zeros_df = pd.DataFrame(np.zeros(len(prediction_df)), columns=('zeros',))
+ones_df = pd.DataFrame(np.ones(len(prediction_df)), columns=('ones',))
+if NO_TREATMENTS < 3:
+    test_alloc_df = pd.concat((prediction_df[VAR_D_NAME], zeros_df, ones_df, ),
+                              axis=1)
+else:
+    twos_df = pd.DataFrame(np.ones(len(prediction_df))*2, columns=('twos',))
+    test_alloc_df = pd.concat((prediction_df[VAR_D_NAME], zeros_df, ones_df,
+                               twos_df,),
+                              axis=1)
+test_alloc_df.rename(columns={'treat': 'observed'}, inplace=True)
+# ------------------------------------------------------------------------------
 
 mymcf = ModifiedCausalForest(**params)
 
-tree_df, fill_y_df, _ = mymcf.train(training_df)  # Returns not used here
+mymcf.train(training_df)
+results = mymcf.predict(prediction_df)
 
-results, _ = mymcf.predict(prediction_df)
+results_with_cluster_id_df = mymcf.analyse(results)
 
-results_with_cluster_id_df, _ = mymcf.analyse(results)
+mymcf.predict_different_allocations(prediction_df, test_alloc_df)
 
 params['gen_outpath'] = GEN_OUTPATH / 'sensitivity'
 mymcf_sens = ModifiedCausalForest(**params)
 params_sensitivity['results'] = results
-results_all_dict, _ = mymcf_sens.sensitivity(training_df, **params_sensitivity)
+mymcf_sens.sensitivity(training_df, **params_sensitivity)
 
 my_report = McfOptPolReport(mcf=mymcf, mcf_sense=mymcf_sens)
 my_report.report()

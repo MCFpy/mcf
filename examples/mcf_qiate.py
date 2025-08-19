@@ -10,7 +10,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.2
+Version: 0.8.0
 
 This is an example to show how the qiates of mcf can be computed relying
 on defaults for parameters not related to QIATE estimation. Note that usually in
@@ -19,9 +19,10 @@ default specifications.
 
 """
 from pathlib import Path
+import warnings
 
 from mcf.example_data_functions import example_data
-from mcf.mcf_functions import ModifiedCausalForest
+from mcf.mcf_main import ModifiedCausalForest
 from mcf.reporting import McfOptPolReport
 
 
@@ -32,8 +33,9 @@ APPLIC_PATH = Path.cwd() / 'example/output'
 # ---------------------- Generate artificial data ------------------------------
 
 training_df, prediction_df, name_dict = example_data(no_treatments=2,
-                                                     obs_y_d_x_iate=1000,
-                                                     obs_x_iate=1000)
+                                                     obs_y_d_x_iate=2000,
+                                                     obs_x_iate=2000,
+                                                     no_effect=False)
 
 # ------------------ Parameters of the ModifiedCausalForest -------------------
 
@@ -65,14 +67,16 @@ P_QIATE_SMOOTH = None           # True: Smooth estimated QIATEs using kernel
 #   smoothing. Default is True.
 P_QIATE_SMOOTH_BANDWIDTH = None  # Multiplier applied to default bandwidth
 #   used for kernel smoothing of QIATE. Default is 1
-P_QIATE_BIAS_ADJUST = None       # Bias correction procedure for QIATEs based on
-#   simulations. Default is True.
+P_QIATE_BIAS_ADJUST = None       # Bias correction procedure for QIATEs.
+#   (see Kutz and Lechner, 2025, for details). Default (or None) is True.
 #   If P_QIATE_BIAS_ADJUST is True, P_IATE_SE is set to True as well.
-P_QIATE_BIAS_ADJUST_DRAWS = None  # Number of random draws used in computing
-#   the bias adjustment. Default is 1000.
+
 # -----------------------------------------------------------------------------
 if not APPLIC_PATH.exists():
     APPLIC_PATH.mkdir(parents=True)
+
+# Modules may sent many irrelevant warnings: Globally ignore them
+warnings.filterwarnings('ignore')
 # -----------------------------------------------------------------------------
 mymcf = ModifiedCausalForest(
     gen_outpath=APPLIC_PATH,
@@ -88,15 +92,14 @@ mymcf = ModifiedCausalForest(
     p_qiate_smooth=P_QIATE_SMOOTH,
     p_qiate_smooth_bandwidth=P_QIATE_SMOOTH_BANDWIDTH,
     p_qiate_bias_adjust=P_QIATE_BIAS_ADJUST,
-    p_qiate_bias_adjust_draws=P_QIATE_BIAS_ADJUST_DRAWS,
     cf_boot=None,
     gen_mp_parallel=None,
                              )
 
 mymcf.train(training_df)  # Returns not used here
-results, _ = mymcf.predict(prediction_df)
+results = mymcf.predict(prediction_df)
 
-results_with_cluster_id_df, _ = mymcf.analyse(results)
+results_with_cluster_id_df = mymcf.analyse(results)
 
 my_report = McfOptPolReport(mcf=mymcf)
 

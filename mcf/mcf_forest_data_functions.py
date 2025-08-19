@@ -103,8 +103,7 @@ def prepare_data_for_forest(mcf_, data_df, no_y_nn=False):
     else:
         d_grid_i = None
     y_i = [0]
-    if (len(data_np) > mcf_.int_dict['obs_bigdata']
-            and data_np.dtype == np.float64):
+    if mcf_.int_dict['bigdata_train'] and data_np.dtype == np.float64:
         data_np = data_np.astype(np.float32)  # Saves some memory
 
     return (x_name, x_type, x_values, cf_dic, pen_mult, data_np,
@@ -143,6 +142,65 @@ def m_n_grid(cf_dic, no_vars):
 
 
 def nn_matched_outcomes(mcf_, data_df, print_out=True):
+    """Find nearest neighbours (master file)."""
+    if len(data_df) > 50000:   # Otherwise ***_issue17 is faster
+        data_new_df, mcf_.var_dict = nn_matched_outcomes_072(mcf_,
+                                                             data_df,
+                                                             print_out
+                                                             )
+    else:
+        d_name, d_values, no_of_treat = mcf_data.get_treat_info(mcf_)
+        data_nn, txt = nn_matched_outcomes_issue_17(
+           data_df,
+           mcf_.var_x_type,
+           mcf_.var_dict['y_tree_name'],
+           mcf_.var_dict['y_tree_name_unc'],
+           mcf_.cf_dict['match_nn_prog_score'],
+           mcf_.lc_dict['yes'],
+           d_name,
+           d_values,
+           no_of_treat,
+           mcf_.cf_dict['mtot'],
+           mcf_.cf_dict['boot'],
+           mcf_.gen_dict['mp_parallel'],
+           mcf_.cf_dict['nn_main_diag_only'],
+           )
+
+        data_new_df = pd.concat((data_df, data_nn), axis=1)
+        mcf_.var_dict['y_match_name'] = list(data_nn.columns)
+
+        if mcf_.gen_dict['with_output']:
+            mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+            if print_out:
+                mcf_ps.print_mcf(mcf_.gen_dict,
+                                 '\nMatched outcomes',
+                                 summary=True
+                                 )
+                mcf_ps.print_descriptive_df(
+                    mcf_.gen_dict,
+                    data_new_df,
+                    varnames=mcf_.var_dict['y_match_name'],
+                    summary=True
+                    )
+                if mcf_.int_dict['descriptive_stats']:
+                    txt = '\nStatistics on matched neighbours of variable used '
+                    txt += 'for tree building'
+                    mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+                    d_name = (mcf_.var_dict['grid_nn_name']
+                              if mcf_.gen_dict['d_type'] == 'continuous'
+                              else mcf_.var_dict['d_name']
+                              )
+                    mcf_ps.statistics_by_treatment(
+                        mcf_.gen_dict, data_new_df,
+                        d_name, mcf_.var_dict['y_match_name'],
+                        only_next=mcf_.gen_dict['d_type'] == 'continuous',
+                        summary=False,
+                        data_train_dic=mcf_.data_train_dict)
+
+    return data_new_df, mcf_.var_dict
+
+
+def nn_matched_outcomes_072(mcf_, data_df, print_out=True):
     """Find nearest neighbours."""
     var_dic, gen_dic, cf_dic = mcf_.var_dict, mcf_.gen_dict, mcf_.cf_dict
     lc_dic, var_x_type = mcf_.lc_dict, mcf_.var_x_type
@@ -150,8 +208,11 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
     if gen_dic['x_type_1'] or gen_dic['x_type_2']:  # Expand cat var to dummy
         var_names_unordered = mcf_gp.dic_get_list_of_key_by_item(var_x_type,
                                                                  [1, 2])
-        x_dummies = data_df[var_names_unordered].astype('category')
-        x_dummies = pd.get_dummies(x_dummies, dtype=int)
+        x_dummies = pd.get_dummies(
+            data_df[var_names_unordered].astype('category'),
+            dtype=int)
+    else:
+        x_dummies = None
     if gen_dic['x_type_0']:
         var_names_ordered = mcf_gp.dic_get_list_of_key_by_item(var_x_type, [0])
         x_ord = data_df[var_names_ordered]
@@ -179,20 +240,28 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
     if (cf_dic['match_nn_prog_score']
         and ((cf_dic['mtot'] == 1) or (cf_dic['mtot'] == 4))
             and (len(x_df.columns) >= 2 * no_of_treat)):
+
         if gen_dic['with_output'] and gen_dic['verbose']:
             mcf_ps.print_mcf(gen_dic,
                              '\nComputing prognostic score for matching',
                              summary=False)
+
         cf_dic['nn_main_diag_only'] = False   # Use full Mahalanobis matrix
         x_dat_neu = np.empty((obs, no_of_treat))
-        params = {'n_estimators': cf_dic['boot'], 'max_features': 'sqrt',
-                  'bootstrap': True, 'oob_score': False,
+
+        params = {'n_estimators': cf_dic['boot'],
+                  'max_features': 'sqrt',
+                  'bootstrap': True,
+                  'oob_score': False,
                   'n_jobs': gen_dic['mp_parallel'],
-                  'random_state': 42, 'verbose': False}
+                  'random_state': 42,
+                  'verbose': False}
+
         if len(np.unique(y_dat_match)) < 10:
             y_rf_obj_all = RandomForestClassifier(**params)
         else:
             y_rf_obj_all = RandomForestRegressor(**params)
+
         for midx, d_val in enumerate(d_values):
             y_rf_obj = deepcopy(y_rf_obj_all)
             d_m = d_dat == d_val
@@ -202,14 +271,15 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
             y_rf_obj.fit(x_dat_m, y_dat_m.ravel())
             x_dat_neu[:, midx] = y_rf_obj.predict(x_dat)
         x_dat = x_dat_neu
+
     if (cf_dic['match_nn_prog_score']
-        and ((cf_dic['mtot'] == 1) or (cf_dic['mtot'] == 4))
+        and (cf_dic['mtot'] in [1, 4])
             and (len(x_df.columns) < 2 * no_of_treat)):
         if gen_dic['with_output'] and gen_dic['verbose']:
             txt = '\nPrognostic scores not used for matching '
             txt += '(too few covariates)'
             mcf_ps.print_mcf(gen_dic, txt, summary=False)
-    if (cf_dic['mtot'] == 1) or (cf_dic['mtot'] == 4):
+    if cf_dic['mtot'] in [1, 4]:
         y_match = np.empty((obs, no_of_treat))
         # determine distance metric of Mahalanobis matching
         k = np.shape(x_dat)
@@ -238,14 +308,19 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
                 else:
                     maxworkers = gen_dic['mp_parallel']
         if gen_dic['with_output'] and gen_dic['verbose']:
-            print('Matching')
-            txt = f'\nNumber of parallel processes for Ray: {maxworkers}'
+            print('Method used: Matching')
+            if maxworkers > 1:
+                txt = f'\nNumber of parallel processes (matching): {maxworkers}'
+            else:
+                txt = ''
             if int_dic['cuda'] and not cuda:
                 txt += (' (GPU is currently not used for NN matching as it is'
                         ' too slow)')
             elif cuda:
                 txt += '  GPU is used instead of multiple CPUs.'
-            mcf_ps.print_mcf(gen_dic, txt, summary=False)
+            if txt != '':
+                mcf_ps.print_mcf(gen_dic, txt, summary=False)
+
         if maxworkers == 1:
             for i_treat, i_value in enumerate(d_values):
                 if cuda:
@@ -258,7 +333,10 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
                         )[0].flatten()
                 else:  # Parallelized with prange of Numba (fastest)
                     y_match[:, i_treat] = nn_neighbour_mcf2_parallel(
-                        y_dat, x_dat, d_dat, obs, cov_x_inv, i_value, i_treat
+                        y_dat.astype(np.float64),
+                        x_dat.astype(np.float64),
+                        d_dat.astype(np.float64),
+                        obs, cov_x_inv, i_value, i_treat
                         )[0].flatten()
         else:
             if not ray.is_initialized():
@@ -280,8 +358,10 @@ def nn_matched_outcomes(mcf_, data_df, print_out=True):
                 del x_dat_ref
             if 'rest' in int_dic['mp_ray_del']:
                 del finished_res, finished
-            if int_dic['mp_ray_shutdown']:
-                ray.shutdown()
+            # if int_dic['mp_ray_shutdown']:
+            #     ray.shutdown()
+            #     mcf_ps.print_mcf(gen_dic, 'Ray is shuting down.',
+            #                      summary=False)
     else:
         y_match = np.zeros((obs, no_of_treat))
     treat_val_str = [str(i) for i in d_values]
@@ -412,7 +492,6 @@ def nn_neighbour_mcf2(y_dat, x_dat, d_dat, obs, cov_x_inv, treat_value,
 
     """
     mask = (d_dat == treat_value).reshape(-1)
-    # x_t = x_dat[mask, :]
     x_t = x_dat[mask]
     y_t = y_dat[mask]
     y_all = np.zeros_like(y_dat)
@@ -454,7 +533,6 @@ def nn_neighbour_mcf2_parallel(y_dat, x_dat, d_dat, obs, cov_x_inv, treat_value,
     """
     # Currently, does not run if cov_x_inv is matrix (at least a larger one)
     mask = (d_dat == treat_value).reshape(-1)
-    # x_t = x_dat[mask, :]
     x_t = x_dat[mask]
     y_t = y_dat[mask]
     y_all = np.zeros_like(y_dat)
@@ -464,7 +542,6 @@ def nn_neighbour_mcf2_parallel(y_dat, x_dat, d_dat, obs, cov_x_inv, treat_value,
     n_obs = len(non_treat_idx)
     for idx in prange(n_obs):
         i = int(non_treat_idx[idx])
-        # x_diff = x_t - x_dat[i, :]
         x_diff = x_t - x_dat[i]
         diffcovinv = x_diff @ cov_x_inv
         dist = np.sum(diffcovinv * x_diff, axis=1)
@@ -525,3 +602,270 @@ def get_inv_cov(x_dat, main_diag_only, cuda=False):
                 cov_x_inv = np.linalg.inv(cov_x)
                 rank_not_ok = False
     return cov_x_inv
+
+
+def nn_matched_outcomes_issue_17(
+    df: pd.DataFrame,
+    var_x_type: dict[str, int],
+    y_tree_name: list[str],
+    y_tree_name_unc: list[str],
+    match_nn_prog_score: bool,
+    lc_yes: bool,
+    d_name: str,
+    d_values: list[int],
+    no_of_treats: int,
+    mtot: int,
+    boot: int,
+    mp_parallel: int,
+    nn_main_diag_only: bool,
+    use_n_gb_memory: int = 8,
+) -> pd.DataFrame:
+    """
+    Estimate potential outcomes using nearest neighbour matching.
+
+    Finds nearest neighbours for each unit under different treatment conditions
+    using Mahalanobis distance based on covariates (X) or estimated prognostic
+    scores. It then imputes the potential outcome for a given treatment `d` for
+    a unit `i` by averaging the observed outcomes of its nearest neighbour(s)
+    found within the group of units that actually received treatment `d`.
+
+    More efficient procedure based on the one provided by Dieter Verbeemen in
+    issue 17.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame containing features (X), the treatment indicator (D),
+        and the outcome variable(s) (Y).
+    var_x_type : dict[str, int]
+        Dictionary mapping covariate names (keys) to their type (values).
+        Types: 0 = ordered (continuous/ordinal), 1 = unordered type 1,
+        2 = unordered type 2.
+        Unordered variables will be one-hot encoded.
+    y_tree_name : list[str]
+        List containing the single name of the observed outcome variable used
+        for matching and potentially for training the prognostic score model.
+        Example: ['outcome'].
+    y_tree_name_unc : list[str]
+        List containing the single name of the outcome variable used for
+        training the prognostic score model *if* `yes` is True. This might be
+        an uncentered version of the outcome. Example: ['outcome_uncentered'].
+    ...
+    use_n_gb_memory: int
+        Estimate the amount of GB you want to use to calculate the nearest
+        neighbours.
+        If the matrix-broadcasting is too large, the calculation will be
+        chunked.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing the matched potential outcomes for each treatment
+        condition.
+
+    Notes
+    -----
+    - Matching is based on Mahalanobis distance, calculated either on original
+      (potentially one-hot encoded) covariates or on estimated prognostic
+      scores.
+    - Prognostic scores are estimated using treatment-specific RandomForest
+      models
+      if `match_nn_prog_score` is True and conditions are met.
+    - Unordered variables specified in `var_x_type` (types 1 or 2) are
+      automatically one-hot encoded before matching or prognostic score
+      calculation.
+    - The order of columns derived from `var_x_type` matters for reproducibility
+      if `match_nn_prog_score` is True, due to feature sub-sampling in
+      RandomForest.
+      The implementation tries to maintain order but relies on Python dictionary
+      ordering (guaranteed since Python 3.7).
+    - Distance calculations are chunked to manage memory usage.
+    - If the covariance matrix for Mahalanobis distance is singular or
+      near-singular,
+      regularization is attempted by adding scaled diagonal elements. If this
+      fails, the identity matrix is used.
+
+    """
+    # Get the ordered and unordered variables
+    var_names_ordered = [var_name for var_name, type_ in var_x_type.items()
+                         if type_ in [0]]
+    var_names_unordered = [var_name for var_name, type_ in var_x_type.items()
+                           if type_ in [1, 2]]
+    txt = ''
+    # categorize the unordered variables
+    df[var_names_unordered] = df[var_names_unordered].astype("category")
+
+    # Get the numpy x and y data
+    df_x_o = df[var_names_ordered]
+
+    if var_names_unordered:
+        df_x_u = pd.get_dummies(
+            data=df[var_names_unordered],
+            columns=var_names_unordered,
+            prefix=var_names_unordered,
+            dtype=int,
+            )
+        np_x = pd.concat([df_x_u, df_x_o], axis=1).values.astype(np.float32)
+    else:
+        np_x = df_x_o.values.astype(np.float32)
+
+    np_y = df[y_tree_name].values.astype(np.float32)
+    np_d = df[d_name].values.astype(np.float32)
+
+    # Get th amount of observations
+    n_observations = np_x.shape[0]  # Reduce x_dat to prognostic scores
+
+    if match_nn_prog_score:
+
+        # Set np_match_y
+        if lc_yes:
+            np_match_y = df[y_tree_name_unc].values
+        else:
+            np_match_y = np_y
+
+# y_dat = data_df[var_dic['y_tree_name']].to_numpy()
+# if cf_dic['match_nn_prog_score']:
+#     if lc_dic['yes']:
+#         y_dat_match = data_df[var_dic['y_tree_name_unc']].to_numpy()
+#     else:
+#         y_dat_match = y_dat
+# else:
+#     y_dat_match = None
+
+        # Create a pseudo feature matrix
+        # If the "number of features" is >= 2 * "number of treatments"
+        #
+        # --> Train for each treatment a model and predict
+        # -- If you've 4 treatments, then the new pseudo feature matrix contains
+        #     4 columns with each a prediction
+        if (mtot in [1, 4]) and (np_x.shape[1] >= (2 * no_of_treats)):
+            txt += '\nComputing prognostic score for matching'
+            np_x_pseudo = np.empty((n_observations, no_of_treats))
+            params = {
+                "n_estimators": boot,
+                "max_features": "sqrt",
+                "bootstrap": True,
+                "oob_score": False,
+                "n_jobs": mp_parallel,
+                "random_state": 42,
+                "verbose": False,
+                }
+
+            # Train for each individual treatment
+            for idx, d_treatment in enumerate(d_values):
+
+                # Create a model, either a classifier or a regressor
+                if np.unique(np_match_y).shape[0] < 10:
+                    rfc = RandomForestClassifier(**params)
+                else:
+                    rfc = RandomForestRegressor(**params)
+
+                # Train on the treatment group
+                treatments = (np_d == d_treatment).squeeze()
+                tmp_np_x = np_x[treatments].copy()
+                tmp_np_y = np_match_y[treatments].squeeze().copy()
+
+                # train the model
+                rfc.fit(tmp_np_x, tmp_np_y)
+
+                # predict on the full dataset
+                np_x_pseudo[:, idx] = rfc.predict(np_x)
+
+            # overwrite np_x
+            np_x = np_x_pseudo.copy()
+
+        else:
+            # if gen_dic["with_output"] and gen_dic["verbose"]:
+            #     txt = "\nPrognostic scores not used for matching "
+            #     txt += "(too few covariates)"
+            #     ps.print_mcf(gen_dic, txt, summary=False)
+            txt += ("\nPrognostic scores not used for matching "
+                    "(too few covariates)"
+                    )
+    else:
+        np_match_y = None
+
+    if mtot in [1, 4]:
+
+        # determine distance metric of Mahalanobis matching
+        n_cols = np_x.shape[1]
+        inv_cov_x = np.ones((1, 1))
+        if n_cols > 1:
+
+            # calculate covariance matrix if we've more than one column
+            cov_x = np.cov(np.array(np_x), rowvar=False)
+
+            # # only main diag
+            if nn_main_diag_only:
+                cov_x = cov_x * np.eye(cov_x.shape[1])
+
+            for i in range(21):
+                if i == 20:
+                    cov_x *= np.eye(n_cols)
+                if np.linalg.matrix_rank(cov_x) < n_cols:
+                    cov_x += 0.5 * np.diag(cov_x) * np.eye(n_cols)
+                else:
+                    inv_cov_x = np.linalg.inv(cov_x)
+                    break
+            else:
+                # if attempt 20 didn't work, the for loop was never been broken
+                # therefor we'll enter the "else" part
+                # and we have to set the covariance matrix to the identity
+                # matrix
+                inv_cov_x = np.eye(n_cols)
+        inv_cov_x = inv_cov_x.astype(np.float32)
+        #
+        # Calculate the distances
+        #
+
+        # Placeholder for the matched outcomes
+        np_match_y = np.empty((n_observations, no_of_treats), dtype=np.float32)
+
+        # Loop over the treatment groups
+        for i_treat, i_value in enumerate(d_values):
+
+            # mask the treatment group
+            mask = (np_d == i_value).squeeze()
+
+            # set the result
+            np_match_y[:, i_treat] = np_y.squeeze()
+
+            # get the masked values
+            temp_np_x = np_x[mask, :]
+            temp_np_control = np_x[~mask, :]
+            temp_np_y = np_y[mask, :]
+
+            # chunk the mask
+            n_chunks = np.ceil((4 * mask[mask].sum() * (~mask).sum()
+                                * np_x.shape[1]) / (use_n_gb_memory * 1024**3))
+            chunk_size = int(len(temp_np_control) // n_chunks) + 1
+
+            # calculate the differences in chunks
+            for i_chunk in range(0, len(temp_np_control), chunk_size):
+
+                # calculate the diff and distances
+                x_diff = (temp_np_x[None, :, :]
+                          - temp_np_control[i_chunk: i_chunk + chunk_size,
+                                            None, :])  # type: ignore
+                dist = np.sum((x_diff @ inv_cov_x) * x_diff, axis=2)
+
+                # Find minimal distance matches
+                is_min_dist = dist <= (dist.min(axis=1, keepdims=True) + 1e-15)
+
+                # n_element for the mean
+                n_min = is_min_dist.sum(axis=1)
+
+                # calculate the mean
+                np_match_y[np.flatnonzero(~mask)[i_chunk: i_chunk + chunk_size],
+                           i_treat] = ((is_min_dist @ temp_np_y).squeeze()
+                                       / n_min)  # type: ignore
+
+    else:
+        np_match_y = np.zeros((n_observations, no_of_treats))
+
+    # Create the names of the new columns
+    match_y_names = [f"{y_tree_name[0]}_NN_{d}" for d in d_values]
+
+    return (pd.DataFrame(data=np_match_y,
+                         columns=match_y_names, index=df.index,
+                         ), txt)

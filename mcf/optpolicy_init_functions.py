@@ -5,50 +5,160 @@ Contains the functions needed for initialising the parameters.
 -*- coding: utf-8 -*-
 """
 from pathlib import Path
-from psutil import cpu_count
 
+from psutil import cpu_count
 import numpy as np
 
 from mcf import mcf_general as gp
+from mcf import mcf_print_stats_functions as mcf_ps
 from mcf import mcf_general_sys as mcf_sys
 
 
-def init_int(cuda=None, output_no_new_dir=None, report=None, with_numba=None,
-             with_output=None, xtr_parallel=False, dpi=500, fontsize=2):
-    """Initialise basic technical pamameters."""
+def init_dc(check_perfectcorr=None, clean_data=None, min_dummy_obs=None,
+            screen_covariates=None):
+    """Initialise data cleaning related parameters."""
     dic = {}
-    if cuda is not True:
-        dic['cuda'] = False
-    else:
-        # dic['cuda'] = torch.cuda.is_available()
-        raise NotImplementedError('GPU is not used for Optimal Policy')
-    # TODO
-  
-    #     if how_many_parallel is None or how_many_parallel < 0.5:
-    #         dic['mp_parallel'] = round(cpu_count(logical=True)*0.8)
-    #     else:
-    #         dic['mp_parallel'] = round(how_many_parallel)
-    # else:
-    #     dic['mp_parallel'] = 1
-    dic['output_no_new_dir'] = output_no_new_dir is True
-    dic['report'] = report is not False
-    dic['with_numba'] = with_numba is not False
-    dic['with_output'] = with_output is not False
-    dic['xtr_parallel'] = xtr_parallel is not False
+    dic['check_perfectcorr'] = check_perfectcorr is not False
+    dic['clean_data'] = clean_data is not False
+    dic['screen_covariates'] = screen_covariates is not False
+    dic['min_dummy_obs'] = (10 if min_dummy_obs is None or min_dummy_obs < 1
+                            else round(min_dummy_obs))
+    return dic
 
-    dic['dpi'] = 500 if (dpi is None or dpi < 10) else round(dpi)
-    if fontsize is not None and 0.5 < fontsize < 7.5:
-        dic['fontsize'] = round(fontsize)
-    else:
-        dic['fontsize'] = 2
-    dic['all_fonts'] = ('xx-small', 'x-small', 'small', 'medium', 'large',
-                        'x-large', 'xx-large')
-    for i, i_lab in enumerate(dic['all_fonts']):
-        if dic['fontsize'] == i + 1:
-            dic['fontsize'] = i_lab
-    dic['legend_loc'] = 'best'
+
+def init_estrisk(value: str = None) -> dict:
+    """Initialise parameters for estimation rist adjustments."""
+    dic = {}
+    dic['estrisk_used'] = False
+    dic['value'] = value if isinstance(value, (int, float)) else 1
 
     return dic
+
+
+def init_fair(gen_dic: dict,
+              adjust_target: str | None = None,
+              consistency_test: bool | None = None,
+              cont_min_values: int | float | None = None,
+              material_disc_method: str | None = None,
+              material_max_groups: int | float | None = None,
+              protected_disc_method: str | None = None,
+              protected_max_groups: int | float | None = None,
+              regression_method: str | None = None,
+              adj_type: str | None = None
+              ) -> dict:
+    """Initialise parameters for fair allocations with protected variables."""
+    ok_methods = ('RandomForest', 'RandomForestNminl5',
+                  'RandomForestNminls5',
+                  'SupportVectorMachine', 'SupportVectorMachineC2',
+                  'SupportVectorMachineC4',
+                  'AdaBoost', 'AdaBoost100', 'AdaBoost200',
+                  'GradBoost', 'GradBoostDepth6',  'GradBoostDepth12',
+                  'LASSO',
+                  'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger',
+                  'Mean', 'automatic')
+    ok_adjustments = ('scores', 'xvariables', 'scores_xvariables',)
+    ok_types = ('Mean', 'MeanVar', 'Quantiled',)
+    ok_disc_methods = ('NoDiscretization', 'EqualCell', 'Kmeans',)
+    dic = {}
+
+    if (cont_min_values is None
+        or not isinstance(cont_min_values, (int, float))
+            or cont_min_values < 1):
+
+        dic['cont_min_values'] = 20
+    else:
+        dic['cont_min_values'] = int(round(cont_min_values))
+
+    dic['adjust_target'] = check_valid_user_str(
+        gen_dic,
+        title='fair_adjust_target',
+        user_input=adjust_target,
+        default='xvariables',
+        valid_strings=ok_adjustments
+        )
+    dic['regression_method'] = check_valid_user_str(
+        gen_dic,
+        title='fair_regression_method',
+        user_input=regression_method,
+        default='RandomForest',
+        valid_strings=ok_methods
+        )
+    dic['adj_type'] = check_valid_user_str(
+        gen_dic,
+        title='fair_adj_type',
+        user_input=adj_type,
+        default='Quantiled',
+        valid_strings=ok_types
+        )
+    # Discretization methods
+    dic['discretization_methods'] = ('EqualCell', 'Kmeans', 'NoDiscretization',)
+    dic['default_disc_method'] = 'Kmeans'
+    dic['protected_disc_method'] = check_valid_user_str(
+        gen_dic,
+        title='fair_protected_disc_method',
+        user_input=protected_disc_method,
+        default=dic['default_disc_method'],
+        valid_strings=ok_disc_methods
+        )
+    dic['material_disc_method'] = check_valid_user_str(
+        gen_dic,
+        title='fair_material_disc_method',
+        user_input=material_disc_method,
+        default=dic['default_disc_method'],
+        valid_strings=ok_disc_methods
+        )
+
+    dic['consistency_test'] = consistency_test is True
+
+    if isinstance(protected_max_groups, (int, float)):
+        dic['protected_max_groups'] = int(round(protected_max_groups))
+    else:
+        dic['protected_max_groups'] = 5
+
+    if isinstance(material_max_groups, (int, float)):
+        dic['material_max_groups'] = round(material_max_groups)
+    else:
+        dic['material_max_groups'] = 5
+
+    dic['fairscores_used'] = False   # Will be overwritten if fairscores
+    #                                  method is used
+    dic['solvefair_used'] = False    # Will be overwritten if solvefair
+    #                                  method is used
+
+    return dic
+
+
+def check_valid_user_str(gen_dic: dict,
+                         title: str = '',
+                         user_input: str | None = None,
+                         default: str = '',
+                         valid_strings: tuple[str, ...] = ('',)
+                         ) -> str:
+    """Check if user specified value is valid or whether to use default."""
+    # No user input -> default
+    if user_input is None or user_input == '':
+        return default
+
+    # Correct user input
+    if user_input in valid_strings:
+        return user_input
+
+    # incorrect string as user input, check if useful
+    if isinstance(user_input, str):
+        valid_strings_cf = [name.casefold() for name in valid_strings]
+        user_input_cf = user_input.casefold()
+        if user_input_cf in valid_strings_cf:  # return corrected user input
+            return valid_strings[valid_strings_cf.index(user_input_cf)]
+        # print warning to file and return default
+        mcf_ps.print_mcf(gen_dic,
+                         f'\n{title}: WARNING '
+                         f'\n{user_input} is not among the valid methods: '
+                         f'{" ".join(valid_strings)}',
+                         summary=True)
+        return default
+
+    # In any other case return default
+    return default
 
 
 def init_gen(method=None, mp_parallel=None, outfiletext=None, outpath=None,
@@ -64,12 +174,12 @@ def init_gen(method=None, mp_parallel=None, outfiletext=None, outpath=None,
     else:
         dic['mp_parallel'] = round(mp_parallel)
     dic['method'] = 'best_policy_score' if method is None else method
-    if dic['method'] not in ('best_policy_score', 'policy tree',
+    if dic['method'] not in ('best_policy_score', 'policy_tree',
                              'policy tree old', 'bps_classifier'):
         raise ValueError(f'{dic["method"]} is not a valid method.')
     if dic['method'] == 'best_policy_score':
         dir_nam = 'BPS'
-    elif dic['method'] == 'policy tree':
+    elif dic['method'] == 'policy_tree':
         dir_nam = 'PT'
     elif dic['method'] == 'policy tree old':
         dir_nam = 'PT_OLD'
@@ -106,116 +216,89 @@ def init_gen(method=None, mp_parallel=None, outfiletext=None, outpath=None,
     return dic
 
 
-def init_fair(consistency_test=None, material_disc_method=None,
-              material_max_groups=None, protected_disc_method=None,
-              protected_max_groups=None, regression_method=None,
-              adj_type=None):
-    """Initialise parameters for fair allocations with protected variables."""
-    dic = {}
-    ok_methods = ('RandomForest', 'RandomForestNminl5',
-                  'RandomForestNminls5',
-                  'SupportVectorMachine', 'SupportVectorMachineC2',
-                  'SupportVectorMachineC4',
-                  'AdaBoost', 'AdaBoost100', 'AdaBoost200',
-                  'GradBoost', 'GradBoostDepth6',  'GradBoostDepth12',
-                  'LASSO',
-                  'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger',
-                  'Mean', 'automatic')
-
-    if regression_method is None or not isinstance(regression_method, str):
-        dic['regression_method'] = 'RandomForest'
-    else:
-        ok_estimators_cfold = [name.casefold() for name in ok_methods]
-        try:
-            position = ok_estimators_cfold.index(regression_method.casefold())
-            dic['regression_method'] = ok_methods[position]
-        except ValueError:
-            print(f'Specified method {regression_method} to correct '
-                  'scores for protected variables is not among '
-                  f'acceptable methods {" ".join(ok_methods)}')
-
-    ok_types = ('Mean', 'MeanVar', 'Quantiled',)
-    if isinstance(adj_type, str):
-        ok_types_cfold = [name.casefold() for name in ok_types]
-        try:
-            position = ok_types_cfold.index(adj_type.casefold())
-        except ValueError as exc:
-            raise ValueError(f'Specified adjustment method {adj_type} '
-                             'to correct scores for protected variables is not '
-                             f'among acceptable methods {" ".join(ok_types)}'
-                             ) from exc
-        dic['adj_type'] = ok_types[position]
-    else:
-        dic['adj_type'] = 'Quantiled'
-
-    dic['consistency_test'] = consistency_test is True
-
-    if isinstance(protected_max_groups, (int, float)):
-        dic['protected_max_groups'] = round(protected_max_groups)
-    else:
-        dic['protected_max_groups'] = 5
-
-    if isinstance(material_max_groups, (int, float)):
-        dic['material_max_groups'] = round(material_max_groups)
-    else:
-        dic['material_max_groups'] = 5
-
-    ok_methods = ('NoDiscretization', 'EqualCell', 'Kmeans',)
-    dic['discretization_methods'] = ('EqualCell', 'Kmeans',)
-    dic['default_disc_method'] = 'Kmeans'
-    if isinstance(material_disc_method, str):
-        ok_methods_cfold = [name.casefold() for name in ok_methods]
-        try:
-            position = ok_methods_cfold.index(material_disc_method.casefold())
-        except ValueError:
-            print(f'Specified discretization method {material_disc_method} '
-                  'materially relevant features is not '
-                  f'among acceptable methods {" ".join(ok_methods)}')
-        dic['material_disc_method'] = ok_methods[position]
-    else:
-        dic['material_disc_method'] = dic['default_disc_method']
-
-    if isinstance(protected_disc_method, str):
-        ok_methods_cfold = [name.casefold() for name in ok_methods]
-        try:
-            position = ok_methods_cfold.index(protected_disc_method.casefold())
-        except ValueError:
-            print(f'Specified discretization method {protected_disc_method} '
-                  'protected features is not '
-                  f'among acceptable methods {" ".join(ok_methods)}')
-        dic['protected_disc_method'] = ok_methods[position]
-    else:
-        dic['protected_disc_method'] = dic['default_disc_method']
-
-    dic['fairscores_used'] = False   # Will be overwritten if fairscores
-    #                                  method is used
-    return dic
-
-
 def init_gen_solve(optp_, data_df):
     """Add and update some dictionary entry based on data."""
     var_dic, gen_dic = optp_.var_dict, optp_.gen_dict
     if ('d_name' in var_dic and (var_dic['d_name'] is not None)
             and var_dic['d_name'][0] in data_df.columns):
         d_dat = data_df[var_dic['d_name']].to_numpy()
-        gen_dic['d_values'] = np.int16(np.round(np.unique(d_dat))).tolist()
+        gen_dic['d_values'] = np.unique(np.int32(np.round(d_dat))).tolist()
     else:
-        gen_dic['d_values'] = list(np.int16(
+        gen_dic['d_values'] = list(np.int32(
             range(len(var_dic['polscore_name']))))
     gen_dic['no_of_treat'] = len(gen_dic['d_values'])
     optp_.gen_dict = gen_dic
 
 
-def init_dc(check_perfectcorr=None, clean_data=None, min_dummy_obs=None,
-            screen_covariates=None):
-    """Initialise data cleaning related parameters."""
+def init_int(cuda=None, output_no_new_dir=None, report=None, with_numba=None,
+             with_output=None, xtr_parallel=False, dpi=500, fontsize=2):
+    """Initialise basic technical pamameters."""
     dic = {}
-    dic['check_perfectcorr'] = check_perfectcorr is not False
-    dic['clean_data'] = clean_data is not False
-    dic['screen_covariates'] = screen_covariates is not False
-    dic['min_dummy_obs'] = (10 if min_dummy_obs is None or min_dummy_obs < 1
-                            else round(min_dummy_obs))
+    if cuda is not True:
+        dic['cuda'] = False
+    else:
+        # dic['cuda'] = torch.cuda.is_available()
+        raise NotImplementedError('GPU is not used for Optimal Policy')
+    dic['output_no_new_dir'] = output_no_new_dir is True
+    dic['report'] = report is not False
+    dic['with_numba'] = with_numba is not False
+    dic['with_output'] = with_output is not False
+    dic['xtr_parallel'] = xtr_parallel is not False
+
+    dic['dpi'] = 500 if (dpi is None or dpi < 10) else round(dpi)
+    if fontsize is not None and 0.5 < fontsize < 7.5:
+        dic['fontsize'] = round(fontsize)
+    else:
+        dic['fontsize'] = 2
+    dic['all_fonts'] = ('xx-small', 'x-small', 'small', 'medium', 'large',
+                        'x-large', 'xx-large')
+    for i, i_lab in enumerate(dic['all_fonts']):
+        if dic['fontsize'] == i + 1:
+            dic['fontsize'] = i_lab
+    dic['legend_loc'] = 'best'
+
     return dic
+
+
+def init_rnd_shares(optp_, data_df, d_in_data):
+    """Reinitialise the shares if they are not consistent with use."""
+    no_of_treat = optp_.gen_dict['no_of_treat']
+    rnd_dic, var_dic = optp_.rnd_dict, optp_.var_dict
+    if rnd_dic['shares'] is None or len(rnd_dic['shares']) < no_of_treat:
+        if d_in_data:
+            obs_shares = data_df[var_dic['d_name']].value_counts(normalize=True
+                                                                 ).sort_index()
+            rnd_dic['shares'] = obs_shares.tolist()
+        else:
+            rnd_dic['shares'] = [1/no_of_treat] * no_of_treat
+    if sum(rnd_dic['shares']) < 0.999999 or sum(rnd_dic['shares']) > 1.0000001:
+        raise ValueError('"random shares" do not add to 1.')
+    optp_.rnd_dict = rnd_dic
+
+
+def init_other_solve(optp_):
+    """Initialise treatment costs (needs info on number of treatments."""
+    no_of_treat = optp_.gen_dict['no_of_treat']
+    ot_dic = optp_.other_dict
+    if ot_dic['max_shares'] is None or len(ot_dic['max_shares']) < no_of_treat:
+        ot_dic['max_shares'] = [1] * no_of_treat
+    no_zeros = sum(1 for share in ot_dic['max_shares'] if share == 0)
+    if no_zeros == len(ot_dic['max_shares']):
+        raise ValueError('All restrictions are zero. No allocation possible.')
+    if sum(ot_dic['max_shares']) < 1:
+        raise ValueError('Sum of restrictions < 1. No allocation possible.')
+    ot_dic['restricted'] = any(share < 1 for share in ot_dic['max_shares'])
+    if ot_dic['costs_of_treat'] is None or len(ot_dic['costs_of_treat']
+                                               ) < no_of_treat:
+        ot_dic['costs_of_treat'] = [0] * no_of_treat
+
+    if (ot_dic['costs_of_treat_mult'] is None
+            or len(ot_dic['costs_of_treat_mult']) < no_of_treat):
+        mult = 1
+        ot_dic['costs_of_treat_mult'] = [mult] * no_of_treat
+    if any(cost <= 0 for cost in ot_dic['costs_of_treat_mult']):
+        raise ValueError('Cost multiplier must be positive.')
+    optp_.other_dict = ot_dic
 
 
 def init_pt(depth_tree_1=None, depth_tree_2=None, enforce_restriction=None,
@@ -269,51 +352,10 @@ def init_pt_solve(optp_, no_of_obs):
         optp_.pt_dict['min_leaf_size'] = round(optp_.pt_dict['min_leaf_size'])
 
 
-def init_other_solve(optp_):
-    """Initialise treatment costs (needs info on number of treatments."""
-    no_of_treat = optp_.gen_dict['no_of_treat']
-    ot_dic = optp_.other_dict
-    if ot_dic['max_shares'] is None or len(ot_dic['max_shares']) < no_of_treat:
-        ot_dic['max_shares'] = [1] * no_of_treat
-    no_zeros = sum(1 for share in ot_dic['max_shares'] if share == 0)
-    if no_zeros == len(ot_dic['max_shares']):
-        raise ValueError('All restrictions are zero. No allocation possible.')
-    if sum(ot_dic['max_shares']) < 1:
-        raise ValueError('Sum of restrictions < 1. No allocation possible.')
-    ot_dic['restricted'] = any(share < 1 for share in ot_dic['max_shares'])
-    if ot_dic['costs_of_treat'] is None or len(ot_dic['costs_of_treat']
-                                               ) < no_of_treat:
-        ot_dic['costs_of_treat'] = [0] * no_of_treat
-
-    if (ot_dic['costs_of_treat_mult'] is None
-            or len(ot_dic['costs_of_treat_mult']) < no_of_treat):
-        mult = 1
-        ot_dic['costs_of_treat_mult'] = [mult] * no_of_treat
-    if any(cost <= 0 for cost in ot_dic['costs_of_treat_mult']):
-        raise ValueError('Cost multiplier must be positive.')
-    optp_.other_dict = ot_dic
-
-
-def init_rnd_shares(optp_, data_df, d_in_data):
-    """Reinitialise the shares if they are not consistent with use."""
-    no_of_treat = optp_.gen_dict['no_of_treat']
-    rnd_dic, var_dic = optp_.rnd_dict, optp_.var_dict
-    if rnd_dic['shares'] is None or len(rnd_dic['shares']) < no_of_treat:
-        if d_in_data:
-            obs_shares = data_df[var_dic['d_name']].value_counts(normalize=True
-                                                                 ).sort_index()
-            rnd_dic['shares'] = obs_shares.tolist()
-        else:
-            rnd_dic['shares'] = [1/no_of_treat] * no_of_treat
-    if sum(rnd_dic['shares']) < 0.999999 or sum(rnd_dic['shares']) > 1.0000001:
-        raise ValueError('"random shares" do not add to 1.')
-    optp_.rnd_dict = rnd_dic
-
-
 def init_var(bb_restrict_name=None, d_name=None, effect_vs_0=None,
              effect_vs_0_se=None, id_name=None,
              material_ord_name=None, material_unord_name=None,
-             polscore_name=None, polscore_desc_name=None,
+             polscore_name=None, polscore_desc_name=None, polscore_se_name=None,
              protected_ord_name=None, protected_unord_name=None,
              vi_x_name=None, vi_to_dummy_name=None,
              x_ord_name=None, x_unord_name=None):
@@ -326,8 +368,9 @@ def init_var(bb_restrict_name=None, d_name=None, effect_vs_0=None,
     var_dic['id_name'] = check_var(id_name)
     var_dic['polscore_desc_name'] = check_var(polscore_desc_name)
     var_dic['polscore_name'] = check_var(polscore_name)
-    var_dic['x_ord_name'] = check_var(x_ord_name)
-    var_dic['x_unord_name'] = check_var(x_unord_name)
+    var_dic['polscore_se_name'] = check_var(polscore_se_name)
+    var_dic['x_ord_name'] = check_var_no_none(x_ord_name)  # _no_none added
+    var_dic['x_unord_name'] = check_var_no_none(x_unord_name)  # _no_none added
     var_dic['vi_x_name'] = check_var(vi_x_name)
     var_dic['vi_to_dummy_name'] = check_var(vi_to_dummy_name)
     var_dic['protected_ord_name'] = check_var_no_none(protected_ord_name)
@@ -353,4 +396,5 @@ def check_var(variable):
         return variable
     variable = gp.to_list_if_needed(variable)
     variable = gp.cleaned_var_names(variable)
+
     return variable

@@ -6,6 +6,7 @@ Created on Sun Jul 16 13:10:45 2023
 @author: MLechner
 """
 from hashlib import sha256
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -14,6 +15,38 @@ from sklearn.preprocessing import StandardScaler
 from mcf import mcf_data_functions as mcf_data
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_print_stats_functions as mcf_ps
+
+if TYPE_CHECKING:
+    from mcf.optpolicy_main import OptimalPolicy
+
+
+def check_data_estrisk(optp_, data_df):
+    """Prepare data for estimation with risk adjustment."""
+    # SE available?
+    var_polscore_se_name = var_available(
+        optp_.var_dict['polscore_se_name'], list(data_df.columns),
+        needed='must_have')
+    if not var_polscore_se_name:
+        raise ValueError('No information on Standard Errors of Policy Score. '
+                         'This information is necessary for the adjustments '
+                         'for estimation errors in those scores. '
+                         'Programme is terminated.'
+                         )
+    # Score and SE has same length?
+    if ((len_ps := len(optp_.var_dict['polscore_name']))
+            != (len_ps_se := len(optp_.var_dict['polscore_se_name']))):
+        raise ValueError('Number of names of policy_score and of their '
+                         'standard errors must be of same length.'
+                         f'{len_ps} policy scores, {len_ps_se} standard errors.'
+                         )
+    # Any missing values?
+    if data_df[optp_.var_dict['polscore_name']].isna().any().any():
+        raise ValueError('Missing values detected in policy score.')
+
+    if data_df[optp_.var_dict['polscore_se_name']].isna().any().any():
+        raise ValueError('Missing values detected in standard errors of policy '
+                         'score.'
+                         )
 
 
 def prepare_data_fair(optp_, data_df):
@@ -99,8 +132,8 @@ def prepare_data_fair(optp_, data_df):
                          'materially relevant features. This is logically '
                          'inconsistent.')
 
-    var_available(var_dic['polscore_name'], list(data_df.columns),
-                  needed='must_have')
+    # var_available(var_dic['polscore_name'], list(data_df.columns),
+    #               needed='must_have')
 
     if optp_.gen_dict['with_output']:
         txt_print = ('\n' + '-' * 100
@@ -115,7 +148,7 @@ def prepare_data_fair(optp_, data_df):
         mcf_ps.print_mcf(optp_.gen_dict, txt_print, summary=True)
 
     # Delete protected variables from x_ord and x_unord and create dummies
-    del_x_var_list = []
+    del_x_var_list, optp_.var_dict['prot_mat_no_dummy_name'] = [], []
     if protected_ord:
         del_x_var_list = [var for var in var_dic['x_ord_name']
                           if var in var_dic['protected_ord_name']
@@ -124,8 +157,11 @@ def prepare_data_fair(optp_, data_df):
             var for var in var_dic['x_ord_name']
             if var not in var_dic['protected_ord_name']]
         optp_.var_dict['protected_name'] = var_dic['protected_ord_name'].copy()
+        optp_.var_dict['prot_mat_no_dummy_name'
+                       ] = var_dic['protected_ord_name'].copy()
     else:
         optp_.var_dict['protected_name'] = []
+
     if protected_unord:
         del_x_var_list.extend([var for var in var_dic['x_unord_name']
                                if var in var_dic['protected_unord_name']
@@ -137,6 +173,9 @@ def prepare_data_fair(optp_, data_df):
         dummies_df = pd.get_dummies(data_df[var_dic['protected_unord_name']],
                                     columns=var_dic['protected_unord_name'],
                                     dtype=int)
+        optp_.var_dict['prot_mat_no_dummy_name'].extend(
+            var_dic['protected_unord_name'].copy())
+
         optp_.var_dict['protected_name'].extend(dummies_df.columns)
         # Add dummies to data_df
         data_df = pd.concat((data_df, dummies_df), axis=1)
@@ -146,12 +185,16 @@ def prepare_data_fair(optp_, data_df):
 
     if material_ord:
         optp_.var_dict['material_name'] = var_dic['material_ord_name'].copy()
+        optp_.var_dict['prot_mat_no_dummy_name'].extend(
+            var_dic['material_ord_name'].copy())
     else:
         optp_.var_dict['material_name'] = []
     if material_unord:
         dummies_df = pd.get_dummies(data_df[var_dic['material_unord_name']],
                                     columns=var_dic['material_unord_name'],
                                     dtype=int)
+        optp_.var_dict['prot_mat_no_dummy_name'].extend(
+            var_dic['material_unord_name'].copy())
         optp_.var_dict['material_name'].extend(dummies_df.columns)
         # Add dummies to data_df
         data_df = pd.concat((data_df, dummies_df), axis=1)
@@ -357,7 +400,7 @@ def prepare_data_bb_pt(optp_, data_df):
     (optp_.var_x_type, optp_.var_x_values, optp_.gen_dict
      ) = classify_var_for_pol_tree(optp_, data_new_df,
                                    optp_.var_dict['x_name'],
-                                   eff=gen_dic['method'] == 'policy tree')
+                                   eff=gen_dic['method'] == 'policy_tree')
     (optp_.gen_dict, optp_.var_dict, optp_.var_x_type, optp_.var_x_values,
      optp_.report['removed_vars']
      ) = mcf_data.screen_adjust_variables(optp_, data_new_df)
@@ -409,14 +452,28 @@ def classify_var_for_pol_tree(optp_, data_df, all_var_names, eff=False):
     return x_type_dic, x_value_dic, gen_dic
 
 
-def prepare_data_eval(optp_, data_df):
+def prepare_data_eval(optp_: 'OptimalPolicy',
+                      data_df: pd.DataFrame
+                      ) -> tuple[pd.DataFrame, bool, bool, bool, list]:
     """Prepare and check data for evaluation."""
     var_dic = optp_.var_dict
     data_df, var_names = mcf_data.data_frame_vars_lower(data_df)
-    var_available(var_dic['polscore_name'], var_names, needed='nice_to_have')
+    no_of_treat = len(optp_.gen_dict['d_values'])
+    # var_available(var_dic['polscore_name'], var_names, needed='nice_to_have')
     d_ok = var_available(var_dic['d_name'], var_names, needed='nice_to_have')
     polscore_desc_ok = var_available(var_dic['polscore_desc_name'],
                                      var_names, needed='nice_to_have')
+
+    if var_dic['polscore_desc_name'] is not None and (
+            not polscore_desc_ok
+            and len(var_dic['polscore_desc_name']) > no_of_treat
+            ):
+
+        # Try again, when removing the adjusted variable
+        var_dic['polscore_desc_name'] = (var_dic['polscore_desc_name']
+                                         [:-no_of_treat])
+        polscore_desc_ok = var_available(var_dic['polscore_desc_name'],
+                                         var_names, needed='nice_to_have')
     polscore_ok = var_available(var_dic['polscore_name'], var_names,
                                 needed='nice_to_have')
     desc_var_list = []
@@ -465,18 +522,19 @@ def var_available(variable_all, var_names, needed='nice_to_have',
     if count0 and needed == 'must_have':
         if error_message is None:
             raise ValueError(f'Required variable/s {" ".join(count0)} '
-                             'is/are not available. Available variables are'
+                             'is/are not available. Available variables are '
                              f'{" ".join(var_names)}')
         raise ValueError(error_message + f'{" ".join(var_names)}')
 
     count2p = [variable for variable in variable_all_ci
                if var_names_ci.count(variable) > 1]
     if count2p:
-        raise ValueError(f'{" ".join(count2p)} appears more than once in data '
-                         f'{(" ".join(var_names_ci))}. All '
-                         'variables are transformed to lower case. Maybe '
-                         'variable names are case sensitive. In this case, '
-                         'change names.')
+        raise ValueError(f'{" ".join(count2p)} appear more than once in data '
+                         f'\nAll variables: {" ".join(var_names_ci)}. '
+                         '\nNote that all variable names were transformed '
+                         'to lower case. Maybe the original '
+                         'variable names are case sensitive. In this case, you '
+                         'want to change their names.')
 
     return not count0
 

@@ -26,11 +26,11 @@ from mcf.mcf_estimation_generic_functions import kernel_proc
 from mcf.mcf_general import bound_norm_weights, bound_norm_weights_not_one
 from mcf.mcf_general import share_completed
 from mcf import mcf_general_sys as mcf_sys
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_print_stats_functions as mcf_ps
 
 
 def qiate_est(mcf_, data_df, weights_dic, y_pot,
-              y_pot_var=None, with_output=True, late=False):
+              y_pot_var=None, with_output=True, iv=False):
     """Estimate QIATEs and their standard errors."""
     gen_dic, int_dic = mcf_.gen_dict, mcf_.int_dict
     p_dic, var_dic = mcf_.p_dict, mcf_.var_dict
@@ -106,7 +106,7 @@ def qiate_est(mcf_, data_df, weights_dic, y_pot,
     if p_dic['qiate_m_mqiate']:
         _, _, _, _, _, _, w_median, _, _, _ = qiate_q(
             0.5, 0, data, weights_all, iate_q, qiate_weights_q, None, dics,
-            parameters_diff, late=late, weights_only=True)
+            parameters_diff, iv=iv, weights_only=True)
     else:
         y_pot_mmed = y_pot_mmed_var = w_median = None
 
@@ -125,7 +125,7 @@ def qiate_est(mcf_, data_df, weights_dic, y_pot,
                                    w_censored[q_idx], None, None)
                 _, _, _, _, _, _, w_mopp_list[q_idx], _, _, _ = qiate_q(
                     q_value, q_idx, data, weights_all, iate_q, qiate_weights_q,
-                    None, dics, parameters_diff, late=late, weights_only=True
+                    None, dics, parameters_diff, iv=iv, weights_only=True
                     )
         else:
             still_running = [
@@ -133,7 +133,7 @@ def qiate_est(mcf_, data_df, weights_dic, y_pot,
                     q_value, q_idx, data, weights_all, iate_q,
                     (w_qiate_dim, w_qiate_unc_dim, w_censored_dim, None,
                      None),
-                    None, dics, parameters_diff, late=late,
+                    None, dics, parameters_diff, iv=iv,
                     weights_only=True)
                 for q_idx, q_value in enumerate(q_values)
                 ]
@@ -184,7 +184,7 @@ def qiate_est(mcf_, data_df, weights_dic, y_pot,
                      )
             results_fut_q = qiate_q(
                 q_value, q_idx, data, weights_all, iate_q, qiate_weights_q,
-                pot_q, dics, parameters, late
+                pot_q, dics, parameters, iv
                 )
             (y_pot, y_pot_var, y_pot_mmed, y_pot_mmed_var,
              y_pot_mopp, y_pot_mopp_var) = assign_pot(
@@ -215,7 +215,7 @@ def qiate_est(mcf_, data_df, weights_dic, y_pot,
                 (y_pot_dim, y_pot_var_dim,
                  y_pot_mmed_dim, y_pot_mmed_var_dim,
                  y_pot_mopp_dim, y_pot_mopp_var_dim),
-                dics, parameters, late=late, weights_only=False)
+                dics, parameters, iv=iv, weights_only=False)
             for q_idx, q_value in enumerate(q_values)
             ]
 
@@ -239,7 +239,7 @@ def qiate_est(mcf_, data_df, weights_dic, y_pot,
                     share_completed(idx, no_of_q_values)
                     idx += 1
 
-        ray_end(int_dic, weights_all, finished_res, finished)
+        ray_end(int_dic, gen_dic, weights_all, finished_res, finished)
 
     if files_to_delete:  # delete temporary files
         for file in files_to_delete:
@@ -261,12 +261,12 @@ def qiate_est(mcf_, data_df, weights_dic, y_pot,
 
 @ray.remote
 def ray_qiate_mp(q_value, q_value_idx, data, weights_all, iate_q,
-                 qiate_weights_q, pot_q, dics, parameters, late=False,
+                 qiate_weights_q, pot_q, dics, parameters, iv=False,
                  weights_only=False):
     """Make function compatible with Ray."""
     return qiate_q(q_value, q_value_idx, data, weights_all, iate_q,
                    qiate_weights_q, pot_q, dics, parameters, multi_ray=True,
-                   late=late, weights_only=weights_only)
+                   iv=iv, weights_only=weights_only)
 
 
 def assign_pot(y_pot, y_pot_var, y_pot_mmed, y_pot_mmed_var,
@@ -296,7 +296,7 @@ def assign_w(w_qiate, w_qiate_unc, w_censored, results_fut_q, q_idx):
 
 
 def qiate_q(q_value, q_value_idx, data, weights_all, iate_q, qiate_weights_q,
-            pot_q, dics, parameters, multi_ray=False, late=False,
+            pot_q, dics, parameters, multi_ray=False, iv=False,
             weights_only=False):
     """Compute QIATEs and their variances."""
     # Unpack variables
@@ -384,7 +384,7 @@ def qiate_q(q_value, q_value_idx, data, weights_all, iate_q, qiate_weights_q,
                     w_q_add = np.zeros((n_y))
                     if int_dic['weight_as_sparse']:
                         weight_i = weights_q[comp_idx][out_idx][t_idx][n_idx, :]
-                        w_index = weight_i.col  # TODO ex scr with indices
+                        w_index = weight_i.col
                         w_i = weight_i.data.copy()
                     else:  # Ind weights > 0
                         w_index = weights_q[
@@ -430,7 +430,7 @@ def qiate_q(q_value, q_value_idx, data, weights_all, iate_q, qiate_weights_q,
                                   w_qiate_unc_q[comp_idx, t_idx, :, out_idx],
                                   w_median_, w_opp_,
                                   qiate_m_mqiate, qiate_m_opp,
-                                  p_dic['max_weight_share'], late=late
+                                  p_dic['max_weight_share'], iv=iv
                                   )
                 if not weights_only:
                     ret = mcf_est.weight_var(
@@ -438,7 +438,7 @@ def qiate_q(q_value, q_value_idx, data, weights_all, iate_q, qiate_weights_q,
                         y_dat[:, out_idx], cl_dat, gen_dic, p_dic,
                         weights=w_dat, bootstrap=p_dic['se_boot_qiate'],
                         keep_all=int_dic['keep_w0'], se_yes=p_dic['qiate_se'],
-                        normalize=not late)
+                        normalize=not iv)
                     y_pot_q[comp_idx, t_idx, out_idx] = ret[0]
                     y_pot_var_q[comp_idx, t_idx, out_idx] = ret[1]
 
@@ -480,29 +480,22 @@ def qiate_q(q_value, q_value_idx, data, weights_all, iate_q, qiate_weights_q,
 
 def w_qiate_func(sum_w_qiate, w_qiate_q, w_censored_q,
                  w_qiate_unc_q, w_mmed, w_mopp, compute_w_diff_med,
-                 compute_w_diff_opp, max_weight_share, late=False):
+                 compute_w_diff_opp, max_weight_share, iv=False):
     """Compute weights for discrete case."""
     if (not 1-1e-10 < sum_w_qiate < 1+1e-10) and (sum_w_qiate > 1e-10):
         w_qiate_q = w_qiate_q / sum_w_qiate
     w_qiate_unc_q = w_qiate_q
 
     if max_weight_share < 1:
-        if late:
+        if iv:
             w_qiate_q, _, w_censored_q = bound_norm_weights_not_one(
                 w_qiate_q, max_weight_share)
         else:
             w_qiate_q, _, w_censored_q = bound_norm_weights(
                 w_qiate_q, max_weight_share)
 
-    if compute_w_diff_med:
-        w_diff_med = w_qiate_unc_q - w_mmed
-    else:
-        w_diff_med = None
-
-    if compute_w_diff_opp:
-        w_diff_opp = w_qiate_unc_q - w_mopp
-    else:
-        w_diff_opp = None
+    w_diff_med = w_qiate_unc_q - w_mmed if compute_w_diff_med else None
+    w_diff_opp = w_qiate_unc_q - w_mopp if compute_w_diff_opp else None
 
     return w_qiate_q, w_diff_med, w_diff_opp, w_censored_q, w_qiate_unc_q
 
@@ -603,26 +596,6 @@ def optimize_initialize_mp_qiate(weights_all, gen_dic, int_dic, with_output):
     """Define multiprocession and initialize ray (if used)."""
     files_to_delete, save_w_file = set(), None
     txt = ''
-    # if gen_dic['mp_parallel'] > 1 and int_dic['ray_or_dask'] != 'ray':
-    #     memory_weights = mcf_sys.total_size(weights_all)
-    #     if int_dic['weight_as_sparse']:
-    #         for d_idx in range(gen_dic['no_of_treat']):
-    #             memory_weights += (weights_all[d_idx].data.nbytes
-    #                                + weights_all[d_idx].indices.nbytes
-    #                                + weights_all[d_idx].indptr.nbytes)
-    #     if memory_weights > 2e+9:  # Two Gigabytes (2e+9)
-    #         if int_dic['with_output'] and int_dic['verbose']:
-    #             txt += ('Weights need ', memory_weights/1e+9, 'GB RAM'
-    #                     '==> Weights are passed as file to MP processes')
-    #         save_w_file = 'w_all.pickle'
-    #         mcf_sys.save_load(save_w_file, weights_all, save=True,
-    #                           output=int_dic['with_output'])
-    #         files_to_delete.add(save_w_file)
-    #         weights_all2 = None
-    #     else:
-    #         weights_all2 = weights_all
-    # else:
-    #     weights_all2 = weights_all
     weights_all2 = weights_all
 
     if gen_dic['mp_parallel'] < 1.5:
@@ -639,7 +612,7 @@ def optimize_initialize_mp_qiate(weights_all, gen_dic, int_dic, with_output):
             maxworkers = 1
 
     if int_dic['with_output'] and int_dic['verbose'] and with_output:
-        print('Number of parallel processes: ', maxworkers, flush=True)
+        print('Number of parallel processes (QIATE): ', maxworkers, flush=True)
 
     if maxworkers > 1:
         if not ray.is_initialized():
@@ -659,14 +632,12 @@ def optimize_initialize_mp_qiate(weights_all, gen_dic, int_dic, with_output):
     return files_to_delete, save_w_file, weights_all_ref, maxworkers, txt
 
 
-def ray_end(int_dic, weights_all_ref, finished_res, finished):
+def ray_end(int_dic, gen_dic, weights_all_ref, finished_res, finished):
     """End ray according to local rules."""
     if 'refs' in int_dic['mp_ray_del']:
         del weights_all_ref
     if 'rest' in int_dic['mp_ray_del']:
         del finished_res, finished
-    if int_dic['mp_ray_shutdown']:
-        ray.shutdown()
 
 
 def assign_data(weights_dic, gen_dic, p_dic):
@@ -698,12 +669,6 @@ def get_iate_order(y_pot, y_pot_var, no_of_treat, no_of_out, p_dic):
     quantile_key_dic = {}
     quantile_np = np.empty((obs, round(no_of_treat * (no_of_treat - 1) / 2),
                             no_of_out))
-    if p_dic['qiate_bias_adjust']:
-        rng_qiate = np.random.default_rng(seed=125435)
-        est_error = rng_qiate.normal(
-            loc=0,
-            scale=1,
-            size=(obs, p_dic['qiate_bias_adjust_draws']))
 
     running_idx = 0
     for t1_idx in range(no_of_treat - 1):
@@ -719,8 +684,9 @@ def get_iate_order(y_pot, y_pot_var, no_of_treat, no_of_out, p_dic):
                     iate_se = np.sqrt(y_pot_var[:, t2_idx, o_idx]
                                       + y_pot_var[:, t1_idx, o_idx])
                     quantile_np[:, running_idx, o_idx] = bias_adjust_qiate(
-                        quantile_np[:, running_idx, o_idx], iate,
-                        est_error * iate_se.reshape(-1, 1)
+                        quantile_np[:, running_idx, o_idx], iate, iate_se,
+                        draws=p_dic['qiate_bias_adjust_draws'],
+                        simex=False
                         )
 
                 quantile_key_dic[key_str] = (running_idx, t1_idx, t2_idx, )
@@ -729,27 +695,147 @@ def get_iate_order(y_pot, y_pot_var, no_of_treat, no_of_out, p_dic):
     return quantile_np, quantile_key_dic
 
 
-def bias_adjust_qiate(iate_quantile_np, iate_np, est_error_simul_np):
+def bias_adjust_qiate(iate_quantile_np: np.ndarray,
+                      iate_np: np.ndarray,
+                      iate_se_np: np.ndarray,
+                      draws: int = 100,
+                      simex: bool = False,
+                      ) -> np.ndarray:
     """Compute bias adjustment."""
-    obs = est_error_simul_np.shape[0]
-    iate_simul_rank = np.empty_like(est_error_simul_np)   # OBS x DRAWS
-    iate_est_simul = iate_np.reshape(-1, 1) - est_error_simul_np
+    OLD_SIMULATION = False
 
-    for h in range(est_error_simul_np.shape[1]):
-        iate_simul_rank[:, h] = iate_est_simul[:, h].argsort(
-            axis=0).argsort(axis=0).reshape(-1) + 0.5
+    obs = iate_quantile_np.shape[0]
+    rng_qiate = np.random.default_rng(seed=125435)
 
-    quantile_iate_adj_np = np.clip(
-        delta_quantile_adjustment(iate_quantile_np, iate_simul_rank / obs),
-        0, 1)
+    if simex:
+        est_error_simul_np = rng_qiate.normal(loc=0, scale=1, size=(obs, draws))
+        grid = (0.05, 0.1, 0.25, 0.5, 0.75, 1, 1.25, 1.5,)
+        len_grid = len(grid)
+        iate_simul_rank = np.empty((len(iate_np), len_grid, draws))
+
+        for g_idx, noise_level in enumerate(grid):
+            iate_est_simul = iate_np.reshape(-1, 1) + (est_error_simul_np
+                                                       * np.sqrt(noise_level))
+            for h in range(draws):
+                iate_simul_rank[:, g_idx, h] = iate_est_simul[:, h].argsort(
+                    axis=0).argsort(axis=0) + 0.5  # .reshape(-1)
+
+        iate_simul_rank_mean = np.mean(iate_simul_rank, axis=-1)
+        iate_rank_np = iate_quantile_np * obs
+
+        rank_iate_adj_np = simex_diff_rank_adjustment(iate_rank_np,
+                                                      iate_se_np,
+                                                      iate_simul_rank_mean,
+                                                      grid)
+        iate_quantile_adj_np = np.clip(rank_iate_adj_np / obs, 0, 1)
+
+    elif OLD_SIMULATION:
+        est_error_simul_np = rng_qiate.normal(loc=0, scale=1, size=(obs, draws))
+        iate_simul_rank = np.empty_like(est_error_simul_np)   # OBS x DRAWS
+        iate_est_simul = iate_np.reshape(-1, 1) + est_error_simul_np
+        for h in range(est_error_simul_np.shape[1]):
+            iate_simul_rank[:, h] = iate_est_simul[:, h].argsort(
+                axis=0).argsort(axis=0).reshape(-1) + 0.5
+
+        iate_simul_rank_mean = np.mean(iate_simul_rank, axis=1).reshape(-1, 1)
+
+        for h in range(est_error_simul_np.shape[1]):
+            iate_simul_rank[:, h] = iate_est_simul[:, h].argsort(
+                axis=0).argsort(axis=0).reshape(-1) + 0.5
+        iate_simul_rank_mean = np.mean(iate_simul_rank, axis=1).reshape(-1, 1)
+        iate_quantile_adj_np = np.clip(
+            delta_quantile_adjustment(iate_quantile_np,
+                                      iate_simul_rank_mean / obs),
+            0, 1)
+    else:
+        iate_bias_adjust_np = bias_adjust_value(iate_np, iate_quantile_np,
+                                                iate_se_np,
+                                                )
+        iate_quantile_adj_np = switch_ranks(iate_bias_adjust_np, iate_np,
+                                            iate_quantile_np)
+
+    return iate_quantile_adj_np
+
+
+def bias_adjust_value(iate_np: np.ndarray,
+                      iate_quantile_np: np.ndarray,
+                      iate_se_np: np.ndarray,
+                      tolerance_0_1: float | np.floating = 1e-10
+                      ) -> np.ndarray:
+    """Bias adjustment of IATE keeping quantile position."""
+    obs = len(iate_np)
+    bias = norm.ppf(iate_quantile_np.clip(min=tolerance_0_1,
+                                          max=1 - tolerance_0_1),
+                    loc=np.zeros(obs),
+                    scale=iate_se_np)
+    iate_bias_adjust_np = iate_np - bias
+
+    return iate_bias_adjust_np
+
+
+def switch_ranks(iate_bias_adjust_np: np.ndarray,
+                 iate_np: np.ndarray,
+                 iate_quantile_np: np.ndarray,
+                 ) -> np.ndarray:
+    """Find quantiles of bias adjusted IATEs in old distribution of IATEs."""
+    iate_bias_adjust_np_sorted = np.sort(iate_bias_adjust_np)
+    indices = np.searchsorted(iate_bias_adjust_np_sorted, iate_np, side='right')
+    quantile_iate_adj_np = (indices + 0.5) / len(iate_np)
 
     return quantile_iate_adj_np
 
 
+def simex_diff_rank_adjustment(iate_est_rank, iate_est_se, iate_simul_rank,
+                               grid):
+    """Adjust ranks by regression."""
+    x_dim = 6
+
+    x_var = np.empty((len(iate_est_rank), x_dim, len(grid)))
+    y_var = np.empty((len(iate_est_rank), len(grid),))
+    ones = np.ones(len(iate_est_rank))
+
+    for gidx, noise_level in enumerate(grid):
+        y_var[:, gidx] = iate_est_rank - iate_simul_rank[:, gidx]
+        x_var[:, :, gidx] = make_x_simex_diff(x_dim, ones, iate_est_se,
+                                              noise_level)
+
+    x_var_pred = make_x_simex_diff(x_dim, ones, iate_est_se, -1)
+
+    x_list = [x_var[:, :, gidx] for gidx, _ in enumerate(grid)]
+    x_varf = np.concatenate(x_list, axis=0)
+
+    y_list = [y_var[:, gidx] for gidx, _ in enumerate(grid)]
+    y_varf = np.concatenate(y_list, axis=0)
+    # Does OLS make sense for a difference in rank regression?
+    beta = np.linalg.solve(x_varf.T @ x_varf, x_varf.T @ y_varf)
+
+    delta = x_var_pred @ beta
+
+    rank_adjusted = iate_est_rank - delta
+
+    return rank_adjusted
+
+
+def make_x_simex_diff(x_dim, ones, iate_est_se, noise_level):
+    """Make matrices with independent variables."""
+    x_var = np.zeros((len(iate_est_se), x_dim))
+    x_var[:, 0] = ones
+    x_var[:, 1] = noise_level
+    if x_dim > 2:
+        x_var[:, 2] = noise_level ** 2
+    if x_dim > 3:
+        x_var[:, 3] = iate_est_se * noise_level
+    if x_dim > 4:
+        x_var[:, 4] = iate_est_se * (noise_level ** 2)
+    if x_dim > 5:
+        x_var[:, 5] = (iate_est_se * noise_level) ** 2
+
+    return x_var
+
+
 def delta_quantile_adjustment(est_q, simul_q):
     """Compute adjusted quantile positions of estimated IATEs."""
-    est_sim = np.mean(simul_q, axis=1).reshape(-1, 1)
-    delta = est_sim - est_q.reshape(-1, 1)
+    delta = simul_q - est_q.reshape(-1, 1)
     new_quantil = est_q.reshape(-1, 1) - delta
 
     return new_quantil.reshape(-1)
@@ -782,8 +868,8 @@ def qiate_effects_print(mcf_, effect_dic, effect_m_med_dic, effect_m_opp_dic,
         y_pot_m_opp = y_pot_m_opp_var = None
 
     if special_txt is not None:
-        ps.print_mcf(mcf_.gen_dict, '\n' + '=' * 100 + special_txt,
-                     summary=True, non_summary=False)
+        mcf_ps.print_mcf(mcf_.gen_dict, '\n' + '=' * 100 + special_txt,
+                         summary=True, non_summary=False)
     # Get parameters and info computed in 'gate_est'
     treat_comp_labels = (qiate_est_dic['treat_comp_label'],      # True label
                          qiate_est_dic['iate_q_key_dic'].keys())  # Key
@@ -792,6 +878,7 @@ def qiate_effects_print(mcf_, effect_dic, effect_m_med_dic, effect_m_opp_dic,
     effect_type_label = ('QIATE', 'QIATE(q) - QIATE(0.5)',
                          'QIATE(q) - QIATE(1-q)', 'Distribution')
 
+    old_filters = warnings.filters.copy()
     warnings.filterwarnings('error', category=RuntimeWarning)
 
     qiate = np.empty((no_of_qval, no_of_out, len(treat_comp_labels[0])))
@@ -849,13 +936,14 @@ def qiate_effects_print(mcf_, effect_dic, effect_m_med_dic, effect_m_opp_dic,
             txt += ('\nQuantile Individualized Average Treatment Effects\n'
                     + '- ' * 50)
             txt += f'\nOutcome: {var_dic["y_name"][o_idx]} Ref. pop.: All\n'
-            txt += ps.print_effect_z(
-                ret_qiate, ret_qiate_mmed, q_values, 'QIATE',
+            txt += mcf_ps.print_effect_z(
+                ret_qiate, ret_qiate_mmed, q_values, 'QIATE', 'ATE',
                 print_output=False, gates_minus_previous=False, qiate=True,
                 gmopp_r=ret_qiate_mopp)
-            txt += '\n' + ps.print_se_info(
+            txt += '\n' + mcf_ps.print_se_info(
                 p_dic['cluster_std'], p_dic['se_boot_gate'])
-            txt += ps.print_minus_ate_info(gen_dic['weighted'], print_it=False)
+            txt += mcf_ps.print_minus_ate_info(gen_dic['weighted'],
+                                               print_it=False)
     med_f = med_f_se = None
     if int_dic['with_output']:
         for o_idx, o_lab in enumerate(var_dic['y_name']):
@@ -878,10 +966,10 @@ def qiate_effects_print(mcf_, effect_dic, effect_m_med_dic, effect_m_opp_dic,
                         cdf_pdf = False
                     elif e_idx == 2:
                         if m_opp_yes:
+                            effects = qiate_mopp[:, o_idx, t_idx]
                             middle = round((len(effects) - 1) / 2)
                             qiate_mopp[middle, o_idx, t_idx] = 0
                             qiate_mopp_se[middle, o_idx, t_idx] = 0.001
-                            effects = qiate_mopp[:, o_idx, t_idx]
                             ste = qiate_mopp_se[:, o_idx, t_idx]
                         else:
                             effects = ste = None
@@ -908,8 +996,10 @@ def qiate_effects_print(mcf_, effect_dic, effect_m_med_dic, effect_m_opp_dic,
 
     if int_dic['with_output']:
         txt += '-' * 100
-        ps.print_mcf(gen_dic, txt, summary=True, non_summary=True)
-    warnings.resetwarnings()
+        mcf_ps.print_mcf(gen_dic, txt, summary=True, non_summary=True)
+
+    warnings.filters = old_filters
+    # warnings.resetwarnings()
 
     return (qiate, qiate_se, qiate_mmed, qiate_mmed_se,
             qiate_mopp, qiate_mopp_se, figure_list)

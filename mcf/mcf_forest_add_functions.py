@@ -7,25 +7,36 @@ Created on Thu May 11 16:30:11 2023
 # -*- coding: utf-8 -*-
 """
 from copy import deepcopy
-from numba import njit
+from typing import TYPE_CHECKING
 
+from numba import njit
 import numpy as np
 import ray
+from pandas import DataFrame
 
 from mcf import mcf_forest_data_functions as mcf_data
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_print_stats_functions as mcf_ps
+
+if TYPE_CHECKING:
+    from mcf.mcf_main import ModifiedCausalForest
 
 
-def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, cf_dic, mmm, rng,
-                           all_vars=False, first_attempt=True):
+def rnd_variable_for_split(x_ind_pos: list,
+                           x_ai_ind_pos: np.ndarray,
+                           cf_dic: dict,
+                           mmm: int,
+                           rng: np.random.Generator,
+                           all_vars: bool = False,
+                           first_attempt: bool = True
+                           ) -> list[int, ...]:
     """Find variables used for splitting.
 
     Parameters
     ----------
     x_ind_pos : List. Indices of all x-variables.
-    x_ai_ind : Numpy 1D array or empty list.
+    x_ai_ind_pos : Numpy 1D array or empty list.
          Indices of all x-variables always used for splitting.
     c_dict : Dict. Parameters
     mmm : Number of variables to draw.
@@ -45,16 +56,19 @@ def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, cf_dic, mmm, rng,
 
     qqq = len(x_ind_pos)
     if cf_dic['m_random_poisson'] and mmm > cf_dic['m_random_poisson_min']:
-        m_l = 1 + rng.poisson(lam=mmm-1, size=1)
-        # if m_l < 1:
-        #     m_l = 1
-        if m_l > qqq:
-            m_l = qqq
+        m_l = min(1 + rng.poisson(lam=mmm-1, size=1), qqq)
     else:
         m_l = mmm
     if len(x_ai_ind_pos) == 0 or not first_attempt:
-        x_i_for_split = rng.choice(x_ind_pos, m_l, replace=False)
-        x_i_for_split_list = x_i_for_split.tolist()
+        if m_l < len(x_ind_pos):  # Until version 0.7.2 '>' which was wrong
+            x_i_for_split = rng.choice(x_ind_pos, m_l, replace=False)
+        else:
+            x_i_for_split = x_ind_pos.copy()
+
+        if isinstance(x_i_for_split, np.ndarray):
+            x_i_for_split_list = x_i_for_split.tolist()
+        else:
+            x_i_for_split_list = x_i_for_split
     else:
         if m_l > len(x_ai_ind_pos):
             x_i_for_split = rng.choice(x_ind_pos, m_l - len(x_ai_ind_pos),
@@ -64,6 +78,7 @@ def rnd_variable_for_split(x_ind_pos, x_ai_ind_pos, cf_dic, mmm, rng,
             x_i_for_split_list = x_i_for_split.tolist()
         else:
             x_i_for_split_list = x_ai_ind_pos[:]
+
     return x_i_for_split_list
 
 
@@ -98,6 +113,7 @@ def match_cont(d_grid, y_nn, grid_values, rng):
     nn_indices = rng.choice(indices, size=d_grid.shape[0])
     y_nn_sel = select_one_row_element(y_nn[:, 1:], nn_indices)
     y_nn_red = np.concatenate((y_nn[:, 0].reshape(-1, 1), y_nn_sel), axis=1)
+
     return y_nn_red
 
 
@@ -171,7 +187,7 @@ def describe_forest(forest, m_n_min_ar, var_dic, cf_dic, gen_dic, pen_mult=0,
     txt += f'\nMax size of leaves:                       {leaf_info[4]:4.0f}'
     txt += f'\nAverage # of obs in leaves (single tree): {leaf_info[5]:4.0f}'
     txt += '\n' + '-' * 100
-    ps.print_mcf(gen_dic, txt, summary=summary)
+    mcf_ps.print_mcf(gen_dic, txt, summary=summary)
     report = {}
     report["n_min"] = m_n_min_ar[1]
     report["m_split"] = m_n_min_ar[0]
@@ -188,7 +204,7 @@ def describe_forest(forest, m_n_min_ar, var_dic, cf_dic, gen_dic, pen_mult=0,
     return report
 
 
-def get_tree_infos(forest):
+def get_tree_infos(forest: list[list, ...]) -> np.ndarray:
     """Obtain some basic information about estimated trees.
 
     Parameters
@@ -226,12 +242,12 @@ def get_tree_infos(forest):
     return leaf_info
 
 
-def get_terminal_leaf_no(tree_dict, x_dat):
+def get_terminal_leaf_no(tree_dict: dict, x_dat: np.ndarray) -> int:
     """Get the leaf number of the terminal node for single observation.
 
     Parameters
     ----------
-    node_table : List of list. Single tree.
+    tree_dict : List of list. Single tree.
     x_dat : Numpy array. Data.
 
     Returns
@@ -348,7 +364,11 @@ def terminal_leaf_recursive(leaf_info_int, cut_off_cont, cats_prime, x_dat,
 
 
 @njit
-def get_next_leaf_no_numba(leaf, leaf_id, x_dat, cut_off_cont):
+def get_next_leaf_no_numba(leaf:  list,
+                           leaf_id: int,
+                           x_dat: np.ndarray,
+                           cut_off_cont: np.ndarray
+                           ) -> int:
     """Get next deeper leaf number for a non-active and non-terminal leaf."""
     if leaf[5] == 0:        # Continuous variable
         condition = (x_dat[leaf[4]] - 1e-15) <= cut_off_cont[leaf_id]
@@ -358,7 +378,12 @@ def get_next_leaf_no_numba(leaf, leaf_id, x_dat, cut_off_cont):
     return leaf[2] if condition else leaf[3]
 
 
-def get_next_leaf_no(leaf, leaf_id, x_dat, cut_off_cont, cats_prime):
+def get_next_leaf_no(leaf:  list,
+                     leaf_id: int,
+                     x_dat: np.ndarray,
+                     cut_off_cont: np.ndarray,
+                     cats_prime: list
+                     ) -> int:
     """Get next deeper leaf number for a non-active and non-terminal leaf."""
     if leaf[5] == 0:        # Continuous variable
         condition = (x_dat[leaf[4]] - 1e-15) <= cut_off_cont[leaf_id]
@@ -369,20 +394,23 @@ def get_next_leaf_no(leaf, leaf_id, x_dat, cut_off_cont, cats_prime):
     return leaf[2] if condition else leaf[3]
 
 
-def prime_in_leaf(cats_prime_leaf_id, x_dat_leaf4):
+def prime_in_leaf(cats_prime_leaf_id: int, x_dat_leaf4: int) -> bool:
     """Check if primefactor is in primeproduct."""
     prime_factors = mcf_gp.primes_reverse(cats_prime_leaf_id, False)
 
     return x_dat_leaf4 in prime_factors
 
 
-def fill_trees_with_y_indices_mp(mcf_, data_df, forest):
+def fill_trees_with_y_indices_mp(mcf_: 'ModifiedCausalForest',
+                                 data_df: DataFrame,
+                                 forest: list[list]
+                                 ) -> tuple[list, list, np.ndarray]:
     """Fill trees with indices of outcomes, MP.
 
     Returns
     -------
     forest_with_y : List of lists. Updated Node_table.
-    terminal_nodes: Tuple of np.arrays. No of final node.
+    terminal_nodes: list of np.arrays. No of final node.
     no_of_avg_nodes: INT. Average no of unfilled leafs.
 
     """
@@ -411,7 +439,7 @@ def fill_trees_with_y_indices_mp(mcf_, data_df, forest):
         x_dat = np.concatenate((data_np[:, x_i], d_dat_for_x), axis=1)
     else:
         x_dat = data_np[:, x_i]
-        d_dat = np.int16(np.round(data_np[:, d_i]))
+        d_dat = np.int32(np.round(data_np[:, d_i]))
     obs = len(x_dat)
     terminal_nodes = [None for _ in range(cf_dic['boot'])]
     nodes_empty = np.zeros(cf_dic['boot'])
@@ -423,7 +451,7 @@ def fill_trees_with_y_indices_mp(mcf_, data_df, forest):
                                                  gen_dic['sys_share'])
                       if gen_dic['mp_automatic'] else gen_dic['mp_parallel'])
     if int_dic['with_output'] and int_dic['verbose']:
-        print('Number of parallel processes: ', maxworkers)
+        print('Number of parallel processes (forest): ', maxworkers)
 
     if maxworkers > 1:
         if not ray.is_initialized():
@@ -440,7 +468,7 @@ def fill_trees_with_y_indices_mp(mcf_, data_df, forest):
                     and int_dic['mem_object_store_2'] is not None):
                 num = round(int_dic["mem_object_store_2"] / (1024 * 1024))
                 txt = f'\nSize of Ray Object Store: {num} MB'
-                ps.print_mcf(gen_dic, txt, summary=False)
+                mcf_ps.print_mcf(gen_dic, txt, summary=False)
             x_dat_ref = ray.put(x_dat)
             still_running = [ray_fill_mp.remote(
                 forest[idx], obs, d_dat, x_dat_ref, idx, gen_dic, cf_dic)
@@ -462,8 +490,7 @@ def fill_trees_with_y_indices_mp(mcf_, data_df, forest):
                 del x_dat_ref
             if 'rest' in int_dic['mp_ray_del']:
                 del finished_res, finished
-            if int_dic['mp_ray_shutdown']:
-                ray.shutdown()
+
         else:  # Ray did not start. No multiprocessing.
             maxworkers = 1
 
@@ -488,7 +515,7 @@ def fill_trees_with_y_indices_mp(mcf_, data_df, forest):
         txt += '\n' + '-' * 100
         mem = round(mcf_sys.total_size(forest) / (1024 * 1024), 2)
         txt += f'\nSize of forest: {mem} MB' + '\n' + '-' * 100
-        ps.print_mcf(gen_dic, txt, summary=True)
+        mcf_ps.print_mcf(gen_dic, txt, summary=True)
 
     return forest, terminal_nodes, no_of_avg_mnodes
 
@@ -499,12 +526,16 @@ def ray_fill_mp(tree_dict, obs, d_dat, x_dat, b_idx, gen_dic, cf_dic):
     return fill_mp(tree_dict, obs, d_dat, x_dat, b_idx, gen_dic, cf_dic)
 
 
-def fill_mp(tree_dict_g, obs, d_dat, x_dat, b_idx, gen_dic, cf_dic):
+def fill_mp(tree_dict_g: dict,
+            obs: int, d_dat: np.ndarray, x_dat: np.ndarray,
+            b_idx: int,
+            gen_dic: dict, cf_dic: dict
+            ) -> tuple[int, dict, np.ndarray, float, float]:
     """Compute new node_table and list of final leaves.
 
     Parameters
     ----------
-    tree_dict : List of lists.
+    tree_dict : dict.
     obs : Int. Sample size.
     d_dat : Numpy array. Treatment.
     x_dat : Numpy array. Features.
@@ -513,9 +544,7 @@ def fill_mp(tree_dict_g, obs, d_dat, x_dat, b_idx, gen_dic, cf_dic):
 
     Returns
     -------
-    node_table : List of lists.
-    unique_leafs : List.
-    b_idx : Int. Tree number.
+    ...
 
     """
     tree_dict = deepcopy(tree_dict_g)  # Necessary to change leaf_info_int
@@ -553,7 +582,7 @@ def fill_mp(tree_dict_g, obs, d_dat, x_dat, b_idx, gen_dic, cf_dic):
     return b_idx, tree_dict, unique_leafs, empty_share, merge_share
 
 
-def make_zeros(obs):
+def make_zeros(obs: int) -> np.ndarray[np.integer, ...]:
     """Make zeros in memory-efficient data format."""
     if obs < 255:
         obs_in_leaf = np.zeros((obs, 1), dtype=np.uint8)
@@ -567,7 +596,11 @@ def make_zeros(obs):
     return obs_in_leaf
 
 
-def merge_leaves(tree_dict, leaf_id, obs_in_leaf, indices, d_dat, no_of_treat):
+def merge_leaves(tree_dict: dict,
+                 leaf_id: int, obs_in_leaf: np.ndarray, indices: np.ndarray,
+                 d_dat: np.ndarray,
+                 no_of_treat: int
+                 ) -> tuple[dict, int]:
     """Merge two leaves."""
     # Get IDs
     parent_id = tree_dict['leaf_info_int'][leaf_id, 1]
@@ -610,8 +643,10 @@ def merge_leaves(tree_dict, leaf_id, obs_in_leaf, indices, d_dat, no_of_treat):
     return tree_dict, still_empty
 
 
-def save_forests_in_cf_dic(forest_dic, forest_list, fold, no_folds, reg_round,
-                           eff_iate):
+def save_forests_in_cf_dic(forest_dic: dict, forest_list: list,
+                           fold: int, no_folds: int, reg_round: int,
+                           eff_iate: bool
+                           ) -> list:
     """Save forests in dictionary as list of list."""
     # Initialise
     if fold == 0 and reg_round:
@@ -622,7 +657,9 @@ def save_forests_in_cf_dic(forest_dic, forest_list, fold, no_folds, reg_round,
     return forest_list
 
 
-def train_save_data(mcf_, data_df, forest):
+def train_save_data(mcf_: 'ModifiedCausalForest', data_df: DataFrame,
+                    forest: object
+                    ) -> dict:
     """Save data needed in the prediction part of mcf."""
     y_train_df = data_df[mcf_.var_dict['y_name']]
     d_train_df = data_df[mcf_.var_dict['d_name']]
@@ -645,7 +682,11 @@ def train_save_data(mcf_, data_df, forest):
     return forest_dic
 
 
-def not_enough_treated(continuous, n_min_treat, d_dat, no_of_treat):
+def not_enough_treated(continuous: bool,
+                       n_min_treat: int,
+                       d_dat: np.ndarray,
+                       no_of_treat: int
+                       ) -> bool:
     """If there are NOT enough treated in new leaf."""
     if continuous or n_min_treat == 1:
         return len(np.unique(d_dat)) < no_of_treat

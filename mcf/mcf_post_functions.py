@@ -24,7 +24,7 @@ from mcf import mcf_general_sys as mcf_sys
 from mcf import mcf_print_stats_functions as mcf_ps
 
 
-def post_estimation_iate(mcf_, results, late=False):
+def post_estimation_iate(mcf_, results, iv=False):
     """Do post-estimation analysis: correlations, k-means, sorted effects."""
     ct_dic, int_dic = mcf_.ct_dict, mcf_.int_dict
     gen_dic, p_dic, post_dic = mcf_.gen_dict, mcf_.p_dict, mcf_.post_dict
@@ -37,12 +37,12 @@ def post_estimation_iate(mcf_, results, late=False):
         no_of_treat = len(d_values)
     else:
         no_of_treat, d_values = gen_dic['no_of_treat'], gen_dic['d_values']
-    number_of_runs = 3 if late else 1
+    number_of_runs = 3 if iv else 1
     for iv_ind in range(number_of_runs):
         if iv_ind == 0:  # Always run this
             iate_pot_all_name = results['iate_names_dic']
             ate_all, ate_all_se = results['ate'], results['ate_se']
-            effect_list = results['ate effect_list']
+            effect_list = results['ate_effect_list']
             data_df = results['iate_data_df']
         elif iv_ind == 1:  # 1st stage of IV estimation
             iate_pot_all_name = results['iate_1st_names_dic']
@@ -51,7 +51,7 @@ def post_estimation_iate(mcf_, results, late=False):
             data_df = results['iate_1st_pred_df']
         elif iv_ind == 2:  # Reduced form of IV estimation
             iate_pot_all_name = results['iate_redf_names_dic']
-            ate_all, ate_all_se = results['ate_1st'], results['ate_redf_se']
+            ate_all, ate_all_se = results['ate_redf'], results['ate_redf_se']
             effect_list = results['ate redf_effect_list']
             data_df = results['iate_redf_pred_df']
         else:
@@ -125,11 +125,11 @@ def post_estimation_iate(mcf_, results, late=False):
                         if gen_dic['d_type'] == 'discrete':
                             corr = iate.corrwith(data_df[name_iate_t])
                             for jdx in corr.keys():
-                                txt += f'\n{jdx:<20} {corr[jdx]:>8.2%}'
+                                txt += f'\n{jdx:<40} {corr[jdx]:>8.2%}'
                             txt += '\n' + '- ' * 50
                             corr = y_pot.corrwith(data_df[name_iate_t])
                             for jdx in corr.keys():
-                                txt += f'\n{jdx:<20} {corr[jdx]:>8.2%}'
+                                txt += f'\n{jdx:<40} {corr[jdx]:>8.2%}'
                             txt += '\n' + '- ' * 50
 
                         corr = x_dat_df.corrwith(data_df[name_iate_t])
@@ -137,7 +137,7 @@ def post_estimation_iate(mcf_, results, late=False):
                         for jdx in corr.keys():
                             if np.abs(corr[jdx].item()
                                       ) > post_dic['bin_corr_threshold']:
-                                txt += f'\n{jdx:<20} {corr[jdx]:>8.2%}'
+                                txt += f'\n{jdx:<40} {corr[jdx]:>8.2%}'
                         txt += '\n' + '- ' * 50
                     iate_temp = mcf_gp.to_numpy_big_data(
                         data_df[name_iate_t], int_dic['obs_bigdata'])
@@ -206,23 +206,24 @@ def post_estimation_iate(mcf_, results, late=False):
                     fig, axe = plt.subplots()
                     if imate == 0:
                         label_t, label_r, label_y = 'IATE', 'ATE', 'Effect'
-                        if late and iv_ind == 0:
+                        if iv and iv_ind == 0:
                             label_t, label_r = 'LIATE', 'LATE'
-                        elif late and iv_ind == 1:
+                        elif iv and iv_ind == 1:
                             label_t = 'IATE (1st stage)'
                             label_r = 'ATE (1st stage)'
-                        elif late and iv_ind == 2:
+                        elif iv and iv_ind == 2:
                             label_t = 'IATE (reduced form)'
                             label_r = 'ATE (reduced form)'
                     else:
-                        label_t, label_r = 'IATE-ATE', '_nolegend_'
                         label_y = 'Effect - average'
-                        if late and iv_ind == 0:
+                        if iv and iv_ind == 0:
                             label_t = 'LIATE-LATE'
-                        elif late and iv_ind == 1:
+                        elif iv and iv_ind == 1:
                             label_t = 'IATE-ATE (1st)'
-                        elif late and iv_ind == 2:
+                        elif iv and iv_ind == 2:
                             label_t = 'IATE-ATE (red.f.)'
+                        else:
+                            label_t, label_r = 'IATE-ATE', '_nolegend_'
                     axe.plot(x_values, iate_temp, line_iate, label=label_t)
                     axe.set_ylabel(label_y)
                     axe.plot(x_values, ate_t, line_ate, label=label_r)
@@ -235,12 +236,12 @@ def post_estimation_iate(mcf_, results, late=False):
                     titel_tmp = titel_tmp[:-4] + ' ' + titel_tmp[-4:]
                     titel_tmp = titel_tmp.replace('vs', ' vs ')
                     if 'mate' in titel:
-                        if late and iv_ind == 0:
+                        if iv and iv_ind == 0:
                             titel_tmp += ' (- LATE)'
                         else:
                             titel_tmp += ' (- ATE)'
                     axe.set_title(titel_tmp)
-                    if late and iv_ind == 0:
+                    if iv and iv_ind == 0:
                         axe.set_xlabel('Quantile of sorted LIATEs')
                     else:
                         axe.set_xlabel('Quantile of sorted IATEs')
@@ -335,7 +336,7 @@ def post_estimation_iate(mcf_, results, late=False):
                         titel_tmp = titel_tmp.replace('vs', ' vs ')
                         axe.set_title(titel_tmp)
                         axe.set_ylabel('Estimated density')
-                        if late and iv_ind == 0:
+                        if iv and iv_ind == 0:
                             axe.set_xlabel('LIATE')
                         else:
                             axe.set_xlabel('IATE')
@@ -359,7 +360,7 @@ def post_estimation_iate(mcf_, results, late=False):
                         datasave.to_csv(file_name_csv, index=False)
                         if not p_dic['iate_se']:
                             figure_list.append(file_name_jpeg)
-        if gen_dic['d_type'] == 'continuous' and not late:
+        if gen_dic['d_type'] == 'continuous' and not iv:
             no_of_y = len(var_dic['y_name'])
             no_of_iate_y = round(len(iate_pot_name['names_iate']) / no_of_y)
             index_0 = range(no_of_iate_y)
@@ -447,6 +448,7 @@ def k_means_of_x_iate(mcf_, results_prev):
             mcf_.data_train_dict['prime_values_dict'],
             mcf_.data_train_dict['unique_values_dict'])
 
+    # kmeans clustering
     iate_name_all = iate_pot_name['names_iate']
     no_of_kmeans = len(iate_name_all) + 1 if post_dic['kmeans_single'] else 1
     for val_idx in range(no_of_kmeans):
@@ -593,6 +595,10 @@ def kmeans_labels(iate_np, post_dic, no_of_clusters):
         for i, u in enumerate(unique_new):
             relabelled_labels[cluster_labels == u] = i
         cluster_labels = relabelled_labels
+
+    if len(np.unique(cluster_labels)) < 2:
+
+        return cluster_labels, -np.inf, np.any(too_small)
 
     silhouette = silhouette_score(iate_np, cluster_labels)
 
@@ -790,6 +796,7 @@ def relational_graphs(mcf_, data_df, iate_name, x_dat_df):
         title = f'Relation of {iate_name} and {x_name}'
         plt.title(title)
         plt.subplots_adjust(top=0.90)
+
         # Save to file
         title_f = f'Univariate_{iate_name}_{x_name}'
         file_name_jpeg = (mcf_.p_dict['ate_iate_fig_pfad_jpeg']

@@ -1,13 +1,10 @@
-from time import time
+from pandas import DataFrame
+from pathlib import Path
 
-from mcf import mcf_print_stats_functions as ps
-from mcf import optpolicy_bb_functions as op_bb
-from mcf import optpolicy_bb_cl_functions as op_bb_cl
-from mcf import optpolicy_data_functions as op_data
 from mcf import optpolicy_evaluation_functions as op_eval
-from mcf import optpolicy_fair_functions as op_fair
 from mcf import optpolicy_init_functions as op_init
-from mcf import optpolicy_pt_functions as op_pt
+from mcf import optpolicy_methods as op_methods
+from mcf import mcf_print_stats_functions as mcf_ps
 
 
 class OptimalPolicy:
@@ -34,10 +31,24 @@ class OptimalPolicy:
         Remove all missing & unnecessary variables.
         Default (or None) is True.
 
+    estrisk_value : Float or integer (or None), optional
+        The is k in the formula  'policy_score - k * standard_error'
+        used to adjust the scores for estimation risk.
+        Default (or None) is 1.
+
+    fair_adjust_target :  String (or None), optional\
+        Target for the fairness adjustment.\
+        ``'scores'`` : Adjust policy scores.\
+        ``'xvariables'`` : Adjust decision variables.\
+        ``'scores_xvariables'`` : Adjust both decision variables and score.\
+        Default (or None) is 'xvariables'.
+
     fair_consistency_test : Boolean (or None), optional\
         Test for internally consistency of fairness correction.
-        The fairness corrections are applied independently to every policy
-        score (which usually is a potential outcome or an IATE(x) for each
+        When ``'fair_adjust_target'`` is ``'scores'`` or
+        ``'scores_xvariables'``, then the fairness corrections are applied
+        independently to every policy score
+        (which usually is a potential outcome or an IATE(x) for each
         treatment relative to some base treatment (i.e. comparing 1-0, 2-0,
         3-0, etc.). Thus the IATE for the 2-1 comparison can be computed as
         IATE(2-0)-IATE(1-0). This tests compares two ways to compute a
@@ -47,8 +58,14 @@ class OptimalPolicy:
         b) Difference of corresponding scores, subsequently made fair.\
         Note: Depending on the number of treatments, this test may be
         computationally more expensive than the orginal fairness corrections.\
-        Fairness adjustments are experimental.\
         Default (or None) is False.
+
+    fair_cont_min_values : Integer or float (or None),  optional
+         The methods used for fairness corrections depends on whether the
+         variable is consider as continuous or discrete. All unordered
+         variables are considered being discrete, and all ordered
+         variables with more than ``fair_cont_min_values`` are considered as
+         being discrete as well. The default (or None) is 20.
 
     fair_material_disc_method : String (or None), optional\
         Method on how to perform the discretization for materially relevant
@@ -62,7 +79,6 @@ class OptimalPolicy:
         values.\
         ``'Kmeans'`` : Use Kmeans clustering algorithm to form homogeneous
         cells.\
-        Fairness adjustments are experimental.\
         Default (or None) is 'Kmeans'.
 
     fair_protected_disc_method : String (or None), optional\
@@ -76,7 +92,6 @@ class OptimalPolicy:
         values.\
         ``'Kmeans'`` : Use Kmeans clustering algorithm to form homogeneous
         cells.\
-        Fairness adjustments are experimental.\
         Default (or None) is ``'Kmeans'``.
 
     fair_material_max_groups : Integer (or None), optional\
@@ -88,7 +103,6 @@ class OptimalPolicy:
         If ``'EqualCell'``: If more than 1 variable is included among the
         protected variables, this restriction is applied to each variable.\
         If ``'Kmeans'``: This is the number of clusters used by Kmeans.\
-        Fairness adjustments are experimental.\
         Default (or None) is 5.
 
     fair_protected_max_groups : Integer (or None), optional\
@@ -100,7 +114,6 @@ class OptimalPolicy:
         If ``'EqualCell'`` : If more than 1 variable is included among the
         protected variables, this restriction is applied to each variable.\
         If ``'Kmeans'`` : This is the number of clusters used by Kmeans.
-        Fairness adjustments are experimental.\
         Default (or None) is 5.
 
     fair_regression_method : String (or None), optional\
@@ -118,7 +131,6 @@ class OptimalPolicy:
         'automatic', every policy score might be adjusted with a different
         method. 'Mean' is included for cases in which regression methods have
         no explanatory power.\
-        Fairness adjustments are experimental.\
         Default (or None) is ``'RandomForest'``.
 
     fair_type : String (or None), optional\
@@ -129,14 +141,15 @@ class OptimalPolicy:
         residualisation and rescaling.\
         ``'Quantiled'`` : Removing dependence via (an empricial version of) the
         approach by Strack and Yang (2024) using quantiles.\
+        ``'Mean'`` and ``'MeanVar'`` are only availabe for adjusting the score
+        (not the decision variables).\
         See the paper by Bearth, Lechner, Mareckova, Muny (2024) for details on
         these methods.\
-        Fairness adjustments are experimental.\
         Default (or None) is 'Quantiled'.
 
     gen_method : String (or None), optional.\
         Method to compute assignment algorithm (available methods:
-        ``'best_policy_score'``, ``'bps_classifier'``, ``'policy tree'``).
+        ``'best_policy_score'``, ``'bps_classifier'``, ``'policy_tree'``).
         ``'best_policy_score'`` conducts Black-Box allocations, which are
         obtained by using the scores directly (potentially subject to
         restrictions). When the Black-Box allocations are used for
@@ -150,7 +163,7 @@ class OptimalPolicy:
         simple neural network, two classification random forests with minimum
         leaf size of 2 and 5, and ADDABoost. The selection is made according
         to the out-of-sample performance on scikit-learns Accuracy Score.
-        The implemented ``'policy tree'`` 's are optimal trees, i.e. all
+        The implemented ``'policy_tree'`` 's are optimal trees, i.e. all
         possible trees are checked if they lead to a better performance.
         If restrictions are specified, then this is incorporated into
         treatment specific cost parameters. Many ideas of the
@@ -171,11 +184,10 @@ class OptimalPolicy:
         added.
         Default (or None) is 'txtFileWithOutput'.
 
-    gen_outpath : String, Pathlib object (or None), optional
+    gen_outpath : String or Pathlib object (or None), optional
         Directory to where to put text output and figures. If it does not
         exist, it will be created.
-        None : (\*.out) directory just below to the directory where the
-        programme is run.
+        None : Directory just below the directory where the programme is run.
         Default is None.
 
     gen_output_type : Integer (or None), optional
@@ -242,7 +254,7 @@ class OptimalPolicy:
         Changes the number of the evaluation points (pt_no_of_evalupoints)
         for the unordered (categorical) variables to:
         :math:`\\text{pt_eva_cat_mult} \\times \\text{pt_no_of_evalupoints}`
-        (available only for the method 'policy tree').
+        (available only for the method 'policy_tree').
         Default (or None) is 2.
 
     pt_no_of_evalupoints : Integer (or None), optional
@@ -251,7 +263,7 @@ class OptimalPolicy:
         the optimal splitting rule. This parameter is closely related to
         the approximation parameter of Zhou, Athey, Wager (2022)(A) with
         :math:`\\text{pt_no_of_evalupoints} = \\text{number of observation} / \\text{A}`.
-        Only relevant if gen_method is 'policy tree'.
+        Only relevant if gen_method is 'policy_tree'.
         Default (or None) is 100.
 
     pt_min_leaf_size : Integer (or None), optional
@@ -265,7 +277,7 @@ class OptimalPolicy:
             0.1 \\times \\frac{\\text{Number of training observations}}{{\\text{Number of leaves}}}
 
         (if treatment shares are restricted this is multiplied by the smallest
-        share allowed). Only relevant if gen_method is 'policy tree'.
+        share allowed). Only relevant if gen_method is 'policy_tree'.
         Default is None.
 
     pt_select_values_cat : Boolean (or None), optional
@@ -282,7 +294,7 @@ class OptimalPolicy:
         variables according to a values of the policy score as one would do
         for a standard random forest. If this set is still too large, a
         random sample of the entailed combinations is drawn. Method 1 is
-        only available for the method 'policy tree'.
+        only available for the method 'policy_tree'.
 
     rnd_shares : Tuple of floats (or None), optional
         Share of treatments of a stochastic assignment as computed by the
@@ -396,18 +408,9 @@ class OptimalPolicy:
         Default (or None) is 2.
         Internal variable, change default only if you know what you do.
 
-    _int_how_many_parallel : Integer (or None), optional
-        Number of parallel process.
-        None : 80% of logical cores, if this can be effectively implemented.
-        Default is None.
-
     _int_output_no_new_dir: Boolean
         Do not create a new directory when the path already exists.
         Default (or None) is False.
-
-    _int_parallel_processing : Boolean (or None), optional
-        Multiprocessing.
-        Default (or None) is True.
 
     _int_report : Boolean, optional
         Provide information for McfOptPolReports to construct informative
@@ -426,20 +429,23 @@ class OptimalPolicy:
         Parallelize to a larger degree to make sure all CPUs are busy for
         most of the time.
         Default (or None) is True.
-        Only used for 'policy tree' and
+        Only used for 'policy_tree' and
         only used if _int_parallel_processing > 1 (or None)
 
 
     Attributes
     ----------
 
-    version : String
+    __version__ : String
         Version of mcf module used to create the instance.
 
     <NOT-ON-API>
 
     dc_dict : Dictionary
         Parameters used in data cleaning.
+
+    estrisk : Dictionary
+        Parameters used to account for estimation uncertainty in policy scores.
 
     fair_dict : Dictionary
         Parameters used in fairness adjustment of scores.
@@ -482,10 +488,13 @@ class OptimalPolicy:
     def __init__(
         self, dc_check_perfectcorr=True,
         dc_clean_data=True, dc_min_dummy_obs=10, dc_screen_covariates=True,
-        fair_type='MeanVar', fair_consistency_test=False,
-        fair_material_disc_method='Kmeans', fair_protected_disc_method='Kmeans',
-        fair_material_max_groups=5, fair_regression_method='RandomForest',
-        fair_protected_max_groups=5,
+        estrisk_value=1,
+        fair_adjust_target='xvariables', fair_consistency_test=False,
+        fair_cont_min_values=20,
+        fair_material_disc_method='Kmeans', fair_material_max_groups=5,
+        fair_regression_method='RandomForest',
+        fair_protected_disc_method='Kmeans', fair_protected_max_groups=5,
+        fair_type='Quantiled',
         gen_method='best_policy_score', gen_mp_parallel='None',
         gen_outfiletext='txtFileWithOutput',
         gen_outpath=None, gen_output_type=2, gen_variable_importance=True,
@@ -498,17 +507,18 @@ class OptimalPolicy:
         var_bb_restrict_name=None, var_d_name=None, var_effect_vs_0=None,
         var_effect_vs_0_se=None, var_id_name=None,
         var_material_name_ord=None, var_material_name_unord=None,
-        var_polscore_desc_name=None,
-        var_polscore_name=None, var_protected_name_ord=None,
-        var_protected_name_unord=None, var_vi_x_name=None,
-        var_vi_to_dummy_name=None, var_x_name_ord=None, var_x_name_unord=None,
-        _int_dpi=500, _int_fontsize=2,
-        _int_how_many_parallel=None, _int_output_no_new_dir=False,
-        _int_parallel_processing=True, _int_report=True, _int_with_numba=True,
-        _int_with_output=True, _int_xtr_parallel=True,
+        var_polscore_desc_name=None, var_polscore_name=None,
+        var_polscore_se_name=None,
+        var_protected_name_ord=None, var_protected_name_unord=None,
+        var_vi_x_name=None, var_vi_to_dummy_name=None,
+        var_x_name_ord=None, var_x_name_unord=None,
+        _int_dpi=500, _int_fontsize=2, _int_output_no_new_dir=False,
+        _int_report=True, _int_with_numba=True, _int_with_output=True,
+        _int_xtr_parallel=True,
             ):
 
-        self.version = '0.7.2'
+        self.version = '0.8.0'
+        self.__version__ = '0.8.0'
 
         self.int_dict = op_init.init_int(
             cuda=False, output_no_new_dir=_int_output_no_new_dir,
@@ -550,13 +560,17 @@ class OptimalPolicy:
             material_ord_name=var_material_name_ord,
             material_unord_name=var_material_name_unord,
             polscore_name=var_polscore_name,
+            polscore_se_name=var_polscore_se_name,
             protected_ord_name=var_protected_name_ord,
             protected_unord_name=var_protected_name_unord,
             x_ord_name=var_x_name_ord, x_unord_name=var_x_name_unord,
             vi_x_name=var_vi_x_name, vi_to_dummy_name=var_vi_to_dummy_name)
 
         self.fair_dict = op_init.init_fair(
+            gen_dic=self.gen_dict,
+            adjust_target=fair_adjust_target,
             consistency_test=fair_consistency_test,
+            cont_min_values=fair_cont_min_values,
             material_disc_method=fair_material_disc_method,
             protected_disc_method=fair_protected_disc_method,
             material_max_groups=fair_material_max_groups,
@@ -564,12 +578,16 @@ class OptimalPolicy:
             protected_max_groups=fair_protected_max_groups,
             adj_type=fair_type)
 
+        self.estrisk_dict = op_init.init_estrisk(value=estrisk_value)
+
         self.time_strings, self.var_x_type, self.var_x_values = {}, {}, {}
         self.bps_class_dict = {}
         self.report = {'fairscores': False,
+                       'solvefair': False,
                        'training': False,
                        'evaluation': False,
                        'allocation': False,
+                       'estriskscores': False,
                        'training_data_chcksm': 0,   # To identify training data
                        'training_alloc_chcksm': 0,  # To identify train. alloc.
                        'alloc_list': [],   # List because of possible multiple
@@ -577,56 +595,256 @@ class OptimalPolicy:
                        }                   # might be used multiple times.
         self.number_scores = len(self.var_dict['polscore_name'])
 
-    def fairscores(self, data_df, data_title=''):
+    def allocate(self,
+                 data_df: DataFrame,
+                 data_title: str = '',
+                 fair_adjust_decision_vars: bool = False
+                 ) -> tuple[DataFrame, Path]:
         """
-        Make scores independent of protected variables. Experimental.
+        Allocate observations to treatment state.
 
         Parameters
         ----------
         data_df : DataFrame
+            Input data with at least features or policy scores
+            (depending on algorithm).
+
+        data_title : String, optional
+            This string is used as title in outputs. The default is ''.
+
+        fair_adjust_decision_vars : Boolean, optional
+            If True, it will fairness-adjust the decision variables even when
+            fairness adjustments have not been used in training.
+            If False, no fairness adjustments of decision variables. However,
+            if fairness adjustments of decision variables have already been used
+            in training, then these variables will also be fairness adjusted in
+            the allocate method, independent of the value of
+            ``fair_adjust_decision_vars``.
+            The default is False.
+
+        Returns
+        -------
+        results : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'allocation_df' : DataFrame
+                data_df with optimal allocation appended.
+            'outpath' : Path
+                Location of directory in which output is saved.
+
+        """
+        (allocation_df, self.gen_dict['outpath']
+         ) = op_methods.allocate_method(
+             self,
+             data_df,
+             data_title=data_title,
+             fair_adjust_decision_vars=fair_adjust_decision_vars
+             )
+        results_dic = {
+            'allocation_df': allocation_df,
+            'outpath': self.gen_dict['outpath']
+            }
+
+        return results_dic
+
+    def evaluate(self,
+                 allocation_df: DataFrame,
+                 data_df: DataFrame,
+                 data_title: str = '',
+                 seed: int = 12434
+                 ) -> tuple[dict, Path]:
+        """
+        Evaluate allocation with potential outcome data.
+
+        Parameters
+        ----------
+        allocation_df : DataFrame
+            Optimal allocation as outputed by the
+            :meth:`~OptimalPolicy.solve`, :meth:`~OptimalPolicy.solvefair`,
+            and :meth:`~OptimalPolicy.allocate` methods.
+
+        data_df : DataFrame
+            Additional information that can be linked to allocation_df.
+
+        data_title : String, optional
+            This string is used as title in outputs. The default is ''.
+
+        seed : Integer, optional
+            Seed for random number generators. The default is 12434.
+
+        Returns
+        -------
+        results_all_dic : Dictory
+            'results_dic': Collected results of evaluation with
+                           self-explanatory keys.
+            'outpath': Output path.
+
+        """
+        (results_dic, self.gen_dict['outpath']
+         ) = op_methods.evaluate_method(self,
+                                        allocation_df,
+                                        data_df,
+                                        data_title=data_title,
+                                        seed=seed)
+        results_all_dic = {
+            'results_dic': results_dic,
+            'outpath': self.gen_dict['outpath']
+            }
+
+        return results_all_dic
+
+    def evaluate_multiple(self,
+                          allocations_dic: dict,
+                          data_df: DataFrame
+                          ) -> Path:
+        """
+        Evaluate several allocations simultaneously.
+
+        Parameters
+        ----------
+        allocations_dic : Dictionary
+            Contains dataframes with specific allocations.
+
+        data_df : DataFrame.
+            Data with the relevant information about potential outcomes
+            which
+            will be used to evaluate the allocations.
+
+        Returns
+        -------
+        results_dic : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'outpath' : Path
+                Location of directory in which output is saved.
+
+        """
+        if not self.gen_dict['with_output']:
+            raise ValueError('To use this method, allow output to be written.')
+        potential_outcomes_np = data_df[self.var_dict['polscore_name']]
+        op_eval.evaluate_multiple(self, allocations_dic, potential_outcomes_np)
+        results_dic = {'outpath': self.gen_dict['outpath']
+                       }
+
+        return results_dic
+
+    def estrisk_adjust(self,
+                       data_df: DataFrame,
+                       data_title: str = ''
+                       ) -> tuple[DataFrame, list[str, ...], Path]:
+        """
+        Adjust policy score for estimation risk.
+
+        Parameters
+        ----------
+        data_df : Dataframe
             Input data.
+
         data_title : String, optional
             This string is used as title in outputs. The default is ''.
 
         Returns
         -------
-        data_fair_df : DataFrame
-            Input data with additional fairness adjusted scores.
-        names_fair_scores : List of strings.
-            Names of adjusted scores.
-        outpath : Pathlib object
-            Location of directory in which output is saved.
+        results_dic : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'data_estrisk_df' : DataFrame
+                Input data with additional fairness adjusted scores.
+            'estrisk_scores_names' : List of strings.
+                Names of adjusted scores.
+            'outpath' : Path
+                Location of directory in which output is saved.
+
         """
-        time_start = time()
-        self.fair_dict['fairscores_used'] = True
+        (data_estrisk_df, estrisk_scores_names, self.gen_dict['outpath']
+         ) = op_methods.estrisk_adjust_method(self,
+                                              data_df,
+                                              data_title=data_title)
+        results_dic = {
+            'data_estrisk_df': data_estrisk_df,
+            'estrisk_scores_names': estrisk_scores_names,
+            'outpath': self.gen_dict['outpath']
+            }
+        return results_dic
 
-        if self.gen_dict['with_output']:
-            print_dic_values_all_optp(self, summary_top=True,
-                                      summary_dic=False, stage='Fairscores')
-        self.report['fairscores'] = True
-        # Check if data are available, recode features
-        data_new_df = op_data.prepare_data_fair(self, data_df)
+    # def fairscores(self, data_df, data_title=''):
+    #     """
+    #     Make scores independent of protected variables. To be removed.
 
-        (data_fair_df, names_fair_scores, tests_dict) = op_fair.adjust_scores(
-            self, data_new_df)
+    #     Parameters
+    #     ----------
+    #     data_df : DataFrame
+    #         Input data.
 
-        # Timing
-        time_name = ['Time for fairness correction of scores:    ',]
-        time_difference = [time() - time_start]
-        if self.gen_dict['with_output']:
-            time_str = ps.print_timing(
-                self.gen_dict, 'Fairness correction ', time_name,
-                time_difference, summary=True)
-        else:
-            time_str = ''
+    #     data_title : String, optional
+    #         This string is used as title in outputs. The default is ''.
 
-        key = 'fairness correction ' + data_title
-        self.time_strings[key] = time_str
+    #     Returns
+    #     -------
+    #     data_fair_df : DataFrame
+    #         Input data with additional fairness adjusted scores.
 
-        return (data_fair_df, names_fair_scores, tests_dict,
-                self.gen_dict['outpath'])
+    #     fair_scores_names : List of strings.
+    #         Names of adjusted scores.
 
-    def solve(self, data_df, data_title=''):
+    #     tests_dict : Dictionary
+    #         Tests for consistency of different fairness adjustments. Empty
+    #         when keyword fair_consistency_test is False.
+
+    #     outpath : Pathlib object
+    #         Location of directory in which output is saved.
+    #     """
+    #     (data_fair_df, fair_scores_names, tests_dict, self.gen_dict['outpath']
+    #      ) = op_methods.fairscores_method(self,
+    #                                       data_df,
+    #                                       data_title=data_title)
+
+    #     return (data_fair_df, fair_scores_names, tests_dict,
+    #             self.gen_dict['outpath'])
+
+    def solvefair(self,
+                  data_df: DataFrame,
+                  data_title: str = ''
+                  ) -> tuple[DataFrame, dict, str]:
+        """
+        Solve for optimal allocation rule with fairness adjustments.
+
+        Follows the suggestions of Bearth, Lechner, Muny, Mareckova (2025,
+        arXiV). It has the same syntax and is used in the same way as the solve
+        method.
+
+        Parameters
+        ----------
+        data_df : DataFrame
+            Input data to train particular allocation algorithm.
+        data_title : String, optional
+            This string is used as title in outputs. The default is ''.
+
+        Returns
+        -------
+        results_all_dict : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'allocation_df' : DataFrame
+                data_df with optimal allocation appended.
+            'result_dic' : Dictionary
+                Contains additional information about trained allocation rule.
+                Only complete when keyword _int_with_output is True.
+            'outpath' : Path
+                Location of directory in which output is saved.
+
+        """
+        (allocation_df, result_dic, self.gen_dict['outpath']
+         ) = op_methods.solvefair_method(self,
+                                         data_df,
+                                         data_title=data_title)
+        results_all_dic = {
+            'allocation_df': allocation_df,
+            'result_dic': result_dic,
+            'outpath': self.gen_dict['outpath']
+            }
+        return results_all_dic
+
+    def solve(self,
+              data_df: DataFrame,
+              data_title: str = ''
+              ) -> tuple[DataFrame, dict, Path]:
         """
         Solve for optimal allocation rule.
 
@@ -639,288 +857,89 @@ class OptimalPolicy:
 
         Returns
         -------
-        allocation_df : DataFrame
-            data_df with optimal allocation appended.
-
-        result_dic : Dictionary
-            Contains additional information about trained allocation rule. Only
-            complete when keyword _int_with_output is True.
-
-        outpath : String
-            Location of directory in which output is saved.
-
-        """
-        time_start = time()
-
-        self.report['training'] = True
-        self.report['training_data_chcksm'] = op_data.dataframe_checksum(
-            data_df)
-
-        op_init.init_gen_solve(self, data_df)
-        op_init.init_other_solve(self)
-        result_dic = {}
-        method = self.gen_dict['method']
-        if method in ('policy tree', 'policy tree old'):
-            op_init.init_pt_solve(self, len(data_df))
-        if self.gen_dict['with_output']:
-            print_dic_values_all_optp(self, summary_top=True,
-                                      summary_dic=False, stage='Training')
-        allocation_df = allocation_txt = None
-
-        if method in ('policy tree', 'policy tree old', 'best_policy_score',
-                      'bps_classifier'):
-            (data_new_df, bb_rest_variable) = op_data.prepare_data_bb_pt(
-                self, data_df)
-            if method in ('best_policy_score', 'bps_classifier'):
-                allocation_df = op_bb.black_box_allocation(
-                    self, data_new_df, bb_rest_variable, seed=234356)
-                if method == 'bps_classifier':
-                    (allocation_df, result_dic['bps_classifier_info_dic'],
-                     text_report) = op_bb_cl.bps_classifier_allocation(
-                         self, data_new_df, allocation_df, seed=234356)
-                    self.report['training_classifier'] = text_report
-            elif method in ('policy tree', 'policy tree old'):
-                (allocation_df, allocation_txt, result_dic['tree_info_dic']
-                 ) = op_pt.policy_tree_allocation(self, data_new_df)
-        else:
-            raise ValueError('Specified method for Optimal Policy is not valid.'
-                             )
-
-        # Timing
-        time_name = [f'Time for {method:20} training:    ',]
-        time_difference = [time() - time_start]
-        if self.gen_dict['with_output']:
-            time_str = ps.print_timing(
-                self.gen_dict, f'{method:20} Training ', time_name,
-                time_difference, summary=True)
-        else:
-            time_str = ''
-        key = f'{method} training ' + data_title
-        self.time_strings[key] = time_str
-
-        if not ((method == 'best_policy_score')
-                and (data_title == 'Prediction data')):
-            self.report['training_alloc_chcksm'] = op_data.dataframe_checksum(
-                allocation_df)
-        if allocation_txt is None:
-            self.report['training_leaf_information'] = None
-        else:
-            txt = '\n' if data_title == '' else (
-                f' (using data from {data_title})\n')
-            self.report['training_leaf_information'] = txt + allocation_txt
-
-        return allocation_df, result_dic, self.gen_dict['outpath']
-
-    def allocate(self, data_df, data_title=''):
-        """
-        Allocate observations to treatment state.
-
-        Parameters
-        ----------
-        data_df : DataFrame
-            Input data with at least features or policy scores
-            (depending on algorithm).
-        data_title : String, optional
-            This string is used as title in outputs. The default is ''.
-
-        Returns
-        -------
-        allocation_df : DataFrame
-            data_df with optimal allocation appended.
-
-        outpath : Pathlib object
-            Location of directory in which output is saved.
+        results_all_dict : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'allocation_df' : DataFrame
+                data_df with optimal allocation appended.
+            'result_dic' : Dictionary
+                Contains additional information about trained allocation rule.
+                Only complete when keyword _int_with_output is True.
+            'outpath' : Path
+                Location of directory in which output is saved.
 
         """
-        time_start = time()
-        method = self.gen_dict['method']
-        self.report['allocation'] = True
-        data_train = (op_data.dataframe_checksum(data_df)
-                      == self.report['training_data_chcksm'])
+        (allocation_df, result_dic, self.gen_dict['outpath']
+         ) = op_methods.solve_method(self,
+                                     data_df,
+                                     data_title=data_title)
+        results_all_dic = {
+            'allocation_df': allocation_df,
+            'result_dic': result_dic,
+            'outpath': self.gen_dict['outpath']
+            }
+        return results_all_dic
 
-        data_df.reset_index(drop=True, inplace=True)
-
-        if method == 'policy tree':
-            method_str = 'Policy Tree'
-        elif method == 'best_policy_score':
-            method_str = 'Best Policy Score'
-        elif method == 'bps_classifier':
-            method_str = 'Classifier for Best Policy Score Allocation'
-        else:
-            method_str = ''
-
-        self.report['txt'] = ('\nAllocation of unit to treatments using '
-                              f'{method_str}.'
-                              '\nTraining data '
-                              f'{"is NOT" if data_train else "is"} used.'
-                              )
-
-        if self.gen_dict['with_output']:
-            print_dic_values_all_optp(self, summary_top=True,
-                                      summary_dic=False, stage='Allocation')
-
-        allocation_df = allocation_txt = None
-        if method == 'best_policy_score':
-            allocation_df, _, _ = self.solve(
-                data_df, data_title='Prediction data')
-        elif method in ('policy tree', 'policy tree old'):
-            allocation_df, allocation_txt = op_pt.policy_tree_prediction_only(
-                self, data_df)
-        elif method == 'bps_classifier':
-            allocation_df, allocation_txt = op_bb_cl.bps_class_prediction_only(
-                self, data_df)
-
-        time_name = [f'Time for {method:20} allocation:  ',]
-        time_difference = [time() - time_start]
-        if self.gen_dict['with_output']:
-            time_str = ps.print_timing(
-                self.gen_dict, f'{method:20} Allocation ', time_name,
-                time_difference, summary=True)
-        else:
-            time_str = ''
-        key = f'{method} allocation ' + data_title
-        self.time_strings[key] = time_str
-        self.report['alloc_list'].append(self.report['txt'])
-        if allocation_txt is None:
-            self.report['leaf_information_allocate'] = None
-        else:
-            self.report['leaf_information_allocate'] = (
-                data_title + '\n' + allocation_txt)
-        return allocation_df, self.gen_dict['outpath']
-
-    def evaluate(self, allocation_df, data_df, data_title='', seed=12434):
-        """
-        Evaluate allocation with potential outcome data.
-
-        Parameters
-        ----------
-        allocation_df : DataFrame
-            Optimal allocation as outputed by the :meth:`~OptimalPolicy.solve`
-            and :meth:`~OptimalPolicy.allocate` methods.
-        data_df : DataFrame
-            Additional information that can be linked to allocation_df.
-        data_title : String, optional
-            This string is used as title in outputs. The default is ''.
-        seed : Integer, optional
-            Seed for random number generators. The default is 12434.
-
-        Returns
-        -------
-        results_dic : Dictory
-            Collected results of evaluation with self-explanatory keys.
-
-        outpath : Pathlib object
-            Location of directory in which output is saved.
-
-        """
-        time_start = time()
-
-        self.report['evaluation'] = True
-        alloc_train = (op_data.dataframe_checksum(allocation_df)
-                       == self.report['training_alloc_chcksm'])
-
-        if self.gen_dict['with_output']:
-            print_dic_values_all_optp(self, summary_top=True,
-                                      summary_dic=False, stage='Evaluation')
-        var_dic, gen_dic = self.var_dict, self.gen_dict
-        txt = '\n' + '=' * 100 + '\nEvaluating allocation of '
-        txt += f'{gen_dic["method"]} with {data_title}\n' + '-' * 100
-        ps.print_mcf(gen_dic, txt, summary=True)
-        (data_df, d_ok, polscore_ok, polscore_desc_ok, desc_var
-         ) = op_data.prepare_data_eval(self, data_df)
-        if len(allocation_df) != len(data_df):
-            d_ok = False
-        op_init.init_rnd_shares(self, data_df, d_ok)
-        if d_ok:
-            allocation_df['observed'] = data_df[var_dic['d_name']]
-        allocation_df['random'] = op_eval.get_random_allocation(
-            self, len(data_df), seed)
-        if polscore_ok:
-            allocation_df['best ATE'] = op_eval.get_best_ate_allocation(
-                self, data_df)
-        results_dic = op_eval.evaluate_fct(
-            self, data_df, allocation_df, d_ok, polscore_ok, polscore_desc_ok,
-            desc_var, data_title)
-        if (self.gen_dict['with_output']
-                and self.gen_dict['variable_importance']):
-            op_eval.variable_importance(self, data_df, allocation_df, seed)
-        time_name = [f'Time for Evaluation {data_title}:     ',]
-        time_difference = [time() - time_start]
-        if self.gen_dict['with_output']:
-            time_str = ps.print_timing(
-                self.gen_dict, f'Evaluation of {data_title} with '
-                f'{gen_dic["method"]}', time_name, time_difference,
-                summary=True)
-        else:
-            time_str = ''
-        key = 'evaluate_' + data_title
-        self.time_strings[key] = time_str
-
-        train_str = 'the SAME as ' if alloc_train else 'DIFFERENT from '
-        rep_txt = ('Allocation analysed is ' + train_str + 'the one obtained '
-                   'from the training data. '
-                   )
-        self.report['evalu_list'].append((rep_txt, results_dic))
-        return results_dic, self.gen_dict['outpath']
-
-    def evaluate_multiple(self, allocations_dic, data_df):
-        """
-        Evaluate several allocations simultaneously.
-
-        Parameters
-        ----------
-        allocations_dic : Dictionary.
-            Contains dataframes with specific allocations.
-        data_df : DataFrame.
-            Data with the relevant information about potential outcomes which
-            will be used to evaluate the allocations.
-
-        Returns
-        -------
-        outpath : String
-            Location of directory in which output is saved.
-
-        """
-        if not self.gen_dict['with_output']:
-            raise ValueError('To use this method, allow output to be written.')
-        potential_outcomes_np = data_df[self.var_dict['polscore_name']]
-        op_eval.evaluate_multiple(self, allocations_dic, potential_outcomes_np)
-        return self.gen_dict['outpath']
-
-    def print_time_strings_all_steps(self):
+    def print_time_strings_all_steps(self, title: str = '') -> None:
         """Print an overview over the time needed in all steps of programme."""
-        txt = '\n' + '=' * 100 + '\nSummary of computation times of all steps'
-        ps.print_mcf(self.gen_dict, txt, summary=True)
+        txt = '\n' + '=' * 100 + '\nSummary of computation times of all steps '
+        txt += title
+        mcf_ps.print_mcf(self.gen_dict, txt, summary=True)
         val_all = ''
         for _, val in self.time_strings.items():
             val_all += val
-        ps.print_mcf(self.gen_dict, val_all, summary=True)
+        mcf_ps.print_mcf(self.gen_dict, val_all, summary=True)
 
+    def winners_losers(self,
+                       data_df: DataFrame,
+                       welfare_df: DataFrame,
+                       welfare_reference_df: DataFrame | int = 0,
+                       outpath: Path | None = None,
+                       title: str = ''
+                       ) -> tuple[DataFrame, Path]:
+        """
+        Compare the winners and loser.
 
-def print_dic_values_all_optp(optp_, summary_top=True, summary_dic=False,
-                              stage=''):
-    """Print the dictionaries."""
-    txt = '=' * 100 + f'\nOptimal Policy Modul ({stage}) with '
-    txt += f'{optp_.gen_dict["method"]}' + '\n' + '-' * 100
-    ps.print_mcf(optp_.gen_dict, txt, summary=summary_top)
-    print_dic_values_optp(optp_, summary=summary_dic, stage=stage)
+        k-means is used to cluster groups of individuals that are similar
+        in gains and losses from two user-provided allocations. The groups are
+        described by the policy scores as well as the decision, protected,
+        and materially relevant variables.
 
+        Parameters
+        ----------
+        data_df : Dataframe
+            Variables used for descriptions.
 
-def print_dic_values_optp(optp_, summary=False, stage=None):
-    """Print values of dictionaries that determine module."""
-    if stage == 'Fairscores':
-        dic_list = [optp_.fair_dict,]
-        dic_name_list = ['fair_dict',]
-    else:
-        dic_list = [optp_.int_dict, optp_.gen_dict, optp_.dc_dict,
-                    optp_.other_dict, optp_.rnd_dict, optp_.var_dict]
-        dic_name_list = ['int_dict', 'gen_dict', 'dc_dict',
-                         'other_dict', 'rnd_dict', 'var_dict']
-        if optp_.gen_dict['method'] in ('policy tree', 'policy tree old'):
-            add_list = [optp_.var_x_type, optp_.var_x_values, optp_.pt_dict]
-            add_list_name = ['var_x_type', 'var_x_values', 'pt_dict']
-            dic_list.extend(add_list)
-            dic_name_list.extend(add_list_name)
-    for dic, dic_name in zip(dic_list, dic_name_list):
-        ps.print_dic(dic, dic_name, optp_.gen_dict, summary=summary)
-    ps.print_mcf(optp_.gen_dict, '\n', summary=summary)
+        welfare_df : DataFrame
+            Welfare of the allocations.
+
+        welfare_reference_df : DataFrame, optional
+            Welfare of the reference allocation. The default is 0.
+
+        outpath : String or None, optional
+            Path used to save the outputs.
+
+        title : String, optional
+            Title used in the statistics. The default is ''.
+
+        Returns
+        -------
+        results_dict : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'data_plus_cluster_number_df' : DataFrame
+                Cluster number ('cluster_no') is added to data_df.
+            'outpath' : Path
+                Location of directory in which output is saved.
+
+        """
+        (data_plus_cluster_number_df, self.gen_dict['outpath']
+         ) = op_methods.winners_losers_method(
+             self, data_df, welfare_df,
+             welfare_reference_df=welfare_reference_df,
+             outpath=outpath,
+             title=title
+             )
+        results_dic = {
+            'data_plus_cluster_number_df': data_plus_cluster_number_df,
+            'outpath': self.gen_dict['outpath']
+            }
+        return results_dic

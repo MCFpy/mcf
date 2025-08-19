@@ -11,7 +11,7 @@ from copy import deepcopy
 import numpy as np
 from scipy.stats import t
 
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_print_stats_functions as mcf_ps
 from mcf import mcf_estimation_generic_functions as mcf_est_g
 
 
@@ -53,7 +53,7 @@ def effect_from_potential(pot_y, pot_y_var, d_values, se_yes=True,
             if return_comparison:
                 no_of_comparisons = round(len(d_values) * (len(d_values) - 1)
                                           / 2)
-                comparison = np.empty((no_of_comparisons, 2), dtype=np.int16)
+                comparison = np.empty((no_of_comparisons, 2), dtype=np.int32)
                 for _, values in sequential_dic.items():
                     comparison[values[0], 0] = d_values[values[2]]
                     comparison[values[0], 1] = d_values[values[1]]
@@ -93,7 +93,7 @@ def effect_from_potential(pot_y, pot_y_var, d_values, se_yes=True,
             d_values = np.array(d_values)
             no_of_comparisons = round(len(d_values) * (len(d_values) - 1) / 2)
             if return_comparison:
-                comparison = np.empty((no_of_comparisons, 2), dtype=np.int16)
+                comparison = np.empty((no_of_comparisons, 2), dtype=np.int32)
                 comparison[:, 0] = d_values[jnd]
                 comparison[:, 1] = d_values[idx]
             else:
@@ -411,7 +411,7 @@ def aggregate_cluster_pos_w(cl_dat, w_dat, y_dat=None, norma=True, w2_dat=None,
 
 
 def analyse_weights(weights, title, gen_dic, p_dic, ate=True, continuous=False,
-                    no_of_treat_cont=None, d_values_cont=None, late=False):
+                    no_of_treat_cont=None, d_values_cont=None, iv=False):
     """Describe the weights.
 
     Parameters
@@ -443,7 +443,7 @@ def analyse_weights(weights, title, gen_dic, p_dic, ate=True, continuous=False,
     txt = ''
     if ate:
         txt += '\n' * 2 + '=' * 100
-        if late:
+        if iv:
             txt += '\nAnalysis of weights: ' + title
         else:
             txt += '\nAnalysis of weights (normalised to add to 1): ' + title
@@ -458,7 +458,7 @@ def analyse_weights(weights, title, gen_dic, p_dic, ate=True, continuous=False,
     sum_weights = np.sum(weights, axis=1)
     for j in range(no_of_treat):
         if not (((1 - 1e-10) < sum_weights[j] < (1 + 1e-10))
-                or (-1e-15 < sum_weights[j] < 1e-15)) and not late:
+                or (-1e-15 < sum_weights[j] < 1e-15)) and not iv:
             w_j = weights[j] / sum_weights[j]
         else:
             w_j = weights[j]
@@ -488,7 +488,7 @@ def analyse_weights(weights, title, gen_dic, p_dic, ate=True, continuous=False,
             if gen_dic['with_output']:
                 txt += '\nLess than 5 observations in some groups.'
     if ate:
-        txt += ps.txt_weight_stat(
+        txt += mcf_ps.txt_weight_stat(
             larger_0, equal_0, mean_pos, std_pos, gini_all, gini_pos,
             share_largest_q, sum_larger, obs_larger, gen_dic, p_dic,
             continuous=continuous, d_values_cont=d_values_cont)

@@ -46,7 +46,7 @@ def make_fair_iates(mcf_, data_df, with_output=None):
     mcf_.p_dict['iate'] = True
     if with_output:
         print('\n' + 'Computing unblinded (standard) potential outcomes')
-    results_dic, _ = mcf_.predict(data_df)
+    results_dic = mcf_.predict(data_df)
     data_all_df = results_dic['iate_data_df']
     data_df = data_all_df[var_all]
     potout_dic[polscore_labels_dic[0]], polscore_names = pols_names_from_res(
@@ -126,7 +126,7 @@ def make_fair_iates(mcf_, data_df, with_output=None):
 
 def descriptives_of_allocation(mcf_, potout_dic, polscore_labels_dic):
     """Create descriptive stats of policy scores."""
-    txt = ('\n' * 2 + '-' * 100 + 'Descriptive of policy scores\n'
+    txt = ('\n' * 2 + '-' * 100 + 'Descriptive statistics of policy scores\n'
            + '- ' * 50)
     mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
     for label in polscore_labels_dic:
@@ -154,7 +154,7 @@ def ate_for_blinded(mcf_, row_no, data_reference_df, data_not_blind_df,
     """Compute ate for blinding adjustment for single observation."""
     data_index_df = data_index_df_fct(row_no, data_reference_df,
                                       data_not_blind_df)
-    results_dic, _ = mcf_.predict(data_index_df)
+    results_dic = mcf_.predict(data_index_df)
     ate = np.zeros(no_of_treat)
     ate[1:] = results_dic['ate'][0, 0, :no_of_treat-1].squeeze()
     ate_ret = ate_np[row_no, :] + ate

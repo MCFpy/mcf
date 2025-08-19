@@ -12,7 +12,9 @@ from math import sqrt, log2
 import numpy as np
 from numba import njit
 import matplotlib.pyplot as plt
-from scipy.stats import norm, skew, mode
+import pandas as pd
+from scipy.stats import norm, skew, mode, chi2_contingency
+from scipy.special import gammaln
 from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
@@ -994,8 +996,8 @@ def best_classifier(x_np, y_np, boot=1000, seed=123, max_workers=None,
                'AdaClass')
     labels = ('Classification Forest min leaf size = 5',
               'Classification Forest min leaf size = 2',
-              'Neural Network Classifier',
-              'AddaBoost Classifier')
+              'Neural Network Classifier              ',
+              'AddaBoost Classifier                   ')
     params = (params_rf5, params_rf2, params_mlpc, params_ada)
     classif_objects = (rfc_5, rfc_2, neural_net, adda_boost)
     acc_scores = np.empty(len(methods))
@@ -1154,3 +1156,117 @@ def plot_tree_fct(tree_inst, feature_names, depth, honest=False, y_name=''):
                  ha='center', va='bottom', fontsize=12, color='black')
     ax.set_title(title)
     return fig
+
+
+def bayes_factor(x: pd.Series, y: pd.Series, alpha: float = 1.0) -> float:
+    """
+    Compute Bayes factors.
+
+    Compute the Bayes factor BF_10 for association between two categorical
+    variables given as pandas Series.
+
+    H0: x and y are independent.
+    H1: saturated model (x and y dependent).
+
+    Uses a symmetric Dirichlet(alpha) prior.
+
+    Parameters
+    ----------
+    x, y : pd.Series
+        Two categorical variables of the same length. Any pairs with NaN in
+        either series are dropped.
+    alpha : float, default=1.0
+        Concentration parameter for the symmetric Dirichlet prior.
+
+    Returns
+    -------
+    float
+        Bayes factor BF_10 in favor of dependence (H1) (>1) over independence
+        (H0) (<1).
+    """
+    # 1) align and drop missing
+    df = pd.concat((x, y), axis=1).dropna()
+    x_clean = df.iloc[:, 0]
+    y_clean = df.iloc[:, 1]
+    obs = len(df)
+
+    # 2) build contingency table
+    table = pd.crosstab(x_clean, y_clean)
+    counts = table.values
+    rows, cols = counts.shape
+
+    # 3) log marginal likelihood under H1 (saturated Dirichlet–multinomial)
+    alpha_mat = np.full((rows, cols), alpha)
+    sum_alpha = alpha_mat.sum()
+    log_ml_h1 = (
+        gammaln(sum_alpha)
+        - np.sum(gammaln(alpha_mat))
+        + np.sum(gammaln(alpha_mat + counts))
+        - gammaln(sum_alpha + obs)
+    )
+
+    # 4) log marginal likelihood under H0 (independence)
+    #    row counts and column counts
+    row_counts = counts.sum(axis=1)
+    col_counts = counts.sum(axis=0)
+
+    #    priors on row- and col-marginals
+    alpha_row = alpha * cols
+    alpha_col = alpha * rows
+    sum_alpha_row = alpha_row * rows   # = rows * cols * alpha
+    sum_alpha_col = alpha_col * cols   # = rows * cols * alpha
+
+    log_ml_rows = (
+        gammaln(sum_alpha_row)
+        - rows * gammaln(alpha_row)
+        + np.sum(gammaln(alpha_row + row_counts))
+        - gammaln(sum_alpha_row + obs)
+    )
+    log_ml_cols = (
+        gammaln(sum_alpha_col)
+        - cols * gammaln(alpha_col)
+        + np.sum(gammaln(alpha_col + col_counts))
+        - gammaln(sum_alpha_col + obs)
+    )
+    log_ml_h0 = log_ml_rows + log_ml_cols
+
+    # 5) Bayes factor
+    if (diff := log_ml_h1 - log_ml_h0) > 80:   # Avoid overflow warnings
+        bf10 = np.inf
+    else:
+        bf10 = np.exp(diff)
+
+    return bf10
+
+
+def cramers_v(x: pd.Series, y: pd.Series) -> float:
+    """
+    Compute Cramér's V statistic for categorical–categorical association.
+
+    Parameters
+    ----------
+    x : pd.Series
+        First categorical variable.
+    y : pd.Series
+        Second categorical variable.
+
+    Returns
+    -------
+    float
+        Cramér's V, between 0 (no association) and 1 (perfect association).
+    """
+    # Build contingency table
+    contingency = pd.crosstab(x, y)
+
+    # Compute Chi-square statistic, ignore p-value and expected frequencies
+    chi2, _, _, _ = chi2_contingency(contingency, correction=False)
+
+    # Total sample size
+    n = contingency.sum().sum()
+
+    # Number of categories for each variable
+    r, k = contingency.shape
+
+    # Compute Cramér's V
+    v = np.sqrt(chi2 / (n * min(k - 1, r - 1)))
+    return v

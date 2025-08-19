@@ -76,7 +76,7 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
         else:
             maxworkers = gen_dic['mp_parallel']
     if int_dic['with_output'] and int_dic['verbose']:
-        txt = f'\nNumber of parallel processes: {maxworkers}'
+        txt = f'\nNumber of parallel processes (VI): {maxworkers}'
         mcf_ps.print_mcf(gen_dic, txt, summary=False)
     if maxworkers > 1:
         if not ray.is_initialized():
@@ -206,8 +206,9 @@ def variable_importance(mcf_, data_df, forest, x_name_mcf):
             del data_np_ref, forest_ref
         if 'rest' in int_dic['mp_ray_del']:
             del finished_res, finished
-        if int_dic['mp_ray_shutdown']:
-            ray.shutdown()
+        # if int_dic['mp_ray_shutdown']:
+        #     ray.shutdown()
+        #     mcf_ps.print_mcf(gen_dic, 'Ray is shuting down.', summary=False)
     return vim, vim_g, vim_mg, x_name
 
 
@@ -406,7 +407,8 @@ def get_oob_mcf(data_np, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, int_dic, cf_dic,
         else:
             maxworkers = gen_dic['mp_parallel']
     if int_dic['with_output'] and not no_mp and int_dic['verbose']:
-        mcf_ps.print_mcf(gen_dic, f'Number of parallel processes: {maxworkers}',
+        mcf_ps.print_mcf(gen_dic,
+                         f'Number of parallel processes (VI): {maxworkers}',
                          summary=False)
     if (maxworkers == 1) or no_mp:
         for idx in range(cf_dic['boot']):
@@ -465,7 +467,7 @@ def get_oob_mcf_b(data, y_i, y_nn_i, x_i, d_i, w_i, gen_dic, cf_dic, k, single,
     """Generate OOB contribution for single bootstrap."""
     x_dat, y_dat = data[:, x_i].copy(), data[:, y_i]
     y_nn = data[:, y_nn_i]
-    d_dat = np.int16(np.round(data[:, d_i]))
+    d_dat = np.int32(np.round(data[:, d_i]))
     w_dat = data[:, [w_i]] if gen_dic['weighted'] else None
     obs = len(y_dat)
     rng = np.random.default_rng(55436356)
@@ -533,9 +535,10 @@ def print_variable_importance(clas_obj, x_df, d_df, x_name, names_uo,
     score_d_full = accuracy_score(d_test_np, clas_obj.predict(x_test_np),
                                   normalize=True)
     vi_information = pd.DataFrame(0, columns=x_name, index=['score_w/o_x_d',
-                                                            'rel_diff_d_%'])
+                                                            'rel_diff_d_%']
+                                  )
     for name in x_name:
-        if name in names_uo:
+        if names_uo is not None and name in names_uo:
             names_to_shuffle = unordered_dummy_names[name]
         else:
             names_to_shuffle = name

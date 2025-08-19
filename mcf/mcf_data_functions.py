@@ -12,7 +12,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 
 from mcf import mcf_general as mcf_gp
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_print_stats_functions as mcf_ps
 
 
 def split_sample_for_mcf(self, data_df):
@@ -101,24 +101,24 @@ def screen_variables(mcf_, data_df):
     variables_delete = [var for var in all_variable
                         if var not in variables_remain]
     if gen_dic['with_output']:
-        ps.print_mcf(gen_dic, txt, summary=False)
+        mcf_ps.print_mcf(gen_dic, txt, summary=False)
         if kk2 == k:
             txt = '\nAll control variables have been retained'
-            ps.print_mcf(gen_dic, txt, summary=False)
+            mcf_ps.print_mcf(gen_dic, txt, summary=False)
         else:
             txt = '\nThe following variables have been deleted:' + ' '.join(
                 variables_delete) + '\n'
-            ps.print_mcf(gen_dic, txt, summary=True)
+            mcf_ps.print_mcf(gen_dic, txt, summary=True)
             desc_stat = data[variables_delete].describe()
             with pd.option_context('display.max_rows', None,
                                    'display.max_columns', None,
                                    'display.width', 120,
                                    'display.expand_frame_repr', True,
                                    'chop_threshold', 1e-13):
-                ps.print_mcf(gen_dic, desc_stat.transpose(), summary=False)
+                mcf_ps.print_mcf(gen_dic, desc_stat.transpose(), summary=False)
             txt = '\nThe following variables have been retained:' + ' '.join(
                 variables_remain)
-            ps.print_mcf(gen_dic, txt, summary=False)
+            mcf_ps.print_mcf(gen_dic, txt, summary=False)
     return variables_remain, variables_delete
 
 
@@ -148,7 +148,7 @@ def adjust_variables(mcf_, del_var):
     return gen_dic, vnew_dic, vn_x_type, vn_x_values
 
 
-def clean_data(mcf_, data_df, train=True):
+def clean_data(mcf_, data_df, train=True, d_alloc_names=None):
     """Clean the data."""
     int_dic, var_dic, gen_dic = mcf_.int_dict, mcf_.var_dict, mcf_.gen_dict
     obs = len(data_df)
@@ -173,6 +173,8 @@ def clean_data(mcf_, data_df, train=True):
         if mcf_.p_dict['cluster_std']:
             namen_to_inc = mcf_gp.add_var_names(namen_to_inc,
                                                 var_dic['cluster_name'])
+        if d_alloc_names is not None:
+            namen_to_inc = mcf_gp.add_var_names(namen_to_inc, d_alloc_names)
 
     namen_to_inc = mcf_gp.include_org_variables(namen_to_inc[:],
                                                 data_df.columns)
@@ -238,10 +240,10 @@ def clean_reduce_data(data_df, names_to_inc_, gen_dic, id_name_,
                 del_var = [var for var in all_var if var not in keep_var]
                 vars_str = ' '.join(del_var)
                 txt += vars_str
-        ps.print_mcf(gen_dic, txt + '\n', summary=False)
+        mcf_ps.print_mcf(gen_dic, txt + '\n', summary=False)
         if descriptive_stats:
-            ps.print_descriptive_df(gen_dic, data_new_df, varnames='all',
-                                    summary=False)
+            mcf_ps.print_descriptive_df(gen_dic, data_new_df, varnames='all',
+                                        summary=False)
     return data_new_df, id_name
 
 
@@ -265,7 +267,7 @@ def add_missing_vars_fct(names_in_data, names_to_inc, obs, gen_dic):
         if gen_dic['with_output']:
             txt = '-' * 100 + 'The following variables will be addded with'
             txt += ' zero values: ' ' '.join(missing_vars)
-            ps.print_mcf(gen_dic, txt, summary=False)
+            mcf_ps.print_mcf(gen_dic, txt, summary=False)
         add_df = pd.DataFrame(0, index=np.arange(obs), columns=missing_vars)
         return add_df
     return None
@@ -285,7 +287,7 @@ def print_prime_value_corr(data_train_dic, gen_dic, summary=False):
                 key_list_prime_values_dict[key_nr]]
             txt += f'\n{val}'
         if key_list_unique_val_dict:
-            ps.print_mcf(gen_dic, txt, summary=summary)
+            mcf_ps.print_mcf(gen_dic, txt, summary=summary)
 
 
 def create_xz_variables(mcf_, data_df, train=True):
@@ -318,7 +320,7 @@ def create_xz_variables(mcf_, data_df, train=True):
                    '\nWARNING: Rows with missing values will be deleted.\n'
                    ' Other non-numeric values have to be recoded as numerical'
                    ' if variable is used in the mcf.\n' + '-' * 100)
-            ps.print_mcf(gen_dic, txt, summary=summary)
+            mcf_ps.print_mcf(gen_dic, txt, summary=summary)
 
     var_dic, gen_dic, ct_dic = mcf_.var_dict, mcf_.gen_dict, mcf_.ct_dict
     p_dic, int_dic = mcf_.p_dict, mcf_.int_dict
@@ -337,6 +339,7 @@ def create_xz_variables(mcf_, data_df, train=True):
         z_new_dic_dict = data_train_dic['z_new_dic_dict']
         prime_new_name_dict = data_train_dic['prime_new_name_dict']
         prime_old_name_dict = data_train_dic['prime_old_name_dict']
+
     data_df.columns = data_df.columns.str.casefold()
     temp_df = data_df.replace({False: 0, True: 1})
     data_df = temp_df
@@ -351,16 +354,16 @@ def create_xz_variables(mcf_, data_df, train=True):
             d1_unique = ct_dic['grid_nn_val']
             data_df = recode_treat_cont(data_df, var_dic, ct_dic)
         else:
-            d1_unique = np.int64(
-                np.round(np.unique(data_df[var_dic['d_name']].to_numpy())))
+            d1_unique = np.unique(np.int32(np.round(
+                data_df[var_dic['d_name']].to_numpy())))
     else:
         # This loads information from training iteration.
         d1_unique = d_indat_values
         if p_dic['gatet'] or p_dic['atet']:  # Treatment variable required
             text = 'Treatment variable differently coded in both datasets.'
             text += 'Set ATET and GATET to False.'
-            d2_unique = np.int64(
-                np.round(np.unique(data_df[var_dic['d_name']].to_numpy())))
+            d2_unique = np.unique(np.int32(np.round(
+                data_df[var_dic['d_name']].to_numpy())))
             # Treatment identical in training and prediction?
             if len(d1_unique) == len(d2_unique):
                 if not np.all(d1_unique == d2_unique):
@@ -369,13 +372,13 @@ def create_xz_variables(mcf_, data_df, train=True):
                 raise RuntimeError(text)
     # Part 1: Recoding and adding Z variables
     if gen_dic['agg_yes']:
-        if not var_dic['z_name_list'] == []:
+        if not var_dic['z_name_cont'] == []:
             z_name_ord_new = []
             z_name_cont_remove = []  # changed 25.8.23
             if train:
                 no_val_dict, q_inv_dict, z_new_name_dict = {}, {}, {}
                 z_new_dic_dict = {}
-            for z_name in var_dic['z_name_list']:
+            for z_name in var_dic['z_name_cont']:
                 if train:
                     no_val = data_df[z_name].unique()
                     no_val_dict.update({z_name: no_val})
@@ -426,7 +429,7 @@ def create_xz_variables(mcf_, data_df, train=True):
                     if gen_dic['with_output'] and gen_dic['verbose']:
                         txt = (f'Training: Variable recoded: {data_s.name}'
                                f'-> {new_name}')
-                        ps.print_mcf(gen_dic, txt, summary=False)
+                        mcf_ps.print_mcf(gen_dic, txt, summary=False)
                 else:
                     z_name_ord_new.extend([z_name])
             var_dic['z_name_ord'].extend(z_name_ord_new)
@@ -451,7 +454,7 @@ def create_xz_variables(mcf_, data_df, train=True):
         var_dic['x_name_remain'].extend(var_dic['z_name'])
         var_dic['x_name_balance_test'].extend(var_dic['z_name'])
         var_dic['name_ordered'].extend(var_dic['z_name_ord'])
-        var_dic['name_ordered'].extend(var_dic['z_name_list'])
+        var_dic['name_ordered'].extend(var_dic['z_name_cont'])
         var_dic['name_unordered'].extend(var_dic['z_name_unord'])
         var_dic['x_name'] = mcf_gp.cleaned_var_names(var_dic['x_name'])
         var_dic['x_name_remain'] = mcf_gp.cleaned_var_names(
@@ -500,7 +503,7 @@ def create_xz_variables(mcf_, data_df, train=True):
                     )
                 if gen_dic['with_output'] and gen_dic['verbose']:
                     txt = f'Variable recoded: {variable} -> {new_variable}'
-                    ps.print_mcf(gen_dic, txt, summary=False)
+                    mcf_ps.print_mcf(gen_dic, txt, summary=False)
                 values_pd = data_df[new_variable].unique()
             else:
                 values_pd = unique_val
@@ -545,7 +548,7 @@ def create_xz_variables(mcf_, data_df, train=True):
                                f' used for training: {variable} : {bad_vals}. '
                                'These obervations will be removed from '
                                'prediction data.')
-                        ps.print_mcf(gen_dic, txt, summary=True)
+                        mcf_ps.print_mcf(gen_dic, txt, summary=True)
             prime_variable = data_df[variable].name + '_prime'
             data_df[prime_variable] = data_df[variable].replace(
                     unique_val, prime_values)
@@ -565,7 +568,7 @@ def create_xz_variables(mcf_, data_df, train=True):
                 )
             if gen_dic['with_output'] and gen_dic['verbose']:
                 txt = f'Variable recoded: {variable} -> {prime_variable}'
-                ps.print_mcf(gen_dic, txt, summary=False)
+                mcf_ps.print_mcf(gen_dic, txt, summary=False)
         else:
             list_of_missing_vars.extend(variable)
     if list_of_missing_vars:
@@ -584,7 +587,7 @@ def create_xz_variables(mcf_, data_df, train=True):
             txt = '\nType 1 unordered variable detected'
         if type_2:
             txt = '\nType 2 unordered variable detected'
-        ps.print_mcf(gen_dic, txt, summary=False)
+        mcf_ps.print_mcf(gen_dic, txt, summary=False)
     if gen_dic['with_output'] and gen_dic['agg_yes']:
         txt = ('\n' + '-' * 100 + '\nShort analysis of policy variables'
                ' (variable to aggregate the effects; effect sample). \nEach'
@@ -597,7 +600,7 @@ def create_xz_variables(mcf_, data_df, train=True):
         for i in var_dic['z_name']:
             txt += f'{i:<32} {len(data_df[i].unique()):>6}\n'
         txt += '-' * 100 + '\n'
-        ps.print_mcf(gen_dic, txt, summary=False)
+        mcf_ps.print_mcf(gen_dic, txt, summary=False)
     if not isinstance(var_dic['id_name'], (list, tuple)):
         var_dic['id_name'] = [var_dic['id_name']]
     if not var_dic['id_name'] or isinstance(var_dic['id_name'][0], str):
@@ -606,8 +609,8 @@ def create_xz_variables(mcf_, data_df, train=True):
         # data_df[var_dic['id_name'][0]] = np.arange(len(data_df))
         data_df.loc[:, var_dic['id_name'][0]] = np.arange(len(data_df))
     if gen_dic['with_output'] and int_dic['descriptive_stats'] and train:
-        ps.print_descriptive_df(gen_dic, data_df, varnames='all',
-                                summary=False)
+        mcf_ps.print_descriptive_df(gen_dic, data_df, varnames='all',
+                                    summary=False)
     mcf_.data_train_dict = {
         'd_indat_values': d1_unique, 'no_val_dict': no_val_dict,
         'q_inv_dict': q_inv_dict, 'q_inv_cr_dict': q_inv_cr_dict,
@@ -642,9 +645,10 @@ def unordered_types_overall(x_name_type_unord):
     return type_0, type_1, type_2
 
 
-def check_recode_treat_variable(mcf_, data_df):
+def check_recode_treat_variable(mcf_, data_df, treat_name=None):
     """Recode treatment variable if categorical or does not start with 0."""
-    gen_dic, d_name = mcf_.gen_dict, mcf_.var_dict['d_name']
+    gen_dic = mcf_.gen_dict
+    d_name = mcf_.var_dict['d_name'] if treat_name is None else treat_name
     n_old_df = len(data_df)
     if isinstance(d_name, (list, tuple)):
         d_name = d_name[0]
@@ -653,18 +657,19 @@ def check_recode_treat_variable(mcf_, data_df):
     n_new_df = len(data_df)
     if n_new_df < n_old_df:
         if gen_dic['with_output']:
-            ps.print_mcf(gen_dic, f'{n_old_df - n_new_df} observations',
-                         f' dropped due to missing values in {d_name}',
-                         summary=True)
+            mcf_ps.print_mcf(gen_dic, f'{n_old_df - n_new_df} observations',
+                             f' dropped due to missing values in {d_name}',
+                             summary=True)
     d_dat_pd = data_df[d_name].squeeze()  # pylint: disable=E1136
     if d_dat_pd.dtype == 'object':
         d_dat_pd = d_dat_pd.astype('category')
-        ps.print_mcf(gen_dic, d_dat_pd.cat.categories, summary=False)
+        mcf_ps.print_mcf(gen_dic, d_dat_pd.cat.categories, summary=False)
         if gen_dic['with_output']:
-            ps.print_mcf(gen_dic, 'Automatic recoding of treatment variable',
-                         summary=True)
+            mcf_ps.print_mcf(gen_dic,
+                             'Automatic recoding of treatment variable',
+                             summary=True)
             numerical_codes = pd.unique(d_dat_pd.cat.codes)
-            ps.print_mcf(gen_dic, numerical_codes, summary=True)
+            mcf_ps.print_mcf(gen_dic, numerical_codes, summary=True)
         data_df[d_name] = d_dat_pd.cat.codes
     if data_df[d_name].min() != 0:
         data_df[d_name] = data_df[d_name] - data_df[d_name].min()

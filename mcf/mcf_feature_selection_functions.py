@@ -13,7 +13,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.metrics import accuracy_score, r2_score
 
 from mcf.mcf_general import to_numpy_big_data
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_print_stats_functions as mcf_ps
 
 
 def feature_selection(mcf_, data_df):
@@ -37,7 +37,7 @@ def feature_selection(mcf_, data_df):
     var_x_type, var_x_values = copy(mcf_.var_x_type), copy(mcf_.var_x_values)
     boot = mcf_.cf_dict['boot']
     if gen_dic['with_output']:
-        ps.print_mcf(gen_dic, '\nFeature selection', summary=False)
+        mcf_ps.print_mcf(gen_dic, '\nFeature selection', summary=False)
     # 1. Set aside sample for feature selection
     if fs_dic['other_sample']:
         data_mcf_df, data_fs_df = train_test_split(
@@ -45,10 +45,11 @@ def feature_selection(mcf_, data_df):
     else:
         data_mcf_df, data_fs_df = data_df.copy(), data_df.copy()
     if gen_dic['with_output']:
-        ps.print_mcf(gen_dic,
-                     f'\nSample used for feature selection {len(data_fs_df)} '
-                     f'\nSample used for mcf estimation {len(data_mcf_df)}',
-                     summary=False)
+        mcf_ps.print_mcf(
+            gen_dic,
+            f'\nSample used for feature selection {len(data_fs_df)} '
+            f'\nSample used for mcf estimation {len(data_mcf_df)}',
+            summary=False)
     # Create dummies
     all_names = var_x_type.keys()
     # Remove all covariates that are discretized for GATE estimation
@@ -135,25 +136,27 @@ def feature_selection(mcf_, data_df):
             vi_information[name] = [y_score, d_score,
                                     y_rel_diff*100, d_rel_diff*100]
     if gen_dic['with_output']:
-        ps.print_mcf(gen_dic,
-                     '=' * 100 + '\nFeature selection' + '\n' + '- ' * 50,
-                     summary=True)
+        mcf_ps.print_mcf(gen_dic,
+                         '=' * 100 + '\nFeature selection' + '\n' + '- ' * 50,
+                         summary=True)
     if gen_dic['with_output']:
-        ps.print_mcf(gen_dic, f'\nScore for y based on all features:'
-                     ' {score_y_full:6.3f} '
-                     f'Score for d based on all features:: {score_d_full:6.3f} '
-                     f'Threshold in %: {fs_dic["rf_threshold"]:4.2%}\n',
-                     summary=False)
+        mcf_ps.print_mcf(
+            gen_dic,
+            f'\nScore for y based on all features:'
+            ' {score_y_full:6.3f} '
+            f'Score for d based on all features:: {score_d_full:6.3f} '
+            f'Threshold in %: {fs_dic["rf_threshold"]:4.2%}\n',
+            summary=False)
         with pd.option_context('display.max_rows', None,
                                'display.expand_frame_repr', True,
                                'chop_threshold', 1e-13):
-            ps.print_mcf(gen_dic, vi_information.transpose().sort_values(
+            mcf_ps.print_mcf(gen_dic, vi_information.transpose().sort_values(
                 by=['rel_diff_y_%', 'rel_diff_d_%'], ascending=False),
                          summary=False)
     if x_names_to_delete:
         forbidden_to_delete_vars = (
             var_dic['x_name_always_in'] + var_dic['x_name_remain']
-            + var_dic['z_name'] + var_dic['z_name_list'])
+            + var_dic['z_name'] + var_dic['z_name_cont'])
         names_to_remove = [name for name in x_names_to_delete
                            if name not in forbidden_to_delete_vars]
         if names_to_remove[:-1]:
@@ -166,8 +169,11 @@ def feature_selection(mcf_, data_df):
                                        'display.expand_frame_repr', True,
                                        'display.width', 120,
                                        'chop_threshold', 1e-13):
-                    ps.print_mcf(gen_dic, '\nCorrelation of variables to be '
-                                 'deleted\n', weg_corr, summary=False)
+                    mcf_ps.print_mcf(gen_dic,
+                                     '\nCorrelation of variables to be '
+                                     'deleted\n',
+                                     weg_corr,
+                                     summary=False)
             for idx, name_weg in enumerate(names_weg[:-1]):
                 for name_weg2 in names_weg[idx+1:]:
                     if np.abs(weg_corr.loc[name_weg, name_weg2]) > 0.5:
@@ -180,14 +186,16 @@ def feature_selection(mcf_, data_df):
                 var_x_values.pop(name_weg)
                 var_dic['x_name'].remove(name_weg)
         if gen_dic['with_output']:
-            ps.print_mcf(
+            mcf_ps.print_mcf(
                 gen_dic, '\nVariables deleted: ' + ' '.join(names_to_remove)
                 + '\nVariables kept:    ' + ' '.join(var_dic['x_name'])
                 + '\n' + '-' * 100, summary=True)
     else:
         if gen_dic['with_output']:
-            ps.print_mcf(gen_dic, '\nNo variables removed in feature'
-                         ' selection' + '\n' + '-' * 100, summary=True)
+            mcf_ps.print_mcf(gen_dic,
+                             '\nNo variables removed in feature'
+                             ' selection' + '\n' + '-' * 100,
+                             summary=True)
         names_to_remove = []
     mcf_.var_dict = var_dic
     mcf_.var_x_type, mcf_.var_x_values = var_x_type, var_x_values

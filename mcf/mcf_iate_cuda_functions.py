@@ -16,7 +16,7 @@ import torch
 from mcf import mcf_cuda_functions as mcf_cuda
 from mcf import mcf_estimation_cuda_functions as mcf_est_cuda
 from mcf import mcf_general as mcf_gp
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_print_stats_functions as mcf_ps
 from mcf import mcf_general_sys as mcf_sys
 
 
@@ -114,7 +114,7 @@ def assign_ret_all_i_cuda(pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var,
 def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         y_dat, no_of_out, n_y, ct_dic, int_dic, gen_dic, p_dic,
                         iate_se_flag, se_boot_iate, iate_m_ate_flag,
-                        d_values_dr, precision=32, late=False):
+                        d_values_dr, precision=32, iv=False):
     """
     Compute function to be looped over observations for CUDA.
 
@@ -134,7 +134,8 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
     iate_se_flag : Boolean. Compute standard errors.
     se_boot_iate : Boolean. Compute bootstrap standard errors.
     iate_m_ate_flag : Boolean. Compute difference to average potential outcome.
-    precision: Int. Precision for torch tensors.
+    precision : Int. Precision for torch tensors.
+    iv : Boolean, Indicator for instrumental variables estimation.
 
     Returns
     -------
@@ -197,7 +198,9 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                             dtype=mcf_cuda.tdtype('float', precision))
     w_add_unc = torch.zeros((no_of_treat_dr, n_y), device='cuda',
                             dtype=mcf_cuda.tdtype('float', precision))
+
     # Loop over treatment
+    i_w01 = i_w10 = cl_i_both = index_full = None
     for t_idx in range(no_of_treat):
         extra_weight_p1 = continuous and t_idx < no_of_treat - 1
         if int_dic['weight_as_sparse']:
@@ -240,11 +243,11 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
             if extra_weight_p1:
                 w_t_p1 = None
         w_i_sum = torch.sum(w_i)
-        if (not (1-1e-10) < w_i_sum < (1+1e-10)) and not (continuous or late):
+        if (not (1-1e-10) < w_i_sum < (1+1e-10)) and not (continuous or iv):
             w_i = w_i / w_i_sum
         w_i_unc = w_i.clone()
         if p_dic['max_weight_share'] < 1 and not continuous:
-            if late:
+            if iv:
                 w_i, _, share_i[t_idx] = mcf_gp.bound_norm_weights_not_one_cuda(
                     w_i, p_dic['max_weight_share'])
             else:
@@ -279,7 +282,7 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         w_t_cont = w_t_cont / torch.sum(w_t_cont)
                     w_i_unc_cont = w_i_unc_cont / torch.sum(w_i_unc_cont)
                     if p_dic['max_weight_share'] < 1:
-                        if late:
+                        if iv:
                             (w_i_cont, _, share_cont
                              ) = mcf_gp.bound_norm_weights_not_one_cuda(
                                  w_i_cont, p_dic['max_weight_share'])
@@ -294,7 +297,7 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         w_i_cont, y_dat_cont, cl_i_cont, gen_dic, p_dic,
                         weights=w_t_cont, se_yes=iate_se_flag,
                         bootstrap=se_boot_iate, keep_all=int_dic['keep_w0'],
-                        precision=precision, normalize=not late)
+                        precision=precision, normalize=not iv)
                     ti_idx = index_full[t_idx, i]  # pylint: disable=E1136
                     pot_y_i[ti_idx, o_idx] = ret[0]
                     if iate_se_flag:
@@ -329,8 +332,7 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                         if o_idx == 0:
                             w_add[ti_idx, w_index_both] = ret[2]
                             w_i_unc_sum = torch.sum(w_i_unc_cont)
-                            if not ((1-1e-10) < w_i_unc_sum < (1+1e-10) or late
-                                    ):
+                            if not ((1-1e-10) < w_i_unc_sum < (1+1e-10) or iv):
                                 w_add_unc[ti_idx, w_index_both] = (
                                     w_i_unc_cont / w_i_unc_sum)
                             else:
@@ -364,7 +366,7 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                     w_i, y_dat[w_index, o_idx], cl_i, gen_dic, p_dic,
                     weights=w_t, se_yes=iate_se_flag, bootstrap=se_boot_iate,
                     keep_all=int_dic['keep_w0'], precision=precision,
-                    normalize=not late)
+                    normalize=not iv)
                 pot_y_i[t_idx, o_idx] = ret[0]
                 if iate_se_flag:
                     pot_y_var_i[t_idx, o_idx] = ret[1]
@@ -389,7 +391,7 @@ def iate_func1_for_cuda(idx, weights_i, cl_dat, no_of_cluster, w_dat, w_ate,
                     if o_idx == 0:
                         w_add[t_idx, w_index] = ret[2]
                         w_i_unc_sum = torch.sum(w_i_unc)
-                        if not ((1-1e-10) < w_i_unc_sum < (1+1e-10) or late):
+                        if not ((1-1e-10) < w_i_unc_sum < (1+1e-10) or iv):
                             w_add_unc[t_idx, w_index] = w_i_unc / w_i_unc_sum
                         else:
                             w_add_unc[t_idx, w_index] = w_i_unc
@@ -492,5 +494,6 @@ def max_batch_size(n_x, weights, max_share_weights, weight_as_sparse, gen_dic):
     txt += '\n' + f'# of batches: {no_batches}'
     txt += ('\n' + "GPU memory needed for one batch of weight matrix: "
             f"{weight_memory/no_batches:.2f} GB")
-    ps.print_mcf(gen_dic, txt, summary=True)
+    mcf_ps.print_mcf(gen_dic, txt, summary=True)
+
     return batch_max_size

@@ -22,7 +22,7 @@ from mcf import mcf_estimation_functions as mcf_est
 from mcf.mcf_estimation_generic_functions import bandwidth_nw_rule_of_thumb
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_print_stats_functions as mcf_ps
 
 
 def make_gate_figures_discr(
@@ -42,9 +42,9 @@ def make_gate_figures_discr(
     Additional keyword parameters.
     """
     z_values = z_vals.copy()
-    if ps.find_precision(z_values) == 0:  # usually adjusted
+    if mcf_ps.find_precision(z_values) == 0:  # usually adjusted
         z_values, z_name = mcf_gp.recode_if_all_prime(z_values.copy(), z_name)
-    z_name_ = ps.del_added_chars(z_name, prime=True)
+    z_name_ = mcf_ps.del_added_chars(z_name, prime=True)
     titel_f = titel.replace(' ', '')
     titel_f = titel_f.replace('-', 'M')
     titel_f = titel_f.replace('.', '')
@@ -215,9 +215,9 @@ def make_gate_figures_cont(titel, z_name, z_vals, effects, int_dic, p_dic,
     Additional keyword parameters.
     """
     z_values = z_vals.copy()
-    if ps.find_precision(z_values) == 0:  # usually adjusted
+    if mcf_ps.find_precision(z_values) == 0:  # usually adjusted
         z_values, z_name = mcf_gp.recode_if_all_prime(z_values.copy(), z_name)
-    z_name_ = ps.del_added_chars(z_name, prime=True)
+    z_name_ = mcf_ps.del_added_chars(z_name, prime=True)
     titel = 'Dose response ' + titel
     titel_f = titel.replace(' ', '')
     titel_f = titel_f.replace('-', 'M')
@@ -375,6 +375,7 @@ def generate_treatment_names(p_dict):
 
     """
     columns = [str(i_c[1]) + " vs. " + str(i_c[0]) for i_c in p_dict['combi']]
+
     return columns
 
 
@@ -551,9 +552,11 @@ def tables(params):
 
 
 def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
-                       ate, ate_se, gate_type='GATE', special_txt=None):
+                       ate, ate_se, gate_type='GATE', iv=False,
+                       special_txt=None):
     """Compute effects and print them."""
     p_dic, int_dic, gen_dic = mcf_.p_dict, mcf_.int_dict, mcf_.gen_dict
+    ate_type = 'LATE' if iv else 'ATE'
     var_x_type = copy(mcf_.var_x_type)
     y_pot_all, y_pot_var_all = effect_dic['y_pot'], effect_dic['y_pot_var']
     txt_all = effect_dic['txt_weights']
@@ -565,8 +568,8 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
     else:
         y_pot_m_ate_var_all = y_pot_m_ate_all = None
     if special_txt is not None:
-        ps.print_mcf(mcf_.gen_dict, '\n' + '=' * 100 + special_txt,
-                     summary=True, non_summary=False)
+        mcf_ps.print_mcf(mcf_.gen_dict, '\n' + '=' * 100 + special_txt,
+                         summary=True, non_summary=False)
     # Get parameters and info computed in 'gate_est'
     continuous = gate_est_dic['continuous']
     d_values_dr = gate_est_dic['d_values_dr']
@@ -574,10 +577,15 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
     no_of_out, var_dic = gate_est_dic['no_of_out'], gate_est_dic['var_dic']
     var_x_values, p_dic = gate_est_dic['var_x_values'], gate_est_dic['p_dic']
     ref_pop_lab = gate_est_dic['ref_pop_lab']
+    iv_lab = 'L' if iv else ''
     if p_dic['gates_minus_previous']:
-        effect_type_label = (gate_type, gate_type + '(change)')
+        effect_type_label = (iv_lab + gate_type,
+                             iv_lab + gate_type + '(change)'
+                             )
     else:
-        effect_type_label = (gate_type, gate_type + ' - ATE')
+        effect_type_label = (iv_lab + gate_type,
+                             iv_lab + gate_type + f' - {ate_type}'
+                             )
     gate = [None for _ in range(len(var_dic['z_name']))]
     gate_se, gate_diff,  gate_se_diff = gate[:], gate[:], gate[:]
     z_type_l = [None for _ in range(len(var_dic['z_name']))]
@@ -589,9 +597,10 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
         if gate_est_dic['smooth_yes']:
             z_smooth_l[zj_idx] = z_name in gate_est_dic['z_name_smooth']
 
+    old_filters = warnings.filters.copy()
     warnings.filterwarnings('error', category=RuntimeWarning)
     for z_name_j, z_name in enumerate(var_dic['z_name']):
-        z_name_ = ps.del_added_chars(z_name, prime=True)
+        z_name_ = mcf_ps.del_added_chars(z_name, prime=True)
         z_type = z_type_l[z_name_j]
         y_pot = deepcopy(y_pot_all[z_name_j])
         y_pot_var = deepcopy(y_pot_var_all[z_name_j])
@@ -646,20 +655,22 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
                     else:
                         gate_z_mate = gate_z_mate_se = ret_gate_mate = None
                 if int_dic['with_output']:
-                    txt += ('\nGroup Average Treatment Effects '
-                            + f'({gate_type})' + '\n' + '- ' * 50)
+                    txt += (f'\n{"Local" if iv else ""}Group Average Treatment '
+                            f'Effects ({iv_lab + gate_type})'
+                            + '\n' + '- ' * 50
+                            )
                     txt += (f'\nHeterogeneity: {z_name_} Outcome: '
                             + f'{var_dic["y_name"][o_idx]} Ref. pop.: '
                             + f'{ref_pop_lab[a_idx]}\n')
-                    txt += ps.print_effect_z(
-                        ret_gate, ret_gate_mate, z_values, gate_type,
-                        print_output=False,
+                    txt += mcf_ps.print_effect_z(
+                        ret_gate, ret_gate_mate, z_values, gate_type, ate_type,
+                        iv=iv, print_output=False,
                         gates_minus_previous=p_dic['gates_minus_previous'])
-                    txt += '\n' + ps.print_se_info(
+                    txt += '\n' + mcf_ps.print_se_info(
                         p_dic['cluster_std'], p_dic['se_boot_gate'])
                     if not p_dic['gates_minus_previous']:
-                        txt += ps.print_minus_ate_info(gen_dic['weighted'],
-                                                       print_it=False)
+                        txt += mcf_ps.print_minus_ate_info(gen_dic['weighted'],
+                                                           print_it=False)
         if int_dic['with_output']:
             primes = mcf_gp.primes_list()                 # figures
             for a_idx, a_lab in enumerate(ref_pop_lab):
@@ -725,13 +736,14 @@ def gate_effects_print(mcf_, effect_dic, effect_m_ate_dic, gate_est_dic,
             gate_diff = gate_se_diff = None
         if int_dic['with_output']:
             if gate_type in ('CBGATE', 'BGATE'):
-                ps.print_mcf(gen_dic, txt, summary=True)
+                mcf_ps.print_mcf(gen_dic, txt, summary=True)
             else:
-                ps.print_mcf(gen_dic, txt_weight + txt, summary=False)
-                ps.print_mcf(gen_dic, txt, summary=True, non_summary=False)
+                mcf_ps.print_mcf(gen_dic, txt_weight + txt, summary=False)
+                mcf_ps.print_mcf(gen_dic, txt, summary=True, non_summary=False)
         if int_dic['with_output']:
             txt += '-' * 100
-    warnings.resetwarnings()
+    warnings.filters = old_filters
+    # warnings.resetwarnings()
     if int_dic['with_output']:
         gate_tables_nice(p_dic, gate_est_dic['d_values'], gate_type=gate_type)
     return gate, gate_se, gate_diff, gate_se_diff, figure_list
@@ -753,7 +765,7 @@ def get_names_values(mcf_, gate_est_dic, bgate_est_dic, cbgate_est_dic):
         if mcf_.var_x_type[z_name] > 0:
             values, _ = mcf_gp.recode_if_all_prime(
                 est_dic['var_x_values'][z_name].copy(), z_name)
-            var = ps.del_added_chars(z_name, prime=True)
+            var = mcf_ps.del_added_chars(z_name, prime=True)
             index_to_replace = gate_names_values['z_names_list'].index(z_name)
             gate_names_values['z_names_list'][index_to_replace] = var
         else:

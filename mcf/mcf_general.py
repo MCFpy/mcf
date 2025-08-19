@@ -234,6 +234,8 @@ def add_var_names(names1, names2=None, names3=None, names4=None, names5=None,
 def to_list_if_needed(string_or_list):
     """Help for initialisation."""
     if isinstance(string_or_list, (tuple, set)):
+        if len(string_or_list) == 0:
+            return []
         if isinstance(string_or_list[0], (tuple, set)):
             string_or_list = [item for sublist in string_or_list
                               for item in sublist]
@@ -419,6 +421,7 @@ def primes_reverse(number, int_type=True):
     if int_type:
         number = number.tolist()
     list_of_primes = primefactors(number)  # Should be faster
+
     return list_of_primes
 
 
@@ -715,3 +718,25 @@ def to_numpy_big_data(data_df, obs_bigdata):
         data_np = data_np.astype(np.float32)
 
     return data_np
+
+
+def remove_duplicates(lst):
+    """Remove duplicates from list without changing order."""
+    seen = set()
+    result = []
+    for item in lst:
+        if item not in seen:
+            result.append(item)
+            seen.add(item)
+
+    return result
+
+
+def unique_list(list_tuple):
+    """Remove duplicate elements from list without changing order."""
+    unique = []
+    for item in list_tuple:
+        if item not in unique:
+            unique.append(item)
+
+    return unique

@@ -11,7 +11,7 @@ from math import sqrt
 import torch
 
 from mcf import mcf_cuda_functions as mcf_c
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_print_stats_functions as mcf_ps
 
 
 def weight_var_cuda(w0_dat, y0_dat, cl_dat, gen_dic, p_dic, normalize=True,
@@ -467,7 +467,7 @@ def kernel_proc_cuda(data, kernel):
 
 def analyse_weights_cuda(weights, title, gen_dic, p_dic, ate=True,
                          continuous=False, no_of_treat_cont=None,
-                         d_values_cont=None, precision=32, late=False):
+                         d_values_cont=None, precision=32, iv=False):
     """Describe the weights (cuda version).
 
     Parameters
@@ -499,7 +499,7 @@ def analyse_weights_cuda(weights, title, gen_dic, p_dic, ate=True,
     txt = ''
     if ate:
         txt += '\n' * 2 + '=' * 100
-        if late:
+        if iv:
             txt += '\nAnalysis of weights: ' + title
         else:
             txt += '\nAnalysis of weights (normalised to add to 1): ' + title
@@ -519,7 +519,7 @@ def analyse_weights_cuda(weights, title, gen_dic, p_dic, ate=True,
     sum_weights = torch.sum(weights, axis=1)
     for j in range(no_of_treat):
         if not (((1 - 1e-10) < sum_weights[j] < (1 + 1e-10))
-                or (-1e-15 < sum_weights[j] < 1e-15)) and not late:
+                or (-1e-15 < sum_weights[j] < 1e-15)) and not iv:
             w_j = weights[j] / sum_weights[j]
         else:
             w_j = weights[j]
@@ -554,7 +554,7 @@ def analyse_weights_cuda(weights, title, gen_dic, p_dic, ate=True,
             if gen_dic['with_output']:
                 txt += '\nLess than 5 observations in some groups.'
     if ate:
-        txt += ps.txt_weight_stat(
+        txt += mcf_ps.txt_weight_stat(
             larger_0, equal_0, mean_pos, std_pos, gini_all, gini_pos,
             share_largest_q, sum_larger, obs_larger, gen_dic, p_dic,
             continuous=continuous, d_values_cont=d_values_cont)

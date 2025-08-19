@@ -1,9 +1,11 @@
 from ray import is_initialized, shutdown
+from pandas import DataFrame
 
 from mcf.mcf_general import check_reduce_dataframe
 from mcf.mcf_iv_functions import train_iv_main, predict_iv_main
 from mcf import mcf_init_functions as mcf_init
 
+from mcf.mcf_inf_for_alloc_functions import predict_different_allocations_main
 from mcf.mcf_print_stats_functions import print_mcf
 from mcf.mcf_sensitivity_functions import sensitivity_main
 from mcf.mcf_unconfound_functions import train_main, predict_main, analyse_main
@@ -12,7 +14,7 @@ from mcf.mcf_unconfound_functions import blinder_iates_main
 
 class ModifiedCausalForest:
     """
-    Estimation of treatment effects with the Modified Causal Forest
+    Estimation of treatment effects with the Modified Causal Forest.
 
     Parameters
     ----------
@@ -43,7 +45,7 @@ class ModifiedCausalForest:
         BGATE is computed. None: Use the other heterogeneity variables
         (var_z_...) (if there are any) for balancing. Default is None.
 
-    var_cluster_name :  String or List of string (or None)
+    var_cluster_name :  String or List of string (or None), optional
         Name of variable defining clusters. Only relevant if p_cluster_std
         is True.
         Default is None.
@@ -63,14 +65,13 @@ class ModifiedCausalForest:
         Default is None.
 
     var_x_name_balance_test_unord : String or List of strings (or None),
-                               optional
+        optional
         Name of ordered variables to be used in balancing tests. Treatment
         specific descriptive statistics are only printed for those
         variables.
         Default is None.
 
-    var_x_name_always_in_ord : String or List of strings (or None),
-                               optional
+    var_x_name_always_in_ord : String or List of strings (or None), optional
         Name of ordered variables that are always checked on when deciding on
         the next split during tree building. Only relevant for
         :meth:`~ModifiedCausalForest.train` method.
@@ -98,9 +99,9 @@ class ModifiedCausalForest:
         Name of weight. Only relevant if gen_weighted is True.
         Default is None.
 
-    var_z_name_list : String or List of strings (or None), optional
+    var_z_name_cont : String or List of strings (or None), optional
         Names of ordered variables with many values to define
-        causal heterogeneity. They will be discretized (and dependening
+        causal heterogeneity. They will be discretized and (dependening
         p_gates_smooth) also treated as continuous. If not already included
         in var_x_name_ord, they will be added to the list of features.
         Default is None.
@@ -153,12 +154,10 @@ class ModifiedCausalForest:
         If cf_chunks_maxsize is larger than the sample size, there is no random
         splitting.
         The default (None) is dependent on the size of the training data:
-        If there are less than 90'000 training observations: No splitting.
+        If there are less than 100'000 training observations: No splitting.
         Otherwise:
-        
         .. math::
-        
-            \\text{cf_chunks_maxsize} = 90000 + \\frac{{(\\text{number of observations} - 90000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
+            \\text{cf_chunks_maxsize} = 100000 + \\frac{{(\\text{number of observations} - 100000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
 
         Default is None.
 
@@ -267,30 +266,34 @@ class ModifiedCausalForest:
         & penalty functions.
         Default (or None) is 1.
 
-    cf_p_diff_penalty : Integer (or None), optional
-            Penalty function (depends on the value of `mce_vart`).
-    
-        `mce_vart == 0`
-            Irrelevant (no penalty).
-    
-        `mce_vart == 1`
-            Multiplier of penalty (in terms of `var(y)`).
-            0 : No penalty.
-            None :
-    
-            .. math::
-    
-                \\frac{2 \\times (\\text{n} \\times \\text{subsam_share})^{0.9}}{\\text{n} \\times \\text{subsam_share}} \\times \\sqrt{\\frac{\\text{no_of_treatments} \\times (\\text{no_of_treatments} - 1)}{2}}
-    
-        `mce_vart == 2`
-            Multiplier of penalty (in terms of MSE(y) value function without splits) for penalty.  
-            0 : No penalty.
-            None :
-    
-            .. math::
-    
-                \\frac{100 \\times 4 \\times (n \\times \\text{f_c.subsam_share})^{0.8}}{n \\times \\text{f_c.subsam_share}}
-    
+    cf_p_diff_penalty : Float (or None), optional
+        Penalty function (depends on the value of `mce_vart`).
+
+    `mce_vart == 0`
+        Irrelevant (no penalty).
+
+    `mce_vart == 1`
+        Multiplier of penalty (in terms of `var(y)`).
+        0 : No penalty.
+        None :
+
+        .. math::
+
+            \\frac{2 \\times (\\text{n} \\times \\text{subsam_share})^{0.9}}{\\text{n} \\times \\text{subsam_share}} \\times \\sqrt{\\frac{\\text{no_of_treatments} \\times (\\text{no_of_treatments} - 1)}{2}}  
+
+    `mce_vart == 2`
+        Multiplier of penalty (in terms of MSE(y) value function without splits) for penalty.  
+        0 : No penalty.
+        None :
+
+        .. math::
+
+            \\frac{100 \\times 4 \\times (n \\times \\text{f_c.subsam_share})^{0.8}}{n \\times \\text{f_c.subsam_share}}  
+
+    `mce_vart == 3`
+        Probability of using p-score (0-1). None : 0.5. Increase value if balancing tests indicate problems. 
+    Default is None.
+
     cf_penalty_type : String (or None), optional
         Type of penalty function.
         'mse_d':  MSE of treatment prediction in daughter leaf (new in 0.7.0)
@@ -316,9 +319,13 @@ class ModifiedCausalForest:
 
         .. math::
 
-            S = \\max((n^{0.5},min(0.67 n, \\frac{2 \\times (n^{0.85})}{n}))), \\text{n: # of training observations} 
+            S = \\max(n^{0.5},min(0.67 \\n, \\frac{4 \\times (frac{n}{2}^{0.85})}{n})), \\text{n: # of training observations}
 
-        :math:`S \\times \\text{cf_subsample_factor_forest}, \\text{is not larger than 80%.}` 
+        Maximum share is 0.67. Minimum share is
+
+        .. math::
+            \\frac{2 \\times (frac{n}{2}^{0.5})}{n}
+
         Default (or None) is 1.
 
     cf_subsample_factor_eval : Float or Boolean (or None), optional
@@ -387,6 +394,17 @@ class ModifiedCausalForest:
         If CS_TYPE == 1: 1 or None : Min-max rule.
         < 1 : Respective quantile.
         Default (or None) is 1.
+
+    cs_detect_const_vars_stop : Integer or float (or None)
+        Control variables that have no variation inside a treatment
+        arm violate the common support condition. If
+        'cs_detect_vars_no_var_stop' is True, data will be checked for
+        such variables and an exception is raised if such a variable is
+        detected. Then, the user has to decide to either adjust the
+        data (by deleting either observations with the value of the variable)
+        that creates the problem (recommended solution) or  to delete this
+        variable.
+        Default (or None) is True.
 
     ct_grid_dr : Integer (or None), optional
         Number of grid point for discretization of continuous treatment
@@ -476,11 +494,13 @@ class ModifiedCausalForest:
     gen_mp_parallel : Integer (or None), optional
         Number of parallel processes (using ray on CPU). The smaller this
         value is, the slower the programme, the smaller its demands on RAM.
+        If trainings data is larger than _int_obs_bigdata, gen_mp_parallel is
+        reduced to 75% of specified value.
         None : 80% of logical cores.
         Default is None.
 
     gen_outfiletext : String (or None), optional
-        File for text output. (\*.txt) file extension will be added.
+        File for text output. (.txt) file extension will be added.
         None : 'txtFileWithOutput'.
         Default is None.
 
@@ -513,8 +533,9 @@ class ModifiedCausalForest:
         regression is selected among scikit-learn's Random Forest, Support
         Vector Machines, and AdaBoost Regression based on their out-of-sample
         mean squared error. The method selection is either performed on the
-        subsample used to build the forest ((1-lc_cs_share) for training,
-        lc_cs_share for test).
+        subsample used to build the forest ((1-lc_cs_share) share of data for
+        training and lc_cs_share share of data for test) or
+        cross-validation (see the keyword lc_cs_cv).
         Default (or None) is True.
 
     lc_estimator : String (or None), optional
@@ -535,7 +556,7 @@ class ModifiedCausalForest:
 
     lc_uncenter_po : Boolean (or None), optional
         Predicted potential outcomes are re-adjusted for local centering
-        are added to data output (iate and iate_eff in results dictionary).
+        and are added to data output (iate and iate_eff in results dictionary).
         Default (or None) is True.
 
     lc_cs_cv : Boolean (or None), optional
@@ -547,9 +568,9 @@ class ModifiedCausalForest:
     lc_cs_cv_k : Integer (or None), optional
         Data to be used for local centering & common support adjustment:
         Number of folds in cross-validation (if lc_cs_cv is True).
-        Default (or None) depends on the size of the training 
-        sample (N): N < 100'000: 5;  100'000 <= N < 250'000: 4
-        250'000 <= N < 500'000: 3, 500'000 <= N: 2.
+        Default (or None) depends on the size of the training
+          training sample (N): N < 100'000: 5;  100'000 <= N < 250'000: 4
+          250'000 <= N < 500'000: 3, 500'000 <= N: 2.
 
     lc_cs_share : Float (or None), optional
         Data to be used for local centering & common support adjustment:
@@ -649,7 +670,7 @@ class ModifiedCausalForest:
 
     p_qiate_m_opp : Boolean (or None), optional.
        QIATE(x, q) - QIATE(x, 1-q) will be estimated (q denotes quantil level,
-       q < 0.5),
+       q < 0.5).
        Default is False.
 
     p_qiate_no_of_quantiles : Integer (or None), optional
@@ -668,11 +689,22 @@ class ModifiedCausalForest:
     p_qiate_bias_adjust : Boolean (or None), optional
         Bias correction procedure for QIATEs based on simulations.
         Default is True.
-        If p_qiate_bias_adjust is True, P_IATE_SE is set to True as well.
+        If p_qiate_bias_adjust is True, p_iate_se is set to True as well.
 
-    p_qiate_bias_adjust_draws : Integer or Float (or None), optional
-        Number of random draws used in computing the bias adjustment.
-        Default is 1000.
+    p_iv_aggregation_method: String or list/tuple of strings (or None), optional
+        Defines method used to obtain aggregated effects.
+        Possible values are `local`, `global`,
+                            (`local`, `global`,)
+        `local` : LIATEs will be computed and aggregated to obtain
+                  LGATEs, LBGATEs, LATEs, etc..
+                  This estimator is internally consistent.
+        `global` : LATEs will be directly
+                   computed as the ratio of reduced form and first
+                   stage predictions. This estimator is not
+                   necessarily internally consistent.
+         For the differences in assumptions and properties of the two
+         approaches see Lechner and Mareckova (2025).
+         Default (or None) is (`local`, `global`,).
 
     p_ci_level : Float (or None), optional
         Confidence level for bounds used in plots.
@@ -685,10 +717,10 @@ class ModifiedCausalForest:
         Default (or None) is True.
 
     p_knn : Boolean (or None), optional
-      True : k-NN estimation. False: Nadaraya-Watson estimation.
-      Nadaray-Watson estimation gives a better approximaton of the
-      variance, but k-NN is much faster, in particular for larger datasets.
-      Default (or None) is True.
+        True : k-NN estimation. False: Nadaraya-Watson estimation.
+        Nadaray-Watson estimation gives a better approximaton of the
+        variance, but k-NN is much faster, in particular for larger datasets.
+        Default (or None) is True.
 
     p_knn_min_k : Integer (or None), optional
         Minimum number of neighbours k-nn estimation.
@@ -739,7 +771,7 @@ class ModifiedCausalForest:
         implies True).
         None : 199 replications p_cluster_std is True, and False otherwise.
         Default is None.
-    
+
     p_se_boot_qiate : Integer or Boolean (or None), optional
         Bootstrap of standard errors for QIATE. Specify either a Boolean (if
         True, number of bootstrap replications will be set to 199) or an
@@ -855,7 +887,7 @@ class ModifiedCausalForest:
         Internal variable, change default only if you know what you do.
 
     _int_dpi : Integer (or None), optional
-        Dpi in plots.
+        dpi in plots.
         Default (or None) is 500.
         Internal variable, change default only if you know what you do.
 
@@ -926,7 +958,7 @@ class ModifiedCausalForest:
         Internal variable, change default only if you know what you do.
 
     _int_mp_ray_objstore_multiplier : Float (or None), optional
-        Changes internal default values for  Ray object store. Change above
+        Changes internal default values for size of Ray object store. Change to
         1 if programme crashes because object store is full. Only relevant
         if _int_mp_ray_shutdown is True.
         Default (or None) is 1.
@@ -951,14 +983,14 @@ class ModifiedCausalForest:
     _int_iate_chunk_size : Integer or None, optional
         Number of IATEs that are estimated in a single ray worker.
         Default is number of prediction observations / workers.
-        If programme crashes in second part of IATE because of excess memory
-        consumption, reduce _int_iate_chunk_size.
+        If programme crashes in second part of IATE (2/2) because of excess
+        memory consumption, reduce _int_iate_chunk_size.
 
     _int_mp_weights_tree_batch : Integer (or None), optional
         Number of batches to split data in weight computation for variable
-        importance statistics. The smaller the number of batches, the faster
-        the program and the more memory is needed.
-        None: Automatically determined.
+        importance statistics: The smaller the number of batches, the faster
+        the programme and the more memory is needed.
+        None : Automatically determined.
         Default is None.
         Internal variable, change default only if you know what you do.
 
@@ -970,15 +1002,14 @@ class ModifiedCausalForest:
         Default (or None) is 1.
         Internal variable, change default only if you know what you do.
 
-    _int_obs_bigdata : Integer (or None), optional
-        If number of training observations is larger than this number, the
-        following happens during training:
-        (i) Number of workers is halved in local centering.
-        (ii) Ray is explicitely shut down.
-        (iii) The number of workers used is reduced to 75% of default.
-        (iv) The data type for some numpy arrays is reduced from float64 to
-        float32.
-        Default is 1'000'000.
+     _int_obs_bigdata : Integer or None, optional
+         If number of training observations is larger than this number, the
+         following happens during training:
+         (i) Number of workers is halved in local centering.
+         (ii) The number of workers used is reduced to 75% of default.
+         (iii) The data type for some numpy arrays is reduced from float64 to
+              float32.
+         Default is 1'000'000.
 
     _int_output_no_new_dir : Boolean (or None), optional
         Do not create a new directory when the path already exists.
@@ -1021,12 +1052,11 @@ class ModifiedCausalForest:
         Internal variable, change default only if you know what you do.
 
     _int_weight_as_sparse_splits : Integer (or None), optional
-        Compute sparse weight matrix in several chunks.
-        None: Automatically determined as:
-        (Rows of prediction data * Rows of Fill_y data)
-        /(Number of training splits * 25,000 * 25,000)
+        Compute sparse weight matrix in several chuncks.
+        None : (Rows of prediction data * rows of Fill_y data)
+               / (number of training splits * 25'000 * 25'000))
         Default is None.
-        Internal variable, change the default only if you know what you are doing.
+        Internal variable, change default only if you know what you do.
 
     _int_with_output : Boolean (or None), optional
         Print output on txt file and/or console.
@@ -1045,14 +1075,15 @@ class ModifiedCausalForest:
         computation and may lead to undesirable behaviour).
         Default is False.
 
-    Attributes
-    ----------
 
-    version : String
+   Attributes
+   ----------
+
+    __version__ : String
         Version of mcf module used to create the instance.
 
     <NOT-ON-API>
-        
+
     blind_dict : Dictionary
         Parameters to compute (partially) blinded IATEs.
 
@@ -1126,7 +1157,7 @@ class ModifiedCausalForest:
             var_x_name_balance_test_unord=None, var_x_name_remain_ord=None,
             var_x_name_remain_unord=None, var_x_name_ord=None,
             var_x_name_unord=None, var_y_name=None, var_y_tree_name=None,
-            var_z_name_list=None, var_z_name_ord=None, var_z_name_unord=None,
+            var_z_name_cont=None, var_z_name_ord=None, var_z_name_unord=None,
             cf_alpha_reg_grid=1, cf_alpha_reg_max=0.15, cf_alpha_reg_min=0.05,
             cf_boot=1000, cf_chunks_maxsize=None, cf_compare_only_to_zero=False,
             cf_n_min_grid=1, cf_n_min_max=None, cf_n_min_min=None,
@@ -1137,8 +1168,8 @@ class ModifiedCausalForest:
             cf_penalty_type='mse_d',
             cf_subsample_factor_eval=None, cf_subsample_factor_forest=1,
             cf_tune_all=False, cf_vi_oob_yes=False,
-            cs_adjust_limits=None, cs_max_del_train=0.5, cs_min_p=0.01,
-            cs_quantil=1, cs_type=1,
+            cs_adjust_limits=None, cs_detect_const_vars_stop=True,
+            cs_max_del_train=0.5, cs_min_p=0.01, cs_quantil=1, cs_type=1,
             ct_grid_dr=100, ct_grid_nn=10, ct_grid_w=10,
             dc_check_perfectcorr=True, dc_clean_data=True, dc_min_dummy_obs=10,
             dc_screen_covariates=True, fs_rf_threshold=1, fs_other_sample=True,
@@ -1148,15 +1179,15 @@ class ModifiedCausalForest:
             gen_output_type=2, gen_panel_in_rf=True, gen_weighted=False,
             lc_cs_cv=True, lc_cs_cv_k=None, lc_cs_share=0.25,
             lc_estimator='RandomForest', lc_yes=True, lc_uncenter_po=True,
-            p_atet=False, p_gatet=False, p_bgate=False, p_cbgate=False,
-            p_ate_no_se_only=False, p_bt_yes=True,
+            p_ate_no_se_only=False, p_atet=False, p_bgate=False,
+            p_bgate_sample_share=None, p_bt_yes=True, p_cbgate=False,
             p_choice_based_sampling=False, p_choice_based_probs=None,
             p_ci_level=0.95, p_cluster_std=False, p_cond_var=True,
             p_gates_minus_previous=False, p_gates_smooth=True,
             p_gates_smooth_bandwidth=1, p_gates_smooth_no_evalu_points=50,
-            p_gates_no_evalu_points=50,
-            p_bgate_sample_share=None,
+            p_gates_no_evalu_points=50, p_gatet=False,
             p_iate=True, p_iate_se=False, p_iate_m_ate=False,
+            p_iv_aggregation_method=('local', 'global',),
             p_knn=True, p_knn_const=1, p_knn_min_k=10,
             p_nw_bandw=1, p_nw_kern=1,
             p_max_cats_z_vars=None, p_max_weight_share=0.05,
@@ -1164,7 +1195,7 @@ class ModifiedCausalForest:
             p_qiate_m_opp=False,
             p_qiate_no_of_quantiles=99, p_qiate_smooth=True,
             p_qiate_smooth_bandwidth=1,
-            p_qiate_bias_adjust=True, p_qiate_bias_adjust_draws=1000,
+            p_qiate_bias_adjust=True,
             p_se_boot_ate=None, p_se_boot_gate=None,
             p_se_boot_iate=None, p_se_boot_qiate=None,
             var_x_name_balance_bgate=None, var_cluster_name=None,
@@ -1194,7 +1225,7 @@ class ModifiedCausalForest:
             _int_with_output=True
             ):
 
-        self.version = '0.7.2'
+        self.__version__ = '0.8.0'
 
         self.int_dict = mcf_init.int_init(
             cuda=_int_cuda, cython=False,  # Cython turned off for now
@@ -1243,7 +1274,8 @@ class ModifiedCausalForest:
         self.cs_dict = mcf_init.cs_init(
             gen_dict,
             max_del_train=cs_max_del_train, min_p=cs_min_p, quantil=cs_quantil,
-            type_=cs_type, adjust_limits=cs_adjust_limits)
+            type_=cs_type, adjust_limits=cs_adjust_limits,
+            detect_const_vars_stop=cs_detect_const_vars_stop)
         self.lc_dict = mcf_init.lc_init(
             cs_cv=lc_cs_cv, cs_cv_k=lc_cs_cv_k, cs_share=lc_cs_share,
             undo_iate=lc_uncenter_po, yes=lc_yes, estimator=lc_estimator)
@@ -1289,7 +1321,7 @@ class ModifiedCausalForest:
             se_boot_qiate=p_se_boot_qiate, qiate_smooth=p_qiate_smooth,
             qiate_smooth_bandwidth=p_qiate_smooth_bandwidth,
             qiate_bias_adjust=p_qiate_bias_adjust,
-            qiate_bias_adjust_draws=p_qiate_bias_adjust_draws)
+            iv_aggregation_method=p_iv_aggregation_method)
         self.post_dict = mcf_init.post_init(
             p_dict,
             bin_corr_threshold=post_bin_corr_threshold,
@@ -1316,7 +1348,7 @@ class ModifiedCausalForest:
             x_name_remain_unord=var_x_name_remain_unord,
             x_name_ord=var_x_name_ord, x_name_unord=var_x_name_unord,
             y_name=var_y_name, y_tree_name=var_y_tree_name,
-            z_name_list=var_z_name_list, z_name_ord=var_z_name_ord,
+            z_name_cont=var_z_name_cont, z_name_ord=var_z_name_ord,
             z_name_unord=var_z_name_unord)
         self.blind_dict = self.sens_dict = None
         self.data_train_dict = self.var_x_type = self.var_x_values = None
@@ -1325,8 +1357,11 @@ class ModifiedCausalForest:
                        'analyse_list': []
                        }
         self.iv_mcf = {'firststage': None, 'reducedform': None}
+        self.predict_done = False
+        self.predict_iv_done = False
+        self.predict_different_allocations_done = False
 
-    def train(self, data_df):
+    def train(self: 'ModifiedCausalForest', data_df: DataFrame) -> dict:
         """
         Build the modified causal forest on the training data.
 
@@ -1338,22 +1373,38 @@ class ModifiedCausalForest:
 
         Returns
         -------
-        tree_df : DataFrame
-            Dataset used to build the forest.
-
-        fill_y_df : DataFrame
-            Dataset used to populate the forest with outcomes.
-
-        outpath : Pathlib object
-            Location of directory in which output is saved.
+        results : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'tree_df' : DataFrame
+                Dataset used to build the forest.
+            'fill_y_df' : DataFrame
+                Dataset used to populate the forest with outcomes.
+            'common_support_probabilities_tree': pd.DataFrame containing
+                treatment probabilities for all treatments,
+                the identifier of the observation, and a dummy variable
+                indicating whether the observation is inside or outside the
+                common support. This is for the data used to build the trees.
+                None if _int_with_output is False.
+            'common_support_probabilities_fill_y': pd.DataFrame containing
+                treatment probabilities for all treatments, the identifier of
+                the observation, and a dummy variable indicating
+                whether the observation is inside or outside the common support.
+                This is for the data used to fill the trees with outcome values.
+                None if _int_with_output is False.
+            'path_output' : Pathlib object
+                Location of directory in which output is saved.
 
         """
-        (tree_df, fill_y_df, self.gen_dict['outpath']) = train_main(self,
-                                                                    data_df)
+        results = train_main(self, data_df)
 
-        return tree_df, fill_y_df, self.gen_dict['outpath']
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
 
-    def train_iv(self, data_df):
+        return results
+
+    def train_iv(self: 'ModifiedCausalForest', data_df: DataFrame) -> dict:
         """
         Train the IV modified causal forest on the training data.
 
@@ -1365,23 +1416,42 @@ class ModifiedCausalForest:
 
         Returns
         -------
-        tree_df : DataFrame
-            Dataset used to build the forest.
-
-        fill_y_df : DataFrame
-            Dataset used to populate the forest with outcomes.
-
-        outpath : Pathlib object
-            Location of directory in which output is saved.
+        results : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'tree_df' : DataFrame
+                Dataset used to build the forest.
+            'fill_y_df' : DataFrame
+                Dataset used to populate the forest with outcomes.
+            'common_support_probabilities_tree': pd.DataFrame containing
+                treatment probabilities for all treatments, the identifier of
+                the observation, and a dummy variable indicating
+                whether the observation is inside or outside the common support.
+                This is for the data used to build the trees.
+                None if _int_with_output is False.
+            'common_support_probabilities_fill_y': pd.DataFrame containing
+                treatment probabilities for all treatments, the identifier of
+                the observation, and a dummy variable indicating
+                whether the observation is inside or outside the common support.
+                This is for the data used to fill the trees with outcome values.
+                None if _int_with_output is False.
+            'path_output' : Pathlib object
+                Location of directory in which output is saved.
 
         """
-        tree_df, fill_y_df = train_iv_main(self, data_df)
+        results = train_iv_main(self, data_df)
 
-        return tree_df, fill_y_df, self.gen_dict['outpath']
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
 
-    def predict(self, data_df):
+        return results
+
+    def predict(self: 'ModifiedCausalForest', data_df: DataFrame) -> dict:
         """
-        Compute all effects given a causal forest estimated with :meth:`~ModifiedCausalForest.train` method.
+        Compute all effects.
+
+        meth:`~ModifiedCausalForest.train` method must be run beforehand.
 
         Parameters
         ----------
@@ -1393,9 +1463,9 @@ class ModifiedCausalForest:
         Returns
         -------
         results : Dictionary.
-            Results. This dictionary has the following structure:
+            Contains the results. This dictionary has the following structure:
             'ate': ATE, 'ate_se': Standard error of ATE,
-            'ate effect_list': List of names of estimated effects,
+            'ate_effect_list': List of names of estimated effects,
             'gate': GATE, 'gate_se': SE of GATE,
             'gate_diff': GATE minus ATE,
             'gate_diff_se': Standard error of GATE minus ATE,
@@ -1420,18 +1490,77 @@ class ModifiedCausalForest:
             'bala': Effects of balancing tests,
             'bala_se': Standard error of effects of balancing tests,
             'bala_effect_list': Names of effects of balancing tests.
+            'common_support_probabilities' : pd.DataFrame containing treatment
+            probabilities for all treatments, the identifier of the observation,
+            and a dummy variable indicating whether the observation is inside or
+            outside the common support. None if _int_with_output is False.
+            'path_output': Pathlib object, location of directory in which output
+            is saved.
 
-        outpath : Pathlib object
-            Location of directory in which output is saved.
         """
-        results, self.gen_dict['outpath'] = predict_main(self, data_df)
+        self.predict_done = True
+        results = predict_main(self, data_df)
 
-        return results, self.gen_dict['outpath']
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
 
-    def predict_iv(self, data_df):
+        return results
+
+    def predict_different_allocations(self: 'ModifiedCausalForest',
+                                      data_df: DataFrame,
+                                      allocations_df: bool = None
+                                      ) -> dict:
         """
-        Compute all effects for instrument mcf using forests estimated by the
-        :meth:`~ModifiedCausalForest.train_iv` method.
+        Predict average potential outcomes for different allocations.
+
+        meth:`~ModifiedCausalForest.train` method must be run beforehand. The
+        details of this methods are described in the working paper by
+        Busshoff and Lechner (2025).
+
+        Parameters
+        ----------
+        data_df : DataFrame
+            Data used to compute the predictions. It must contain information
+            about features (and treatment if effects for treatment specific
+            subpopulations are desired as well).
+
+        allocations_df : Dataframe or None, optional
+            Different allocations which are to be evaluated. The length of this
+            dataframe must be the same as the length of data_df.
+            Default is None.
+
+        Returns
+        -------
+        results : Dictionary
+            Results. This dictionary has the following structure:
+            'ate': Average treatment effects
+            'ate_se': Standard error of average treatment effects
+            'ate_effect_list': List with name with estiamted effects
+            'alloc_df': Dataframe with value and variance of value for all
+                        allocations investigated.
+            'outpath' : Pathlib object. Location of directory in which output
+                        is saved.
+
+        """
+        self.predict_different_allocations_done = True
+        results, self.gen_dict['outpath'] = predict_different_allocations_main(
+            self, data_df, allocations_df)
+
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
+        return results
+
+    def predict_iv(self: 'ModifiedCausalForest', data_df: DataFrame
+                   ) -> tuple[dict, dict]:
+        """
+        Compute all effects for instrument mcf (possibly in 2 differnt ways).
+
+        :meth:`~ModifiedCausalForest.train_iv` method must be run beforehand.
 
         Parameters
         ----------
@@ -1442,10 +1571,10 @@ class ModifiedCausalForest:
 
         Returns
         -------
-        results : Dictionary.
-            Results. This dictionary has the following structure:
+        results_global : Dictionary.
+            Contains the results. This dictionary has the following structure:
             'ate': LATE, 'ate_se': Standard error of LATE,
-            'ate effect_list': List of names of estimated effects,
+            'ate_effect_list': List of names of estimated effects,
             'ate_1st': ATE 1st stage, 'ate_1st_se': Standard error of ATE (1st)
             'ate 1st_effect_list': List of names of estimated effects (1st),
             'ate_redf': ATE reduced form, 'ate_redf_se': Standard error of ATE
@@ -1487,10 +1616,23 @@ class ModifiedCausalForest:
             'bala_redf': Effects of balancing tests (reduced form),
             'bala_redf_se': Standard error of effects of balancing tests (red.),
             'bala_redf_effect_list': Names of effects of balancing tests (red.).
+            'common_support_probabilities': pd.DataFrame containing treatment
+            probabilities for all treatments, the identifier of the observation,
+            and a dummy variable indicating whether the observation is inside or
+            outside the common support. None if _int_with_output is False.
+            'path_output': Pathlib object, location of directory in which output
+            is saved.
 
-        outpath : String
-            Location of directory in which output is saved.
+            It is empty if the IV estimation method 'global' has not been
+            used.
+
+        results_local : Dictionary.
+            Same content as results_wald.
+            It is empty if the IV estimation method 'local' has not been
+            used.
+
         """
+        self.predict_iv_done = True
         # Reduce sample size to upper limit
         data_df, rnd_reduce, txt_red = check_reduce_dataframe(
             data_df, title='Prediction',
@@ -1499,18 +1641,18 @@ class ModifiedCausalForest:
         if rnd_reduce and self.int_dict['with_output']:
             print_mcf(self.gen_dict, txt_red, summary=True)
 
-        results = predict_iv_main(self, data_df)
+        results_global, results_local = predict_iv_main(self, data_df)
 
-        if (is_initialized()
+        if (self.int_dict['mp_ray_shutdown']
             and self.gen_dict['mp_parallel'] > 1
-                and len(data_df) > self.int_dict['obs_bigdata']):
+                and is_initialized()):
             shutdown()
 
-        return results, self.gen_dict['outpath']
+        return results_global, results_local
 
-    def analyse(self, results):
+    def analyse(self: 'ModifiedCausalForest', results: DataFrame) -> dict:
         """
-        Analyse estimated IATE with various descriptive tools.
+        Analyse estimated IATEs with various descriptive tools.
 
         Parameters
         ----------
@@ -1531,14 +1673,15 @@ class ModifiedCausalForest:
             IATEs contains an additional integer with a group label that comes
             from k-means clustering.
 
-        outpath : String
-            Location of directory in which output is saved.
-
         """
-        (results_plus_cluster, self.gen_dict['outpath']) = analyse_main(self,
-                                                                        results)
+        results_plus_cluster = analyse_main(self, results)
 
-        return results_plus_cluster, self.gen_dict['outpath']
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
+        return results_plus_cluster
 
     def blinder_iates(
         self, data_df, blind_var_x_protected_name=None,
@@ -1622,15 +1765,29 @@ class ModifiedCausalForest:
              blind_weights_of_blind=blind_weights_of_blind,
              blind_obs_ref_data=blind_obs_ref_data, blind_seed=blind_seed)
 
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
         return (blinded_dic, data_on_support_df, var_x_policy_ord_name,
                 var_x_policy_unord_name, var_x_blind_ord_name,
                 var_x_blind_unord_name, self.gen_dict['outpath'])
 
-    def sensitivity(self, train_df, predict_df=None, results=None,
-                    sens_cbgate=None, sens_bgate=None, sens_gate=None,
-                    sens_iate=None, sens_iate_se=None, sens_scenarios=None,
-                    sens_cv_k=None, sens_replications=2,
-                    sens_reference_population=None):
+    def sensitivity(self: 'ModifiedCausalForest',
+                    train_df: DataFrame,
+                    predict_df: DataFrame | None = None,
+                    results: dict | None = None,
+                    sens_cbgate: bool | None = None,
+                    sens_bgate: bool | None = None,
+                    sens_gate: bool | None = None,
+                    sens_iate: bool | None = None,
+                    sens_iate_se: bool | None = None,
+                    sens_scenarios: list | tuple | None = None,
+                    sens_cv_k: int | None = None,
+                    sens_replications: int = 2,
+                    sens_reference_population: int | float | None = None
+                    ) -> dict:
         """
         Compute simulation based sensitivity indicators.
 
@@ -1640,7 +1797,7 @@ class ModifiedCausalForest:
             Data with real outcomes, treatments, and covariates. Data will be
             transformed to compute sensitivity indicators.
 
-        predict_df : DataFrame (or None), optinal.
+        predict_df : DataFrame (or None), optional.
             Prediction data to compute all effects for. This data will not be
             changed in the computation process. Only covariate information is
             used from this dataset. If predict_df is not a DataFrame,
@@ -1692,9 +1849,6 @@ class ModifiedCausalForest:
             the sensitivity analysis. Default is to use the treatment with most
             observed observations.
 
-        outpath : String
-            Location of directory in which output is saved.
-
         Returns
         -------
         results_avg : Dictionary
@@ -1702,10 +1856,8 @@ class ModifiedCausalForest:
             :meth:`~ModifiedCausalForest.predict` method but (if applicable)
             averaged over replications.
 
-        outpath : String
-            Location of directory in which output is saved.
         """
-        results_avg, self.gen_dict['outpath'] = sensitivity_main(
+        results_avg = sensitivity_main(
             self, train_df, predict_df=predict_df, results=results,
             sens_cbgate=sens_cbgate, sens_bgate=sens_bgate, sens_gate=sens_gate,
             sens_iate=sens_iate, sens_iate_se=sens_iate_se,
@@ -1713,4 +1865,9 @@ class ModifiedCausalForest:
             sens_replications=sens_replications,
             sens_reference_population=sens_reference_population)
 
-        return results_avg, self.gen_dict['outpath']
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
+        return results_avg

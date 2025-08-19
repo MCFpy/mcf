@@ -1,4 +1,3 @@
-
 """
 Created on Tue Jul 18 07:58:29 2023.
 
@@ -15,20 +14,39 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 
-from mcf import mcf_print_stats_functions as ps
-from mcf import mcf_variable_importance_functions as mcf_vi
+from mcf.mcf_estimation_generic_functions import bayes_factor, cramers_v
 from mcf import mcf_general_sys as mcf_sys
+from mcf import mcf_print_stats_functions as mcf_ps
+from mcf import mcf_variable_importance_functions as mcf_vi
 
 
 def evaluate_fct(optp_, data_df, allocation_df, d_ok, polscore_ok,
                  polscore_desc_ok, desc_var, data_title):
     """Evalute allocations."""
-    var_dic, gen_dic = optp_.var_dict, optp_.gen_dict
+    var_dic, gen_dic = optp_.var_dict.copy(), optp_.gen_dict
     # len_scores = optp_.number_scores
     allocations = allocation_df.columns
     results_dic = {}
     population = ['All', 'Switchers'] if d_ok else ['All']
     value, index = value_to_index_dic_fct(allocation_df['random'].to_numpy())
+
+    # Adjust variables if fairness transformed scores have been used
+    if (not polscore_ok
+        and (optp_.fair_dict['solvefair_used']
+             or optp_.estrisk_dict['estrisk_used']
+             )
+            and polscore_desc_ok):
+        # Since polscore_ok == False, scores have been transformed
+        # Take polscore name back from last elements in polscore_desc_name
+        var_dic['polscore_name'] = (var_dic['polscore_desc_name']
+                                    [-gen_dic['no_of_treat']:]
+                                    )
+
+        if not var_dic['polscore_desc_name']:
+            polscore_desc_ok = False
+        polscore_ok, adjust_score = True, True
+    else:
+        adjust_score = False
 
     if polscore_ok:
         scores = data_df[var_dic['polscore_name']].to_numpy()
@@ -44,30 +62,41 @@ def evaluate_fct(optp_, data_df, allocation_df, d_ok, polscore_ok,
                        (no_of_vars, gen_dic['no_of_treat'])))
     else:
         scores_add = None
+
+    if optp_.fair_dict['solvefair_used']:
+        protected_var = var_dic['protected_ord_name'].copy()
+        protected_var.extend(var_dic['protected_unord_name'])
+        protected_df = data_df[protected_var]
+    else:
+        protected_df = None
     titel = True
     scores_, scores_add_ = scores, scores_add
-    if polscore_ok and optp_.gen_dict['method'] in ('policy tree',
+    if polscore_ok and optp_.gen_dict['method'] in ('policy_tree',
                                                     'bps_classifier'):
         alloc_name_ref_qini = ['best ATE', 'random']
         if d_ok:
             alloc_name_ref_qini.append('observed')
-        if optp_.gen_dict['method'] == 'policy tree':
+        if optp_.gen_dict['method'] == 'policy_tree':
             alloc_name_qini = 'Policy Tree'
         elif optp_.gen_dict['method'] == 'bps_classifier':
-            alloc_name_qini = 'bps_classifier'  # First part of name
+            alloc_name_qini = 'bps_classif_'  # First part of name
+        else:
+            alloc_name_qini = None
         qini_plots = True
         alloc_qini_np, score_qini_np, name_qini = [], [], []
         alloc_ref_qini_np, score_ref_qini_np, name_ref_qini = [], [], []
     else:
         qini_plots = False
+        alloc_qini_np = score_qini_np = name_qini = alloc_name_qini = None
+        alloc_ref_qini_np = score_ref_qini_np = name_ref_qini = None
 
     for pop in population:
         for alloc_name in allocations:
-            alloc_np = np.int16(np.round(allocation_df[alloc_name].to_numpy()))
+            alloc_np = np.int32(np.round(allocation_df[alloc_name].to_numpy()))
             if pop == 'Switchers':
                 if alloc_name == 'observed':
                     continue
-                switcher = alloc_np != np.int16(np.round(
+                switcher = alloc_np != np.int32(np.round(
                     allocation_df['observed'].to_numpy()))
                 alloc_ = alloc_np[switcher]
                 if polscore_ok:
@@ -102,8 +131,11 @@ def evaluate_fct(optp_, data_df, allocation_df, d_ok, polscore_ok,
                 scores_add_sel = score_all_sel_name = score_add_df = None
             desc_new_var_df_ = score_add_df if polscore_desc_ok else None
             results_dic = evaluation_of_alloc(
-                optp_, results_dic, pop, alloc_name, score_sel_new_df,
-                desc_new_var_df_, alloc_, titel)
+                gen_dic, results_dic, pop, alloc_name,
+                score_sel_new_df, desc_new_var_df_, alloc_, titel=titel,
+                protected_df=protected_df, transformed_scores=adjust_score,
+                cont_min_values=optp_.fair_dict['cont_min_values']
+                )
             titel = False
 
             if qini_plots and pop != 'Switchers':
@@ -117,26 +149,34 @@ def evaluate_fct(optp_, data_df, allocation_df, d_ok, polscore_ok,
                     name_qini.append(alloc_name)
 
     if gen_dic['with_output']:
-        ps.print_mcf(gen_dic, '-' * 100, summary=True)
-        ps.print_mcf(gen_dic,
-                     'Standard error of mean in brackets. Note that this '
-                     'standard error does only reflect the variability '
-                     '\nin the evaluation data for a given assignment rule.'
-                     '\nThe variability in the training data when learning the '
-                     'assignment rule is ignored.',
-                     summary=True
-                     )
-        ps.print_mcf(gen_dic, '-' * 100, summary=True)
+        mcf_ps.print_mcf(gen_dic, '-' * 100, summary=True)
+        if polscore_ok:
+            mcf_ps.print_mcf(
+                gen_dic,
+                'Standard error of mean outcome in brackets. Note that this '
+                'standard error does only reflect the variability '
+                '\nin the evaluation data for a given assignment rule.'
+                '\nThe variability in the training data when learning the '
+                'assignment rule is ignored.',
+                summary=True
+                )
+            mcf_ps.print_mcf(gen_dic, '-' * 100, summary=True)
+
+        if optp_.fair_dict['solvefair_used']:
+            txt_fair = txt_fairness_statistics(results_dic)
+            txt = '\n' + '-' * 100 + '\n' + txt_fair + '\n' + '-' * 100
+            mcf_ps.print_mcf(gen_dic, txt, summary=True)
+
         if desc_var:
             data_new_df = data_df[desc_var].copy()
             for pop in population:
                 for alloc_name in allocations:
-                    alloc_np = np.int16(
+                    alloc_np = np.int32(
                         np.round(allocation_df[alloc_name].to_numpy()))
                     if pop == 'Switchers':
                         if alloc_name == 'observed':
                             continue
-                        switcher = alloc_np != np.int16(np.round(
+                        switcher = alloc_np != np.int32(np.round(
                             allocation_df['observed'].to_numpy()))
                         alloc_ = alloc_np[switcher]
                         data_new_df_ = data_new_df[switcher].copy()
@@ -144,13 +184,15 @@ def evaluate_fct(optp_, data_df, allocation_df, d_ok, polscore_ok,
                         alloc_, data_new_df_ = alloc_np, data_new_df.copy()
                     data_new_df_[alloc_name] = alloc_
                     txt = '\n' + '-' * 100 + '\nDescriptive statistics of '
-                    txt += f'features for {alloc_name}'
+                    txt += f'features for {alloc_name} '
+                    if data_title:
+                        txt += f'({data_title})'
                     if pop == 'Switchers':
                         txt += ' for switchers'
                     txt += '\n' + '-' * 100
                     summary = not alloc_name == 'random_rest'
-                    ps.print_mcf(gen_dic, txt, summary=summary)
-                    ps.statistics_by_treatment(
+                    mcf_ps.print_mcf(gen_dic, txt, summary=summary)
+                    mcf_ps.statistics_by_treatment(
                         gen_dic,
                         data_new_df_,
                         [alloc_name],
@@ -173,25 +215,102 @@ def evaluate_fct(optp_, data_df, allocation_df, d_ok, polscore_ok,
                          'data_title': data_title
                          }
             qini_plots_fct(optp_, qini_dict)
+
     return results_dic
 
 
-def evaluation_of_alloc(optp_, results_dic, pop, alloc_name, score_sel_new_df,
-                        desc_new_var_df, allocation, titel=False):
+def txt_fairness_statistics(results_dic: dict) -> str:
+    """Print the fairness statistics."""
+    txt = ('Fairness corrections: Dependence of allocations on protected '
+           'attributes using different measures')
+
+    first_time = True
+    length_var, length_alloc = 8, 46
+    for key, item in results_dic.items():
+        if 'correlation(allocation, protected)' not in item:
+            continue
+        if first_time:  # Add header
+            first_time = False
+            measures = ['Correlation (%)', 'Cramers V (%)', 'Bayes Factor']
+            longest_measure = max(len(s) for s in measures)
+
+            variables = item['correlation(allocation, protected)'].columns
+            if len(variables) == 1:
+                length_var = max(longest_measure, length_var)
+            variables_str = ' '.join([a[:length_var].rjust(length_var)
+                                      for a in variables[:]])
+            measures_txt = '  '.join([s.rjust((length_var) * len(variables) - 1)
+                                     for s in measures])
+            txt += ('\n' + ' ' * (length_alloc + 1) + measures_txt
+                    + '\n' + ' ' * length_alloc + variables_str * len(measures)
+                    )
+        txt += f'\n{key:{length_alloc}}'
+        stat = (item['correlation(allocation, protected)'].iloc[0] * 100
+                ).tolist()
+        txt += f'{" ".join([str(round(x, 2)).rjust(length_var) for x in stat])}'
+        stat = (item['Cramers V (allocation, protected)'].iloc[0] * 100
+                ).tolist()
+        txt += f'{" ".join([str(round(x, 2)).rjust(length_var) for x in stat])}'
+        stat_ = item['Bayes factor (allocation, protected)'].iloc[0].tolist()
+        stat = [min(s, 10000) if not np.isnan(s) else s for s in stat_]
+        txt += f'{" ".join([str(round(x, 2)).rjust(length_var) for x in stat])}'
+    txt += '\n' + '- ' * int(((length_alloc + 1) + len(measures_txt)) / 2)
+    txt += ("\nNote: Cramér's V is a statistic to measure the association of "
+            'two categorical variables. '
+            '\n  It varies between 0 '
+            '(no association) and  1 (perfect association). '
+            '\nThe Bayes Factor (BF10) is a (nonnegativ) statistic to measure '
+            'the association of two categorical variables. '
+            '\n  A value much larger than 1 indicates strong evidence for '
+            'dependence. '
+            '\n  A value much smaller than 1, it provides evidence for '
+            'independence.'
+            '\n  A value close to 0 means an inclusive result. '
+            '\n  The Bayes factor is truncated at 10000. '
+            "\nCramér's V and the Bayes Factor are NOT computed for "
+            'continuous variables.')
+
+    return txt
+
+
+def evaluation_of_alloc(gen_dic: dict,
+                        results_dic: dict,
+                        pop: str,
+                        alloc_name: str,
+                        score_sel_new_df: pd.DataFrame,
+                        desc_new_var_df: pd.DataFrame,
+                        allocation: np.array,
+                        titel: bool = False,
+                        protected_df: pd.DataFrame = None,
+                        transformed_scores: bool = False,
+                        cont_min_values: int | float = 50,
+                        ):
     """Compute and print results of evaluations."""
     results_new_dic = deepcopy(results_dic)
     local_dic = {}
+    score_ok = score_sel_new_df is not None
     if desc_new_var_df is not None:
         desc_var = desc_new_var_df.columns
+    else:
+        desc_var = []
+
+    if transformed_scores:
+        if len(desc_var) > 1:
+            desc_var_print = desc_var[:-1]
+        else:
+            desc_var_print = []
+    else:
+        desc_var_print = desc_var
     txt = ''
-    score_ok = score_sel_new_df is not None
+
     if titel:
         scorevar = score_sel_new_df.columns if score_ok else None
         if score_ok:
             txt += ('\n' + '-' * 100 + '\n' + 'Mean of variables /'
                     ' treatment shares' + ' ' * 6
-                    + f'Welfare measure used: {scorevar[0]:10}')
-
+                    )
+            if not transformed_scores:
+                txt += f'Welfare measure used: {scorevar[0]:10}'
         else:
             txt += ('\n' + '-' * 100 + '\n' + 'Mean of variables /'
                     ' treatment shares')
@@ -201,33 +320,77 @@ def evaluation_of_alloc(optp_, results_dic, pop, alloc_name, score_sel_new_df,
             txt += 'Main outcome, additional outcomes, shares:        '
             if scorevar is not None:
                 txt += f'{scorevar[0]:16}'
-            for var in desc_var:
+            for var in desc_var_print:
                 txt += f' {var:10s}'
-        txt += ''.join([f'{s:8d}' for s in optp_.gen_dict['d_values']])
+        txt += ''.join([f'{s:8d}' for s in gen_dic['d_values']])
         txt += '\n'
     name = pop + ' ' + alloc_name
     if score_ok:
         mean1, std1 = get_mean_std_welfare(score_sel_new_df,
                                            no_of_bootstraps=100,
                                            seed=12345)
-        txt += f'{name:45} {mean1:10.4f} ({std1:.4f})'
+        txt += f'{name:46} {mean1:10.4f} ({std1:.4f})'
         local_dic[name] = mean1
     else:
+        txt += f'{name:46}'
         mean1 = []
     if desc_new_var_df is not None:
         for var in desc_var:
             mean = desc_new_var_df[var].mean()
-            txt += f' {mean:10.4f}'
+            if var in desc_var_print:
+                txt += f' {mean:10.4f}'
             local_dic[var] = mean
     local_dic['treatment share'] = get_treat_shares(allocation,
-                                                    optp_.gen_dict['d_values'])
+                                                    gen_dic['d_values'])
     treat_shares_s = [f' {s:>7.2%}' for s in local_dic['treatment share']]
-    txt += ' ' * 6 + ''.join(treat_shares_s)
-    if optp_.gen_dict['with_output']:
-        ps.print_mcf(optp_.gen_dict, txt, summary=True)
+    txt += ' ' * 7 + ''.join(treat_shares_s)
+    if gen_dic['with_output']:
+        mcf_ps.print_mcf(gen_dic, txt, summary=True)
+
+    if protected_df is not None and pop == 'All':
+        corr, cramer, bayes = dependence_allocation_variables(allocation,
+                                                              protected_df,
+                                                              cont_min_values
+                                                              )
+        local_dic['correlation(allocation, protected)'] = corr
+        local_dic['Cramers V (allocation, protected)'] = cramer
+        local_dic['Bayes factor (allocation, protected)'] = bayes
+
     results_new_dic[name] = local_dic.copy()
 
     return results_new_dic
+
+
+def dependence_allocation_variables(allocation: np.array,
+                                    protected_df: pd.DataFrame,
+                                    no_continuous: int | float = 50,
+                                    ) -> tuple[pd.DataFrame, ...]:
+    """Compute dependence measures for discrete variables."""
+    prot_var = protected_df.columns
+    prot_np = protected_df.to_numpy()
+    data = np.concatenate((allocation.reshape(-1, 1), prot_np), axis=1)
+    if allocation.std() > 1e-8:
+        corr = np.corrcoef(data, rowvar=False)[0, 1:].reshape(-1, 1).T
+    else:
+        corr = np.full((1, prot_np.shape[1]), np.nan).reshape(-1, 1).T
+    corr_df = pd.DataFrame(corr, columns=prot_var)
+
+    cramer = np.empty(len(prot_var))
+    bayes = np.empty_like(cramer)
+    for idx, _ in enumerate(prot_var):
+        if ((len(np.unique(prot_np[:, idx])) > no_continuous)
+                or allocation.std() < 1e-8):
+            cramer[idx] = np.nan
+            bayes[idx] = np.nan
+        else:
+            prot_df = pd.Series(prot_np[:, idx])
+            allocation_df = pd.Series(allocation)
+            cramer[idx] = cramers_v(allocation_df, prot_df)
+            bayes[idx] = bayes_factor(allocation_df, prot_df)
+    cramer_df = pd.DataFrame(cramer.reshape(-1, 1).T, columns=prot_var)
+    bayes_df = pd.DataFrame(bayes.reshape(-1, 1).T, columns=prot_var)
+
+    return corr_df, cramer_df, bayes_df
 
 
 def get_mean_std_welfare(score_df, no_of_bootstraps=100, seed=12345):
@@ -265,17 +428,17 @@ def evaluate_multiple(optp_, allocations_dic, scores_df):
            + '     Sum / Mean / Variance of Potential Outcomes')
     scores_np = scores_df.to_numpy()
     for alloc in allocations_dic:
-        allocation = np.int16(np.round(allocations_dic[alloc].to_numpy()))
+        allocation = np.int32(np.round(allocations_dic[alloc].to_numpy()))
         if allocation.shape[1] > 1:
             allocation = allocation[:, 0]
         if (np.min(allocation) < min(optp_.gen_dict['d_values'])
                 or np.max(allocation) < max(optp_.gen_dict['d_values'])):
             raise ValueError('Inconistent definition of treatment values')
         treat_shares = get_treat_shares(allocation, optp_.gen_dict['d_values'])
-        index = np.int16(np.arange(len(optp_.gen_dict['d_values'])))
+        index = np.int32(np.arange(len(optp_.gen_dict['d_values'])))
         indices_ = allocation.copy()
         idx_row = np.arange(len(scores_np))
-        for idx, val in enumerate(np.int16(optp_.gen_dict['d_values'])):
+        for idx, val in enumerate(np.int32(optp_.gen_dict['d_values'])):
             indices_ = np.where(allocation == val, index[idx], indices_)
         score_sel = scores_np[idx_row, indices_]
         mean, variance = np.mean(score_sel), np.var(score_sel)
@@ -285,19 +448,23 @@ def evaluate_multiple(optp_, allocations_dic, scores_df):
         txt += ' ' + ''.join(treat_shares_s)
         txt += f'  {summ:12.2f}  {mean:8.4f}  {variance:8.4f}'
     txt += '\n' + '-' * 100
-    ps.print_mcf(optp_.gen_dict, txt, summary=True)
+    mcf_ps.print_mcf(optp_.gen_dict, txt, summary=True)
 
 
-def variable_importance(optp_, data_df, allocation_df, seed=1234567):
+def variable_importance(optp_, data_df, allocation_df, seed=1234567,
+                        data_title=''):
     """Compute variable importance measures for various allocations."""
     names_unordered = optp_.var_dict['vi_to_dummy_name']
     for alloc_name in allocation_df.columns:
         if alloc_name in ('random', 'RANDOM'):
             continue
         txt = ('\n' * 2 + '-' * 100 + '\n'
-               + f'Variable importance statistic for {alloc_name}\n'
-               + '- ' * 50)
-        ps.print_mcf(optp_.gen_dict, txt, summary=True)
+               + f'Variable importance statistic for {alloc_name} '
+               )
+        if isinstance(data_title, str) and len(data_title) > 0:
+            txt += f'({data_title})'
+        txt += '\n' + '- ' * 50
+        mcf_ps.print_mcf(optp_.gen_dict, txt, summary=True)
         if (optp_.var_dict['vi_to_dummy_name'] is None
                 or optp_.var_dict['vi_to_dummy_name'] == []):
             x_name = optp_.var_dict['vi_x_name']
@@ -350,8 +517,8 @@ def variable_importance(optp_, data_df, allocation_df, seed=1234567):
 
 def value_to_index_dic_fct(values_np):
     """Array of indices of values in numpy array."""
-    vals = np.int16(np.round(np.unique(values_np)))
-    indices = np.int16(np.arange(len(vals)))
+    vals = np.int32(np.round(np.unique(values_np)))
+    indices = np.int32(np.arange(len(vals)))
     return vals, indices
 
 
@@ -388,7 +555,6 @@ def qini_plots_fct(optp_, qini_dict):
 
         for idx, name in enumerate(qini_dict['name_list']):
             score_combined = qini_like_score(
-                optp_,
                 qini_dict['score_list'][idx],
                 qini_dict['score_ref_list'][idx_ref])
 
@@ -409,7 +575,7 @@ def qini_plots_fct(optp_, qini_dict):
                        shadow=True,
                        fontsize=optp_.int_dict['fontsize'])
             axs.set_title(
-                f'Welfare of {name} rule \nvs. {name_ref} ({data_title})')
+                f'Welfare of {name} rule \nvs. {name_ref} ({data_title} data)')
             name_title = (name_ref.replace(' ', '')
                           + name.replace(' ', '')
                           + data_title.replace(' ', '')
@@ -435,7 +601,7 @@ def qini_plots_fct(optp_, qini_dict):
             all_data_plot_df.to_csv(file_csv)
 
 
-def qini_like_score(optp_, score, score_ref):
+def qini_like_score(score, score_ref):
     """Compute intertwined welfare measures for qini like measure."""
     gain = score - score_ref    # Used for sorting only
     obs = len(gain)

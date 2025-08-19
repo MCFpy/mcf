@@ -3,7 +3,7 @@ from mcf import reporting_functions as rep
 
 class McfOptPolReport:
     """
-    .. versionadded:: 0.7.0
+    .. versionadded:: 0.8.0
         Provides reports about the main specification choices and most
         important results of the :class:`~mcf_functions.ModifiedCausalForest`
         and :class:`~optpolicy_functions.OptimalPolicy` estimations.
@@ -33,10 +33,13 @@ class McfOptPolReport:
             used as name. Any name will always appended by string that contains
             the day and time (measured when the programme ends).
 
-    <NOT-ON-API>
-
     Attributes
     ----------
+
+    version : String
+        Version of mcf module used to create the instance.
+
+    <NOT-ON-API>
 
     gen_dict : Dictionary
         General parameters to compute reports.
@@ -68,7 +71,7 @@ class McfOptPolReport:
     blind : Boolean.
         True if there is anything to report about blinded IATE estimation.
 
-    late : Boolean.
+    iv : Boolean.
         True if instrumental variable estimation is performed.
 
     </NOT-ON-API>
@@ -85,13 +88,16 @@ class McfOptPolReport:
         self.sens = self.sens_o is not None
         self.blind = self.blind_o is not None
         self.text = {}
-        self.late = False        # Instrumental variable estimation
+        self.iv = False        # Instrumental variable estimation
+
+        self.version = '0.8.0'
 
     def report(self):
-        """Create a PDF report using instances of the
+        """Create a PDF report save file to a user provided location.
+
+        Using instances of the
         :class:`~mcf_functions.ModifiedCausalForest` and
-        :class:`~optpolicy_functions.OptimalPolicy` classes and saves the file
-        to a user provided location.
+        :class:`~optpolicy_functions.OptimalPolicy` classes.
 
         Returns
         -------
@@ -100,7 +106,7 @@ class McfOptPolReport:
 
         """
         if self.mcf:
-            self.late = self.mcf_o.iv_mcf['firststage'] is not None
+            self.iv = self.mcf_o.iv_mcf['firststage'] is not None
         # Step one: Fill the dictionaries
         rep.create_text(self)
 

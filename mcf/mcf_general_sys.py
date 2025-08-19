@@ -16,7 +16,7 @@ from sys import getsizeof, stderr
 from psutil import virtual_memory
 import ray
 
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_print_stats_functions as mcf_ps
 
 
 def delete_file_if_exists(file_name):
@@ -59,9 +59,14 @@ def define_outpath(outpath, new_outpath=True):
     return outpath
 
 
-def get_fig_path(dic_to_update, outpath, add_name, create_dir, no_csv=False):
+def get_fig_path(dic_to_update: dict,
+                 outpath: Path,
+                 add_name: str,
+                 create_dir: bool,
+                 no_csv: bool = False
+                 ):
     """Define and create directories to store figures."""
-    fig_pfad = outpath / add_name
+    fig_pfad = outpath / ('plots_' + add_name)
     fig_pfad_jpeg = fig_pfad / 'jpeg'
     fig_pfad_csv = fig_pfad / 'csv'
     fig_pfad_pdf = fig_pfad / 'pdf'
@@ -77,7 +82,29 @@ def get_fig_path(dic_to_update, outpath, add_name, create_dir, no_csv=False):
     dic_to_update[add_name + '_fig_pfad_jpeg'] = fig_pfad_jpeg
     dic_to_update[add_name + '_fig_pfad_csv'] = fig_pfad_csv
     dic_to_update[add_name + '_fig_pfad_pdf'] = fig_pfad_pdf
+
     return dic_to_update
+
+
+def check_ray_shutdown(gen_dic, reference_duration, duration, no_of_workers,
+                       max_multiplier=3, with_output=True, err_txt=''
+                       ):
+    """Shutdown ray with there is substantial increase in computation time."""
+    if (no_of_workers == 1 or not ray.is_initialized()
+            or duration < reference_duration * max_multiplier):
+        return (reference_duration + duration) / 2, ''
+
+    ray.shutdown()
+    txt = (err_txt +
+           '\nRay shutdown because the time needed is '
+           f'{duration/reference_duration:.1%} of last time this part '
+           'was running in ray. Maybe some workers do not work anymore. '
+           'Ray will be restarted if needed.'
+           )
+    if with_output:
+        mcf_ps.print_mcf(gen_dic, txt, summary=False)
+
+    return reference_duration, txt
 
 
 def find_no_of_workers(maxworkers, sys_share=0):
@@ -95,6 +122,8 @@ def find_no_of_workers(maxworkers, sys_share=0):
     max_cores: Bool. Limit to number of physical(not logical cores)
 
     """
+    # Currently this procedure does not make much sense as it only leaves the
+    # numbers unchanges or sets them to 1.
     share_used = getattr(virtual_memory(), 'percent') / 100
     if sys_share >= share_used:
         sys_share = 0.9 * share_used
@@ -104,7 +133,7 @@ def find_no_of_workers(maxworkers, sys_share=0):
         workers = maxworkers
     elif workers < 1.9:
         workers = 1
-    else:
+    else:  # TODO This seems to be a bug. 25.3.2025
         workers = maxworkers
     workers = floor(workers + 1e-15)
     return workers
@@ -118,7 +147,7 @@ def init_ray_with_fallback(maxworkers, int_dic, gen_dic, mem_object_store=None,
             if mem_object_store is None:
                 ray.init(num_cpus=maxworkers,
                          include_dashboard=False,
-                         ignore_reinit_error=False
+                         ignore_reinit_error=False,
                          )
             else:
                 ray.init(
@@ -127,10 +156,14 @@ def init_ray_with_fallback(maxworkers, int_dic, gen_dic, mem_object_store=None,
                     ignore_reinit_error=False,
                     object_store_memory=mem_object_store,
                     )
+            mcf_ps.print_mcf(gen_dic,
+                             '\n'
+                             + f'Ray started with {maxworkers} workers',
+                             summary=False)
 
-            return True
+            return True, maxworkers
 
-        except Exception:
+        except OSError:
             if int_dic['mem_object_store_2'] is not None:  # Check memory needed
                 memory = virtual_memory()
                 memory_needed = mem_object_store * 1.1
@@ -143,9 +176,8 @@ def init_ray_with_fallback(maxworkers, int_dic, gen_dic, mem_object_store=None,
                                + f'{round(memory_needed / (1024 * 1024), 2)} MB'
                                + '\n' + txt_memory
                                )
-                        ps.print_mcf(gen_dic, txt, summary=False)
+                        mcf_ps.print_mcf(gen_dic, txt, summary=False)
 
-            round(memory.free / (1024 * 1024), 2)
             ray.shutdown()
             if maxworkers > 50:
                 maxworkers = maxworkers // 2
@@ -158,15 +190,15 @@ def init_ray_with_fallback(maxworkers, int_dic, gen_dic, mem_object_store=None,
             if int_dic['with_output'] and int_dic['verbose']:
                 txt = ('\n' + ray_err_txt +
                        f' Number of workers reduced to {maxworkers}')
-                ps.print_mcf(gen_dic, txt, summary=False)
+                mcf_ps.print_mcf(gen_dic, txt, summary=False)
 
     if int_dic['with_output'] and int_dic['verbose']:
         txt = ('\n' + ray_err_txt +
                'RAY NOT USED. No multiprocessing. This will slow down execution'
                )
-        ps.print_mcf(gen_dic, txt, summary=False)
+        mcf_ps.print_mcf(gen_dic, txt, summary=False)
 
-    return False
+    return False, maxworkers
 
 
 def no_of_boot_splits_fct(size_of_object_mb, workers):
@@ -184,7 +216,8 @@ def no_of_boot_splits_fct(size_of_object_mb, workers):
 
     """
     basic_size_mb = 53
-    _, available, _, _, _ = memory_statistics()
+    total, available, used, free, _ = memory_statistics()
+
     if size_of_object_mb > basic_size_mb:
         multiplier = 1/8 * (14 / workers)
         chunck_size_mb = basic_size_mb * (1 + (available - 33000) / 33000
@@ -195,15 +228,15 @@ def no_of_boot_splits_fct(size_of_object_mb, workers):
     else:
         no_of_splits = 1
         chunck_size_mb = size_of_object_mb
-    total, available, used, free, _ = memory_statistics()
+
     txt = ('\nAutomatic determination of tree batches'
            f'\nSize of object:   {round(size_of_object_mb, 2):6} MB '
-           f'\nAvailable RAM: {available:6} MB '
            f'\nNumber of workers {workers:2} No of splits: {no_of_splits:2}'
            '\nSize of chunk:  {round(chunck_size_mb, 2):6} MB '
            f'\nRAM total: {total:6} MB,  used: {used:6} MB, '
            f'available: {available:6} MB, free: {free:6} MB'
            )
+
     return no_of_splits, txt
 
 
@@ -284,11 +317,11 @@ def memory_statistics():
 def print_mememory_statistics(gen_dic, location_txt):
     """Print memory statistics."""
     if gen_dic['with_output'] and gen_dic['verbose']:
-        ps.print_mcf(gen_dic, '\n' + '-' * 100 + '\n'
-                     + location_txt
-                     + memory_statistics()[4]
-                     + '\n',
-                     summary=False)
+        mcf_ps.print_mcf(gen_dic, '\n' + '-' * 100 + '\n'
+                         + location_txt
+                         + memory_statistics()[4]
+                         + '\n',
+                         summary=False)
 
 
 def auto_garbage_collect(pct=80.0):

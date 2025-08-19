@@ -22,18 +22,18 @@ def black_box_allocation(optp_, data_df, bb_rest_variable, seed=234356):
         max_by_cat = np.int64(
             np.floor(no_obs * np.array(ot_dic['max_shares'])))
         random_rest = random_rest_fct(no_treat, no_obs, max_by_cat, rng)
-        allocations_df['bb_restrict_random'] = random_rest
+        allocations_df['bb_rest_rnd'] = random_rest
         largest_gain_rest = largest_gain_rest_fct(
             po_np, no_treat, no_obs, max_by_cat, largest_gain)
-        allocations_df['bb_restrict_largest_gain'] = largest_gain_rest
+        allocations_df['bb_rest_maxgain'] = largest_gain_rest
         largest_gain_rest_random_order = largest_gain_rest_random_order_fct(
             po_np, no_treat, no_obs, max_by_cat, largest_gain, rng)
-        allocations_df['bb_restrict_largest_gain_random_order'
+        allocations_df['bb_rest_maxgain_rndorder'
                        ] = largest_gain_rest_random_order
         if bb_rest_variable:
             largest_gain_rest_other_var = largest_gain_rest_other_var_fct(
                 po_np, no_treat, max_by_cat, var_dic, largest_gain, data_df)
-            name = 'bb_restrict_largest_gain_' + '_'.join(
+            name = 'bb_rest_maxgain_' + '_'.join(
                 var_dic['bb_restrict_name'])
             allocations_df[name] = largest_gain_rest_other_var
     return allocations_df

@@ -14,6 +14,7 @@ from fpdf.enums import XPos, YPos
 
 from mcf import mcf_general_sys as mcf_sys
 from mcf import reporting_content_functions as content
+from mcf import reporting_content_optp_functions as content_optp
 
 
 def create_pdf_file(rep_o):
@@ -26,10 +27,10 @@ def create_pdf_file(rep_o):
                       rep_o.text['general'], color='grey')
     idx1 = 2
     if rep_o.mcf_o is not None:
-        report_mcf_core(pdf, rep_o, idx1, late=rep_o.late)
+        report_mcf_core(pdf, rep_o, idx1, iv=rep_o.iv)
         idx1 += 1
     if rep_o.blind_o is not None:
-        report_mcf_blind(pdf, rep_o, idx1)
+        report_mcf_blind(pdf, idx1)
         idx1 += 1
     if rep_o.sens_o is not None:
         report_mcf_sense(pdf, rep_o, idx1)
@@ -51,6 +52,12 @@ def report_optpol(pdf, rep_o, idx1):
                           "Optimal Policy: Protected variables (fairness)",
                           rep_o.text['opt_fairness'], 'blue')
         idx2 += 1
+    if rep_o.opt_o.report['estriskscores']:
+        pdf.print_section((idx1, idx2),
+                          'Optimal Policy: Adjustments for estimation risk of '
+                          'policy scores',
+                          rep_o.text['opt_estriskscores'], 'blue')
+        idx2 += 1
     if rep_o.opt_o.report['training']:
         pdf.print_section((idx1, idx2), "Optimal Policy: Training",
                           rep_o.text['opt_training'], 'blue')
@@ -64,13 +71,15 @@ def report_optpol(pdf, rep_o, idx1):
         pdf.print_section((idx1, idx2),
                           "Optimal Policy: Evaluation of Allocation(s)",
                           general_text, 'blue')
-        for txt_table in txt_table_list:
-            pdf.add_table('Evaluation of treatment allocation', txt_table[1],
-                          col_width=30, font_size_table=10, note=txt_table[0],
+        for idx, txt_table in enumerate(txt_table_list):
+            pdf.add_table(f'Treatment allocation ({idx})',
+                          txt_table[1],
+                          col_width=30, font_size_table=10,
+                          note=txt_table[0],
                           index_label='Allocation')
 
 
-def report_mcf_core(pdf, rep_o, idx1, late=False):
+def report_mcf_core(pdf, rep_o, idx1, iv=False):
     """Write report on mcf training, prediction, and analysis."""
     idx2 = idx3 = idx4 = 1
     pdf.print_section((idx1,), 'MCF estimation', rep_o.text['mcf_general'],
@@ -92,7 +101,7 @@ def report_mcf_core(pdf, rep_o, idx1, late=False):
                           rep_o.text['mcf_t_common_support'], 'greenT')
         idx3 += 1
         title = "Common support plots"
-        if late:
+        if iv:
             title += (' (instrument propensity score)')
         pdf.add_figure_row(title, rep_o.mcf_o.report['cs_t_figs'][0][1:],
                            width=70, height=60)
@@ -105,92 +114,140 @@ def report_mcf_core(pdf, rep_o, idx1, late=False):
                       rep_o.text['mcf_forest'], 'greenT')
     idx2 += 1
     idx3 = 1
-    pdf.print_section((idx1,), "MCF estimation", ' ', 'green')
-    pdf.print_section((idx1, idx2), "MCF Prediction of Effects",
-                      rep_o.text['mcf_prediction'], 'greenP')
-    if rep_o.mcf_o.cs_dict["type"] > 0:
-        pdf.print_section((idx1, idx2, idx3),
-                          "Common support (mcf prediction)",
-                          rep_o.text['mcf_p_common_support'], 'greenP')
-        idx3 += 1
-    idx4 = 1
-    pdf.print_section((idx1, idx2, idx3), "Results",
-                      rep_o.text['mcf_results'], 'greenP')
-    titel_ = "LATE" if late else "ATE"
-    pdf.print_section((idx1, idx2, idx3, idx4), titel_,
-                      rep_o.text['mcf_ate'][0], 'greenP')
-    for idx, table_df in enumerate(rep_o.text['mcf_ate'][1]):
-        y_name = rep_o.mcf_o.var_dict['y_name'][idx]
-        if len(y_name) > 3 and y_name[-3:] == '_lc':
-            y_name = y_name[:-3]
-        table_df.columns = [name.replace('p_val', 'p-value')
-                            for name in table_df.columns]
-        table_df.columns = [name.replace('t-val', 't-value')
-                            for name in table_df.columns]
-        pdf.add_table('ATE for ' + y_name, table_df,
-                      col_width=30, note=rep_o.text['mcf_ate'][2])
-    idx4 += 1
-    if rep_o.mcf_o.p_dict['gate']:
-        title = 'LGATE' if late else 'GATE'
-        pdf.print_section((idx1, idx2, idx3, idx4), "GATE", ' ', 'greenP')
-        pdf.add_figure_row(title, rep_o.text['mcf_gate'][0],
-                           width=70, height=60, note=rep_o.text['mcf_gate'][1])
-        idx4 += 1
-    if rep_o.mcf_o.p_dict['bgate']:
-        title = 'LBGATE' if late else 'BGATE'
-        pdf.print_section((idx1, idx2, idx3, idx4), title,
-                          rep_o.text['mcf_bgate'][2], 'greenP')
-        pdf.add_figure_row(title, rep_o.text['mcf_bgate'][0],
-                           width=70, height=60,
-                           note=rep_o.text['mcf_bgate'][1])
-        idx4 += 1
-    if rep_o.mcf_o.p_dict['cbgate']:
-        title = 'LCBGATE' if late else 'CBGATE'
-        pdf.print_section((idx1, idx2, idx3, idx4), title,
-                          'All covariates are balanced.', 'greenP')
-        pdf.add_figure_row(title, rep_o.text['mcf_cbgate'][0],
-                           width=70, height=60,
-                           note=rep_o.text['mcf_cbgate'][1])
-        idx4 += 1
-    if rep_o.mcf_o.p_dict['iate']:
-        pdf.print_section((idx1, idx2, idx3, idx4), "IATE",
-                          rep_o.text['iate_part1'], color='greenP')
-        idx4 += 1
-    if rep_o.mcf_o.p_dict['bt_yes']:
-        pdf.print_section((idx1, idx2, idx3, idx4),
-                          "Balancing checks (experimental)",
-                          rep_o.text['mcf_balance'], 'greenP')
-    idx2 += 1
-    idx3 = idx4 = 1
-    if (rep_o.mcf_o.int_dict['with_output']
-        and rep_o.mcf_o.post_dict['est_stats']
-        and rep_o.mcf_o.int_dict['return_iate_sp']
-            and rep_o.mcf_o.report.get('fig_iate') is not None):
+    if rep_o.mcf_o.predict_done or rep_o.mcf_o.predict_iv_done:
         pdf.print_section((idx1,), "MCF estimation", ' ', 'green')
-        pdf.print_section((idx1, idx2), "Analysis of Estimated IATEs",
-                          rep_o.text['mcf_iate_part2'][0], 'greenA')
-        if rep_o.mcf_o.report['fig_iate']:
-            titel_ = 'LIATEs and IATEs' if late else 'IATEs'
-            pdf.add_figure_row(titel_, rep_o.text['mcf_iate_part2'][1],
+        pdf.print_section((idx1, idx2), "MCF Prediction of Effects",
+                          rep_o.text['mcf_prediction'], 'greenP')
+        if rep_o.mcf_o.cs_dict["type"] > 0:
+            pdf.print_section((idx1, idx2, idx3),
+                              "Common support (mcf prediction)",
+                              rep_o.text['mcf_p_common_support'], 'greenP')
+            idx3 += 1
+        idx4 = 1
+        pdf.print_section((idx1, idx2, idx3), "Results",
+                          rep_o.text['mcf_results'], 'greenP')
+        titel_ = "LATE" if iv else "ATE"
+        pdf.print_section((idx1, idx2, idx3, idx4), titel_,
+                          rep_o.text['mcf_ate'][0], 'greenP')
+        for idx_table in range(1, 3):
+            if rep_o.text['mcf_ate'][idx_table] is None:
+                break
+            for idx, table_df in enumerate(rep_o.text['mcf_ate'][idx_table]):
+                y_name = rep_o.mcf_o.var_dict['y_name'][idx]
+                if len(y_name) > 3 and y_name[-3:] == '_lc':
+                    y_name = y_name[:-3]
+                table_df.columns = [name.replace('p_val', 'p-value')
+                                    for name in table_df.columns]
+                table_df.columns = [name.replace('t-val', 't-value')
+                                    for name in table_df.columns]
+                iv_add = 'L' if iv else ''
+                pdf.add_table(iv_add + 'ATE for ' + y_name, table_df,
+                              col_width=30, note=rep_o.text['mcf_ate'][3])
+
+        idx4 += 1
+        if rep_o.mcf_o.p_dict['gate']:
+            title = 'LGATE' if iv else 'GATE'
+            pdf.print_section((idx1, idx2, idx3, idx4), "GATE", ' ', 'greenP')
+            pdf.add_figure_row(title, rep_o.text['mcf_gate'][0],
                                width=70, height=60,
-                               note=rep_o.text['mcf_iate_part2'][2])
-        knn_table = rep_o.text['mcf_iate_part2'][4]
-        if knn_table is not None:
-            pdf.print_section(txt=rep_o.text['mcf_iate_part2'][3])
-            pdf.print_section(txt=knn_table['obs_cluster_str'])
-            note = 'Mean of variable in cluster.'
-            titel_ = 'LIATE ' if late else 'IATE '
-            pdf.add_table(titel_, knn_table['IATE_df'],
-                          col_width=30, font_size_table=10, note=note)
-            pdf.add_table('Potential Outcomes ', knn_table['PotOutcomes_df'],
-                          col_width=30, font_size_table=10, note=note)
-            pdf.add_table('Features ', knn_table['Features_df'],
-                          col_width=30, font_size_table=8,
-                          note=note + ' Categorical variables are recoded ' +
-                          'to indicator (dummy) variables.')
+                               note=rep_o.text['mcf_gate'][1])
+            idx4 += 1
+        if rep_o.mcf_o.p_dict['bgate']:
+            title = 'LBGATE' if iv else 'BGATE'
+            pdf.print_section((idx1, idx2, idx3, idx4), title,
+                              rep_o.text['mcf_bgate'][2], 'greenP')
+            pdf.add_figure_row(title, rep_o.text['mcf_bgate'][0],
+                               width=70, height=60,
+                               note=rep_o.text['mcf_bgate'][1])
+            idx4 += 1
+        if rep_o.mcf_o.p_dict['cbgate']:
+            title = 'LCBGATE' if iv else 'CBGATE'
+            pdf.print_section((idx1, idx2, idx3, idx4), title,
+                              'All covariates are balanced.', 'greenP')
+            pdf.add_figure_row(title, rep_o.text['mcf_cbgate'][0],
+                               width=70, height=60,
+                               note=rep_o.text['mcf_cbgate'][1])
+            idx4 += 1
+        if rep_o.mcf_o.p_dict['iate']:
+            pdf.print_section((idx1, idx2, idx3, idx4), "IATE",
+                              rep_o.text['iate_part1'], color='greenP')
+            idx4 += 1
+        if rep_o.mcf_o.p_dict['bt_yes']:
+            pdf.print_section((idx1, idx2, idx3, idx4),
+                              "Balancing checks (experimental)",
+                              rep_o.text['mcf_balance'], 'greenP')
+        idx2 += 1
+        idx3 = idx4 = 1
+        if (rep_o.mcf_o.int_dict['with_output']
+            and rep_o.mcf_o.post_dict['est_stats']
+            and rep_o.mcf_o.int_dict['return_iate_sp']
+                and rep_o.mcf_o.report.get('fig_iate') is not None):
+            pdf.print_section((idx1,), "MCF estimation", ' ', 'green')
+            pdf.print_section((idx1, idx2), "Analysis of Estimated IATEs",
+                              rep_o.text['mcf_iate_part2'][0], 'greenA')
+            if rep_o.mcf_o.report['fig_iate']:
+                titel_ = 'LIATEs and IATEs' if iv else 'IATEs'
+                pdf.add_figure_row(titel_, rep_o.text['mcf_iate_part2'][1],
+                                   width=70, height=60,
+                                   note=rep_o.text['mcf_iate_part2'][2])
+            knn_table = rep_o.text['mcf_iate_part2'][4]
+            if knn_table is not None:
+                pdf.print_section(txt=rep_o.text['mcf_iate_part2'][3])
+                pdf.print_section(txt=knn_table['obs_cluster_str'])
+                note = 'Mean of variable in cluster.'
+                titel_ = 'LIATE ' if iv else 'IATE '
+                pdf.add_table(titel_, knn_table['IATE_df'],
+                              col_width=30, font_size_table=10, note=note)
+                pdf.add_table('Potential Outcomes ',
+                              knn_table['PotOutcomes_df'],
+                              col_width=30, font_size_table=10, note=note)
+                pdf.add_table('Features ', knn_table['Features_df'],
+                              col_width=30, font_size_table=8,
+                              note=note +
+                              ' Categorical variables are recoded '
+                              'to indicator (dummy) variables.'
+                              )
+
+    if rep_o.mcf_o.predict_different_allocations_done:
+        pdf.print_section((idx1,), "MCF estimation", ' ', 'green')
+        pdf.print_section((idx1, idx2),
+                          'MCF Prediction of average outcomes '
+                          'of different allocations',
+                          rep_o.text['alloc_mcf_prediction'],
+                          'greenP')
+        if rep_o.mcf_o.cs_dict["type"] > 0:
+            pdf.print_section((idx1, idx2, idx3),
+                              "Common support (mcf prediction)",
+                              rep_o.text['alloc_mcf_p_common_support'],
+                              'greenP')
+            idx3 += 1
+        idx4 = 1
+        pdf.print_section((idx1, idx2, idx3), "Results",
+                          rep_o.text['alloc_mcf_results'], 'greenP')
+        titel_ = 'Average outcome for all-in-1-treatment allocations'
+        pdf.print_section((idx1, idx2, idx3, idx4), titel_,
+                          rep_o.text['alloc_mcf_ate'][0], 'greenP')
+        for idx, table_df in enumerate(rep_o.text['alloc_mcf_ate'][1]):
+            y_name = rep_o.mcf_o.var_dict['y_name'][idx]
+            if len(y_name) > 3 and y_name[-3:] == '_lc':
+                y_name = y_name[:-3]
+            table_df.columns = [name.replace('p_val', 'p-value')
+                                for name in table_df.columns]
+            table_df.columns = [name.replace('t-val', 't-value')
+                                for name in table_df.columns]
+            pdf.add_table('Average outcome differences for ' + y_name, table_df,
+                          col_width=30, note=rep_o.text['alloc_mcf_ate'][2])
+        idx4 += 1
+
+        if rep_o.mcf_o.report['alloc_welfare_allocations']:
+            pdf.print_section((idx1, idx2, idx3, idx4),
+                              'Welfare of different allocations',
+                              rep_o.text['alloc_welfare_allocations'],
+                              color='greenP')
+            idx4 += 1
 
 
-def report_mcf_blind(pdf, rep_o, idx1):
+def report_mcf_blind(pdf, idx1):
     """Write report on blinded IATEs."""
     pdf.print_section((idx1,), "MCF Blinder IATEs",
                       'Blinding IATEs is experimental. Some results '
@@ -214,7 +271,7 @@ def create_text(rep_o):
     rep_o.text['general'] = content.general(rep_o)
     if rep_o.mcf_o is not None:
         rep_o.text['mcf_general'] = content.mcf_general(
-            rep_o.mcf_o, empty_lines_end, late=rep_o.late)
+            rep_o.mcf_o, empty_lines_end, iv=rep_o.iv)
         rep_o.text['mcf_training'] = content.mcf_training(rep_o.mcf_o,
                                                           empty_lines_end)
         rep_o.text['mcf_descriptives'] = content.mcf_descriptives(
@@ -222,15 +279,16 @@ def create_text(rep_o):
         if rep_o.mcf_o.fs_dict["yes"]:
             rep_o.text['mcf_feature_selection'
                        ] = content.mcf_feature_selection(
-                            rep_o.mcf_o, empty_lines_end, late=rep_o.late)
+                            rep_o.mcf_o, empty_lines_end, iv=rep_o.iv
+                            )
         if rep_o.mcf_o.cs_dict["type"] > 0:
             rep_o.text['mcf_t_common_support'] = content.mcf_common_support(
-                rep_o.mcf_o, empty_lines_end - 1, train=True, late=rep_o.late)
+                rep_o.mcf_o, empty_lines_end - 1, train=True, iv=rep_o.iv)
         if rep_o.mcf_o.lc_dict["yes"]:
             rep_o.text['mcf_local_center'] = content.mcf_local_center(
-                rep_o.mcf_o, empty_lines_end, late=rep_o.late)
+                rep_o.mcf_o, empty_lines_end, iv=rep_o.iv)
         rep_o.text['mcf_forest'] = content.mcf_forest(
-            rep_o.mcf_o, empty_lines_end, late=rep_o.late)
+            rep_o.mcf_o, empty_lines_end, iv=rep_o.iv)
 
         # When predict and analyse is used more than once, only first occurance
         #  is reported
@@ -243,56 +301,91 @@ def create_text(rep_o):
             rep_o.mcf_o.report.update(sub_dict)
             rep_o.mcf_o.report['analyse_list'] = []
 
-        rep_o.text['mcf_prediction'] = content.mcf_prediction(
-            rep_o.mcf_o, empty_lines_end)
-        if rep_o.mcf_o.cs_dict["type"] > 0:
-            rep_o.text['mcf_p_common_support'] = content.mcf_common_support(
-                rep_o.mcf_o, empty_lines_end - 1, train=False, late=rep_o.late)
-        rep_o.text['mcf_results'] = content.mcf_results(
-            rep_o.mcf_o, empty_lines_end, late=rep_o.late)
-        rep_o.text['mcf_ate'] = content.mcf_ate(rep_o.mcf_o, empty_lines_end,
-                                                late=rep_o.late)
-        if rep_o.mcf_o.p_dict['gate']:
-            rep_o.text['mcf_gate'] = content.mcf_gate(
-                rep_o.mcf_o, empty_lines_end, gate_type='gate', late=rep_o.late)
-        if rep_o.mcf_o.p_dict['bgate']:
-            rep_o.text['mcf_bgate'] = content.mcf_gate(
-                rep_o.mcf_o, empty_lines_end, gate_type='bgate',
-                late=rep_o.late)
-        if rep_o.mcf_o.p_dict['cbgate']:
-            rep_o.text['mcf_cbgate'] = content.mcf_gate(
-                rep_o.mcf_o, empty_lines_end, gate_type='cbgate',
-                late=rep_o.late)
-        if rep_o.mcf_o.p_dict['bt_yes']:
-            rep_o.text['mcf_balance'] = content.mcf_balance(empty_lines_end,
-                                                            late=rep_o.late)
-        if rep_o.mcf_o.p_dict['iate']:
-            rep_o.text['iate_part1'] = content.mcf_iate_part1(
-                rep_o.mcf_o, empty_lines_end, late=rep_o.late)
-        if (rep_o.mcf_o.int_dict['with_output']
-            and rep_o.mcf_o.post_dict['est_stats']
-                and rep_o.mcf_o.int_dict['return_iate_sp']):
-            rep_o.text['mcf_iate_part2'] = content.mcf_iate_analyse(
-                rep_o.mcf_o, 1, late=rep_o.late)
+        if rep_o.mcf_o.predict_done or rep_o.mcf_o.predict_iv_done:
+            rep_o.text['mcf_prediction'] = content.mcf_prediction(
+                rep_o.mcf_o, empty_lines_end)
+            if rep_o.mcf_o.cs_dict["type"] > 0:
+                rep_o.text['mcf_p_common_support'] = content.mcf_common_support(
+                    rep_o.mcf_o, empty_lines_end - 1, train=False, iv=rep_o.iv
+                    )
+            rep_o.text['mcf_results'] = content.mcf_results(
+                rep_o.mcf_o, empty_lines_end, iv=rep_o.iv)
+
+            rep_o.text['mcf_ate'] = content.mcf_ate_proc(rep_o.mcf_o,
+                                                         empty_lines_end,
+                                                         iv=rep_o.iv,
+                                                         alloc=False)
+            if rep_o.mcf_o.p_dict['gate']:
+                rep_o.text['mcf_gate'] = content.mcf_gate(
+                    rep_o.mcf_o, empty_lines_end, gate_type='gate',
+                    iv=rep_o.iv
+                    )
+            if rep_o.mcf_o.p_dict['bgate']:
+                rep_o.text['mcf_bgate'] = content.mcf_gate(
+                    rep_o.mcf_o, empty_lines_end, gate_type='bgate',
+                    iv=rep_o.iv
+                    )
+            if rep_o.mcf_o.p_dict['cbgate']:
+                rep_o.text['mcf_cbgate'] = content.mcf_gate(
+                    rep_o.mcf_o, empty_lines_end, gate_type='cbgate',
+                    iv=rep_o.iv)
+            if rep_o.mcf_o.p_dict['bt_yes']:
+                rep_o.text['mcf_balance'] = content.mcf_balance(empty_lines_end,
+                                                                iv=rep_o.iv
+                                                                )
+            if rep_o.mcf_o.p_dict['iate']:
+                rep_o.text['iate_part1'] = content.mcf_iate_part1(
+                    rep_o.mcf_o, empty_lines_end, iv=rep_o.iv)
+            if (rep_o.mcf_o.int_dict['with_output']
+                and rep_o.mcf_o.post_dict['est_stats']
+                    and rep_o.mcf_o.int_dict['return_iate_sp']):
+                rep_o.text['mcf_iate_part2'] = content.mcf_iate_analyse(
+                    rep_o.mcf_o, 1, iv=rep_o.iv)
+
+        if rep_o.mcf_o.predict_different_allocations_done:
+            rep_o.text['alloc_mcf_prediction'] = content.mcf_prediction(
+                rep_o.mcf_o, empty_lines_end
+                )
+            if rep_o.mcf_o.cs_dict["type"] > 0:
+                (rep_o.text['alloc_mcf_p_common_support']
+                 ) = content.mcf_common_support(rep_o.mcf_o,
+                                                empty_lines_end - 1,
+                                                train=False,
+                                                iv=rep_o.iv,
+                                                alloc=True
+                                                )
+            rep_o.text['alloc_mcf_results'] = content.mcf_results(
+                rep_o.mcf_o, empty_lines_end, iv=rep_o.iv, alloc=True)
+            rep_o.text['alloc_mcf_ate'] = content.mcf_ate_proc(
+                rep_o.mcf_o, empty_lines_end, iv=rep_o.iv, alloc=True
+                )
+            rep_o.text['alloc_welfare_allocations'] = content.mcf_welfare_alloc(
+                rep_o.mcf_o, empty_lines_end
+                )
 
     if rep_o.opt_o is not None:
-        rep_o.text['opt_general'] = content.opt_general(
+        rep_o.text['opt_general'] = content_optp.opt_general(
             rep_o.opt_o, empty_lines_end)
         if rep_o.opt_o.report['training']:
-            rep_o.text['opt_training'] = content.opt_training(
+            rep_o.text['opt_training'] = content_optp.opt_training(
                 rep_o.opt_o, empty_lines_end)
         if rep_o.opt_o.report['allocation']:
-            rep_o.text['opt_allocation'] = content.opt_allocation(
+            rep_o.text['opt_allocation'] = content_optp.opt_allocation(
                 rep_o.opt_o, empty_lines_end)
         if rep_o.opt_o.report['evaluation']:
-            rep_o.text['opt_evaluation'] = content.opt_evaluation(rep_o.opt_o)
+            rep_o.text['opt_evaluation'] = content_optp.opt_evaluation(
+                rep_o.opt_o)
         if rep_o.opt_o.report['fairscores']:
-            rep_o.text['opt_fairness'] = content.opt_fairness(rep_o.opt_o,
-                                                              empty_lines_end)
+            rep_o.text['opt_fairness'] = content_optp.opt_fairness(
+                rep_o.opt_o, empty_lines_end)
+        if rep_o.opt_o.report['estriskscores']:
+            rep_o.text['opt_estriskscores'] = content_optp.opt_estimationrisk(
+                rep_o.opt_o, empty_lines_end)
 
     if rep_o.sens_o is not None:
         rep_o.text['sensitivity'] = content.sensitivity(rep_o.sens_o,
-                                                        empty_lines_end)
+                                                        empty_lines_end
+                                                        )
 
 
 def header_title(rep_o):

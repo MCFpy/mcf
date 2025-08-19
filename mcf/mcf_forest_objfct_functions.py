@@ -14,9 +14,14 @@ from mcf import mcf_cuda_functions as mcf_c
 # from mcf import mcf_forest_cy as mcf_cy
 
 
-def mcf_mse(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat, treat_values,
-            w_yes=False, splitting=False, cuda=False, cython=True,
-            compare_only_to_zero=False, pen_mult=0):
+def mcf_mse(y_dat: np.ndarray, y_nn: np.ndarray, d_dat: np.ndarray,
+            w_dat: np.ndarray,
+            n_obs: int, mtot: int, no_of_treat: int,
+            treat_values: list[int, ...],
+            w_yes: bool = False, splitting: bool = False, cuda: bool = False,
+            cython: bool = True, compare_only_to_zero: bool = False,
+            pen_mult: float = 0
+            ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute average mse for the data passed. Based on different methods.
 
     Parameters
@@ -25,7 +30,7 @@ def mcf_mse(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat, treat_values,
     y_nn : Numpy N x no_of_treatments array. Matched outcomes.
     d_dat : Numpy Nx1 vector. Treatment.
     w_dat : Numpy Nx1 vector. Weights (or 0)
-    n : INT. Leaf size.
+    n_obs : INT. Leaf size.
     mtot : INT. Method.
     no_of_treat : INT. Number of treated.
     treat_values : List of INT. Treatment values.
@@ -311,10 +316,18 @@ def mcf_mse_not_numba(y_dat, y_nn, d_dat, w_dat, n_obs, mtot, no_of_treat,
     return mse_mce, treat_shares, no_of_obs_by_treat
 
 
-# Faster version as implemented in June, 6, 2024
+# Faster version as implemented in June, 6, 2024, 4.7.2025
 @njit
-def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat, treat_values,
-                  compare_only_to_zero, pen_mult, penalty):
+def mcf_mse_numba(y_dat: np.ndarray,
+                  y_nn: np.ndarray,
+                  d_dat: np.ndarray,
+                  n_obs: int,
+                  mtot: int,
+                  no_of_treat: int,
+                  treat_values: np.ndarray,
+                  compare_only_to_zero: bool,
+                  pen_mult: np.floating, penalty: np.floating
+                  ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute average mse for the data passed. Based on different methods.
 
     WEIGHTED VERSION DOES NOT YET WORK. TRY with next Numba version.
@@ -338,7 +351,12 @@ def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat, treat_values,
     treat_share: 1D Numpy array. Treatment shares.
     no_of_obs_by_treat : 1D Numpy array. Observations by treatment.
     """
-    treat_shares = np.zeros(no_of_treat) if mtot in (1, 3, 4) else np.zeros(1)
+    mtot_in_134 = mtot in (1, 3, 4)
+    mtot_in_14 = mtot in (1, 4)
+    mtot_not_3 = mtot != 3
+    mtot_is_2 = mtot == 2
+
+    treat_shares = np.zeros(no_of_treat) if mtot_in_134 else np.zeros(1)
     mse_mce = np.zeros((no_of_treat, no_of_treat))
     no_of_obs_by_treat = np.zeros(no_of_treat)
 
@@ -359,14 +377,16 @@ def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat, treat_values,
             d_m_mean = np.sum(d_m2) / n_obs
             mse_m += pen_mult * np.dot(d_m2, d_m2) / n_obs - d_m_mean**2
 
-        if mtot in (1, 3, 4):
+        if mtot_in_134:
             treat_shares[m_idx] = n_m / n_obs
             mse_mce[m_idx, m_idx] = mse_m
-        if (mtot != 3) and (m_idx == 0 or not compare_only_to_zero):
+
+        if mtot_not_3 and (m_idx == 0 or not compare_only_to_zero):
+            mce_ml = None
             for v_idx in range(m_idx + 1, no_of_treat):
                 d_l = d_dat == treat_values[v_idx]
                 n_l = np.sum(d_l)
-                if mtot == 2:  # Variance of effects mtot = 2
+                if mtot_is_2:  # Variance of effects mtot = 2
                     y_l = np.zeros(n_l)
                     j = 0
                     for i in range(n_obs):
@@ -375,7 +395,7 @@ def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat, treat_values,
                             j += 1
                     y_l_mean = np.sum(y_l) / n_l
                     mce_ml = (y_m_mean - y_l_mean)**2
-                elif mtot in (1, 4):
+                elif mtot_in_14:
                     d_ml = (d_dat == treat_values[v_idx]) | (
                         d_dat == treat_values[m_idx])
                     n_ml = np.sum(d_ml)
@@ -391,6 +411,7 @@ def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat, treat_values,
                     bbb = np.dot(y_nn_m, y_nn_l) / n_ml
                     mce_ml = bbb - aaa
                 mse_mce[m_idx, v_idx] = mce_ml
+
     return mse_mce, treat_shares, no_of_obs_by_treat
 
 # This is the old version that worked fine
@@ -472,15 +493,20 @@ def mcf_mse_numba(y_dat, y_nn, d_dat, n_obs, mtot, no_of_treat, treat_values,
 #     return mse_mce, treat_shares, no_of_obs_by_treat
 
 
-# Faster version as implemented in June, 6, 2024
+# Faster version as implemented in June, 6, 2024, und July, 4, 2025
 @njit
-def compute_mse_mce(mse_mce, mtot, no_of_treat, compare_only_to_zero):
+def compute_mse_mce(mse_mce: np.ndarray,
+                    mtot: int,
+                    no_of_treat: int,
+                    compare_only_to_zero: bool
+                    ) -> np.floating:
     """Sum up MSE parts for use in splitting rule and else."""
+    mtot_in_14 = mtot in (1, 4)
     if no_of_treat > 4 and not compare_only_to_zero:
         trace_mse_mce = np.trace(mse_mce)
         sum_mse_mce = mse_mce.sum()
 
-        if mtot in (1, 4):
+        if mtot_in_14:
             mse = no_of_treat * trace_mse_mce - sum_mse_mce
         elif mtot == 2:
             mse = 2 * trace_mse_mce - sum_mse_mce
@@ -490,7 +516,7 @@ def compute_mse_mce(mse_mce, mtot, no_of_treat, compare_only_to_zero):
         mse = 0.0
         mce = 0.0
         for m_idx in range(no_of_treat):
-            if mtot in (1, 4):
+            if mtot_in_14:
                 mse_a = (no_of_treat - 1) * mse_mce[m_idx, m_idx]
             else:
                 mse_a = mse_mce[m_idx, m_idx]
@@ -534,7 +560,7 @@ def compute_mse_mce(mse_mce, mtot, no_of_treat, compare_only_to_zero):
 
 # Optimized version of June, 6, 2024
 @njit
-def mcf_penalty(shares_l, shares_r):
+def mcf_penalty(shares_l: np.ndarray, shares_r: np.ndarray) -> np.floating:
     """Generate the (unscaled) penalty.
 
     Parameters
@@ -550,6 +576,7 @@ def mcf_penalty(shares_l, shares_r):
     diff = shares_l - shares_r
     sum_diff_sq = np.dot(diff, diff)  # Efficient sum of squared differences
     penalty = 1 - (sum_diff_sq / shares_l.size)  # Use size attribute directly
+
     return penalty
 
 # Older version that worked fine
@@ -572,10 +599,14 @@ def mcf_penalty(shares_l, shares_r):
 #     return penalty
 
 
-# Optimized version of 4.6.2024
+# Optimized version of 4.6.2024, no change July, 7, 2025
 @njit
-def get_avg_mse_mce(mse_mce, obs_by_treat, mtot, no_of_treat,
-                    compare_only_to_zero):
+def get_avg_mse_mce(mse_mce: np.ndarray,
+                    obs_by_treat: np.ndarray,
+                    mtot: int,
+                    no_of_treat: int,
+                    compare_only_to_zero: bool
+                    ) -> np.floating:
     """Bring MSE_MCE matrix in average form."""
     mse_mce_avg = mse_mce.copy()
 
@@ -613,9 +644,14 @@ def get_avg_mse_mce(mse_mce, obs_by_treat, mtot, no_of_treat,
 
 # Optimized code of 4.6.2024
 @njit
-def add_rescale_mse_mce(mse_mce, obs_by_treat, mtot, no_of_treat,
-                        mse_mce_add_to, obs_by_treat_add_to,
-                        compare_only_to_zero):
+def add_rescale_mse_mce(mse_mce: np.ndarray,
+                        obs_by_treat: np.ndarray,
+                        mtot: int,
+                        no_of_treat: int,
+                        mse_mce_add_to: np.ndarray,
+                        obs_by_treat_add_to: np.ndarray,
+                        compare_only_to_zero: bool
+                        ) -> tuple[np.ndarray, np.ndarray]:
     """Rescale MSE_MCE matrix and update observation count."""
     mse_mce_sc = np.zeros((no_of_treat, no_of_treat))
     obs_by_treat_new = obs_by_treat + obs_by_treat_add_to
@@ -653,14 +689,18 @@ def add_rescale_mse_mce(mse_mce, obs_by_treat, mtot, no_of_treat,
 #     return mse_mce_new, obs_by_treat_new
 
 
-# Optimized version of 4.6.2024
+# Optimized version of 4.6.2024, 4.7.2025
 @njit
-def add_mse_mce_split(mse_mce_l, mse_mce_r, obs_by_treat_l, obs_by_treat_r,
-                      mtot, no_of_treat, compare_only_to_zero):
+def add_mse_mce_split(mse_mce_l: np.ndarray, mse_mce_r: np.ndarray,
+                      obs_by_treat_l: np.ndarray, obs_by_treat_r: np.ndarray,
+                      mtot: int,
+                      no_of_treat: int,
+                      compare_only_to_zero: bool
+                      ) -> np.ndarray:
     """Sum up MSE parts of use in splitting rule."""
     mse_mce = np.zeros((no_of_treat, no_of_treat))
     obs_by_treat = obs_by_treat_l + obs_by_treat_r
-
+    mtot_is_not_3 = mtot != 3
     for m_idx in range(no_of_treat):
         obs_m_idx = obs_by_treat[m_idx]
         if obs_m_idx > 0:
@@ -669,7 +709,7 @@ def add_mse_mce_split(mse_mce_l, mse_mce_r, obs_by_treat_l, obs_by_treat_r,
                  + mse_mce_r[m_idx, m_idx] * obs_by_treat_r[m_idx])
                 / obs_m_idx)
 
-        if mtot != 3 and (m_idx == 0 or not compare_only_to_zero):
+        if mtot_is_not_3 and (m_idx == 0 or not compare_only_to_zero):
             for v_idx in range(m_idx + 1, no_of_treat):
                 n_ml_l = obs_by_treat_l[m_idx] + obs_by_treat_l[v_idx]
                 n_ml_r = obs_by_treat_r[m_idx] + obs_by_treat_r[v_idx]

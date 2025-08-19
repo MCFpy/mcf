@@ -8,8 +8,10 @@ Created on Thu May 11 16:30:11 2023
 """
 from copy import copy, deepcopy
 from time import time
+from typing import TYPE_CHECKING
 
 import numpy as np
+from pandas import DataFrame
 import ray
 
 from mcf import mcf_forest_data_functions as mcf_fo_data
@@ -19,17 +21,25 @@ from mcf import mcf_forest_asdict_functions as mcf_fo_asdict
 # from mcf import mcf_forest_cy as mcf_cy
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_print_stats_functions as mcf_ps
 from mcf import mcf_variable_importance_functions as mcf_vi
 
+if TYPE_CHECKING:
+    from mcf.mcf_main import ModifiedCausalForest
 
-def train_forest(mcf_, tree_df, fill_y_df):
+
+def train_forest(mcf_: 'ModifiedCausalForest',
+                 tree_df: DataFrame,
+                 fill_y_df: DataFrame,
+                 title: str = ''
+                 ) -> tuple[dict, list, float, dict]:
     """Train the forest and do variable importance measures."""
     gen_dic, cf_dic, forest_list = mcf_.gen_dict, mcf_.cf_dict, mcf_.forest
     seed, time_vi = 9324561, 0
     if gen_dic['with_output']:
-        ps.print_mcf(gen_dic,
-                     '=' * 100 + '\nTraining of Modified Causal Forest')
+        mcf_ps.print_mcf(gen_dic,
+                         '=' * 100
+                         + f'\nTraining of Modified Causal Forest {title}')
     if gen_dic['iate_eff']:
         cf_dic['est_rounds'] = ('regular', 'additional')
     else:
@@ -43,6 +53,8 @@ def train_forest(mcf_, tree_df, fill_y_df):
         rng.shuffle(index_y.to_numpy())
         index_folds_tr = np.array_split(index_tr, folds)
         index_folds_y = np.array_split(index_y, folds)
+    else:
+        index_folds_tr = index_folds_y = None
     # Similar quantity is defined in mcf_init_functions, but without accounting
     # for common support.
     cf_dic['folds'] = folds
@@ -58,9 +70,12 @@ def train_forest(mcf_, tree_df, fill_y_df):
                 # Reverse training and fill_with_y_file
                 tree_fold_df, fill_y_fold_df = efficient_iate(
                     mcf_, fill_y_fold_df, tree_fold_df, summary=False)
+
             # Data preparation and stats II (regular, efficient IATE)
+
             tree_fold_df, mcf_.var_dict = mcf_fo_data.nn_matched_outcomes(
                mcf_, tree_fold_df, print_out=reg_round and splits == 0)
+
             # Estimate forest structure (regular, efficient IATE)
             if gen_dic['with_output']:
                 print(f'\nBuilding {splits+1} / {folds} forests, {round_}')
@@ -95,19 +110,22 @@ def train_forest(mcf_, tree_df, fill_y_df):
                 report = None
             mcf_sys.print_mememory_statistics(
                 gen_dic, 'Forest Building: End of forests loop.')
+
     return cf_dic, forest_list, time_vi, report
 
 
-def build_forest(mcf_, tree_df):
+def build_forest(mcf_: 'ModifiedCausalForest',
+                 tree_df: DataFrame
+                 ) -> tuple[list, list, dict]:
     """Build MCF (not yet populated by w and outcomes)."""
     int_dic, gen_dic, cf_dic = mcf_.int_dict, mcf_.gen_dict, mcf_.cf_dict
     cuda, cython = int_dic['cuda'], int_dic['cython']
     with_ray = not int_dic['no_ray_in_forest_building']
-    obs_bigdata_bool = len(tree_df) > int_dic['obs_bigdata']
+    bigdata_train = int_dic['bigdata_train']
     if not with_ray:
         if int_dic['with_output'] and int_dic['verbose']:
-            ps.print_mcf(gen_dic, '\nNo use of ray in forest building.',
-                         summary=False)
+            mcf_ps.print_mcf(gen_dic, '\nNo use of ray in forest building.',
+                             summary=False)
     (x_name, x_type, x_values, cf_dic, pen_mult, data_np, y_i, y_nn_i, x_i,
      x_ind, x_ai_ind, d_i, w_i, cl_i, d_grid_i
      ) = mcf_fo_data.prepare_data_for_forest(mcf_, tree_df)
@@ -118,15 +136,17 @@ def build_forest(mcf_, tree_df):
                                                  gen_dic['sys_share'])
                       if gen_dic['mp_automatic'] else gen_dic['mp_parallel'])
     if int_dic['with_output'] and int_dic['verbose']:
-        ps.print_mcf(gen_dic, f'\nNumber of parallel processes: {maxworkers}',
-                     summary=False)
+        mcf_ps.print_mcf(gen_dic,
+                         '\nNumber of parallel processes (forest): '
+                         f'{maxworkers}',
+                         summary=False)
     forest = [None for _ in range(cf_dic['boot'])]
     if maxworkers == 1:
         for idx in range(cf_dic['boot']):
             forest[idx] = build_tree_mcf(
                 data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
                 x_values, x_ind, x_ai_ind, gen_dic, cf_dic, mcf_.ct_dict, idx,
-                pen_mult, cuda, cython, )
+                pen_mult, cuda, cython, bigdata_train)
             if int_dic['with_output'] and int_dic['verbose']:
                 mcf_gp.share_completed(idx+1, cf_dic['boot'])
     else:
@@ -152,7 +172,7 @@ def build_forest(mcf_, tree_df):
                 data_np_ref, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i,
                 x_type, x_values, x_ind, x_ai_ind, gen_dic, cf_dic,
                 mcf_.ct_dict, boot, pen_mult, cuda, cython,
-                obs_bigdata_bool)
+                bigdata_train)
                 for boot in range(cf_dic['boot'])]
             jdx = 0
             while len(still_running) > 0:
@@ -169,8 +189,10 @@ def build_forest(mcf_, tree_df):
                 del data_np_ref
             if 'rest' in int_dic['mp_ray_del']:
                 del finished_res, finished
-            if int_dic['mp_ray_shutdown']:
-                ray.shutdown()
+            # if int_dic['mp_ray_shutdown']:
+            #     ray.shutdown()
+            #     mcf_ps.print_mcf(gen_dic, 'Ray is shuting down.',
+            #                      summary=False)
         else:
             raise RuntimeError('USE RAY')
         if len(forest) != cf_dic['boot']:
@@ -186,6 +208,7 @@ def build_forest(mcf_, tree_df):
             forest_final, m_n_final, mcf_.var_dict, cf_dic, gen_dic, pen_mult)
     else:
         report = None
+
     # x_name: List. Order of x_name as used by tree building
     return forest_final, x_name, report
 
@@ -193,18 +216,23 @@ def build_forest(mcf_, tree_df):
 @ray.remote
 def ray_build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i,
                        x_type, x_values, x_ind, x_ai_ind, gen_dic, cf_dic,
-                       ct_dic, boot, pen_mult, cuda, cython,
-                       obs_bigdata_bool):
+                       ct_dic, boot, pen_mult, cuda, cython, bigdata_train):
     """Prepare function for Ray."""
     return build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i,
                           x_type, x_values, x_ind, x_ai_ind, gen_dic, cf_dic,
-                          ct_dic, boot, pen_mult, cuda, cython,
-                          obs_bigdata_bool)
+                          ct_dic, boot, pen_mult, cuda, cython, bigdata_train)
 
 
-def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
-                   x_values, x_ind, x_ai_ind, gen_dic, cf_dic, ct_dic, boot,
-                   pen_mult, cuda, cython, obs_bigdata_bool=False):
+def build_tree_mcf(data_np: np.ndarray,
+                   y_i: list[int], y_nn_i: list[int], x_i: list[int, ...],
+                   d_i: int, d_grid_i: int,
+                   cl_i: int, w_i: int,
+                   x_type: list[int, ...], x_values: list[list, ...],
+                   x_ind: list[int, ...], x_ai_ind: list[int, ...],
+                   gen_dic: dict, cf_dic: dict, ct_dic: dict,
+                   boot: int, pen_mult: float,
+                   cuda: bool, cython: bool, bigdata_train: bool = False
+                   ) -> list[dict, ...]:
     """Build single trees for all values of tuning parameters.
 
     Parameters
@@ -247,7 +275,7 @@ def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
     indices_oob = np.delete(np.arange(n_obs), indices, axis=0)
     tree_empty = mcf_fo_asdict.make_default_tree_dict(
         np.min(cf_dic['n_min_values']), len(x_i), indices, indices_oob,
-        obs_bigdata_bool=obs_bigdata_bool)
+        bigdata_train=bigdata_train)
     # build trees for all m,n combinations
     grid_for_m = mcf_gp.check_if_iterable(cf_dic['m_values'])
     grid_for_n_min = mcf_gp.check_if_iterable(cf_dic['n_min_values'])
@@ -267,17 +295,25 @@ def build_tree_mcf(data_np, y_i, y_nn_i, x_i, d_i, d_grid_i, cl_i, w_i, x_type,
     return deepcopy(tree_all)
 
 
-def build_single_tree(data, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
-                      x_type, x_values, x_ind, x_ai_ind, cf_dic, gen_dic,
-                      ct_grid_nn_val, mmm, n_min, alpha_reg,
-                      tree_dict_global, pen_mult, rng, cuda, cython):
+def build_single_tree(data: np.ndarray,
+                      y_i: int, y_nn_i: list[int], d_i: int,
+                      d_grid_i: int, x_i: list[int], w_i: int,
+                      x_type: list[int], x_values: list[list[int]],
+                      x_ind: list[int], x_ai_ind: list[int],
+                      cf_dic: dict, gen_dic: dict,
+                      ct_grid_nn_val: list, mmm: int, n_min: int,
+                      alpha_reg: float,
+                      tree_dict_global: dict,
+                      pen_mult: float, rng: np.random.default_rng,
+                      cuda: bool, cython: bool
+                      ) -> dict:
     """Build single tree given random sample split.
 
     Parameters
     ----------
     data : Nympy array. Training data
     data_oob : Numpy array. OOB data
-    y_i : List. Position of y in numpy array.
+    y_i : Int. Position of y in numpy array.
     y_nn_i : List. Position of y_nn in numpy array.
     d_i : Int. Position of d in numpy array.
     d_i_grid: Int. Position of d_grid in numpy array.
@@ -372,11 +408,17 @@ def build_single_tree(data, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
              split_leaf_oob_l, split_leaf_oob_r, split_n_oob_l, split_n_oob_r,
              terminal, leaf_id_daughters, d_i, w_i, d_grid_i, y_nn_i, y_i,
              ct_grid_nn_val, gen_dic, cf_dic, rng, cuda, cython)
+
     tree_dict = mcf_fo_asdict.cut_back_empty_cells_tree(tree_dict)
+
     return tree_dict
 
 
-def best_m_n_min_alpha_reg(forest, gen_dic, cf_dic, cython):
+def best_m_n_min_alpha_reg(forest: list[dict, ...],
+                           gen_dic: dict,
+                           cf_dic: dict,
+                           cython: bool
+                           ) -> tuple[list, list]:
     """Get best forest for the tuning parameters m_try, n_min, alpha_reg.
 
     Parameters
@@ -492,29 +534,43 @@ def best_m_n_min_alpha_reg(forest, gen_dic, cf_dic, cython):
                     f'\nMinimum leafsize:    {m_n_min_ar_combi[min_i][1]}'
                     f'\nAlpha regularity:    {m_n_min_ar_combi[min_i][2]}')
             txt += '\n' + '-' * 100
-            ps.print_mcf(gen_dic, txt, summary=True)
+            mcf_ps.print_mcf(gen_dic, txt, summary=True)
         forest_final = [trees_m_n_min[min_i] for trees_m_n_min in forest]
         m_n_min_ar_opt = m_n_min_ar_combi[min_i]
     else:       # Find best of trees
         forest_final = [trees_m_n_min_ar[0] for trees_m_n_min_ar in forest]
         m_n_min_ar_opt = m_n_min_ar_combi[0]
+
     return forest_final, m_n_min_ar_opt
 
 
-def efficient_iate(mcf_, fill_y_df, tree_df, summary=False):
+def efficient_iate(mcf_: 'ModifiedCausalForest',
+                   fill_y_df: DataFrame, tree_df: DataFrame,
+                   summary: bool = False
+                   ) -> tuple[DataFrame, DataFrame]:
     """Get more efficient iates."""
     if mcf_.int_dict['with_output'] and mcf_.int_dict['verbose']:
-        ps.print_mcf(mcf_.gen_dict,
-                     '\nSecond round of estimation to get better IATEs',
-                     summary=summary)
+        mcf_ps.print_mcf(mcf_.gen_dict,
+                         '\nSecond round of estimation to get better IATEs',
+                         summary=summary)
+    # Switch the role of the subsamples
     fill_y_df, tree_df = tree_df, fill_y_df
     return tree_df, fill_y_df
 
 
-def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
-               x_type, x_values, x_ind, x_ai_ind, cf_dic, gen_dic,
-               ct_grid_nn_val, mmm, n_min, alpha_reg, pen_mult, rng,
-               cuda, cython):
+def next_split(data_train: np.ndarray, data_oob: np.ndarray,
+               y_i: int, y_nn_i: list[int], d_i: int, d_grid_i: int,
+               x_i: list[int], w_i: int,
+               x_type: list[int], x_values: list[list[int]], x_ind: list[int],
+               x_ai_ind: list[int],
+               cf_dic: dict, gen_dic: dict, ct_grid_nn_val: dict,
+               mmm: int, n_min: int, alpha_reg: float, pen_mult: float,
+               rng: np.random.default_rng, cuda: bool, cython: bool
+               ) -> tuple[bool, int | None, int | None, int | None, int | None,
+                          np.ndarray[bool] | None, np.ndarray[bool] | None,
+                          np.ndarray[bool] | None, np.ndarray[bool] | None,
+                          int, int, int, int, float | int
+                          ]:
     """Find best next split of leaf (or terminate splitting for this leaf).
 
     Parameters
@@ -569,12 +625,13 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
         d_split_in_x_ind = np.max(x_ind) + 1
     else:
         no_of_treat, d_values = gen_dic['no_of_treat'], gen_dic['d_values']
-        d_bin_dat, continuous = None, False
+        d_bin_dat, continuous, d_split_in_x_ind = None, False, None
     if not terminal:
         obs_min = max([round(leaf_size_train * alpha_reg), n_min])
         best_mse = np.inf
         total_attempts = 5
         all_vars = False
+        x_already_used = []
         for idx in range(total_attempts):
             if idx == 0:
                 x_ind_idx = x_ind.copy()
@@ -596,8 +653,7 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                 break
             if not terminal_x:  # Variation in x, find splits
                 break
-            if idx == 0:
-                x_already_used = []
+
             x_already_used.extend(x_ind_split)
             if len(x_already_used) >= len(x_ind):
                 break
@@ -606,6 +662,10 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
 
         if terminal_x:
             terminal = True  # No variation in X. Splitting stops.
+
+    best_var_i = best_type = best_n_l = best_n_r = best_leaf_l = None
+    best_leaf_r = best_leaf_oob_l = best_leaf_oob_r = best_n_oob_l = None
+    best_n_oob_r = best_value = None
     if not terminal:
         if mtot in (1, 4):
             y_nn = data_train[:, y_nn_i]
@@ -619,11 +679,12 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
             x_type_split = np.append(x_type_split, 0)
         p_x = len(x_ind_split)  # indices refer to order of x in data_*
         d_cont_split = False
+        x_dat_copy, x_oob_copy = np.copy(x_dat), np.copy(x_oob)
         for j in range(p_x):  # Loops over the variables
             if not x_no_varia[j]:  # No variation of this x -> no split
                 d_cont_split = continuous and (j == p_x - 1)
                 if d_cont_split:
-                    x_j, x_oob_j = np.copy(d_dat), np.copy(d_oob)
+                    x_j, x_oob_j = d_dat, d_oob
                     x_j_pos = x_j[x_j > 1e-15]  # Positive treatment values
                     nr_pos, nr_all = len(x_j_pos),  len(x_j)
                     nr_0 = nr_all - nr_pos
@@ -633,17 +694,7 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                     split_values = np.unique(x_j_pos).tolist()
                     if len(split_values) > 1:
                         split_values = split_values[:-1]  # 0 not included
-                else:
-                    x_j, x_oob_j = np.copy(x_dat[:, j]), np.copy(x_oob[:, j])
-                    if x_type_split[j] > 0:
-                        x_j = x_j.astype(np.int32)
-                        x_oob_j = x_oob_j.astype(np.int32)
-                    split_values = get_split_values(
-                        y_dat, w_dat, x_j, x_type_split[j], x_values_split[j],
-                        leaf_size_train, cf_dic['random_thresholds'],
-                        gen_dic['weighted'], rng=rng)
-                    split_values_unord_j = []
-                if d_cont_split:
+
                     # Randomly allocate half the controls to left leaf
                     rnd_in = rng.choice([True, False], size=(nr_all, 1))
                     # Somewhat inefficient as it is also applied to treated
@@ -654,6 +705,18 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
                     # Somewhat inefficient as it is also applied to treated
                     treat_0_oob = (x_oob_j - 1e-15) <= 0
                     zeros_l_oob = treat_0_oob & rnd_in_oob
+
+                else:
+                    x_j, x_oob_j = x_dat_copy[:, j], x_oob_copy[:, j]
+                    if x_type_split[j] > 0:
+                        x_j = x_j.astype(np.int32)
+                        x_oob_j = x_oob_j.astype(np.int32)
+                    split_values = get_split_values(
+                        y_dat, w_dat, x_j, x_type_split[j], x_values_split[j],
+                        leaf_size_train, cf_dic['random_thresholds'],
+                        gen_dic['weighted'], rng=rng)
+                split_values_unord_j = []
+
                 for val in split_values:  # Loops over values of variables
                     if x_type_split[j] == 0:
                         if d_cont_split:   # Treated and selected non-treated
@@ -762,18 +825,29 @@ def next_split(data_train, data_oob, y_i, y_nn_i, d_i, d_grid_i, x_i, w_i,
         best_var_i = best_type = best_n_l = best_n_r = best_leaf_l = None
         best_leaf_r = best_leaf_oob_l = best_leaf_oob_r = best_n_oob_l = None
         best_n_oob_r = best_value = None
-    return (terminal, best_var_i, best_type, best_n_l, best_n_r, best_leaf_l,
-            best_leaf_r, best_leaf_oob_l, best_leaf_oob_r, best_n_oob_l,
-            best_n_oob_r, best_value)
+
+    return (terminal, best_var_i, best_type, best_n_l, best_n_r,
+            best_leaf_l, best_leaf_r, best_leaf_oob_l, best_leaf_oob_r,
+            best_n_oob_l, best_n_oob_r, best_value
+            )
 
 
 def update_tree(
-        data_oob_parent, tree_dict_global, parent_idx,
-        split_var_i, split_type, split_value,
-        split_n_l, split_n_r, split_leaf_l, split_leaf_r, split_leaf_oob_l,
-        split_leaf_oob_r, split_n_oob_l, split_n_oob_r, terminal,
-        leaf_id_daughters, d_i, w_i, d_grid_i, y_nn_i, y_i, ct_grid_nn_val,
-        gen_dic, cf_dic, rng, cuda, cython):
+        data_oob_parent: np.ndarray,
+        tree_dict_global: dict,
+        parent_idx: int, split_var_i: int, split_type: int,
+        split_value: np.floating | np.integer,
+        split_n_l: int, split_n_r: int, split_leaf_l: list, split_leaf_r: list,
+        split_leaf_oob_l: list, split_leaf_oob_r: list,
+        split_n_oob_l: int, split_n_oob_r: int,
+        terminal: bool,
+        leaf_id_daughters: list,
+        d_i: int, w_i: int, d_grid_i: int, y_nn_i: list[int], y_i: int,
+        ct_grid_nn_val: list,
+        gen_dic: dict, cf_dic: dict,
+        rng: np.random.default_rng,
+        cuda: bool, cython: bool
+        ) -> dict:
     """Assign values obtained from splitting to parent & daughter leaves."""
     tree = deepcopy(tree_dict_global)
     if gen_dic['d_type'] == 'continuous':
@@ -853,11 +927,16 @@ def update_tree(
 
         tree['train_data_list'][parent_idx] = None
         tree['oob_data_list'][parent_idx] = None
+
     return tree
 
 
-def get_split_values(y_dat, w_dat, x_dat, x_type, x_values, leaf_size,
-                     random_thresholds, w_yes, rng=None):
+def get_split_values(y_dat: np.ndarray, w_dat: np.ndarray | None,
+                     x_dat: np.ndarray,
+                     x_type: int, x_values: list, leaf_size: int,
+                     random_thresholds: int, w_yes: bool,
+                     rng: np.random.default_rng = None,
+                     ) -> list:
     """Determine the values used for splitting.
 
     Parameters
@@ -877,61 +956,94 @@ def get_split_values(y_dat, w_dat, x_dat, x_type, x_values, leaf_size,
     """
     if rng is None:
         rng = np.random.default_rng()
-        print(Warning('WARNING: Unseeded random number generator used.'
-                      'WARNING:'))
-    if x_type == 0:
-        if bool(x_values):  # Limited number of values in x_value
+        print("Warning: unseeded random numbers used - impossible to replicate")
+
+    if x_type == 0:   # Continuous variable
+        if bool(x_values):  # Continuous var with limited number of values
             min_x, max_x = np.amin(x_dat), np.amax(x_dat)
-            del_values = [j for j, val in enumerate(x_values)
-                          if (val < (min_x - 1e-15))
-                          or (val > (max_x + 1e-15))]
-            if del_values:  # List is not empty
-                splits_x = [x for x in x_values if x not in del_values]
+            # del_values = [val for val in x_values
+            #               if (val < (min_x - 1e-15))
+            #               or (val > (max_x + 1e-15))]
+            # if del_values:  # List is not empty
+            #     splits_x = [x for x in x_values if x not in del_values]
+            # else:
+            #     splits_x = x_values[:]
+            xv = np.asarray(x_values)
+            mask = (xv >= min_x) & (xv <= max_x)
+            splits_x = xv[mask].tolist()
+
+            if len(splits_x) == 1:
+                return splits_x
+
+            if len(splits_x) == 0:  # Super unlikely to happen
+                return x_values[:]
+
+            # More than 1 splitting value
+            splits_x = splits_x[:-1]
+            if 0 < random_thresholds < len(splits_x):
+                splits = np.unique(
+                    rng.choice(splits_x, size=random_thresholds,
+                               replace=False, shuffle=False))
             else:
-                splits_x = x_values[:]
-            if len(splits_x) > 1:
-                splits_x = splits_x[:-1]
-                if 0 < random_thresholds < len(splits_x):
-                    splits = np.unique(
-                        rng.choice(splits_x, size=random_thresholds,
-                                   replace=False, shuffle=False))
-                else:
-                    splits = splits_x
-        else:  # Continoues variable with very many values; x_values empty
-            if 0 < random_thresholds < (leaf_size - 1):
-                x_vals_np = rng.choice(
-                    x_dat, random_thresholds, replace=False,
-                    shuffle=False)
-                x_vals_np = np.unique(x_vals_np)
-                splits = x_vals_np.tolist()
+                splits = splits_x
+
+            return splits
+
+        # Continoues variable with very many values; x_values empty
+        if 0 < random_thresholds < (leaf_size - 1):
+            x_vals_np = rng.choice(
+                x_dat, size=random_thresholds, replace=False, shuffle=False
+                )
+            splits = np.unique(x_vals_np).tolist()
+        else:
+            splits = np.unique(x_dat).tolist()
+            if len(splits) > 1:
+                splits = splits[:-1]
+
+        return splits
+
+    # Discrete variable
+    y_mean_by_cat = np.empty(len(x_values))  # x_vals comes as list
+    x_vals_np = np.array(x_values, dtype=np.int32, copy=True)
+    used_values = []
+    for v_idx, val in enumerate(x_vals_np):
+        value_equal = np.isclose(x_dat, val)
+        if np.any(value_equal):  # Position of empty cells do not matter
+            if w_yes:
+                y_mean_by_cat[v_idx] = np.average(
+                    y_dat[value_equal], weights=w_dat[value_equal])
             else:
-                x_vals_np = np.unique(x_dat)
-                splits = x_vals_np.tolist()
-                if len(splits) > 1:
-                    splits = splits[:-1]
-    else:
-        y_mean_by_cat = np.empty(len(x_values))  # x_vals comes as list
-        x_vals_np = np.array(x_values, dtype=np.int32, copy=True)
-        used_values = []
-        for v_idx, val in enumerate(x_vals_np):
-            value_equal = np.isclose(x_dat, val)
-            if np.any(value_equal):  # Position of empty cells do not matter
-                if w_yes:
-                    y_mean_by_cat[v_idx] = np.average(
-                        y_dat[value_equal], weights=w_dat[value_equal])
-                else:
-                    y_mean_by_cat[v_idx] = np.average(y_dat[value_equal])
-                used_values.append(v_idx)
-        x_vals_np = x_vals_np[used_values]
-        sort_ind = np.argsort(y_mean_by_cat[used_values])
-        x_vals_np = x_vals_np[sort_ind]
-        splits = x_vals_np.tolist()
-        splits = splits[:-1]  # Last category not needed
+                y_mean_by_cat[v_idx] = np.average(y_dat[value_equal])
+            used_values.append(v_idx)
+    x_vals_np = x_vals_np[used_values]
+    sort_ind = np.argsort(y_mean_by_cat[used_values])
+    x_vals_np = x_vals_np[sort_ind]
+    splits = x_vals_np.tolist()
+    splits = splits[:-1]  # Last category not needed
+
     return splits
 
 
-def term_or_data(data_tr_ns, data_oob_ns, y_i, d_i, d_grid_i, x_i_ind_split,
-                 no_of_treat, with_d_oob=True):
+def term_or_data(data_tr_ns: np.ndarray,
+                 data_oob_ns: np.ndarray,
+                 y_i: list[int],
+                 d_i: list[int],
+                 d_grid_i: list[int],
+                 x_i_ind_split: list[int],
+                 no_of_treat: int,
+                 with_d_oob: bool = True
+                 ) -> tuple[np.ndarray,         # y_dat
+                            np.ndarray | None,  # y_oob
+                            np.ndarray | None,  # d_dat
+                            np.ndarray | None,  # d_oob
+                            np.ndarray | None,  # d_grid_dat
+                            np.ndarray | None,  # d_grid_oob
+                            np.ndarray | None,  # x_dat
+                            np.ndarray | None,  # x_oob
+                            bool,               # terminal
+                            bool,               # terminal_x
+                            bool                # x_no_variation
+                            ]:
     """Check if terminal leaf. If not, provide data.
 
     Parameters
@@ -956,30 +1068,42 @@ def term_or_data(data_tr_ns, data_oob_ns, y_i, d_i, d_grid_i, x_i_ind_split,
     terminal_x : Boolean. Try new variables.
     ...
     """
-    terminal = terminal_x = False
-    y_oob = d_dat = d_oob = d_grid_dat = d_grid_oob = x_dat = x_oob = None
-    x_no_variation = []
     y_dat = data_tr_ns[:, y_i]
-    if np.all(np.isclose(y_dat, y_dat[0])):    # all elements are equal
-        terminal = True
-    else:
-        y_oob = data_oob_ns[:, y_i]
-        d_dat = data_tr_ns[:, d_i]
+    if np.allclose(y_dat, y_dat[0]):    # all elements are equal
+        return (y_dat, None, None, None, None, None, None, None, True, False, []
+                )
+    terminal_x = False
+    d_grid_dat = None
+    y_oob = data_oob_ns[:, y_i]
+    d_dat = data_tr_ns[:, d_i]
+    if d_grid_i is not None:
+        d_grid_dat = data_tr_ns[:, d_grid_i]
+
+    # terminal = len(np.unique(d_dat)) < no_of_treat   ... slow
+    counts = np.bincount(d_dat.ravel().astype(np.int64, copy=False),
+                         minlength=no_of_treat
+                         )
+    terminal = np.any(counts == 0)
+
+    if terminal:
+        return (y_dat, y_oob, d_dat, None, d_grid_dat, None, None, None,
+                terminal, terminal_x, [])
+
+    d_oob = d_grid_oob = x_oob = None
+    x_no_variation = []
+    if with_d_oob:
+        d_oob = data_oob_ns[:, d_i]
         if d_grid_i is not None:
-            d_grid_dat = data_tr_ns[:, d_grid_i]
-        terminal = len(np.unique(d_dat)) < no_of_treat
-        if not terminal:
-            if with_d_oob:
-                d_oob = data_oob_ns[:, d_i]
-                if d_grid_i is not None:
-                    d_grid_oob = data_oob_ns[:, d_grid_i]
-            x_dat = data_tr_ns[:, x_i_ind_split]
-            x_no_variation = [np.all(np.isclose(x_dat[:, cols], x_dat[0, cols])
-                                     ) for cols, _ in enumerate(x_i_ind_split)]
-            if np.all(x_no_variation):
-                terminal_x = True
-            else:
-                x_oob = data_oob_ns[:, x_i_ind_split]
+            d_grid_oob = data_oob_ns[:, d_grid_i]
+    x_dat = data_tr_ns[:, x_i_ind_split]
+    x_no_variation = [np.allclose(x_dat[:, cols], x_dat[0, cols])
+                      for cols, _ in enumerate(x_i_ind_split)
+                      ]
+    if np.all(x_no_variation):
+        terminal_x = True
+    else:
+        x_oob = data_oob_ns[:, x_i_ind_split]
+
     return (y_dat, y_oob, d_dat, d_oob, d_grid_dat, d_grid_oob, x_dat, x_oob,
             terminal, terminal_x, x_no_variation)
 
@@ -997,8 +1121,8 @@ def oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat, mtot, no_of_treat,
     d : Numpy array.
     w : Numpy array.
     mtot : INT. Method used.
-    no_of_treat : INT.
-    treat_values : INT.
+    no_of_treat : Integer.
+    treat_values : Integer.
     w_yes : INT.
     cont : Boolean. Default is False.
     cuda : Boolean. MSE computation with Cuda if True. Default is False.

@@ -17,11 +17,13 @@ from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
 
 
-def print_dic_values_all(mcf_, summary_top=True, summary_dic=True, train=True):
+def print_dic_values_all(mcf_, summary_top=True, summary_dic=True, train=True,
+                         title=''
+                         ):
     """Print the dictionaries."""
     txt = '=' * 100 + '\nModified Causal Forest: '
-    txt += 'Training ' if train else 'Prediction'
-    txt += '\n' + '-' * 100
+    txt += 'Training ' if train else 'Prediction '
+    txt += title + '\n' + '-' * 100
     print_mcf(mcf_.gen_dict, txt, summary=summary_top)
     print_dic_values(mcf_, summary=summary_dic, train=train)
 
@@ -262,7 +264,7 @@ def variable_features(mcf_, summary=False):
 
 def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
                  continuous=False, print_first_line=True, print_last_line=True,
-                 small_p_val_only=False):
+                 small_p_val_only=False, no_comparison=False):
     """Print treatment effects.
 
     Parameters
@@ -279,6 +281,8 @@ def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
                                 Default is True.
     small_p_val_only :Boolean. If True, print effects only if p_value is less
                                than 10%. Default is False.
+    no_comparison : Boolean, optional.
+                Do not print comparisons.
 
     Returns
     -------
@@ -299,10 +303,17 @@ def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
     for j in range(np.size(est)):
         if small_p_val_only and p_val[j] > 0.1:
             continue
-        if continuous:
-            compf = f'{effect_list[j][0]:<9.5f} vs {effect_list[j][1]:>9.5f}'
+        if no_comparison:
+            if continuous:
+                compf = f'{effect_list[j]:<22.5f}'
+            else:
+                compf = f'{effect_list[j]:<22}'
         else:
-            compf = f'{effect_list[j][0]:<9} vs {effect_list[j][1]:>9}'
+            if continuous:
+                compf = (f'{effect_list[j][0]:<9.5f} vs '
+                         '{effect_list[j][1]:>9.5f}')
+            else:
+                compf = f'{effect_list[j][0]:<9} vs {effect_list[j][1]:>9}'
         print_str += compf + ' '
         if add_title is not None:
             print_str += 'f{add_info:6.2f} '
@@ -382,7 +393,7 @@ def effect_to_csv(est, stderr, t_val, p_val, effect_list, path=None,
     data_df.to_csv(file, index=False)
 
 
-def print_se_info(cluster_std, se_boot):
+def print_se_info(cluster_std, se_boot, additional_info=None):
     """Print some info on computation of standard errors."""
     print_str = ''
     if cluster_std:
@@ -393,6 +404,8 @@ def print_se_info(cluster_std, se_boot):
         print_str += '\n' + '-' * 100 + '\n'
     if se_boot > 0:
         print_str += f'Bootstrap replications: {se_boot:d}' + '\n' + '-' * 100
+    if additional_info is not None:
+        print_str += '\n' + additional_info
     print(print_str)
     return print_str
 
@@ -547,8 +560,9 @@ def print_minus_ate_info(weighted, print_it=True, gate_or_iate='GATE'):
     return print_str
 
 
-def print_effect_z(g_r, gm_r, z_values, gate_str, print_output=True,
-                   gates_minus_previous=False, qiate=False, gmopp_r=None):
+def print_effect_z(g_r, gm_r, z_values, gate_str, ate_str, print_output=True,
+                   gates_minus_previous=False, iv=False, qiate=False,
+                   gmopp_r=None):
     """Print treatment effects."""
     no_of_effect_per_z = np.size(g_r[0][0])
     if gates_minus_previous:
@@ -560,8 +574,10 @@ def print_effect_z(g_r, gm_r, z_values, gate_str, print_output=True,
                          '                            QIATE(q) - QIATE(0.5)'
                          '                    QIATE(q) - QIATE(1-q)')
         else:
-            print_str = ('- ' * 50 + f'\n                   {gate_str}'
-                         + f'                                {gate_str} - ATE')
+            lgate_str = 'L' + gate_str if iv else gate_str
+            print_str = ('- ' * 50 + f'\n                   {lgate_str}'
+                         f'                                {lgate_str} - '
+                         f'{ate_str}')
     if qiate:
         print_str += ('\nComparison Quantile    Est         SE  t-val   p-val'
                       + '         Est        SE  t-val   p-val'
@@ -607,7 +623,7 @@ def print_effect_z(g_r, gm_r, z_values, gate_str, print_output=True,
                         f'{gmopp_r[zind][2][j]:>6.2f}  '
                         f'{gmopp_r[zind][3][j]:>6.2%}'
                         )
-                    smopp_s = stars(gm_r[zind][3][j])
+                    smopp_s = stars(gmopp_r[zind][3][j])
             else:
                 estsemopp_s = tmopp_p_s = smopp_s = ' '
             print_str += (treat_s + val_s + estse_s + t_p_s + s_s

@@ -13,7 +13,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.7.2
+Version: 0.8.0
 
 This is an example to show the optimal policy package can be implemented with
 a minimum number of specification (it could be even more further simplified
@@ -25,7 +25,7 @@ method-specific parameters redundant).
 from pathlib import Path
 
 from mcf.example_data_functions import example_data
-from mcf.optpolicy_functions import OptimalPolicy
+from mcf.optpolicy_main import OptimalPolicy
 from mcf.reporting import McfOptPolReport
 
 
@@ -36,9 +36,9 @@ APPLIC_PATH = Path.cwd() / 'example/output'
 training_df, prediction_df, name_dict = example_data()
 
 # ------------- Methods used in Optimal Policy Module --------------------------
-METHODS = ('best_policy_score', 'policy tree', 'bps_classifier',)
+METHODS = ('best_policy_score', 'policy_tree', 'bps_classifier',)
 #  Tuple used to set GEN_METHOD in this example
-#  Currently valid methods are: 'best_policy_score', 'policy tree',
+#  Currently valid methods are: 'best_policy_score', 'policy_tree',
 #  'bps_classifier'
 
 # -------- All what follows are parameters of the OptimalPolicy --------
@@ -61,17 +61,21 @@ for method in METHODS:
                            var_polscore_name=VAR_POLSCORE_NAME,
                            var_x_name_ord=VAR_X_NAME_ORD)
 
-    alloc_train_df, _, _ = myoptp.solve(training_df, data_title='training')
+    solve_dict = myoptp.solve(training_df, data_title='training')
 
-    results_eva_train, _ = myoptp.evaluate(alloc_train_df, training_df,
-                                           data_title='training')
+    myoptp.evaluate(solve_dict['allocation_df'],
+                    training_df,
+                    data_title='training'
+                    )
 
-    alloc_pred_df, _ = myoptp.allocate(prediction_df, data_title='prediction')
+    alloc_pred_dict = myoptp.allocate(prediction_df, data_title='prediction')
 
-    results_eva_pred, _ = myoptp.evaluate(alloc_pred_df, prediction_df,
-                                          data_title='prediction')
+    myoptp.evaluate(alloc_pred_dict['allocation_df'],
+                    prediction_df,
+                    data_title='prediction'
+                    )
     my_report = McfOptPolReport(
         optpol=myoptp, outputfile='Report_OptP_' + method)
     my_report.report()
 print('End of example estimation.\n\nThanks for using OptimalPolicy. \n\nYours'
-      ' sincerely\nOptimalPolicy MCF modul (beta) \U0001F600')
+      ' sincerely\nOptimalPolicy MCF module (beta) \U0001F600')

@@ -15,16 +15,18 @@ from mcf import mcf_data_functions as mcf_data
 from mcf import mcf_estimation_generic_functions as mcf_gf
 from mcf.mcf_general import get_key_values_in_list, to_numpy_big_data
 from mcf.mcf_general_sys import print_mememory_statistics
-from mcf import mcf_print_stats_functions as ps
+from mcf import mcf_print_stats_functions as mcf_ps
 
 
-def local_centering(mcf_, tree_df, fill_y_df=None, train=True, seed=9324561):
+def local_centering(mcf_, tree_df, fill_y_df=None, train=True, seed=9324561,
+                    title=''
+                    ):
     """Locally center all outcome variables."""
     lc_dic, gen_dic, var_dic = mcf_.lc_dict, mcf_.gen_dict, mcf_.var_dict
     var_x_type, data_train_dict = mcf_.var_x_type, mcf_.data_train_dict
     cf_dic, int_dic = mcf_.cf_dict, mcf_.int_dict
     if gen_dic['with_output']:
-        print_lc_header(gen_dic, lc_dic)
+        print_lc_header(gen_dic, lc_dic, title=title)
 
     y_0_dtype = (np.float64 if len(tree_df) < int_dic['obs_bigdata']
                  else np.float32)
@@ -40,10 +42,16 @@ def local_centering(mcf_, tree_df, fill_y_df=None, train=True, seed=9324561):
                 tree_mcf_df, tree_lc_df = train_test_split(
                     tree_df, test_size=lc_dic['cs_share'], random_state=seed)
             else:
-                (tree_mcf_df, tree_lc_df, fill_y_mcf_df, fill_y_lc_df
-                 ) = train_test_split(tree_df, fill_y_df,
-                                      test_size=lc_dic['cs_share'],
-                                      random_state=seed)
+                tree_mcf_df, tree_lc_df = train_test_split(
+                    tree_df,
+                    test_size=lc_dic['cs_share'],
+                    random_state=seed
+                    )
+                fill_y_mcf_df, fill_y_lc_df = train_test_split(
+                    fill_y_df,
+                    test_size=lc_dic['cs_share'],
+                    random_state=seed
+                    )
             data_lc_df = pd.concat((tree_lc_df, fill_y_lc_df), axis=0)
             x_lc_df, _ = mcf_data.get_x_data(data_lc_df, x_name)
         if fill_y_df is not None:
@@ -189,8 +197,8 @@ def local_centering(mcf_, tree_df, fill_y_df=None, train=True, seed=9324561):
                                       'Local centering Prediction: '
                                       'During prediction')
             forests_all.append(deepcopy(forests_y))
-        if isinstance(var_dic['y_name'], (list, tuple)):
-            y_name = [y_name]
+        if isinstance(var_dic['y_name'], str):
+            var_dic['y_name'] = [var_dic['y_name']]
         y_cent_name = [name + '_lc' for name in var_dic['y_name']]
         y_x_name = [name + '_Ey_x' for name in var_dic['y_name']]
         var_dic['y_name_lc'], var_dic['y_name_ey_x'] = y_cent_name, y_x_name
@@ -215,14 +223,14 @@ def local_centering(mcf_, tree_df, fill_y_df=None, train=True, seed=9324561):
                 (fill_y_mcf_df, y_m_yx_fy_df, y_x_fy_df), axis=1)
 
         if gen_dic['with_output']:
-            ps.print_mcf(gen_dic, txt_mse, summary=False)
+            mcf_ps.print_mcf(gen_dic, txt_mse, summary=False)
             all_y_name = [*var_dic['y_name'], *y_cent_name, *y_x_name]
             if fill_y_df is None:
-                ps.print_descriptive_df(
+                mcf_ps.print_descriptive_df(
                     gen_dic, tree_add_y_lc_df, varnames=all_y_name,
                     summary=False)
             else:
-                ps.print_descriptive_df(
+                mcf_ps.print_descriptive_df(
                     gen_dic,
                     pd.concat((tree_add_y_lc_df, fill_add_y_lc_df), axis=0),
                     varnames=all_y_name, summary=False)
@@ -261,16 +269,17 @@ def local_centering(mcf_, tree_df, fill_y_df=None, train=True, seed=9324561):
     return tree_add_y_lc_df, fill_add_y_lc_df, y_x_df, lc_r2_txt
 
 
-def print_lc_header(gen_dic, lc_dic):
+def print_lc_header(gen_dic, lc_dic, title=''):
     """Print the header."""
-    ps.print_mcf(gen_dic, '=' * 100 + '\nLocal Centering', summary=True)
+    mcf_ps.print_mcf(gen_dic, '=' * 100
+                     + f'\nLocal Centering  {title}', summary=True)
     if gen_dic['verbose']:
         txt = '\nLocal centering is done '
         if lc_dic['cs_cv']:
             txt += 'by cross-validation'
         else:
             txt += 'in an independent random sample'
-        ps.print_mcf(gen_dic, txt, summary=False)
+        mcf_ps.print_mcf(gen_dic, txt, summary=False)
 
 
 def print_lc_info(y_name, y_as_classifier, gen_dic, txt_sel, y_pred, y_true,
@@ -285,8 +294,9 @@ def print_lc_info(y_name, y_as_classifier, gen_dic, txt_sel, y_pred, y_true,
     txt = '\n' + 100 * '-' + '\nFit of Ey|x for local centering (Best method: '
     txt += (txt_sel + '). ' + method + f' for {y_name}: {fit:5.2%} \n'
             + '- ' * 50)
-    ps.print_mcf(gen_dic, txt, summary=summary)
+    mcf_ps.print_mcf(gen_dic, txt, summary=summary)
     txt_return = txt_sel + ' of Ey|x (' + method + f') for {y_name}: {fit:5.2%}'
+
     return txt_return
 
 
@@ -317,5 +327,6 @@ def adjust_y_names(var_dic, gen_dic, y_name_old, y_name_new, summary=True):
     if gen_dic['with_output']:
         txt = '\n' + 'New variable to build trees in RF: '
         txt += f' {var_dic["y_tree_name"][0]}'
-        ps.print_mcf(gen_dic, txt, summary=summary)
+        mcf_ps.print_mcf(gen_dic, txt, summary=summary)
+
     return var_dic

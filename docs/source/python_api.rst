@@ -10,7 +10,7 @@ Overview of classes
     link text will then only show 'mymethod' which is often desirable.
 .. autosummary::
     ~mcf_main.ModifiedCausalForest
-    ~optpolicy_functions.OptimalPolicy
+    ~optpolicy_main.OptimalPolicy
     ~reporting.McfOptPolReport
 
 

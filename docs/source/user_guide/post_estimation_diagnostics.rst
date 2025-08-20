@@ -1,19 +1,19 @@
 Post-estimation diagnostics
 ===========================
 
-The class :py:class:`~mcf_functions.ModifiedCausalForest` provides you with several diagnostic tools to analyse the estimated :math:`\text{IATE's}`. They cover
+The class :py:class:`~mcf_main.ModifiedCausalForest` provides you with several diagnostic tools to analyse the estimated :math:`\text{IATE's}`. They cover
 
 - descriptive statistics
 - a correlation analysis
 - :math:`k`-means clustering 
 - a feature importance analysis
 
-To conduct *any* post-estimation diagnostics, the parameter ``post_est_stats`` of the class :py:class:`~mcf_functions.ModifiedCausalForest` needs to be set to True. Once you have estimated your :math:`\text{IATE's}` using the :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method, you can conduct the post-estimation diagnostics with the :py:meth:`~mcf_functions.ModifiedCausalForest.analyse` method:
+To conduct *any* post-estimation diagnostics, the parameter ``post_est_stats`` of the class :py:class:`~mcf_main.ModifiedCausalForest` needs to be set to True. Once you have estimated your :math:`\text{IATE's}` using the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method, you can conduct the post-estimation diagnostics with the :py:meth:`~mcf_main.ModifiedCausalForest.analyse` method:
 
 .. code-block:: python
 
     from mcf.example_data_functions import example_data
-    from mcf.mcf_functions import ModifiedCausalForest
+    from mcf.mcf_main import ModifiedCausalForest
     from mcf import McfOptPolReport
     
     # Generate example data using the built-in function `example_data()`
@@ -53,7 +53,7 @@ With ``post_est_stats`` set to True, the distribution of the estimated :math:`\t
 
     my_mcf.gen_dict["outpath"]
 
-You can also specify this path through the ``gen_outpath`` parameter of the class :py:meth:`~mcf_functions.ModifiedCausalForest`. The output folder will contain the jpeg/pdf-files of the plots as well as csv-files of the underlying data in the subfolder `ate_iate`.
+You can also specify this path through the ``gen_outpath`` parameter of the class :py:meth:`~mcf_main.ModifiedCausalForest`. The output folder will contain the jpeg/pdf-files of the plots as well as csv-files of the underlying data in the subfolder `ate_iate`.
 
 
 Correlation analysis
@@ -70,7 +70,7 @@ To analyze heterogeneity in different groups (clusters), you can conduct :math:`
 .. code-block:: python
 
     from mcf.example_data_functions import example_data
-    from mcf.mcf_functions import ModifiedCausalForest
+    from mcf.mcf_main import ModifiedCausalForest
     from mcf import McfOptPolReport
     
     # Generate example data using the built-in function `example_data()`
@@ -98,7 +98,7 @@ The report obtained through the class :py:class:`~reporting.McfOptPolReport` wil
     mcf_report = McfOptPolReport(mcf=my_mcf, outputfile='Modified-Causal-Forest_Report')
     mcf_report.report()
 
-If you wish to analyse the clusters yourself, you can access the cluster membership of each observation through the *"iate_data_df"* entry of the dictionary returned by the :py:meth:`~mcf_functions.ModifiedCausalForest.analyse` method. The cluster membership is stored in the column *IATE_Cluster* of the DataFrame.
+If you wish to analyse the clusters yourself, you can access the cluster membership of each observation through the *"iate_data_df"* entry of the dictionary returned by the :py:meth:`~mcf_main.ModifiedCausalForest.analyse` method. The cluster membership is stored in the column *IATE_Cluster* of the DataFrame.
 
 .. code-block:: python
 
@@ -117,7 +117,7 @@ If you are interested in learning which of your features have a lot of predictiv
 Parameter overview
 ------------------
 
-Below is an overview of the above mentioned parameters related to post-estimation diagnostics in the class :py:class:`~mcf_functions.ModifiedCausalForest`:  
+Below is an overview of the above mentioned parameters related to post-estimation diagnostics in the class :py:class:`~mcf_main.ModifiedCausalForest`:  
 
 +---------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Parameter                             | Description                                                                                                                                                                                                                                                           |
@@ -134,7 +134,7 @@ Below is an overview of the above mentioned parameters related to post-estimatio
 +---------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``post_kmeans_yes``                   | If True, :math:`k`-means clustering is conducted to build clusters based on the :math:`\text{IATE's}`. Default: True.                                                                                                                                                 |
 +---------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``post_kmeans_no_of_groups``          | Only relevant if ``post_kmeans_yes`` is True. Determines the number of clusters for :math:`k`-means clustering. Should be specified as a list of values. Default: See the :py:class:`API <mcf_functions.ModifiedCausalForest>`.                                       |
+| ``post_kmeans_no_of_groups``          | Only relevant if ``post_kmeans_yes`` is True. Determines the number of clusters for :math:`k`-means clustering. Should be specified as a list of values. Default: See the :py:class:`API <mcf_main.ModifiedCausalForest>`.                                       |
 +---------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``post_kmeans_max_tries``             | Only relevant if ``post_kmeans_yes`` is True. Determines the maximum number of iterations to achieve convergence in each :math:`k`-means clustering replication. Default: 1000.                                                                                       |
 +---------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -149,7 +149,7 @@ Below is an overview of the above mentioned parameters related to post-estimatio
 | ``post_tree``                         | Regression trees (honest and standard) of Depth 2 to 5 are estimated to describe IATES(x). Default (or None) is True.                                                                                                                                                 |
 +---------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
-Please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` for more details.
+Please consult the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details.
 
 
 Example
@@ -158,7 +158,7 @@ Example
 .. code-block:: python
 
     from mcf.example_data_functions import example_data
-    from mcf.mcf_functions import ModifiedCausalForest
+    from mcf.mcf_main import ModifiedCausalForest
     from mcf.reporting import McfOptPolReport
     
     # Generate example data using the built-in function `example_data()`

@@ -1,6 +1,8 @@
 Python API
 ==========
 
+.. currentmodule:: mcf
+
 Overview of classes 
 -------------------
 
@@ -8,15 +10,14 @@ Overview of classes
     :toctree: generated/
     :nosignatures:
 
-    mcf.mcf_main.ModifiedCausalForest
-    mcf.optpolicy_main.OptimalPolicy
-    mcf.reporting.McfOptPolReport
+    ModifiedCausalForest
+    OptimalPolicy
+    McfOptPolReport
 
 
 Modified Causal Forest
 ----------------------
 
-.. currentmodule:: mcf.mcf_main
 .. autoclass:: ModifiedCausalForest
    :members:
    :undoc-members:
@@ -38,7 +39,6 @@ Methods
 Optimal Policy
 --------------
 
-.. currentmodule:: mcf.optpolicy_main
 .. autoclass:: OptimalPolicy
    :members:
    :undoc-members:
@@ -61,7 +61,6 @@ Methods
 Reporting
 ---------
 
-.. currentmodule:: mcf.reporting
 .. autoclass:: McfOptPolReport
    :members:
    :undoc-members:
@@ -75,4 +74,3 @@ Methods
    :nosignatures:
 
    McfOptPolReport.report
-

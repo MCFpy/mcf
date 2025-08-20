@@ -7,9 +7,9 @@ Changelog
     2. Refer to the mcf as a package in bold, i.e. **mcf**
     3. Nest parameters of functions/methods in double backticks, e.g. ``foo``
     4. Cross-reference classes, their methods and properties:
-        - Refer to classes using :py:class:`~module.ClassName`, e.g. :py:class:`~mcf_functions.ModifiedCausalForest`
-        - Refer to methods using :py:meth:`~module.ClassName.method_name`, e.g. :py:meth:`~mcf_functions.ModifiedCausalForest.train` 
-        - Refer to class properties using :py:attr:`~module.ClassName.property_name`, e.g. :py:attr:`~mcf_functions.ModifiedCausalForest.blind_dict`
+        - Refer to classes using :py:class:`~module.ClassName`, e.g. :py:class:`~mcf_main.ModifiedCausalForest`
+        - Refer to methods using :py:meth:`~module.ClassName.method_name`, e.g. :py:meth:`~mcf_main.ModifiedCausalForest.train` 
+        - Refer to class properties using :py:attr:`~module.ClassName.property_name`, e.g. :py:attr:`~mcf_main.ModifiedCausalForest.blind_dict`
     5. Nested lists: You need to separate the lists with a blank line. Otherwise, the parent will be displayed as bold.
 
         - Wrong (will be bold):
@@ -168,7 +168,7 @@ Changes concerning all classes
 - Speed increase by optimizing numba functions
 - Adjustments required by new Numpy version 2.0
 
-Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
+Changes concerning the class :py:class:`~mcf_main.ModifiedCausalForest`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Small bug fixes.
@@ -201,7 +201,7 @@ New keywords
 
     - Regression trees (honest and standard) of Depth 2 to 5 are estimated to describe IATES(x). Default (or None) is True.
 
-Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
+Changes concerning the class :py:class:`~optpolicy_main.OptimalPolicy`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - The method fairscores has been improved and expanded (for details, see the future paper by Bearth, Lechner, Mareckova, Muny, 2024). However, fairness adjustments are still experimental.
@@ -239,7 +239,7 @@ New Keywords
 
   Fairness adjustments are experimental. The default (or None) is 5.
 
-Changes concerning the class :py:class:`~mcf_functions.McfOptPolReport`
+Changes concerning the class :py:class:`~mcf_main.McfOptPolReport`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - **mcf_blind** is removed, because the method `blinder_iates` is deprecated.
@@ -271,7 +271,7 @@ Changes concerning all methods
 
     - All methods return the location of the output files on the computer as last return (the reporting method is an exception as it returns the full file name of the pdf file, not just the location).
 
-Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
+Changes concerning the class :py:class:`~mcf_main.ModifiedCausalForest`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Bug fixes
@@ -306,20 +306,20 @@ Additional features and new keywords
     - Possible choices are scikit-learn's regression methods: 'RandomForest', 'RandomForestNminl5','RandomForestNminls5', 'SupportVectorMachine', 'SupportVectorMachineC2', 'SupportVectorMachineC4', 'AdaBoost', 'AdaBoost100', 'AdaBoost200', 'GradBoost', 'GradBoostDepth6',  'GradBoostDepth12',  'LASSO',  'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger', 'Mean'.
     - If set to 'automatic', the estimator with the lowest out-of-sample mean squared error (MSE) is selected.Whether this selection is based on cross-validation  or a test sample is governed by the keyword lc_cs_cv. 'Mean' is included for the cases when none of the  methods have out-of-sample explanatory power. The default is 'RandomForest'.
 
-Changes in the implementation of train method :py:meth:`~mcf_functions.ModifiedCausalForest.train`
+Changes in the implementation of train method :py:meth:`~mcf_main.ModifiedCausalForest.train`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 -  **Building the forest**
 
     - If variables randomly selected for splitting do not show any variation in the leaf considered for splitting, then up to 3 additional random draws are tried using variables not yet used  for splitting. If there is still no variation, then all remaining  variables will be tried for this potential split. This increases computation time somewhat, but leads to smaller leaves.
 
-Changes in the implementation of train method :py:meth:`~mcf_functions.ModifiedCausalForest.predict`
+Changes in the implementation of train method :py:meth:`~mcf_main.ModifiedCausalForest.predict`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - **Clustering predictions with Kmeans algorithm**
 
     - When the smallest cluster is smaller than 1% of the sample, this case is now  discouraged when determining the optimal number of clusters with scikit-learn's silhouette_score.
 
-Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
+Changes concerning the class :py:class:`~optpolicy_main.OptimalPolicy`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Bug fixes
@@ -357,7 +357,7 @@ Additional features
 
 - Some additional explanations to the output of the policy tree (including a warning if there are more than 30 features for the policy trees) have been added.
 
-Changes concerning the class :py:class:`~mcf_functions.McfOptPolReport`
+Changes concerning the class :py:class:`~mcf_main.McfOptPolReport`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - The structure of the policy tree is added to the pdf file.
 
@@ -379,7 +379,7 @@ General
 - In general, most changes lead to more efficient code.
 - A new reporting tool is introduced that produces a pdf file that should be more informative about estimation and results. The existing output via figures, (*.csv) and (*.txt) files continue to exist. They contain more detailed information than the new pdf files.
 
-Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
+Changes concerning the class :py:class:`~mcf_main.ModifiedCausalForest`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - **Bug fixes**
@@ -404,11 +404,11 @@ Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
 
 - **Sensitivity analysis**
 
-    - The method :py:meth:`~mcf_functions.ModifiedCausalForest.sensitivity` has the new keyword ``results``. Here the standard output dictionary from the :meth:`~mcf_functions.ModifiedCausalForest.predict` method is expected. If this dictionary contains estimated IATEs, the same data as in the :meth:`~mcf_functions.ModifiedCausalForest.predict` method will be used, IATEs are computed under the no effect (basic) scenario and these IATEs are compared to the IATEs contained in the results dictionary. 
+    - The method :py:meth:`~mcf_main.ModifiedCausalForest.sensitivity` has the new keyword ``results``. Here the standard output dictionary from the :meth:`~mcf_main.ModifiedCausalForest.predict` method is expected. If this dictionary contains estimated IATEs, the same data as in the :meth:`~mcf_main.ModifiedCausalForest.predict` method will be used, IATEs are computed under the no effect (basic) scenario and these IATEs are compared to the IATEs contained in the results dictionary. 
     - If the dictionary does not contain estimated IATEs, passing it has no consequence.
     - If the results dictionary is passed, and it contains IATEs, then the (new) default value for the keyword ``sens_iate`` is True (and False otherwise)
           
-Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
+Changes concerning the class :py:class:`~optpolicy_main.OptimalPolicy`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - **Bug fixes**
@@ -421,7 +421,7 @@ Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
 
 - **Change of names of keywords**
 
-    (to use the same names as in the :py:class:`~mcf_functions.ModifiedCausalForest` class)
+    (to use the same names as in the :py:class:`~mcf_main.ModifiedCausalForest` class)
 
     - ``var_x_ord_name`` –> ``var_x_name_ord``
     - ``var_x_unord_name`` –> ``var_x_name_unord``
@@ -453,12 +453,12 @@ Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
         - ``pt_depth_tree_1``   Depth of 1st optimal tree. Default is 3.
         - ``pt_depth_tree_2``   Depth of 2nd optimal tree. This tree is build within the strata obtained from the leaves of the first tree. If set to 0, a second tree is not build. Default is 1. Using both defaults leads to a (not optimal) total tree of level of 4.
 
-New class :py:class:`~mcf_functions.McfOptPolReport`
+New class :py:class:`~mcf_main.McfOptPolReport`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     .. versionadded:: 0.5.0
-        Reporting tools for the :class:`~mcf_functions.ModifiedCausalForest` and
-        :class:`~optpolicy_functions.OptimalPolicy` classes
+        Reporting tools for the :class:`~mcf_main.ModifiedCausalForest` and
+        :class:`~optpolicy_main.OptimalPolicy` classes
 
 - This new class provides informative reports about the main specification choices and most important results of the ModifiedCausalForest and OptimalPolicy estimations. The report is saved in pdf-format.The reporting capabilities in this version are still basic but will be continously extended in the future (if users see them as a useful addition to the package).
 - Method: the :py:meth:`~reporting.McfOptPolReport.report` method takes the instance of the ModifiedCausalForest and the OptimalPolicy classes as input (after they were used in running the different methods of both classes). It creates the report on a pdf file, which is saved in a user provided location. 
@@ -468,7 +468,7 @@ New class :py:class:`~mcf_functions.McfOptPolReport`
 Version 0.4.3
 -------------
 
-Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
+Changes concerning the class :py:class:`~mcf_main.ModifiedCausalForest`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Bug fixes
@@ -502,7 +502,7 @@ New
   - Speed-up for categorical (unordered) variables due to memorization. This requires some additional memory, but the gains could be substantial.
   - Improved internal computation and storage of estimated forests lead to speed and precision gains (instead of using lists of lists, we now use a list of dictionaries of optimized numpy arrays to save the trees). Since the precision of the new method is higher (by at the same time needing less RAM), this might lead to smallish changes in the results.
 
-- **Experimental**: The method :py:meth:`~mcf_functions.ModifiedCausalForest.sensitivity` has been added. It contains some simulation-based tools to check how well the mcf works in removing selection bias and how sensitive the results are with respect to potentially missing confounding covariates (i.e., those related to treatment and potential outcome) added in the future.
+- **Experimental**: The method :py:meth:`~mcf_main.ModifiedCausalForest.sensitivity` has been added. It contains some simulation-based tools to check how well the mcf works in removing selection bias and how sensitive the results are with respect to potentially missing confounding covariates (i.e., those related to treatment and potential outcome) added in the future.
 
   - Note: This section is currently experimental and thus not yet fully documented and tested. A paper by Armendariz-Pacheco, Lechner, Mareckova and Odermatt (2024) will discuss and investigate the different methods in detail. So far, please note that all methods are simulation based.
 
@@ -530,7 +530,7 @@ New
     - ``sens_replications``: Integer (or None), optional. Number of replications for simulating placebo treatments. Default is 2.
     - ``sens_reference_population``: Integer or float (or None). Defines the treatment status of the reference population used by the sensitivity analysis. Default is to use the treatment with most observed observations.
 
-Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
+Changes concerning the class :py:class:`~optpolicy_main.OptimalPolicy`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - No changes.
@@ -543,7 +543,7 @@ Version 0.4.2
 Bug fixes
 ~~~~~~~~~
 
-- Minor bug fixes for :py:class:`~mcf_functions.ModifiedCausalForest` (mainly redundant elements in return of prediction and analysis method deleted).
+- Minor bug fixes for :py:class:`~mcf_main.ModifiedCausalForest` (mainly redundant elements in return of prediction and analysis method deleted).
 
 New
 ~~~
@@ -551,11 +551,11 @@ New
 General
 +++++++
 
-- Output files for text, data and figures: So far, whenever a directory existed that has already been used for output, a new directory is created to avoid accidentally overwriting results. However, there is a new keyword for both the :py:class:`~mcf_functions.ModifiedCausalForest` and the :py:class:`~optpolicy_functions.OptimalPolicy` class:
+- Output files for text, data and figures: So far, whenever a directory existed that has already been used for output, a new directory is created to avoid accidentally overwriting results. However, there is a new keyword for both the :py:class:`~mcf_main.ModifiedCausalForest` and the :py:class:`~optpolicy_main.OptimalPolicy` class:
 
     - ``_int_output_no_new_dir``: Boolean. Do not create a new directory for outputs when the path already exists. Default is False.
 
-Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
+Changes concerning the class :py:class:`~mcf_main.ModifiedCausalForest`
 +++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 - Mild improvements of output when categorical variables are involved.
@@ -566,7 +566,7 @@ Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
 - New default value for ``gen_iate_eff``: The second round IATE estimation is no longer performed by default (i.e. the new default is False).
 - There is a new experimental features to both the mcf estimation (of IATEs) as well as the optimal policy module. It allows to partially blind the decision with respect to certain variables. The accompanying discussion paper by Nora Bearth, Fabian Muny, Michael Lechner, and Jana Marackova ('Partially Blind Optimal Policy Analysis') is currently written. If you desire more information, please email one of the authors. 
 
-        - New method :py:meth:`~mcf_functions.ModifiedCausalForest.blinder_iates`: Compute 'standard' IATEs as well as IATEs that are to a certain extent blinder than the standard ones. Available keywords:
+        - New method :py:meth:`~mcf_main.ModifiedCausalForest.blinder_iates`: Compute 'standard' IATEs as well as IATEs that are to a certain extent blinder than the standard ones. Available keywords:
 
             - ``blind_var_x_protected_name`` : List of strings (or None). Names of protected variables. Names that are explicitly denote as blind_var_x_unrestricted_name or as blind_var_x_policy_name and used to compute IATEs will be automatically added to this list. Default is None.
             - ``blind_var_x_policy_name`` : List of strings (or None). Names of decision variables. Default is None.
@@ -575,10 +575,10 @@ Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`
             - ``blind_obs_ref_data`` : Integer (or None), optional. Number of observations to be used for blinding. Runtime of programme is almost linear in this parameter. Default is 50.
             - ``blind_seed`` : Integer, optional. Seed for the random selection of the reference data. Default is 123456.
 
-Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
+Changes concerning the class :py:class:`~optpolicy_main.OptimalPolicy`
 ++++++++++++++++++++++++++++++++++++++++++++++
 
-- General keyword change in the :py:class:`~optpolicy_functions.OptimalPolicy` class. All keywords that started with `int_` now start with `_int_` (in order to use the same conventions as in the :py:class:`~mcf_functions.ModifiedCausalForest` class).
+- General keyword change in the :py:class:`~optpolicy_main.OptimalPolicy` class. All keywords that started with `int_` now start with `_int_` (in order to use the same conventions as in the :py:class:`~mcf_main.ModifiedCausalForest` class).
 
 - New keywords:
 
@@ -589,13 +589,13 @@ Changes concerning the class :py:class:`~optpolicy_functions.OptimalPolicy`
     - ``_var_vi_x_name``: List of strings or None, optional. Names of variables for which variable importance is computed. Default is None.
     - ``_var_vi_to_dummy_name``: List of strings or None, optional. Names of variables for which variable importance is computed. These variables will be broken up into dummies. Default is None.
 
-The optimal policy module currently has three methods (:py:meth:`~optpolicy_functions.OptimalPolicy.best_policy_score`, :py:meth:`~optpolicy_functions.OptimalPolicy.policy tree`, :py:meth:`~optpolicy_functions.OptimalPolicypolicy tree eff`):
+The optimal policy module currently has three methods (:py:meth:`~optpolicy_main.OptimalPolicy.best_policy_score`, :py:meth:`~optpolicy_main.OptimalPolicy.policy tree`, :py:meth:`~optpolicy_main.OptimalPolicypolicy tree eff`):
 
-- :py:meth:`~optpolicy_functions.OptimalPolicypolicy tree eff` (NEW in 0.4.2) is very similar to 'policy tree'. It uses different approximation rules and uses slightly different coding.  In many cases it should be faster than 'policy tree'.  Default (or None) is 'best_policy_score'.
-- :py:meth:`~optpolicy_functions.OptimalPolicy.best_policy_score` conducts Black-Box allocations, which are obtained by using the scores directly (potentially subject to restrictions). When the Black-Box allocations are used for allocation of data not used for training, the respective scores must be available.
-- The implemented :py:meth:`~optpolicy_functions.OptimalPolicy.policy tree`'s are optimal trees, i.e. all possible trees are checked if they lead to a better performance. If restrictions are specified, then this is incorporated into treatment specific cost parameters. Many ideas of the implementation follow Zhou, Athey, Wager (2022). If the provided policy scores fulfil their conditions (i.e., they use a doubly robust double machine learning like score), then they also provide attractive theoretical properties.
+- :py:meth:`~optpolicy_main.OptimalPolicypolicy tree eff` (NEW in 0.4.2) is very similar to 'policy tree'. It uses different approximation rules and uses slightly different coding.  In many cases it should be faster than 'policy tree'.  Default (or None) is 'best_policy_score'.
+- :py:meth:`~optpolicy_main.OptimalPolicy.best_policy_score` conducts Black-Box allocations, which are obtained by using the scores directly (potentially subject to restrictions). When the Black-Box allocations are used for allocation of data not used for training, the respective scores must be available.
+- The implemented :py:meth:`~optpolicy_main.OptimalPolicy.policy tree`'s are optimal trees, i.e. all possible trees are checked if they lead to a better performance. If restrictions are specified, then this is incorporated into treatment specific cost parameters. Many ideas of the implementation follow Zhou, Athey, Wager (2022). If the provided policy scores fulfil their conditions (i.e., they use a doubly robust double machine learning like score), then they also provide attractive theoretical properties.
 
-- New method :py:meth:`~optpolicy_functions.OptimalPolicy.evaluate_multiple`: Evaluate several allocations simultaneously.  Parameters:
+- New method :py:meth:`~optpolicy_main.OptimalPolicy.evaluate_multiple`: Evaluate several allocations simultaneously.  Parameters:
 
     - ``allocations_dic`` : Dictionary. Contains DataFrame's with specific allocations.
     - ``data_df`` : DataFrame. Data with the relevant information about potential outcomes which will be used to evaluate the allocations.
@@ -615,7 +615,7 @@ New
 ~~~
 
 - We provide the change_log.py script, which provides extensive information on past changes and upcoming changes.
-- We provide example data and example files on how to use :py:class:`~mcf_functions.ModifiedCausalForest` and :py:class:`~optpolicy_functions.OptimalPolicy` in various ways.
+- We provide example data and example files on how to use :py:class:`~mcf_main.ModifiedCausalForest` and :py:class:`~optpolicy_main.OptimalPolicy` in various ways.
 
     - The following data files are provided. The names are self-explanatory. The number denotes the sample size, x are features, y is outcome, d is treatment, and ps denotes policy scores.:
 
@@ -628,8 +628,8 @@ New
 
     - The following example programmes are provided:
 
-        - all_parameters_mcf.py, all_parameters_optpolicy.py: Contains an explanation of all available parameters / keywords for the :py:class:`~mcf_functions.ModifiedCausalForest` and :py:class:`~optpolicy_functions.OptimalPolicy` classes.
-        - min_parameters_mcf.py, min_parameters_optpolicy.py: Contains the minimum specifications to run the methods of the :py:class:`~mcf_functions.ModifiedCausalForest` and :py:class:`~optpolicy_functions.OptimalPolicy` classes.
+        - all_parameters_mcf.py, all_parameters_optpolicy.py: Contains an explanation of all available parameters / keywords for the :py:class:`~mcf_main.ModifiedCausalForest` and :py:class:`~optpolicy_main.OptimalPolicy` classes.
+        - min_parameters_mcf.py, min_parameters_optpolicy.py: Contains the minimum specifications to run the methods of the :py:class:`~mcf_main.ModifiedCausalForest` and :py:class:`~optpolicy_main.OptimalPolicy` classes.
         - training_prediction_data_same_mcf.py: One suggestion on how to proceed when data to train and fill the forest are the same as those used to compute the effects.
         - mcf_and_optpol_combined.py: One suggestion on how to combine mcf and optimal policy estimation in a simple split sample approach.
 
@@ -643,7 +643,7 @@ Both the mcf module and the optimal policy module have undergone major revisions
 What's New
 ~~~~~~~~~~
 
-Changes concerning the class :py:class:`~mcf_functions.ModifiedCausalForest`:
+Changes concerning the class :py:class:`~mcf_main.ModifiedCausalForest`:
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 - Update in the feature selection algorithm.
@@ -792,7 +792,7 @@ Version 0.3.0
 What's New
 ~~~~~~~~~~
 
-- The mcf supports an object-oriented interface: new class :py:class:`~mcf_functions.ModifiedCausalForest` and methods (:py:meth:`~mcf_functions.ModifiedCausalForest.predict`, :py:meth:`~mcf_functions.ModifiedCausalForest.train` and :py:meth:`~mcf_functions.ModifiedCausalForest.train_predict`).
+- The mcf supports an object-oriented interface: new class :py:class:`~mcf_main.ModifiedCausalForest` and methods (:py:meth:`~mcf_main.ModifiedCausalForest.predict`, :py:meth:`~mcf_main.ModifiedCausalForest.train` and :py:meth:`~mcf_main.ModifiedCausalForest.train_predict`).
 - Delivery of potential outcome estimates for which local centering is reversed by setting ``l_centering_undo_iate`` to True; default is True.
 - Readily available tables for GATEs, AMGATEs, and MGATEs. Generated tables summarize all estimated causal effects. Tables are stored in respective folders.
 - The optimal policy function is generalized to encompass also stochastic treatment allocations.

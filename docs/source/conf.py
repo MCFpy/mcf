@@ -15,7 +15,21 @@ import sys
 # sys.path.insert(0, os.path.abspath('.'))
 # sys.path.insert(0, os.path.abspath('../..'))
 # sys.path.insert(0, os.path.abspath('../../mcf/mcf'))
-sys.path.insert(0, os.path.abspath('../../mcf'))
+# sys.path.insert(0, os.path.abspath('../../mcf'))
+
+# docs/conf.py
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent  # repo_root (parent of docs/)
+sys.path.insert(0, str(REPO_ROOT))
+
+# (optional) prove it in CI logs
+try:
+    import inspect, mcf
+    print("[conf] mcf imported from:", inspect.getfile(mcf))
+except Exception as e:
+    print("[conf] FAILED to import mcf:", repr(e))
+
     
 # -- Project information -----------------------------------------------------
 

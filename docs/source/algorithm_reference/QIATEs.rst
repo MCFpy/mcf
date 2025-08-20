@@ -5,7 +5,7 @@ The **Quantile Individualized Average Treatment Effect (QIATE)** was introduced 
 Kutz and Lechner (2025).
 
 Definition
-----------
+-------------
 
 .. math::
 
@@ -26,7 +26,7 @@ denotes the IATE contrasting treatments
 random variable :math:`Z`, such that :math:`F(z) = P(Z \leq z)`.
 
 Interpretation
---------------
+-----------------
 
 The QIATE estimates the :math:`\alpha`-th quantile of the IATE distribution, focusing 
 on the part of treatment effect variation that can be explained by observed characteristics 
@@ -35,7 +35,7 @@ This enables researchers to investigate how treatment effects differ across the 
 part of the distribution.
 
 Implementation
---------------
+-----------------
 
 The QIATE is implemented as follows:
 

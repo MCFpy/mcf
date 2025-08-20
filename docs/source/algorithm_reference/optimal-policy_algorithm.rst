@@ -4,7 +4,7 @@ Optimal Policy Allocation
 
 The evaluation of the IATEs makes it possible to detect potential heterogeneous effects across sub-groups of the population.
 If heterogeneity is observed, certain individuals may either benefit or not from a particular treatment. 
-To address this, the mcf introduces the :py:class:`~optpolicy_functions.OptimalPolicy` class.
+To address this, the mcf introduces the :py:class:`~optpolicy_main.OptimalPolicy` class.
 
 To determine an optimal policy allocation, you can choose between three methods:
 
@@ -77,7 +77,7 @@ Example
 .. code-block:: python
         
     from mcf.example_data_functions import example_data
-    from mcf.optpolicy_functions import OptimalPolicy
+    from mcf.optpolicy_main import OptimalPolicy
     
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()
@@ -106,7 +106,7 @@ Example
 .. code-block:: python
         
     from mcf.example_data_functions import example_data
-    from mcf.optpolicy_functions import OptimalPolicy
+    from mcf.optpolicy_main import OptimalPolicy
 
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()
@@ -136,7 +136,7 @@ The output is a decision rule that depends on features only and does not require
 Parameter tuning for the Optimal Policy Tree
 ============================================
 
-You can adjust different parameters defined in the :py:class:`~optpolicy_functions.OptimalPolicy` class.
+You can adjust different parameters defined in the :py:class:`~optpolicy_main.OptimalPolicy` class.
 
 General parameters
 ------------------
@@ -164,7 +164,7 @@ Alternatively, if restrictions are present and ``other_costs_of_treat`` is left 
    * - ``other_costs_of_treat_mult``
      - Multiplier of automatically determined cost values. Use only when automatic costs violate the constraints given by ``other_max_shares``. This allows to increase :math:`(>1)` or decrease :math:`(<1)` the share of treated in particular treatment. Default is None.
 
-Please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` for more details or additional parameters. 
+Please consult the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details or additional parameters. 
 
 Example
 ~~~~~~~
@@ -172,7 +172,7 @@ Example
 .. code-block:: python
 
    from mcf.example_data_functions import example_data
-   from mcf.optpolicy_functions import OptimalPolicy
+   from mcf.optpolicy_main import OptimalPolicy
    
    # Generate example data using the built-in function `example_data()`
    training_df, prediction_df, name_dict = example_data()

@@ -1,13 +1,14 @@
 Python API
 ==========
 
+
 Overview of classes 
 -------------------
 
 .. autosummary::
-    ~mcf_main.ModifiedCausalForest
-    ~optpolicy_main.OptimalPolicy
-    ~reporting.McfOptPolReport
+    ~mcf.mcf_main.ModifiedCausalForest
+    ~mcf.optpolicy_main.OptimalPolicy
+    ~mcf.reporting.McfOptPolReport
 
 
 Modified Causal Forest

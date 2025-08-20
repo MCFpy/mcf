@@ -16,14 +16,6 @@ sys.path.insert(0, os.path.abspath('..'))
 # sys.path.insert(0, os.path.abspath('../..'))
 # sys.path.insert(0, os.path.abspath('../../mcf/mcf'))
 # sys.path.insert(0, os.path.abspath('../../mcf'))
-
-print("[conf] sys.path[0]:", sys.path[0])
-try:
-    import mcf
-    print("[conf] mcf imported from:", inspect.getfile(mcf))
-    print("[conf] has:", [a for a in ("ModifiedCausalForest","OptimalPolicy","McfOptPolReport","example_data") if hasattr(mcf,a)])
-except Exception as e:
-    print("[conf] FAILED to import mcf:", repr(e))
     
 # -- Project information -----------------------------------------------------
 
@@ -63,7 +55,7 @@ source_suffix = ['.rst', '.md']
 
 # This will allow your docs to import the example code without requiring those
 # modules be installed
-autodoc_mock_imports = ['bs4', 'requests', 'pandas']
+autodoc_mock_imports = ['bs4', 'requests', 'pandas', 'mcf']
 
 # This ensures that the autoclass directive will only include the class'
 # docstring without the docstring of the __init__method.

@@ -17,6 +17,14 @@ sys.path.insert(0, os.path.abspath('..'))
 # sys.path.insert(0, os.path.abspath('../../mcf/mcf'))
 # sys.path.insert(0, os.path.abspath('../../mcf'))
 
+print("[conf] sys.path[0]:", sys.path[0])
+try:
+    import mcf
+    print("[conf] mcf imported from:", inspect.getfile(mcf))
+    print("[conf] has:", [a for a in ("ModifiedCausalForest","OptimalPolicy","McfOptPolReport","example_data") if hasattr(mcf,a)])
+except Exception as e:
+    print("[conf] FAILED to import mcf:", repr(e))
+    
 # -- Project information -----------------------------------------------------
 
 project = 'mcf 0.8.0'

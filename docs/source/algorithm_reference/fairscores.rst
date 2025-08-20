@@ -1,7 +1,7 @@
 Fairness Extensions in Optimal Policy
 ===========================================
 
-The :py:class:`~optpolicy_functions.OptimalPolicy` class in the **mcf** includes experimental features for fairness adjustments, accessible through the ``fairscores`` method. 
+The :py:class:`~optpolicy_main.OptimalPolicy` class in the **mcf** includes experimental features for fairness adjustments, accessible through the ``fairscores`` method. 
 These features are designed to ensure that policy scores are fair with respect to certain protected variables. 
 The fairness adjustments are based on the upcoming work by Bearth, Lechner, Mareckova, and Muny (2024).
 
@@ -9,13 +9,13 @@ This method can be configured using several parameters to control the type and e
 
 Example
 ~~~~~~~~~
-To use the fairness adjustments, configure the :py:class:`~optpolicy_functions.OptimalPolicy` class with the appropriate parameters and call the ``fairscores`` method on your data. This will return a DataFrame with adjusted policy scores that account for fairness considerations.
+To use the fairness adjustments, configure the :py:class:`~optpolicy_main.OptimalPolicy` class with the appropriate parameters and call the ``fairscores`` method on your data. This will return a DataFrame with adjusted policy scores that account for fairness considerations.
 
 .. code-block:: python
 
     import os
     from mcf.example_data_functions import example_data
-    from mcf.optpolicy_functions import OptimalPolicy
+    from mcf.optpolicy_main import OptimalPolicy
     
     # Generate data
     training_df, prediction_df, name_dict = example_data(
@@ -53,4 +53,4 @@ To use the fairness adjustments, configure the :py:class:`~optpolicy_functions.O
 
 Note
 ------
-These features are experimental and may require further testing and validation. For more details or additional parameters, please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` documentation.
+These features are experimental and may require further testing and validation. For more details or additional parameters, please consult the :py:class:`API <mcf_main.ModifiedCausalForest>` documentation.

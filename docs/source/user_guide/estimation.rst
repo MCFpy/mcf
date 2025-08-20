@@ -129,7 +129,7 @@ You can also specify this path through the ``gen_outpath`` parameter of the clas
 Estimating GATE's
 -----------------
 
-Group average treatment effects are estimated by the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method if you define heterogeneity variables through the parameters ``var_z_name_list``, ``var_z_name_ord`` or ``var_z_name_unord`` in your :py:class:`~mcf_main.ModifiedCausalForest`. For every feature in the vector of heterogeneity variables :math:`Z`, a :math:`\textrm{GATE}` will be estimated separately. Please refer to the table further below or the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details on how to specify your heterogeneity variables with the above mentioned parameters.
+Group average treatment effects are estimated by the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method if you define heterogeneity variables through the parameters ``var_z_name_cont``, ``var_z_name_ord`` or ``var_z_name_unord`` in your :py:class:`~mcf_main.ModifiedCausalForest`. For every feature in the vector of heterogeneity variables :math:`Z`, a :math:`\textrm{GATE}` will be estimated separately. Please refer to the table further below or the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details on how to specify your heterogeneity variables with the above mentioned parameters.
 
 .. code-block:: python
 
@@ -189,7 +189,7 @@ smooth the distribution of the variable. The smoothing procedure evaluates the e
         var_d_name="treat",
         var_x_name_ord=["x_cont0", "x_cont1"],
         # Specify the continuous heterogeneity variable for GATE estimation
-        var_z_name_list=["x_ord0"],
+        var_z_name_cont=["x_ord0"],
         # Smoothing the distribution of the continuous variable for GATE estimation
         p_gates_smooth = True,
         # The number of evaluation points is set to 40
@@ -205,7 +205,7 @@ Instead of smoothing continuous heterogeneity variables, you can also discretize
         var_d_name="treat",
         var_x_name_ord=["x_cont0", "x_cont1"],
         # Specify the continuous heterogeneity variable for GATE estimation
-        var_z_name_list=["x_ord0"],
+        var_z_name_cont=["x_ord0"],
         # Discretizing the continuous variable for GATE estimation
         p_gates_smooth = False,
         # The maximum number of categories for discretizing is set to 5
@@ -220,7 +220,7 @@ Below you find a list of the discussed parameters that are relevant for the esti
     +-----------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
     | Parameter                         | Description                                                                                                                                                              |
     +-----------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-    | ``var_z_name_list``               | Ordered feature(s) with many values used for :math:`\textrm{GATE}` estimation.                                                                                           |
+    | ``var_z_name_cont``               | Ordered feature(s) with many values used for :math:`\textrm{GATE}` estimation.                                                                                           |
     +-----------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
     | ``var_z_name_ord``                | Ordered feature(s) with few values used for :math:`\textrm{GATE}` estimation.                                                                                            |
     +-----------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------+

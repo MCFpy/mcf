@@ -4,7 +4,7 @@ Learning an optimal policy
 Different types of policy rules
 -------------------------------
 
-The Modified Causal Forest refines treatment assignment mechanisms by defining the objective of an assignment rule. Its :py:class:`~optpolicy_functions.OptimalPolicy` class offers two different methods to compute assignment algorithms, namely the policy tree and the best-scores methods. The policy tree method is based on the work of `Zhou, Athey, and Wager (2022) <https://doi.org/10.1287/opre.2022.2271>`_ , modifying their approach with respect to policy score calculation, definition of constraints, and handling of multi-valued features. In contrast, the best-score method simply assigns units to the treatment with the highest individual potential outcome. The **mcf** algorithm compares the two methods with random treatment allocations to demonstrate the increase in reward.
+The Modified Causal Forest refines treatment assignment mechanisms by defining the objective of an assignment rule. Its :py:class:`~optpolicy_main.OptimalPolicy` class offers two different methods to compute assignment algorithms, namely the policy tree and the best-scores methods. The policy tree method is based on the work of `Zhou, Athey, and Wager (2022) <https://doi.org/10.1287/opre.2022.2271>`_ , modifying their approach with respect to policy score calculation, definition of constraints, and handling of multi-valued features. In contrast, the best-score method simply assigns units to the treatment with the highest individual potential outcome. The **mcf** algorithm compares the two methods with random treatment allocations to demonstrate the increase in reward.
 
 The following sections demonstrate how to implement these methods for policy learning. The :doc:`Algorithm reference <../algorithm_reference/optimal-policy_algorithm>` provides more details on the computational algorithms.
 
@@ -20,7 +20,7 @@ The code below creates artificial example data for training and prediction.
 
     import os
     from mcf.example_data_functions import example_data
-    from mcf.optpolicy_functions import OptimalPolicy
+    from mcf.optpolicy_main import OptimalPolicy
     from mcf.reporting import McfOptPolReport
 
     # Creating data.
@@ -30,7 +30,7 @@ The code below creates artificial example data for training and prediction.
 Estimating an optimal policy tree
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Next, we initialize an instance by calling the :py:class:`~optpolicy_functions.OptimalPolicy` class to estimate an optimal policy tree of depth two.
+Next, we initialize an instance by calling the :py:class:`~optpolicy_main.OptimalPolicy` class to estimate an optimal policy tree of depth two.
 
 .. code-block:: python
 
@@ -112,7 +112,7 @@ Estimating a policy rule using the best-score method
 .. code-block:: python
     import os
     from mcf.example_data_functions import example_data
-    from mcf.optpolicy_functions import OptimalPolicy
+    from mcf.optpolicy_main import OptimalPolicy
     from mcf.reporting import McfOptPolReport
 
 .. code-block:: python

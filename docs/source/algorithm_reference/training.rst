@@ -43,7 +43,7 @@ For both options, you can define a multiplier using the ``cf_p_diff_penalty`` ke
 
 Once the forest is ready for training, the splits obtained in the training dataset are transferred to all data subsamples (by treatment state) in the held-out data set. Finally, the mean of the outcomes in each leaf is the prediction.
 
-Below you find a list of the discussed parameters that are relevant for forest growing. Please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` for more details or additional parameters. 
+Below you find a list of the discussed parameters that are relevant for forest growing. Please consult the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details or additional parameters. 
 
 +---------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Parameter                 | Description                                                                                                                                                                                                     |
@@ -65,7 +65,7 @@ Example
 .. code-block:: python
 
     from mcf.example_data_functions import example_data
-    from mcf.mcf_functions import ModifiedCausalForest
+    from mcf.mcf_main import ModifiedCausalForest
     
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()

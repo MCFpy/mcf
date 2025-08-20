@@ -45,3 +45,41 @@ The QIATE is implemented as follows:
 #. For each relative position :math:`z_i` estimate the QIATE as a continuous GATE.  
    To account for uncertainty in the ranking we smooth the weights using 
    **Nadaraya–Watson kernel regression**.
+
+Example
+-------
+
+.. code-block:: python
+
+    from mcf.example_data_functions import example_data
+    from mcf.mcf_main import ModifiedCausalForest
+
+    # Generate artificial data 
+    training_df, prediction_df, name_dict = example_data(
+        no_treatments=2, 
+        obs_y_d_x_iate=2000,
+        obs_x_iate=2000,
+        no_effect=False
+    )
+
+    mymcf = ModifiedCausalForest(
+        var_d_name=name_dict['d_name'],
+        var_y_name=name_dict['y_name'],
+        var_x_name_ord=name_dict['x_name_ord'],
+        var_x_name_unord=name_dict['x_name_unord'],
+        # QIATE specific parameters
+        p_qiate=True,
+        p_qiate_se=True,
+        p_qiate_m_mqiate=True,
+        p_qiate_m_opp=True,
+        p_qiate_no_of_quantiles=None,
+        p_qiate_smooth=None,
+        p_qiate_smooth_bandwidth=None,
+        p_qiate_bias_adjust=None
+    )
+
+    mymcf.train(training_df)
+    results = mymcf.predict(prediction_df)
+
+
+

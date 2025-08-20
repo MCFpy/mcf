@@ -26,7 +26,7 @@ This method uses a bootstrap algorithm to obtain inference by computing standard
 Parameters 
 ------------------------
 
-Below you find a list of the main parameters which are related to the inference procedure of the **mcf**. Please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` for more details or additional parameters. 
+Below you find a list of the main parameters which are related to the inference procedure of the **mcf**. Please consult the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details or additional parameters. 
 
 .. list-table:: 
    :widths: 30 70
@@ -52,7 +52,7 @@ Example
 .. code-block:: python
 
    from mcf.example_data_functions import example_data
-   from mcf.mcf_functions import ModifiedCausalForest
+   from mcf.mcf_main import ModifiedCausalForest
    
    # Generate example data using the built-in function `example_data()`
    training_df, prediction_df, name_dict = example_data()

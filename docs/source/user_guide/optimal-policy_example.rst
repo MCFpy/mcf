@@ -89,6 +89,45 @@ After initializing a class instance, we use it to solve for an optimal allocatio
     results_eva_pred, _ = myoptp.evaluate(alloc_pred_df, prediction_df,
                                           data_title='prediction')
 
+Estimate a fair optimal policy tree
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Another alternative is to estimate a fair policy tree. This uses the ``solvefair`` 
+method to build the decision rule.
+
+.. code-block:: python
+
+    # Initializing a class instance.
+    myoptp = OptimalPolicy(
+        gen_method='policy tree',
+        var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
+        var_protected_name_ord=('x_ord0'),
+        var_x_name_ord=('x_cont0'),
+        pt_depth_tree_1=2,
+        pt_depth_tree_2=0,
+        gen_outpath=os.getcwd() + '/out'
+    )
+
+    # Solve, allocate, and evaluate methods.
+    alloc_train_df, _, _ = myoptp.solvefair(
+        training_df,
+        data_title='training'
+    )
+    results_eva_train, _ = myoptp.evaluate(
+        alloc_train_df,
+        training_df,
+        data_title='training'
+    )
+    alloc_pred_df, _ = myoptp.allocate(
+        prediction_df,
+        data_title='prediction'
+    )
+    results_eva_pred, _ = myoptp.evaluate(
+        alloc_pred_df,
+        prediction_df,
+        data_title='prediction'
+    )
+
 Reporting
 ~~~~~~~~~
 

@@ -3,9 +3,9 @@
 Common support
 ==============
 
-Common support is crucial in estimating heterogeneous treatment effects. Loosely speaking, it requires that the distributions of the covariates overlap across all treatment arms. The :py:class:`~mcf_functions.ModifiedCausalForest` class provides several options to check for and enforce common support.
+Common support is crucial in estimating heterogeneous treatment effects. Loosely speaking, it requires that the distributions of the covariates overlap across all treatment arms. The :py:class:`~mcf_main.ModifiedCausalForest` class provides several options to check for and enforce common support.
 
-Common support checks and adjustments are performed before any causal effects are estimated. You can control the type of common support adjustment with the parameter ``cs_type`` of the class :py:class:`~mcf_functions.ModifiedCausalForest`. If you set ``cs_type`` to 0, there is no common support adjustment.
+Common support checks and adjustments are performed before any causal effects are estimated. You can control the type of common support adjustment with the parameter ``cs_type`` of the class :py:class:`~mcf_main.ModifiedCausalForest`. If you set ``cs_type`` to 0, there is no common support adjustment.
 
 If you set ``cs_type`` to 1 or 2, common support is enforced based on propensity scores that are estimated with classification forests [1]_. The Modified Causal Forest will then remove all observations whose propensity scores lie outside certain cut-off probabilities. For a value of 1, which is the default, the cut-off probabilities are determined automatically by the **mcf** package. For a value of 2, you can specify the cut-off probabilities yourself using the parameter ``cs_min_p``: Any observation with a propensity score :math:`P(D = m| X)` of less than or equal to ``cs_min_p`` - for at least one treatment arm - will be removed from the data set.
 
@@ -17,7 +17,7 @@ The output text file provides additional information on the common support bound
 .. code-block:: python
 
     from mcf.example_data_functions import example_data
-    from mcf.mcf_functions import ModifiedCausalForest
+    from mcf.mcf_main import ModifiedCausalForest
     
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()
@@ -50,7 +50,7 @@ The parameter ``cs_quantil`` allows you to deviate from the default cut-off prob
 Parameter overview
 ------------------
 
-Below is an overview of the above mentioned parameters related to common support adjustments in the class :py:class:`~mcf_functions.ModifiedCausalForest`:  
+Below is an overview of the above mentioned parameters related to common support adjustments in the class :py:class:`~mcf_main.ModifiedCausalForest`:  
 
 +----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Parameter            | Description                                                                                                                                                                                                                                                                            |
@@ -66,7 +66,7 @@ Below is an overview of the above mentioned parameters related to common support
 | ``cs_quantil``       | Only relevant if ``cs_type`` is set to 1. If ``cs_quantil`` is set to a value less than 1, the respective quantile is used to determine the upper and lower cut-off probabilities. If set to 1, the cut-off probabilities are chosen automatically based on min-max rules. Default: 1. |
 +----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
-Please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` for more details.
+Please consult the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details.
 
 Examples
 ------------------
@@ -74,7 +74,7 @@ Examples
 .. code-block:: python
 
     from mcf.example_data_functions import example_data
-    from mcf.mcf_functions import ModifiedCausalForest
+    from mcf.mcf_main import ModifiedCausalForest
     
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()

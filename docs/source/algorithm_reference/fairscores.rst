@@ -1,15 +1,42 @@
 Fairness Extensions in Optimal Policy
 ===========================================
 
-The :py:class:`~optpolicy_main.OptimalPolicy` class in the **mcf** includes experimental features for fairness adjustments, accessible through the ``fairscores`` method. 
-These features are designed to ensure that policy scores are fair with respect to certain protected variables. 
-The fairness adjustments are based on the upcoming work by Bearth, Lechner, Mareckova, and Muny (2024).
+The :py:class:`~optpolicy_main.OptimalPolicy` class in **mcf** includes experimental capabilities for fairness adjustments, available through its ``solvefair`` method. 
+These adjustments aim to improve fairness in policy allocations with respect to specified protected variables, following the methodology introduced in the forthcoming work of Bearth, Lechner, Mareckova, and Muny (2025).
 
-This method can be configured using several parameters to control the type and extent of fairness adjustments. 
+The approach is based on variable preprocessing. The guiding principle is straightforward: if the variables used to construct the decision rule are independent of certain protected features, then the resulting decisions will also be independent of those features. In practice, this means that individuals in each protected group should have an equal probability of being assigned to any given treatment.
+
+To transform a variable :math:`X` with respect to a protected feature :math:`S`, the method proceeds in two steps:
+
+1. **Conditioning:** Compute the cumulative distribution function (CDF) of 
+   :math:`X` given :math:`S`,
+
+   .. math::
+
+      u = F_{X \mid S}(X \mid S)
+
+   so that :math:`u` is uniformly distributed within each level of :math:`S`.
+
+2. **Marginal Mapping:** Apply the inverse marginal CDF of :math:`X`,
+
+   .. math::
+
+      \tilde{X} = F_X^{-1}(u)
+
+   to restore the original marginal distribution.
+
+The transformed :math:`\tilde{X}` can be interpreted as a *fairness-adjusted* version of 
+:math:`X`: it preserves the original distribution of :math:`X` but eliminates its 
+statistical dependence on the protected feature :math:`S`.  
+
+The adjustment can be applied to the decision variables, the policy scores, or both. 
+Note that the fairness adjustment implemented here may slightly differ from the 
+`R implementation <https://github.com/fmuny/fairpolicytree>`_ 
+used in Bearth, Lechner, Mareckova, and Muny (2025).
 
 Example
 ~~~~~~~~~
-To use the fairness adjustments, configure the :py:class:`~optpolicy_main.OptimalPolicy` class with the appropriate parameters and call the ``fairscores`` method on your data. This will return a DataFrame with adjusted policy scores that account for fairness considerations.
+To use the fairness adjustments, configure the :py:class:`~optpolicy_main.OptimalPolicy` class with the appropriate parameters and call the ``solvefair`` instead of the ``solve`` method to build the decision rule.
 
 .. code-block:: python
 

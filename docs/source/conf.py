@@ -59,7 +59,7 @@ autodoc_mock_imports = ['bs4', 'requests', 'pandas']
 
 # This ensures that the autoclass directive will only include the class'
 # docstring without the docstring of the __init__method.
-autoclass_content = 'both'
+autoclass_content = 'class'
 
 # This will generate stub documentation pages for items included in autosummary
 # directives (even if those autosummary directives are "commented out"!).

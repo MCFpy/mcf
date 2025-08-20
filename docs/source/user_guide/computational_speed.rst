@@ -66,7 +66,7 @@ Reducing computation and demand on memory without much performance loss: Tests f
 The keywords ``_int_max_obs_training``, ``_int_max_obs_prediction``, ``_int_max_obs_kmeans``, and ``_int_max_obs_post_rel_graphs`` allow one to set these parameters accordingly.
 
 
-Please refer to the :py:class:`API <mcf_functions.ModifiedCausalForest>` for a detailed description of these and other options. 
+Please refer to the :py:class:`API <mcf_main.ModifiedCausalForest>` for a detailed description of these and other options. 
 
 Adjusting these options can help to significantly reduce the computational time, but it may also affect the accuracy of the results. Therefore, it is recommended to understand the implications of each option before adjusting them. Below you find a list and a coding example indicating the discussed parameters that are relevant for parameter tuning and computational speed.
 

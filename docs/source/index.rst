@@ -76,7 +76,7 @@ An alternative to the third step, installing the **mcf** package, is to use `thi
 Usage Example
 -------------
 
-We use the :py:func:`~example_data_functions.example_data` function to generate synthetic datasets for training and prediction to showcase an application of the :py:class:`~mcf_functions.ModifiedCausalForest`. 
+We use the :py:func:`~example_data_functions.example_data` function to generate synthetic datasets for training and prediction to showcase an application of the :py:class:`~mcf_main.ModifiedCausalForest`. 
 
 .. code-block:: python
 

@@ -21,9 +21,6 @@ Methods
 
 .. autosummary:: 
     ~ModifiedCausalForest.train
-    ~ModifiedCausalForest.predict
-    ~ModifiedCausalForest.analyse
-    ~ModifiedCausalForest.sensitivity
 
 
 Optimal Policy
@@ -38,10 +35,6 @@ Methods
 
 .. autosummary:: 
     ~OptimalPolicy.solve
-    ~OptimalPolicy.allocate
-    ~OptimalPolicy.evaluate
-    ~OptimalPolicy.evaluate_multiple
-    ~OptimalPolicy.print_time_strings_all_steps
 
 
 Reporting

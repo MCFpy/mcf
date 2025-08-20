@@ -1,19 +1,7 @@
-Python API
-==========
-
-Overview of classes 
--------------------
-
-.. autosummary::
-    ~mcf_main.ModifiedCausalForest
-    ~optpolicy_main.OptimalPolicy
-    ~reporting.McfOptPolReport
-
 Modified Causal Forest
 ----------------------
 
-.. currentmodule:: mcf_main
-
+.. currentmodule:: mcf.mcf_main
 .. autoclass:: ModifiedCausalForest
 
 Methods
@@ -21,13 +9,15 @@ Methods
 
 .. autosummary:: 
     ~ModifiedCausalForest.train
+    ~ModifiedCausalForest.predict
+    ~ModifiedCausalForest.analyse
+    ~ModifiedCausalForest.sensitivity
 
 
 Optimal Policy
 --------------
 
-.. currentmodule:: optpolicy_main
-
+.. currentmodule:: mcf.optpolicy_main
 .. autoclass:: OptimalPolicy
 
 Methods
@@ -35,13 +25,16 @@ Methods
 
 .. autosummary:: 
     ~OptimalPolicy.solve
+    ~OptimalPolicy.allocate
+    ~OptimalPolicy.evaluate
+    ~OptimalPolicy.evaluate_multiple
+    ~OptimalPolicy.print_time_strings_all_steps
 
 
 Reporting
 ---------
 
-.. currentmodule:: reporting
-
+.. currentmodule:: mcf.reporting
 .. autoclass:: McfOptPolReport
 
 Methods
@@ -54,9 +47,8 @@ Methods
 Example Data function
 ---------------------
 
-.. currentmodule:: example_data_functions
-
+.. currentmodule:: mcf.example_data_functions
 .. autofunction:: example_data
 
 .. autosummary:: 
-    ~example_data_functions.example_data
+    ~example_data

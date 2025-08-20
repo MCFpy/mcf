@@ -48,7 +48,7 @@ Example Data function
 ---------------------
 
 .. currentmodule:: mcf.example_data_functions
-.. autofunction:: example_data
+.. autoclass:: example_data
 
 .. autosummary:: 
     ~example_data

@@ -39,7 +39,7 @@ By default, the :py:func:`~example_data_functions.example_data` produces 1000 ob
 Estimating heterogeneous treatment effects
 ------------------------------------------
 
-To estimate a Modified Causal Forest, we use the :py:class:`~mcf_functions.ModifiedCausalForest` class of the **mcf** package. To create an instance of the :py:class:`~mcf_functions.ModifiedCausalForest` class, we need to specify the name of
+To estimate a Modified Causal Forest, we use the :py:class:`~mcf_main.ModifiedCausalForest` class of the **mcf** package. To create an instance of the :py:class:`~mcf_main.ModifiedCausalForest` class, we need to specify the name of
 
 - at least one outcome variable through the ``var_y_name`` parameter
 - the treatment variable through the ``var_d_name`` parameter
@@ -50,8 +50,8 @@ as follows:
 .. code-block:: python
 
     from mcf.example_data_functions import example_data
-    from mcf.mcf_functions import ModifiedCausalForest
-    from mcf.optpolicy_functions import OptimalPolicy
+    from mcf.mcf_main import ModifiedCausalForest
+    from mcf.optpolicy_main import OptimalPolicy
     from mcf.reporting import McfOptPolReport
     
     # Generate example data using the built-in function `example_data()`
@@ -69,7 +69,7 @@ as follows:
 Frequently used parameters
 --------------------------
 
-Below you find a selected list of optional parameters that are often used to initialize a Modified Causal Forest. For a more detailed description of these parameters, please refer to the documentation of :py:class:`~mcf_functions.ModifiedCausalForest`.
+Below you find a selected list of optional parameters that are often used to initialize a Modified Causal Forest. For a more detailed description of these parameters, please refer to the documentation of :py:class:`~mcf_main.ModifiedCausalForest`.
 
 .. dropdown:: Commonly used optional parameters
 
@@ -108,7 +108,7 @@ Manually, you can find the location of the output folder by accessing the ``outp
 
     my_mcf.gen_dict["outpath"]
 
-We recommend you specify your preferred location for the output folder using the ``gen_outpath`` parameter of the class :py:class:`~mcf_functions.ModifiedCausalForest`.
+We recommend you specify your preferred location for the output folder using the ``gen_outpath`` parameter of the class :py:class:`~mcf_main.ModifiedCausalForest`.
 
 Output Folder Structure
 ------------------------
@@ -132,13 +132,13 @@ The output files are organized into folders under your specified or default work
 Training a Modified Causal Forest
 -----------------------------------
 
-Next we will train the Modified Causal Forest on the ``train_mcf_df`` data using the :py:meth:`~mcf_functions.ModifiedCausalForest.train` method:
+Next we will train the Modified Causal Forest on the ``train_mcf_df`` data using the :py:meth:`~mcf_main.ModifiedCausalForest.train` method:
 
 .. code-block:: python
 
     my_mcf.train(training_df)
 
-Now we are ready to estimate heterogeneous treatment effects on the ``pred_mcf_train_pt_df`` data using the :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method.
+Now we are ready to estimate heterogeneous treatment effects on the ``pred_mcf_train_pt_df`` data using the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method.
 
 .. code-block:: python
 
@@ -158,7 +158,7 @@ The simplest way to get an overview of your results is to read the PDF-report th
 
 You can also access all the results programmatically. Here's how to do it:
 
-The :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method returns a ``results`` tuple. This includes:
+The :py:meth:`~mcf_main.ModifiedCausalForest.predict` method returns a ``results`` tuple. This includes:
 
 - All estimates.
 
@@ -259,18 +259,18 @@ Here, ``results`` essentially plays the same role as ``results_dict`` explained 
 Post-estimation
 ---------------
 
-You can use the :py:meth:`~mcf_functions.ModifiedCausalForest.analyse` method to investigate a number of post-estimation plots. These plots are also exported to the previously created output folder:
+You can use the :py:meth:`~mcf_main.ModifiedCausalForest.analyse` method to investigate a number of post-estimation plots. These plots are also exported to the previously created output folder:
 
 .. code-block:: python
 
     my_mcf.analyse(results)
 
-**Note (2)**, the above code runs after using the :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method as shown in the example files (see **Note 1**).
+**Note (2)**, the above code runs after using the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method as shown in the example files (see **Note 1**).
     
 Learning an optimal policy rule
 -------------------------------
 
-Let's explore how to learn an optimal policy rule using the :py:class:`~optpolicy_functions.OptimalPolicy` class of the **mcf** package. To get started we need a Pandas DataFrame that holds the estimated potential outcomes (also called policy scores), the treatment variable and the features on which we want to base the decision tree.
+Let's explore how to learn an optimal policy rule using the :py:class:`~optpolicy_main.OptimalPolicy` class of the **mcf** package. To get started we need a Pandas DataFrame that holds the estimated potential outcomes (also called policy scores), the treatment variable and the features on which we want to base the decision tree.
 
 As you may recall, we estimated the potential outcomes in the previous section. They are stored as columns in the ``iate_data_df`` entry of the results dictionary:
 
@@ -284,7 +284,7 @@ The column names are explained in the ``iate_names_dic`` entry of the results di
 
     print(results["iate_names_dic"])
 
-Now that we understand this, we are ready to build an Optimal Policy Tree. To do so, we need to create an instance of class :py:class:`~optpolicy_functions.OptimalPolicy` where we set the ``gen_method`` parameter to "policy tree" and provide the names of
+Now that we understand this, we are ready to build an Optimal Policy Tree. To do so, we need to create an instance of class :py:class:`~optpolicy_main.OptimalPolicy` where we set the ``gen_method`` parameter to "policy tree" and provide the names of
 
 - the treatment through the ``var_d_name`` parameter
 - the potential outcomes through the ``var_polscore_name`` parameter
@@ -316,7 +316,7 @@ After initializing an Optimal Policy Tree, the **mcf** package will automaticall
 Fit an Optimal Policy Tree
 ----------------------------
 
-To find the Optimal Policy Tree, we use the :py:meth:`~optpolicy_functions.OptimalPolicy.solve` method, where we need to supply the pandas DataFrame holding the potential outcomes, treatment variable and the features:
+To find the Optimal Policy Tree, we use the :py:meth:`~optpolicy_main.OptimalPolicy.solve` method, where we need to supply the pandas DataFrame holding the potential outcomes, treatment variable and the features:
 
 .. code-block:: python
 
@@ -329,7 +329,7 @@ The returned DataFrame contains the optimal allocation rule for the training dat
 
     print(alloc_train_df)
 
-Next, we can use the :py:meth:`~optpolicy_functions.OptimalPolicy.evaluate` method to evaluate this allocation rule. This will return a dictionary holding the results of the evaluation. As a side-effect, the DataFrame with the optimal allocation is augmented with columns that contain the observed treatment and a random allocation of treatments.
+Next, we can use the :py:meth:`~optpolicy_main.OptimalPolicy.evaluate` method to evaluate this allocation rule. This will return a dictionary holding the results of the evaluation. As a side-effect, the DataFrame with the optimal allocation is augmented with columns that contain the observed treatment and a random allocation of treatments.
 
 .. code-block:: python
 
@@ -360,14 +360,14 @@ Additionally, you can access the results programmatically. The `report` attribut
     evaluation_list = dictionary_of_results['evalu_list']
     print("Evaluation List: ", evaluation_list)
 
-Finally, it is straightforward to apply our Optimal Policy Tree to new data. To do so, we simply apply the :py:meth:`~optpolicy_functions.OptimalPolicy.allocate` method
+Finally, it is straightforward to apply our Optimal Policy Tree to new data. To do so, we simply apply the :py:meth:`~optpolicy_main.OptimalPolicy.allocate` method
 to the DataFrame holding the potential outcomes, treatment variable and the features for the data that was held out for evaluation:
 
 .. code-block:: python
 
     alloc_pred_df, _ = my_optimal_policy.allocate(prediction_df, data_title='prediction')
 
-To evaluate this allocation rule, again apply the :py:meth:`~optpolicy_functions.OptimalPolicy.allocate` method similar to above.
+To evaluate this allocation rule, again apply the :py:meth:`~optpolicy_main.OptimalPolicy.allocate` method similar to above.
 
 .. code-block:: python
 

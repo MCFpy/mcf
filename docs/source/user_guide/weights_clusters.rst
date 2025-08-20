@@ -18,7 +18,7 @@ The clusters are by default used to draw the random samples when growing the for
 Parameter overview
 ------------------
 
-The following table summarizes the parameters related to sampling weights and clustering in the class :py:class:`~mcf_functions.ModifiedCausalForest`:
+The following table summarizes the parameters related to sampling weights and clustering in the class :py:class:`~mcf_main.ModifiedCausalForest`:
 
 +----------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
 | Parameter            | Description                                                                                                                                 |
@@ -34,7 +34,7 @@ The following table summarizes the parameters related to sampling weights and cl
 | ``gen_panel_in_rf``  | If True, clusters are used to draw the random samples when building the forest. Default: True. Only relevant if ``gen_panel_data`` is True. |
 +----------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
 
-Please consult the :py:class:`API <mcf_functions.ModifiedCausalForest>` for more details.
+Please consult the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details.
 
 Examples
 --------
@@ -42,7 +42,7 @@ Examples
 .. code-block:: python
 
     from mcf.example_data_functions import example_data
-    from mcf.mcf_functions import ModifiedCausalForest
+    from mcf.mcf_main import ModifiedCausalForest
     
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()

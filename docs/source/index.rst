@@ -167,7 +167,7 @@ We use the :py:func:`~example_data_functions.example_data` function to generate 
 
 .. code-block:: python
     
-    print(my_mcf.version)
+    print(my_mcf.__version__)
 
 
 Source code and contributing

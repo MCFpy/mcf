@@ -23,7 +23,7 @@ Usage
 
 - **Where can I find the results of the ModifiedCausalForest class?**
 
-  The results are stored in a dictionary returned by the :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method of the :py:class:`~mcf_functions.ModifiedCausalForest` class. This dictionary contains various estimated treatment 
+  The results are stored in a dictionary returned by the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method of the :py:class:`~mcf_main.ModifiedCausalForest` class. This dictionary contains various estimated treatment 
   effects, their corresponding standard errors and related objects, all of which can be inspected in your variable explorer.
 
   Here is a brief demonstration on how to retrieve these results:
@@ -39,18 +39,18 @@ Usage
 
   For more examples you can check out the :ref:`Getting Started <getting-started>` or the :doc:`user_guide`.
 
-  Moreover, when using the :py:meth:`~mcf_functions.ModifiedCausalForest.train`, :py:meth:`~mcf_functions.ModifiedCausalForest.predict`, :py:meth:`~mcf_functions.ModifiedCausalForest.analyse` methods, and the :py:class:`~reporting.McfOptPolReport` class, a folder called "out" is generated in your specified output path. If no output path is specified, all files will be saved where the Anaconda distribution is installed. You can learn more about working directories and output paths at `w3schools <https://www.w3schools.com/python/ref_os_chdir.asp>`_.
+  Moreover, when using the :py:meth:`~mcf_main.ModifiedCausalForest.train`, :py:meth:`~mcf_main.ModifiedCausalForest.predict`, :py:meth:`~mcf_main.ModifiedCausalForest.analyse` methods, and the :py:class:`~reporting.McfOptPolReport` class, a folder called "out" is generated in your specified output path. If no output path is specified, all files will be saved where the Anaconda distribution is installed. You can learn more about working directories and output paths at `w3schools <https://www.w3schools.com/python/ref_os_chdir.asp>`_.
 
-  The "out" folder contains a PDF with crucial information regarding the estimation of the :py:class:`~mcf_functions.ModifiedCausalForest`. For more comprehensive insights, we recommend reviewing the `Full example with all parameters used <https://github.com/MCFpy/mcf/blob/main/examples/all_parameters_mcf.py>`__.
+  The "out" folder contains a PDF with crucial information regarding the estimation of the :py:class:`~mcf_main.ModifiedCausalForest`. For more comprehensive insights, we recommend reviewing the `Full example with all parameters used <https://github.com/MCFpy/mcf/blob/main/examples/all_parameters_mcf.py>`__.
 
 
 - **Where can I find the results of the OptimalPolicy class?**
 
-  The results are stored mainly in two diccionaries which you can access once you have used the :py:meth:`~optpolicy_functions.OptimalPolicy.evaluate` and :py:meth:`~optpolicy_functions.OptimalPolicy.allocate` and :py:meth:`~optpolicy_functions.OptimalPolicy.solve` methods. Additionally, you can access further results stored in your instance of the :py:class:`~optpolicy_functions.OptimalPolicy` class where you can access multiple dictionaries containing additional results. 
+  The results are stored mainly in two diccionaries which you can access once you have used the :py:meth:`~optpolicy_main.OptimalPolicy.evaluate` and :py:meth:`~optpolicy_main.OptimalPolicy.allocate` and :py:meth:`~optpolicy_main.OptimalPolicy.solve` methods. Additionally, you can access further results stored in your instance of the :py:class:`~optpolicy_main.OptimalPolicy` class where you can access multiple dictionaries containing additional results. 
 
   For more examples you can check out the :ref:`Getting Started <getting-started>` or the :doc:`user_guide`.
 
-  As with the :py:class:`~mcf_functions.ModifiedCausalForest` class, further results are also stored in the "out" folder either as PDF, txt or csv files. 
+  As with the :py:class:`~mcf_main.ModifiedCausalForest` class, further results are also stored in the "out" folder either as PDF, txt or csv files. 
 
 - **How can I determine which data points were excluded during common support checks and access the corresponding dataframe?**
 
@@ -58,7 +58,7 @@ Usage
 
 - **How do I access the dataframe representing the final sample that passed common support criteria?**
 
-  You can access the final sample that passed the common support criteria from the results dictionary returned by the :py:meth:`~mcf_functions.ModifiedCausalForest.predict` method of the :py:class:`~mcf_functions.ModifiedCausalForest` class. The dataframe is stored under the key `"iate_data_df"`.
+  You can access the final sample that passed the common support criteria from the results dictionary returned by the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method of the :py:class:`~mcf_main.ModifiedCausalForest` class. The dataframe is stored under the key `"iate_data_df"`.
 
   .. code-block:: python
 
@@ -108,4 +108,5 @@ Troubleshooting
    ::
    
       ValueError: Found array with 0 sample(s) (shape=(0, 1001)) while a minimum of 1 is required by RandomForestClassifier.
+
 

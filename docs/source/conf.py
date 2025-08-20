@@ -9,8 +9,8 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-import os
-import sys
+# import os
+# import sys
 # sys.path.insert(0, os.path.abspath('..'))
 # sys.path.insert(0, os.path.abspath('.'))
 # sys.path.insert(0, os.path.abspath('../..'))
@@ -19,9 +19,18 @@ import sys
 
 # docs/conf.py
 from pathlib import Path
+import sys, inspect
 
-ROOT = Path(__file__).resolve().parents[1]  # repo root
-sys.path.insert(0, str(ROOT))
+REPO_ROOT = Path(__file__).resolve().parent.parent   # repo root
+sys.path.insert(0, str(REPO_ROOT))
+
+# sanity print (should show .../mcf/__init__.py in the logs)
+try:
+    import mcf
+    print("[conf] mcf imported from:", inspect.getfile(mcf))
+except Exception as e:
+    print("[conf] FAILED to import mcf:", repr(e))
+    
 
 # -- Project information -----------------------------------------------------
 
@@ -61,7 +70,7 @@ source_suffix = ['.rst', '.md']
 
 # This will allow your docs to import the example code without requiring those
 # modules be installed
-autodoc_mock_imports = ['bs4', 'requests', 'pandas']
+autodoc_mock_imports = ['bs4', 'requests', 'pandas', 'ray']
 
 # This ensures that the autoclass directive will only include the class'
 # docstring without the docstring of the __init__method.

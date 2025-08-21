@@ -66,7 +66,7 @@ Examples
        var_y_name="outcome",
        var_d_name="treat",
        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
-       var_z_name_list=["x_cont0", "x_cont1"],
+       var_z_name_cont=["x_cont0", "x_cont1"],
        # Variables to balance the GATEs on
        var_x_name_balance_bgate=["x_cont0", "x_cont1"],
        # Estimate a balanced GATE in selected features
@@ -85,7 +85,7 @@ Examples
        var_y_name="outcome",
        var_d_name="treat",
        var_x_name_ord=["x_unord0", "x_cont0", "x_ord1"],
-       var_z_name_list=["x_cont0"],
+       var_z_name_cont=["x_cont0"],
        # Estimate a GATE that is balanced in all other features
        p_cbgate=True
    )

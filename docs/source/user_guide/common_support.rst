@@ -22,7 +22,6 @@ The output text file provides additional information on the common support bound
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()
     
-    
     my_mcf = ModifiedCausalForest(
         var_y_name="outcome",
         var_d_name="treat",
@@ -30,6 +29,7 @@ The output text file provides additional information on the common support bound
         cs_type=1
     )
 
+    # Learn where the output is saved
     my_mcf.gen_dict["outpath"]
 
 

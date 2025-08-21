@@ -265,7 +265,7 @@ The column names are explained in the ``iate_names_dic`` entry of the results di
 
     print(results["iate_names_dic"])
 
-Now that we understand this, we are ready to build an Optimal Policy Tree. To do so, we need to create an instance of class :py:class:`~optpolicy_main.OptimalPolicy` where we set the ``gen_method`` parameter to "policy tree" and provide the names of
+Now that we understand this, we are ready to build an Optimal Policy Tree. To do so, we need to create an instance of class :py:class:`~optpolicy_main.OptimalPolicy` where we set the ``gen_method`` parameter to "policy_tree" and provide the names of
 
 - the treatment through the ``var_d_name`` parameter
 - the potential outcomes through the ``var_polscore_name`` parameter
@@ -281,7 +281,7 @@ as follows:
         var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
         var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
         var_x_name_unord=["x_unord0"],
-        gen_method="policy tree", 
+        gen_method="policy_tree", 
         pt_depth_tree_1=2
         )
 

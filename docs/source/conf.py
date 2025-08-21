@@ -36,7 +36,8 @@ extensions = [
     'sphinx_copybutton',
     'sphinx.ext.githubpages',
     'sphinx.ext.doctest',
-    'sphinx_design'
+    'sphinx_design',
+    'myst_parser',
 ]
 
 # Add any paths that contain templates here, relative to this directory.

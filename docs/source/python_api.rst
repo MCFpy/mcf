@@ -18,10 +18,7 @@ Modified Causal Forest
 .. currentmodule:: mcf_main
 
 .. autoclass:: mcf_main.ModifiedCausalForest
-    :members:
-    :undoc-members:
-    :show-inheritance:
-    :special-members: __init__
+
 
 Methods
 ^^^^^^^

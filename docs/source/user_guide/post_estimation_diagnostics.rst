@@ -186,7 +186,7 @@ Example
         )
     
     my_mcf.train(training_df)
-    results  = my_mcf.predict(prediction_df)
+    results = my_mcf.predict(prediction_df)
     
     # Compute the post-estimation diagnostics
     post_estimation_diagnostics = my_mcf.analyse(results)

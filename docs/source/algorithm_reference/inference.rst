@@ -4,7 +4,7 @@ Inference
 The **mcf** offers three ways of conducting inference.
 
 Weights-based Inference Procedure 
-------------------------
+---------------------------------
 This is the default method in the program. It is particularly useful to gain information on the precision of estimators that have a representation as weighted averages of the outcomes. The variance of the treatment effect estimator is estimated based on a variance decomposition made up of two components:
 
 - Expectation of the conditional variance
@@ -13,11 +13,11 @@ This is the default method in the program. It is particularly useful to gain inf
 This decomposition accounts for heteroscedasticity in the weights. The conditional means and variances are estimated non-parametrically, either by the Nadaraya-Watson kernel estimator or by the k-Nearest Neighbor (k-NN) estimator (default). See `Lechner (2018) <https://doi.org/10.48550/arXiv.1812.09487>`_ for more details.
 
 Variance of Treatment Effect Estimates 
-------------------------
+--------------------------------------
 This method estimates the variance of treatment effect estimates as the sum of the variance of weighted outcomes in the respective treatment states. A drawback of this inference method is that it implicitly assumes homoscedasticity in the weights for each treatment state.
 
 Bootstrap Algorithm 
-------------------------
+-------------------
 This method uses a bootstrap algorithm to obtain inference by computing standard errors. Our algorithm bootstraps the equally weighted weights and then renormalizes them.
 
 
@@ -47,7 +47,7 @@ Below you find a list of the main parameters which are related to the inference 
 
 
 Example
-~~~~~~~~~
+~~~~~~~
 
 .. code-block:: python
 

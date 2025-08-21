@@ -35,7 +35,7 @@ Next, we initialize an instance by calling the :py:class:`~optpolicy_main.Optima
 .. code-block:: python
 
     # Initializing a class instance.
-    myoptp = OptimalPolicy(gen_method='policy tree',
+    myoptp = OptimalPolicy(gen_method='policy_tree',
                            var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
                            var_x_name_ord=('x_cont0', 'x_ord0'),
                            pt_depth_tree_1=2,
@@ -50,7 +50,7 @@ Alternatively, we can create an instance to estimate sequentially optimal policy
 .. code-block:: python
 
     # Initializing a class instance.
-    myoptp = OptimalPolicy(gen_method='policy tree',
+    myoptp = OptimalPolicy(gen_method='policy_tree',
                            var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
                            var_x_name_ord=('x_cont0', 'x_ord0'),
                            pt_depth_tree_1=2,
@@ -65,7 +65,7 @@ The following code block creates a constrained optimal policy tree, considering 
 .. code-block:: python
 
     # Initializing a class instance.
-    myoptp = OptimalPolicy(gen_method='policy tree',
+    myoptp = OptimalPolicy(gen_method='policy_tree',
                            var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
                            var_x_name_ord=('x_cont0', 'x_ord0'),
                            pt_depth_tree_1=2,
@@ -99,7 +99,7 @@ method to build the decision rule.
 
     # Initializing a class instance.
     myoptp = OptimalPolicy(
-        gen_method='policy tree',
+        gen_method='policy_tree',
         var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
         var_protected_name_ord=('x_ord0'),
         var_x_name_ord=('x_cont0'),
@@ -137,7 +137,7 @@ Finally, the code creates a PDF report. Please note that the program saves by de
 
     # Creating a PDF report.
     my_report = McfOptPolReport(
-        optpol=myoptp, outputfile='Report_OptP_' + 'policy tree')
+        optpol=myoptp, outputfile='Report_OptP_' + 'policy_tree')
     my_report.report()
 
 Best Policy Scores

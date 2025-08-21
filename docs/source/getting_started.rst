@@ -13,7 +13,7 @@ This guide will walk you through using the **mcf** package to:
 Example data
 ^^^^^^^^^^^^^^^^
 
-First, we will use the :py:func:`~example_data_functions.example_data` function to generate synthetic datasets for training and prediction. This functions creates training (``training_df``) and prediction (``prediction_df``) DataFrames with a specified number of observations, features, and treatments, and allows for different heterogeneity types (``'linear'``, ``'nonlinear'``, ``'quadratic'``, ``'WagerAthey'``). The function also returns ``name_dict``, a dictionary containing the names of variable groups. You can define some features of the generated data by using the following parameters:
+First, we will use the :py:func:`~example_data_functions.example_data` function to generate synthetic datasets for training and prediction. This functions creates training, ``training_df``, and prediction ,``prediction_df``, DataFrames with a specified number of observations, features, and treatments, and allows for different heterogeneity types , i.e., ``'linear'``, ``'nonlinear'``, ``'quadratic'``, ``'WagerAthey'``. The function also returns a dictionary containing the names of variable groups, ``name_dict``. You can define some features of the generated data by using the following parameters:
 
 - ``obs_y_d_x_iate`` , the number of observations for the training data 
 - ``obs_x_iate`` , the number of observations for the prediction data
@@ -39,7 +39,7 @@ By default, the :py:func:`~example_data_functions.example_data` produces 1000 ob
 Estimating heterogeneous treatment effects
 ------------------------------------------
 
-To estimate a Modified Causal Forest, we use the :py:class:`~mcf_main.ModifiedCausalForest` class of the **mcf** package. To create an instance of the :py:class:`~mcf_main.ModifiedCausalForest` class, we need to specify the name of
+To estimate a Modified Causal Forest, we use the :py:class:`~mcf_main.ModifiedCausalForest` class of the **mcf** package. To create an instance of the :py:class:`~mcf_main.ModifiedCausalForest` class, we need to specify the name of:
 
 - at least one outcome variable through the ``var_y_name`` parameter
 - the treatment variable through the ``var_d_name`` parameter
@@ -69,7 +69,7 @@ as follows:
 Frequently used parameters
 --------------------------
 
-Below you find a selected list of optional parameters that are often used to initialize a Modified Causal Forest. For a more detailed description of these parameters, please refer to the documentation of :py:class:`~mcf_main.ModifiedCausalForest`.
+Below you find a list of optional parameters that are often used to initialize a Modified Causal Forest. For a more detailed description, please refer to the documentation of :py:class:`~mcf_main.ModifiedCausalForest`.
 
 .. dropdown:: Commonly used optional parameters
 
@@ -80,11 +80,11 @@ Below you find a selected list of optional parameters that are often used to ini
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
     | ``p_atet``                       | If True, :math:`\textrm{ATE's}` are also computed by treatment status (:math:`\textrm{ATET's}`). Default: False.  |
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
-    | ``var_z_name_cont``              | Ordered feature(s) with many values used for :math:`\textrm{GATE}` estimation.                                    |
+    | ``var_z_name_cont``              | Continuous feature(s) with many values used for :math:`\textrm{GATE}` estimation.                                    |
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
-    | ``var_z_name_ord``               | Ordered feature(s) with few values used for :math:`\textrm{GATE}` estimation.                                     |
+    | ``var_z_name_ord``               | Discrete, ordered feature(s) with few values used for :math:`\textrm{GATE}` estimation.                                     |
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
-    | ``var_z_name_unord``             | Unordered feature(s) used for :math:`\textrm{GATE}` estimation.                                                   |
+    | ``var_z_name_unord``             | Discrete, unordered feature(s) used for :math:`\textrm{GATE}` estimation.                                                   |
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
     | ``p_gatet``                      | If True, :math:`\textrm{GATE's}` are also computed by treatment status (:math:`\textrm{GATET's}`). Default: False.|
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
@@ -119,10 +119,10 @@ The output files are organized into folders under your specified or default work
 
 2. **ATE, IATE, and GATE Results**: Results for the Average Treatment Effects (ATE), Individualized Average Treatment Effects (IATE), and Group Average Treatment Effects (GATE) are stored in separate subfolders:
 
-- `ate_iate`: Contains graphs and visualizations of ATE and IATE estimators.
-- `gate`: Contains results and visualizations for GATE estimators.
+- `plots_ate_iate`: Contains graphs and visualizations of ATE and IATE estimators.
+- `plots_gate`: Contains results and visualizations for GATE estimators.
 
-3. **Common Support**: The `common_support` folder contains graphs of common support plots.
+3. **Common Support**: The `plots_common_support` folder contains graphs of common support plots.
 
 4. **Text Outputs**: Two .txt files are generated for detailed and summarized outputs:
 
@@ -158,40 +158,20 @@ The simplest way to get an overview of your results is to read the PDF-report th
 
 You can also access all the results programmatically. Here's how to do it:
 
-The :py:meth:`~mcf_main.ModifiedCausalForest.predict` method returns a ``results`` tuple. This includes:
-
-- All estimates.
+The :py:meth:`~mcf_main.ModifiedCausalForest.predict` method returns a ``results`` dictionary with the estimation results. To have a look at the keys of the dictionary, run:
 
 .. code-block:: python
 
-    results[0]
-
-- A string with the path to the location of the results.
-
-.. code-block:: python
-
-    results[1]
-
-The former contains a dictionary with the estimation results. To get an overview, start by extracting the dictionary:
-
-.. code-block:: python
-
-    results_dict = results[0]
-
-Now, we can have a look at the keys of the dictionary:
-
-.. code-block:: python
-
-    keys = results_dict.get('iate_data_df').keys()
+    keys = results.get('iate_data_df').keys()
     print("Keys in your dictionary:\n", keys)
 
 By default, the average treatment effects (:math:`\textrm{ATE's}`) as well as the individualized average treatment effects (:math:`\textrm{IATE's}`) are estimated. If these terms do not sound familiar, :doc:`here <user_guide/estimation>` you can learn more about the different kinds of heterogeneous treatment effects.
 
-In the multiple treatment setting there is more than one :math:`\textrm{ATE}` to consider. The following entry of the ``results_dict`` dictionary lists the estimated treatment contrasts:
+In the multiple treatment setting there is more than one :math:`\textrm{ATE}` to consider. The following entry of the ``results`` dictionary lists the estimated treatment contrasts:
 
 .. code-block:: python
 
-    ate_array = results_dict.get('ate')
+    ate_array = results.get('ate')
     print("Average Treatment Effect (ATE):\n", ate_array)
 
 For instance, if you have treatment levels 0, 1, and 2, you will see an entry of the form [[[0.1, 0.3, 0.5]]]. Here, the first entry, 0.1, specifies the treatment contrast between treatment level 1 and treatment level 0. The second entry, 0.3, specifies the treatment contrast between treatment level 2 and treatment level 0. The third entry specifies the treatment contrast between level 1 and 2.
@@ -200,21 +180,21 @@ In the same way, you can access and print the standard errors of the respective 
 
 .. code-block:: python
 
-    ate_se_array = results_dict.get('ate_se')
+    ate_se_array = results.get('ate_se')
     print("\nStandard Error of ATE:\n", ate_se_array)
 
-The estimated :math:`\textrm{IATE's}`, along with the locally centered and uncentered potential outcomes, are saved as columns in a Pandas DataFrame, which can be accessed from the ``results_dict`` dictionary. If you do not know the variable names of your estimation in advance, have a look at the keys of this dictionary:
+The estimated :math:`\textrm{IATE's}`, along with the locally centered and uncentered potential outcomes, are saved as columns in a Pandas DataFrame, which can be accessed from the ``results`` dictionary. If you do not know the variable names of your estimation in advance, have a look at the keys of this dictionary:
 
 .. code-block:: python
 
-    results_dict.get('iate_data_df').keys()
+    results.get('iate_data_df').keys()
 
 You can access these elements all at once or independently in the following ways:
 
 .. code-block:: python
 
     # access all at once (the full DataFrame)
-    df = results_dict['iate_data_df']
+    df = results['iate_data_df']
 
     # access only the IATEs
     df_iate = df.loc[:, df.columns.str.endswith('_iate') ]  
@@ -231,13 +211,13 @@ To illustrate this, let us build on the previous example with three treatment le
 
 .. code-block:: python
 
-    results_dict.get('iate_data_df')['outcome_lc0_pot']
+    results.get('iate_data_df')['outcome_lc0_pot']
 
 The columns ``outcome_lc1vs0_iate``, ``outcome_lc2vs0_iate``, and ``outcome_lc2vs1_iate`` store the estimated :math:`\textrm{IATE's}`. As above, these columns contrast the respective treatment levels and we inspect them individually as follows:
 
 .. code-block:: python
 
-    results_dict.get('iate_data_df')['outcome_lc1vs0_iate']
+    results.get('iate_data_df')['outcome_lc1vs0_iate']
 
 
 
@@ -253,7 +233,7 @@ The columns ``outcome_lc1vs0_iate``, ``outcome_lc2vs0_iate``, and ``outcome_lc2v
     results.get('iate_data_df')['outcome_lc1vs0_iate']
 
 
-Here, ``results`` essentially plays the same role as ``results_dict`` explained previously. These are two equivalent ways to access your results.
+Here, ``results`` essentially plays the same role as ``results`` explained previously. These are two equivalent ways to access your results.
 
 
 Post-estimation

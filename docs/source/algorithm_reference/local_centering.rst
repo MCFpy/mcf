@@ -64,4 +64,4 @@ Example
    )
    
    my_mcf.train(training_df)
-   results, _ = my_mcf.predict(prediction_df)
+   results = my_mcf.predict(prediction_df)

@@ -1,45 +1,44 @@
 Python API
 ==========
 
-.. _api-mcf-main:
 
-mcf.mcf_main
-------------
+Overview of classes 
+-------------------
 
-.. automodule:: mcf.mcf_main
-   :members:
-   :undoc-members:
-   :inherited-members:
-   :show-inheritance:
-   :member-order: bysource
-
-Overview of key classes
------------------------
-
-.. currentmodule:: mcf.mcf_main
-
+..  
+    If you add a '~' before a reference like `mymodule.MyClass.mymethod`, the
+    link text will then only show 'mymethod' which is often desirable.
 .. autosummary::
-   :toctree: generated/
-   :nosignatures:
+    ~mcf_main.ModifiedCausalForest
 
-   ModifiedCausalForest
 
 Modified Causal Forest
 ----------------------
 
+.. currentmodule:: mcf_functions
+
 .. autoclass:: ModifiedCausalForest
-   :members:
-   :undoc-members:
-   :show-inheritance:
+
 
 Methods
 ^^^^^^^
 
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
+..
+   HACK -- Also list the methods in the "commented out" paragraph below. The
+   point here is that we don't want this to appear in the output, but the
+   autosummary below will, even when commented out, generate the separate
+   documentation page that can be cross-referenced.
 
-   ModifiedCausalForest.train
-   ModifiedCausalForest.predict
-   ModifiedCausalForest.analyse
-   ModifiedCausalForest.sensitivity
+   .. autosummary:: 
+      :toctree:
+      ModifiedCausalForest.train
+      ModifiedCausalForest.predict
+      ModifiedCausalForest.analyse
+      ModifiedCausalForest.sensitivity
+
+.. autosummary:: 
+    ~ModifiedCausalForest.train
+    ~ModifiedCausalForest.predict
+    ~ModifiedCausalForest.analyse
+    ~ModifiedCausalForest.sensitivity
+

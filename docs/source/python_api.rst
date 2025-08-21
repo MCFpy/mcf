@@ -1,76 +1,20 @@
 Python API
 ==========
 
-.. currentmodule:: mcf
 
 Overview of classes 
 -------------------
 
+..  
+    If you add a '~' before a reference like `mymodule.MyClass.mymethod`, the
+    link text will then only show 'mymethod' which is often desirable.
 .. autosummary::
-    :toctree: generated/
-    :nosignatures:
-
-    ModifiedCausalForest
-    OptimalPolicy
-    McfOptPolReport
+    ~mcf_main.ModifiedCausalForest
 
 
 Modified Causal Forest
 ----------------------
 
+.. currentmodule:: mcf_main
+
 .. autoclass:: ModifiedCausalForest
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Methods
-^^^^^^^
-
-.. autosummary:: 
-   :toctree: generated/
-   :nosignatures:
-
-   ModifiedCausalForest.train
-   ModifiedCausalForest.predict
-   ModifiedCausalForest.analyse
-   ModifiedCausalForest.sensitivity
-
-
-Optimal Policy
---------------
-
-.. autoclass:: OptimalPolicy
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Methods
-^^^^^^^
-
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   OptimalPolicy.solve
-   OptimalPolicy.allocate
-   OptimalPolicy.evaluate
-   OptimalPolicy.evaluate_multiple
-   OptimalPolicy.print_time_strings_all_steps
-
-
-Reporting
----------
-
-.. autoclass:: McfOptPolReport
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Methods
-^^^^^^^
-
-.. autosummary::
-   :toctree: generated/
-   :nosignatures:
-
-   McfOptPolReport.report

@@ -9,28 +9,12 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-# import os
-# import sys
+import os
+import sys
 # sys.path.insert(0, os.path.abspath('..'))
 # sys.path.insert(0, os.path.abspath('.'))
 # sys.path.insert(0, os.path.abspath('../..'))
-# sys.path.insert(0, os.path.abspath('../../mcf/mcf'))
-# sys.path.insert(0, os.path.abspath('../../mcf'))
-
-# docs/conf.py
-from pathlib import Path
-import sys, inspect
-
-REPO_ROOT = Path(__file__).resolve().parent.parent   # repo root
-sys.path.insert(0, str(REPO_ROOT))
-
-# sanity print (should show .../mcf/__init__.py in the logs)
-try:
-    import mcf
-    print("[conf] mcf imported from:", inspect.getfile(mcf))
-except Exception as e:
-    print("[conf] FAILED to import mcf:", repr(e))
-    
+sys.path.insert(0, os.path.abspath('../../mcf'))
 
 # -- Project information -----------------------------------------------------
 
@@ -52,8 +36,7 @@ extensions = [
     'sphinx_copybutton',
     'sphinx.ext.githubpages',
     'sphinx.ext.doctest',
-    'sphinx_design', 
-    'myst_parser' 
+    'sphinx_design'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -70,7 +53,7 @@ source_suffix = ['.rst', '.md']
 
 # This will allow your docs to import the example code without requiring those
 # modules be installed
-autodoc_mock_imports = ['bs4', 'requests', 'pandas', 'ray', 'mcf']
+autodoc_mock_imports = ['bs4', 'requests', 'pandas', 'mcf', 'time', 'copy', 'datetime', 'os']
 
 # This ensures that the autoclass directive will only include the class'
 # docstring without the docstring of the __init__method.

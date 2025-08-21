@@ -104,7 +104,7 @@ The average treatment effects for the treated are estimated by the :py:meth:`~mc
     )
     
     my_mcf.train(training_df)
-    results, _ = my_mcf.predict(prediction_df)
+    results = my_mcf.predict(prediction_df)
 
 The :math:`\textrm{ATET's}` are, similar to the :math:`\textrm{ATE's}`, stored in the `"ate"` entry of the dictionary returned by the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method. This entry will then contain both the estimated :math:`\textrm{ATET's}` as well as the :math:`\textrm{ATE's}`. The output that is printed to the console during prediction will present you a table with all estimated :math:`\textrm{ATE's}` and :math:`\textrm{ATET's}`, which should give you a good idea of the structure of the `"ate"` entry in the result dictionary.
 
@@ -148,7 +148,7 @@ Group average treatment effects are estimated by the :py:meth:`~mcf_main.Modifie
         var_z_name_unord=["x_unord0"]
     )
     my_mcf.train(training_df)
-    results, _ = my_mcf.predict(training_df)
+    results = my_mcf.predict(training_df)
 
 You can access the estimated :math:`\textrm{GATE's}` and their standard errors through their corresponding entries in the dictionary that is returned by the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method:
 

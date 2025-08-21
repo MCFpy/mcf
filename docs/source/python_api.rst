@@ -9,15 +9,15 @@ Overview of classes
     If you add a '~' before a reference like `mymodule.MyClass.mymethod`, the
     link text will then only show 'mymethod' which is often desirable.
 .. autosummary::
-    ~mcf_main.ModifiedCausalForest
+    ~reporting.McfOptPolReport
 
 
-Modified Causal Forest
-----------------------
+Reporting
+--------------
 
-.. currentmodule:: mcf_main
+.. currentmodule:: reporting
 
-.. autoclass:: mcf_main.ModifiedCausalForest
+.. autoclass:: McfOptPolReport
 
 
 Methods
@@ -31,14 +31,11 @@ Methods
 
    .. autosummary:: 
       :toctree:
-      ModifiedCausalForest.train
-      ModifiedCausalForest.predict
-      ModifiedCausalForest.analyse
-      ModifiedCausalForest.sensitivity
+      McfOptPolReport.report
+
 
 .. autosummary:: 
-    ~ModifiedCausalForest.train
-    ~ModifiedCausalForest.predict
-    ~ModifiedCausalForest.analyse
-    ~ModifiedCausalForest.sensitivity
+    ~McfOptPolReport.report
+
+
 

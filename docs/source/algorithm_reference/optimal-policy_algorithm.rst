@@ -181,7 +181,7 @@ Example
        var_d_name='treat',
        var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
        var_x_name_ord=['x_cont0', 'x_cont1', 'x_ord1'],
-       gen_method='policy tree',
+       gen_method='policy_tree',
        # Minimum leaf size
        pt_min_leaf_size = None,
        # Maximum share allowed for each treatment (as many elements as treatment (d))

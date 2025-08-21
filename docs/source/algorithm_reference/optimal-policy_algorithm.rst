@@ -17,7 +17,7 @@ Policy allocation algorithms
 
 Algorithm 1: Policy Tree
 ------------------------
-To opt for this method, set ``gen_method`` to ``policy tree``.
+To opt for this method, set ``gen_method`` to ``policy_tree``.
 
 This method is a tree-search algorithm designed to construct a policy tree.
 The implemented policy tree is the optimal tree among all possible trees and is found by looking for the tree that leads to a best performance.
@@ -52,7 +52,7 @@ The goal is to maximize the overall outcome, making the best possible decisions 
 Steps
 ~~~~~
 
-Here is a step-by-step explanation on how ``policy tree`` works:
+Here is a step-by-step explanation on how ``policy_tree`` works:
 
 1. Case :math:`L = 1`, i.e., no further splits are possible. The algorithm defines the best treatment by summing the potential outcomes for each treatment across all observations and selecting the treatment that maximizes this sum. The algorithm returns this maximum sum of potential outcomes across all treatments and the corresponding treatment.
 
@@ -156,7 +156,7 @@ Alternatively, if restrictions are present and ``other_costs_of_treat`` is left 
    * - Keyword
      - Details
    * - ``pt_min_leaf_size``
-     - Minimum leaf size. Leaves that are smaller will not be considered. A larger number reduces computation time and avoids some overfitting. Only relevant if ``gen_method`` is ``policy tree``. Default is None.
+     - Minimum leaf size. Leaves that are smaller will not be considered. A larger number reduces computation time and avoids some overfitting. Only relevant if ``gen_method`` is ``policy_tree``. Default is None.
    * - ``other_max_shares``
      - Maximum share allowed for each treatment. Note that the information must come as a tuple with as many entries as there are treatments. Default is None.
    * - ``other_costs_of_treat``
@@ -203,7 +203,7 @@ Additionally, you can control certain aspects of the algorithm which impact runn
 
   - ``pt_depth_tree_2`` defines the depth of the second optimal tree, which builds upon the strata obtained from the leaves of the first tree. If ``pt_depth_tree_2`` is set to 0, the second tree is not built. The default is 1. Together with the default for ``pt_depth_tree_1``, this leads to a total tree of depth 4 (which is not optimal). Tree depth is defined in the same way as for ``pt_depth_tree_1``.
 
-- **Number of Evaluation Points**: ``pt_no_of_evalupoints`` parameter specifies the number of evaluation points for continuous variables during the tree search. It determines how many of the possible splits in the feature space are considered. If the value of ``pt_no_of_evalupoints`` is smaller than the number of distinct values of a certain feature, the algorithm visits fewer splits, thus increasing computational efficiency. However, a lower value may also deviate more from the optimal splitting rule. This parameter is closely related to the approximation parameter of `Zhou, Athey, and Wager (2022) <https://doi.org/10.1287/opre.2022.2271>`_ . This parameter is only relevant if ``gen_method`` is ``policy tree``. The default value (or None) is 100.
+- **Number of Evaluation Points**: ``pt_no_of_evalupoints`` parameter specifies the number of evaluation points for continuous variables during the tree search. It determines how many of the possible splits in the feature space are considered. If the value of ``pt_no_of_evalupoints`` is smaller than the number of distinct values of a certain feature, the algorithm visits fewer splits, thus increasing computational efficiency. However, a lower value may also deviate more from the optimal splitting rule. This parameter is closely related to the approximation parameter of `Zhou, Athey, and Wager (2022) <https://doi.org/10.1287/opre.2022.2271>`_ . This parameter is only relevant if ``gen_method`` is ``policy_tree``. The default value (or None) is 100.
 
 .. list-table:: 
    :widths: 30 70

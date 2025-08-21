@@ -15,7 +15,7 @@ Overview of classes
 Modified Causal Forest
 ----------------------
 
-.. currentmodule:: mcf_functions
+.. currentmodule:: mcf_main
 
 .. autoclass:: ModifiedCausalForest
 

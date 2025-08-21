@@ -11,9 +11,9 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 import os
 import sys
-sys.path.insert(0, os.path.abspath('..'))
+# sys.path.insert(0, os.path.abspath('..'))
 # sys.path.insert(0, os.path.abspath('.'))
-# sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath('../..'))
 # sys.path.insert(0, os.path.abspath('../../mcf'))
 
 # -- Project information -----------------------------------------------------
@@ -54,7 +54,7 @@ source_suffix = ['.rst', '.md']
 
 # This will allow your docs to import the example code without requiring those
 # modules be installed
-autodoc_mock_imports = ['bs4', 'requests', 'pandas', 'time', 'mcf', 'copy', 'datetime', 'os']
+autodoc_mock_imports = ['bs4', 'requests', 'pandas', 'time', 'mcf_main', 'copy', 'datetime', 'os']
 
 # This ensures that the autoclass directive will only include the class'
 # docstring without the docstring of the __init__method.

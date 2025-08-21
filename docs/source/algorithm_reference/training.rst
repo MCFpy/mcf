@@ -12,7 +12,7 @@ To provide valid inference, the **mcf** borrows the concept of honesty introduce
 For a textbook-like discussion refer to `Athey & Imbens (2016) <https://www.pnas.org/doi/10.1073/pnas.1510489113>`_. **Note (1)**, the **mcf** differs from the causal forest of `Wager & Athey (2018) <https://doi.org/10.1080/01621459.2017.1319839>`_ with respect to the splitting criterion when growing the forest. Setting ``cf_mce_vart`` to ``2``, you may switch to the splitting rule of  `Wager & Athey (2018) <https://doi.org/10.1080/01621459.2017.1319839>`_. 
 
 Forest Growing
-------------------------------------
+--------------
 
 As a tree is grown, the algorithm greedily chooses the split which yields the best possible reduction of the objective function specified in ``cf_mce_vart``. The following objective criteria are implemented:
 
@@ -56,7 +56,6 @@ Below you find a list of the discussed parameters that are relevant for forest g
 +---------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``cf_nn_main_diag_only``  | Nearest neighbour matching: Use main diagonal of covariance matrix only. Only relevant if match_nn_prog_score == False. Default (or None) is False.                                                             |
 +---------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-
 
 
 Example

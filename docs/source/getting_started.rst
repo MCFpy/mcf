@@ -330,6 +330,7 @@ A great way to get an overview of the results is to read the PDF-report that can
         optpol = my_optimal_policy,
         outputfile = 'Optimal-Policy_Report'
         )
+
     policy_tree_report.report()
 
 Additionally, you can access the results programmatically. The `report` attribute of your optimal policy object is a dictionary containing the results. Here's how you can access a specific element:

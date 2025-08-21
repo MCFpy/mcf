@@ -60,6 +60,13 @@ autodoc_mock_imports = ['bs4', 'requests', 'pandas', 'time', 'mcf_main', 'copy',
 # This ensures that the autoclass directive will only include the class'
 # docstring without the docstring of the __init__method.
 autoclass_content = 'both'
+autodoc_default_options = {
+    "members": True,
+    "undoc-members": True,
+    "show-inheritance": True,
+    "member-order": "bysource",
+    "special-members": "__init__",
+}
 
 # This will generate stub documentation pages for items included in autosummary
 # directives (even if those autosummary directives are "commented out"!).

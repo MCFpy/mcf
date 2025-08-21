@@ -140,6 +140,95 @@ ModifiedCausalForest Class
 
 The results dictionary of predict() contain a DataFrame containing treatment probabilities for all treatments, the identifier of the observation, and a dummy variable indicating whether the observation is inside or outside the common support.
 
+OptimalPolicy Class
+~~~~~~~~~~~~~~~~~~~
+- The returns of the allocate, evaluate, evaluate_multiple, estrisk_adjust,
+  solvefair, solve, and winners_losers methods
+  have been unified (and simplified). They all return a single
+  dictionary. Any returns that had before returned as single elements are
+  now returned as part of this dictionary (and more). The API explains their
+  exact content.
+
+- Speed improvements (could be substantial depending on the setting)
+
+- Small bug fixes
+
+- OptimalPolicy is now located in the optpolicy_main.py file (instead of optpolicy_functions.py)
+     
+- Fairness module is now similar to the methods described by Bearth, Lechner,
+  Mareckova, Muny (2025, arXiv). Improved description of API, documentation,
+  as well as introduction of additional procedures (and keywords)
+     
+- The option 'policy tree' is renamed 'policy_tree' for consistency
+     
+**New Methods**
+
+- estrisk_adjust
+        Adjust the policy scores for estimation error. Once the scores
+        are adjusted, standard procedures can be used. The adjustment is
+        based on subtracting multiples, k, of the standard error from
+        the (estimated) policy score.
+
+- solvefair
+        Implements the methods suggested by Bearth, Lechner, Mareckova,
+        Muny (2025, arXiv). The syntax and use is identical to the solve
+        method.
+
+- winners_losers
+        Compare the winners and loser for 2 allocations. k-means is
+        used to cluster groups of individuals that are similar
+        in gains and losses from two user-provided allocations. The
+        groups are described by the policy scores as well as the
+        decision, protected, and materially relevant variables.
+
+**Removed Methods**
+
+- fairscores is no longer available. Use solvefair instead and specify fair_adjust_target = 'xvariables'.
+
+**New Keywords**
+
+- estrisk_value: Float or integer (or None), optional
+        The is k in the formula  'policy_score - k * standard_error'
+        used to adjust the scores for estimation risk.
+        Default (or None) is 1.
+
+- var_polscore_se_name : List or tuple of strings (or None)
+        Standard error of policy scores (in same order as
+        var_polscore_name). Default is None.
+
+- fair_adjust_target :  Target for the fairness adjustment
+        Possible values: 'scores', 'xvariables', 'scores_xvariables' (or None)
+        'scores': Adjust policy scores
+        'xvariables': Adjust decision variables
+        'scores_xvariables': Adjust both decision variables and score
+        Default (or None) is 'xvariables'.
+
+- fair_cont_min_values : Integer or float (or None)
+       The methods used for fairness corrections depends on whether the
+       variable is consider as continuous or discrete. All unordered
+       variables are considered being discrete, and all ordered
+       variables with more than fair_cont_min_values are considered as
+       being discrete as well. The default (or None) is 20.
+
+**Removed Keywords**
+
+- _int_parallel_processing : redundant, use   gen_mp_parallel   instead
+- _int_how_many_parallel : redundant, use   gen_mp_parallel   instead
+
+**Name change of attribute**
+- version --> __version__
+
+
+**New keyword for allocate method**
+
+- fair_adjust_decision_vars : Boolean, optional
+        If True, it will fairness-adjust the decision variables even when
+        fairness adjustments have not been used in training.
+        If False, no fairness adjustments of decision variables. However,
+        if fairness adjustments of decision variables have already been used
+        in training, then these variables will also be fairness adjusted in
+        the allocate method, independent of the value of
+        ``fair_adjust_decision_vars``. The default is False.
 
 Version 0.7.2
 -------------

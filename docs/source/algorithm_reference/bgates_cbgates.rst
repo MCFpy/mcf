@@ -76,7 +76,7 @@ Examples
    )
    
    my_mcf.train(training_df)
-   results, _ = my_mcf.predict(prediction_df)
+   results = my_mcf.predict(prediction_df)
 
 
 .. code-block:: python
@@ -91,4 +91,4 @@ Examples
    )
    
    my_mcf.train(training_df)
-   results, _ = my_mcf.predict(prediction_df)
+   results = my_mcf.predict(prediction_df)

@@ -82,9 +82,9 @@ Below you find a list of optional parameters that are often used to initialize a
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
     | ``var_z_name_cont``              | Continuous feature(s) with many values used for :math:`\textrm{GATE}` estimation.                                    |
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
-    | ``var_z_name_ord``               | Discrete, ordered feature(s) with few values used for :math:`\textrm{GATE}` estimation.                                     |
+    | ``var_z_name_ord``               | Ordered feature(s) with few values used for :math:`\textrm{GATE}` estimation.                                     |
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
-    | ``var_z_name_unord``             | Discrete, unordered feature(s) used for :math:`\textrm{GATE}` estimation.                                                   |
+    | ``var_z_name_unord``             | Unordered feature(s) used for :math:`\textrm{GATE}` estimation.                                                   |
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
     | ``p_gatet``                      | If True, :math:`\textrm{GATE's}` are also computed by treatment status (:math:`\textrm{GATET's}`). Default: False.|
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
@@ -119,15 +119,15 @@ The output files are organized into folders under your specified or default work
 
 2. **ATE, IATE, and GATE Results**: Results for the Average Treatment Effects (ATE), Individualized Average Treatment Effects (IATE), and Group Average Treatment Effects (GATE) are stored in separate subfolders:
 
-- `plots_ate_iate`: Contains graphs and visualizations of ATE and IATE estimators.
-- `plots_gate`: Contains results and visualizations for GATE estimators.
+    - `plots_ate_iate`: Contains graphs and visualizations of ATE and IATE estimators.
+    - `plots_gate`: Contains results and visualizations for GATE estimators.
 
 3. **Common Support**: The `plots_common_support` folder contains graphs of common support plots.
 
 4. **Text Outputs**: Two .txt files are generated for detailed and summarized outputs:
 
-- `txtFileWithOutput`: Contains detailed output logs.
-- `txtFileWithOutput_Summary`: Provides a concise summary of the results.
+    - `txtFileWithOutput`: Contains detailed output logs.
+    - `txtFileWithOutput_Summary`: Provides a concise summary of the results.
 
 Training a Modified Causal Forest
 -----------------------------------
@@ -227,7 +227,7 @@ The columns ``outcome_lc1vs0_iate``, ``outcome_lc2vs0_iate``, and ``outcome_lc2v
 .. code-block:: python
 
     # use the .predict() method as shown in the example files
-    results, _ = my_mcf.predict(prediction_df)
+    results = my_mcf.predict(prediction_df)
 
     # access a potential outcome
     results.get('iate_data_df')['outcome_lc1vs0_iate']

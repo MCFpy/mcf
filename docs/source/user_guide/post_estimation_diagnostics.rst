@@ -30,9 +30,9 @@ To conduct *any* post-estimation diagnostics, the parameter ``post_est_stats`` o
         )
     
     my_mcf.train(training_df)
-    results, _  = my_mcf.predict(prediction_df)
+    results  = my_mcf.predict(prediction_df)
     
-    post_estimation_diagnostics, _ = my_mcf.analyse(results)
+    post_estimation_diagnostics = my_mcf.analyse(results)
 
 The easiest way to to inspect the results of the post-estimation diagnostics, is to read the PDF-report that can be generated using the class :py:class:`~reporting.McfOptPolReport`:
 
@@ -87,9 +87,9 @@ To analyze heterogeneity in different groups (clusters), you can conduct :math:`
         )
     
     my_mcf.train(training_df)
-    results, _  = my_mcf.predict(prediction_df)
+    results  = my_mcf.predict(prediction_df)
     
-    post_estimation_diagnostics, _ = my_mcf.analyse(results)
+    post_estimation_diagnostics = my_mcf.analyse(results)
 
 The report obtained through the class :py:class:`~reporting.McfOptPolReport` will contain descriptive statistics of the :math:`\text{IATE's}`, the potential outcomes and the features for each cluster. 
 
@@ -186,10 +186,10 @@ Example
         )
     
     my_mcf.train(training_df)
-    results, _  = my_mcf.predict(prediction_df)
+    results  = my_mcf.predict(prediction_df)
     
     # Compute the post-estimation diagnostics
-    post_estimation_diagnostics, _ = my_mcf.analyse(results)
+    post_estimation_diagnostics = my_mcf.analyse(results)
     
     # Access cluster memberships (column 'IATE_Cluster')
     post_estimation_diagnostics["iate_data_df"]

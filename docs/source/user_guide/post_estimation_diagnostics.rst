@@ -30,7 +30,7 @@ To conduct *any* post-estimation diagnostics, the parameter ``post_est_stats`` o
         )
     
     my_mcf.train(training_df)
-    results  = my_mcf.predict(prediction_df)
+    results = my_mcf.predict(prediction_df)
     
     post_estimation_diagnostics = my_mcf.analyse(results)
 
@@ -71,7 +71,7 @@ To analyze heterogeneity in different groups (clusters), you can conduct :math:`
 
     from mcf.example_data_functions import example_data
     from mcf.mcf_main import ModifiedCausalForest
-    from mcf import McfOptPolReport
+    from mcf.reporting import McfOptPolReport
     
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()
@@ -87,7 +87,7 @@ To analyze heterogeneity in different groups (clusters), you can conduct :math:`
         )
     
     my_mcf.train(training_df)
-    results  = my_mcf.predict(prediction_df)
+    results = my_mcf.predict(prediction_df)
     
     post_estimation_diagnostics = my_mcf.analyse(results)
 

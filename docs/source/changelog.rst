@@ -27,6 +27,118 @@ Changelog
 
     Note the absence of the tilde '~' in this case. 
 
+Version 0.8.0
+-------------
+
+Documentation
+~~~~~~~~~~~~~~
+
+- QIATE description added.
+- Fairness adjustments to optimal policy module.
+- Estimation risk adjusted optimal policy added. The method 'estrisk_adjust' allows accounting for estimation error in the policy scores. Generally, the idea implemented follows the paper by Chernozhukov, Lee, Rosen, and Sun (2025), Policy Learning With Confidence, arXiv. However, since several approximations are used in the algorithm, the methods will not have the direct confidence-level-related interpretations suggested by these authors. To use 'estrisk_adjust',  it is necessary to provide the standard errors of the policy_scores. 'estrisk_adjust' adjusts the policy scores for estimation error by subtracting multiples, 'estrisk_value', of the  standard error from the policy score. Once the scores are adjusted, standard procedures can be used to obtain optimal decisions.
+-  The keywords related to these methods are 'estrisk_value'. Since this adjustment requires the standard errors of the policy scores, they are now captured in a new keyword (var_polscore_se_name).
+- The predict and predict_iv methods return a dictionary with important outputs from the estimations. The documentation of these outputs has been improved.
+
+Example data 
+~~~~~~~~~~~~~~
+
+- Columns of zeros with different names have been added that are useful to demonstrate the use of the optimal policy module.
+
+- New keywords:
+      - correlation_x: String, optional.
+                      'low': all features are independent.
+                      'middle': only normally distributed features are correlated.
+                      'high': all features are correlated.
+      - no_effect: Boolean, optional
+                      If True, all IATEs are set to 0.
+
+Example Programs
+~~~~~~~~~~~~~~
+
+- mcf_qiate (new): Demonstrates application of QIATEs.
+- mcf_all_parameters: The new method predict_different_allocations() has been added to this example file.
+- mcf_optpol_combined.py: The new method predict_different_allocations() has been added to this example file.
+- optpolicy_all_parameters: Updates and small fixes.
+- optpolicy_fairness: Demonstrates the use of the fairness methods. The method winners_losers() is also used in this script. In addition it is shown how to obtain plots for the fairness-efficiency trade-off (for selected methods, which can be adapted by the user).This example has been substantially changed and follows now much more closely the methods proposed by Bearth, Lechner, Muny, Mareckova (2025, arXiv).              
+- optpolicy_estimation_uncertainty (new): Demonstrates the use of the adjustment procedures for estimation uncertainty of the policy scores in the optimal policy module. 
+- all example programmes have been adjusted to account for the changed returns of the train, predict, and analyse methods.
+
+ModifiedCausalForest Class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- The returns of the train, predict, and analysemethods have been unified (and simplified). They all return a single dictionary. Any returns that had before returned as single elements are now returned as part of this dictionary (and more). The API explains their exact content.
+-  A bug in randomly selecting the variables to be used for splitting leaves has been fixed. This should improve computation time somewhat and increase the independence of the trees.
+- Small bug fixes.
+- Speed increase (forest building & computation of weight matrix).
+- ModifiedCausalForest is located in mcf_main (instead of mcf_functions).
+- If trainings data is larger than _int_obs_bigdata, gen_mp_parallel is reduced to 75% of specified value to reduce memory consumption.
+- Speed increase for smaller sample because of improved matching function (as part of forest training, issue 17). 
+- QIATEs added. The implementation follows the paper by Kutz & Lechner (2025): "Quantile Individualized Average Treatment Effects"
+
+**New Methods**
+
+- **predict_different_allocations**: 
+    Predicts average potential outcomes for different allocations.This method can be used to get inference for allocations obtained by the OptimalPolicy class        when the policy scores used came from the mcf.The details of this methods are described in the working paper by Busshoff and Lechner (2025).
+
+**Change of Keywords**
+
+- z_name_list --> z_name_cont: New name better reflects that it relates to names of continuous variables.
+- Name change of output files: All plots are saved in directories. The names of these directories have changed. To make them more self-explanatory they all start now with 'plots_', e.g. 'common_support' now becomes 'plots_common_support'.
+
+
+**Change of Attribute**
+
+- version --> __version__
+
+
+**New Keywords**
+
+- p_qiate : Boolean (or None), optional. QIATEs will be estimated.
+              Default (or None) is False.
+- p_qiate_se : Boolean (or None), optional. Standard errors of QIATEs
+                 will be estimated. Default (or None) is False.
+- p_qiate_m_mqiate : Boolean (or None), optional. QIATEs minus median of
+                        QIATEs will be estimated. Default (or None) is False.
+- p_qiate_m_opp : Boolean (or None), optional.
+                    QIATE(x, q) - QIATE(x, 1-q) will be estimated,
+                    including inference if p_qiate_se == True. Increaes
+                    computation time.
+                    Default is False.
+- p_qiate_no_of_quantiles : Integer (or None), optional. Number of
+                              quantiles used for QIATE. Default (or None)
+                              is 99.
+- p_se_boot_qiate : Integer or Boolean (or None), optional. Bootstrap of
+            standard errors for QIATE. Specify either a Boolean (if
+            True, number of bootstrap replications will be set to 199) or an
+            integer corresponding to the number of bootstrap replications
+            (this implies True). None : 199 replications p_cluster_std is
+            True, and False otherwise. Default is None.
+- p_qiate_smooth : Boolean (or None), optional. Smooth estimated QIATEs
+            using kernel smoothing. Default is True.
+- p_qiate_smooth_bandwidth : Integer or Float (or None), optional.
+            Multiplier applied to default bandwidth used for kernel
+            smoothing of QIATE. Default is 1.
+- p_qiate_bias_adjust : Boolean (or None), optional
+            Bias correction procedure for QIATEs based on simulations.
+            Default is True.
+         
+- cs_detect_const_vars_stop : Integer or float (or None)
+            Control variables that have no variation inside a treatment
+            arm violate the common support condition. If
+            'cs_detect_vars_no_var_stop' is True, data will be checked for
+            such variables and an exception is raised if such a variable is
+            detected. Then, the user has to decide to either adjust the
+            data (by deleting either observations with the value of the
+            variable) that creates the problem (recommended solution) or 
+            to delete this variable.
+            Default is True. 
+
+**Change of Default values**
+
+- The base value in the formula of cf_chunks_maxsize has been increased
+        from 90000 to 100000, leading to somewhat deeper forests at the expense
+        of some additional memory consumption.  
+
+The results dictionary of predict() contain a DataFrame containing treatment probabilities for all treatments, the identifier of the observation, and a dummy variable indicating whether the observation is inside or outside the common support.
 
 
 Version 0.7.2

@@ -87,7 +87,7 @@ Example
         var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
         var_x_name_ord=['x_cont0', 'x_cont1', 'x_ord1'],
         # Select the Policy Tree method
-        gen_method='policy tree'
+        gen_method='policy_tree'
         )
 
 

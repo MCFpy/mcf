@@ -14,7 +14,7 @@ To conduct *any* post-estimation diagnostics, the parameter ``post_est_stats`` o
 
     from mcf.example_data_functions import example_data
     from mcf.mcf_main import ModifiedCausalForest
-    from mcf.reporting import McfOptPolReport import McfOptPolReport
+    from mcf.reporting import McfOptPolReport
     
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()

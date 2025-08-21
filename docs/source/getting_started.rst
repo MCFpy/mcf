@@ -239,12 +239,13 @@ Here, ``results`` essentially plays the same role as ``results`` explained previ
 Post-estimation
 ---------------
 
-You can use the :py:meth:`~mcf_main.ModifiedCausalForest.analyse` method to investigate a number of post-estimation plots. These plots are also exported to the previously created output folder:
+You can use the :py:meth:`~mcf_main.ModifiedCausalForest.analyse` method to investigate a number of post-estimation plots:
 
 .. code-block:: python
 
     my_mcf.analyse(results)
 
+These plots are also exported to the previously created output folder.
 **Note (2)**, the above code runs after using the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method as shown in the example files (see **Note 1**).
     
 Learning an optimal policy rule

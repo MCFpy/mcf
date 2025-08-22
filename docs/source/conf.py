@@ -14,8 +14,8 @@ import sys
 # sys.path.insert(0, os.path.abspath('..'))
 # sys.path.insert(0, os.path.abspath('.'))
 # sys.path.insert(0, os.path.abspath('../..'))
+# sys.path.insert(0, os.path.abspath('../../mcf/mcf'))
 sys.path.insert(0, os.path.abspath('../../mcf'))
-# sys.path.insert(0, os.path.abspath('../mcf'))
 
 # -- Project information -----------------------------------------------------
 
@@ -37,7 +37,8 @@ extensions = [
     'sphinx_copybutton',
     'sphinx.ext.githubpages',
     'sphinx.ext.doctest',
-    'sphinx_design'
+    'sphinx_design', 
+    'myst_parser' 
 ]
 
 # Add any paths that contain templates here, relative to this directory.

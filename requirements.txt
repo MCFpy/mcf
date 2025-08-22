@@ -1,7 +1,9 @@
-sphinx>=6
+sphinx>=6,<8
 Pygments>=2.7.0
 pydata-sphinx-theme==0.14.4
 sphinx-copybutton
+sphinx_design
+myst-parser>=2.0.0
 numpy
 pandas
 scipy
@@ -9,4 +11,4 @@ scikit-learn
 statsmodels
 plotly
 matplotlib
-sphinx_design
+ray

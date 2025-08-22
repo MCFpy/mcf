@@ -64,7 +64,6 @@ Methods
 
    .. autosummary:: 
       :toctree:
-      OptimalPolicy.fairscores
       OptimalPolicy.solve
       OptimalPolicy.allocate
       OptimalPolicy.evaluate
@@ -73,7 +72,6 @@ Methods
 
 
 .. autosummary:: 
-    ~OptimalPolicy.fairscores
     ~OptimalPolicy.solve
     ~OptimalPolicy.allocate
     ~OptimalPolicy.evaluate

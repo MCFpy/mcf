@@ -14,14 +14,7 @@ import sys
 # sys.path.insert(0, os.path.abspath('..'))
 # sys.path.insert(0, os.path.abspath('.'))
 # sys.path.insert(0, os.path.abspath('../..'))
-# sys.path.insert(0, os.path.abspath('../../mcf/mcf'))
-# sys.path.insert(0, os.path.abspath('../../mcf'))
-
-# docs/conf.py
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]  # repo root
-sys.path.insert(0, str(ROOT))
+sys.path.insert(0, os.path.abspath('../../mcf'))
 
 # -- Project information -----------------------------------------------------
 
@@ -43,8 +36,7 @@ extensions = [
     'sphinx_copybutton',
     'sphinx.ext.githubpages',
     'sphinx.ext.doctest',
-    'sphinx_design', 
-    'myst_parser' 
+    'sphinx_design'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -61,7 +53,7 @@ source_suffix = ['.rst', '.md']
 
 # This will allow your docs to import the example code without requiring those
 # modules be installed
-autodoc_mock_imports = ['bs4', 'requests', 'pandas']
+autodoc_mock_imports = ['bs4', 'requests', 'pandas', 'mcf', 'time', 'copy', 'datetime', 'os']
 
 # This ensures that the autoclass directive will only include the class'
 # docstring without the docstring of the __init__method.

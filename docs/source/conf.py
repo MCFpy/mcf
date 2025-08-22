@@ -15,8 +15,8 @@ import sys
 # sys.path.insert(0, os.path.abspath('.'))
 # sys.path.insert(0, os.path.abspath('../..'))
 # sys.path.insert(0, os.path.abspath('../../mcf'))
-sys.path.insert(0, os.path.abspath('../../mcf/mcf')) # added on 22.08
-
+# sys.path.insert(0, os.path.abspath('../../mcf/mcf')) # added on 22.08
+sys.path.insert(0, os.path.abspath('../mcf/mcf')) # added on 22.08
 
 # -- Project information -----------------------------------------------------
 

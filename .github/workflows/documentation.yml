@@ -25,6 +25,9 @@ jobs:
     
     - name: Build HTML
       uses: ammaraskar/sphinx-action@master
+      with:
+        docs-folder: docs
+        pre-build-command: pip install -e .
       
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -40,3 +43,4 @@ jobs:
         publish_branch: gh-pages
         publish_dir: docs/build/html
         force_orphan: true
+

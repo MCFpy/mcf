@@ -9,17 +9,17 @@ Overview of classes
     If you add a '~' before a reference like `mymodule.MyClass.mymethod`, the
     link text will then only show 'mymethod' which is often desirable.
 .. autosummary::
-    ~mcf_main.ModifiedCausalForest
-    ~optpolicy_main.OptimalPolicy
+    ~mcf_functions.ModifiedCausalForest
+    ~optpolicy_functions.OptimalPolicy
     ~reporting.McfOptPolReport
 
 
 Modified Causal Forest
 ----------------------
 
-.. currentmodule:: mcf_main
+.. currentmodule:: mcf_functions
 
-.. autoclass:: mcf_main.ModifiedCausalForest
+.. autoclass:: ModifiedCausalForest
 
 
 Methods
@@ -48,7 +48,7 @@ Methods
 Optimal Policy
 --------------
 
-.. currentmodule:: optpolicy_main
+.. currentmodule:: optpolicy_functions
 
 .. autoclass:: OptimalPolicy
 
@@ -64,6 +64,7 @@ Methods
 
    .. autosummary:: 
       :toctree:
+      OptimalPolicy.fairscores
       OptimalPolicy.solve
       OptimalPolicy.allocate
       OptimalPolicy.evaluate
@@ -72,6 +73,7 @@ Methods
 
 
 .. autosummary:: 
+    ~OptimalPolicy.fairscores
     ~OptimalPolicy.solve
     ~OptimalPolicy.allocate
     ~OptimalPolicy.evaluate

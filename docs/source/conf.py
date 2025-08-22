@@ -11,11 +11,17 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 import os
 import sys
-
-sys.path.insert(0, os.path.abspath('..'))
+# sys.path.insert(0, os.path.abspath('..'))
 # sys.path.insert(0, os.path.abspath('.'))
 # sys.path.insert(0, os.path.abspath('../..'))
+# sys.path.insert(0, os.path.abspath('../../mcf/mcf'))
 # sys.path.insert(0, os.path.abspath('../../mcf'))
+
+# docs/conf.py
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]  # repo root
+sys.path.insert(0, str(ROOT))
 
 # -- Project information -----------------------------------------------------
 
@@ -37,8 +43,8 @@ extensions = [
     'sphinx_copybutton',
     'sphinx.ext.githubpages',
     'sphinx.ext.doctest',
-    'sphinx_design',
-    'myst_parser',
+    'sphinx_design', 
+    'myst_parser' 
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -55,23 +61,15 @@ source_suffix = ['.rst', '.md']
 
 # This will allow your docs to import the example code without requiring those
 # modules be installed
-autodoc_mock_imports = ['bs4', 'requests', 'pandas', 'time', 'mcf_main', 'copy', 'datetime', 'os']
+autodoc_mock_imports = ['bs4', 'requests', 'pandas']
 
 # This ensures that the autoclass directive will only include the class'
 # docstring without the docstring of the __init__method.
 autoclass_content = 'class'
-autodoc_default_options = {
-    "members": True,
-    "undoc-members": True,
-    "show-inheritance": True,
-    "member-order": "bysource",
-    "special-members": "__init__",
-}
 
 # This will generate stub documentation pages for items included in autosummary
 # directives (even if those autosummary directives are "commented out"!).
 autosummary_generate = True
-autosummary_generate_overwrite = True
 
 # Ignore lines in the docstrings that are enclosed by the following lines:
 # <NOT-ON-API>

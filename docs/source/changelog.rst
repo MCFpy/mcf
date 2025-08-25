@@ -77,7 +77,7 @@ ModifiedCausalForest Class
 **New Methods**
 
 - **predict_different_allocations**: 
-    Predicts average potential outcomes for different allocations.This method can be used to get inference for allocations obtained by the OptimalPolicy class        when the policy scores used came from the mcf.The details of this methods are described in the working paper by Busshoff and Lechner (2025).
+    Predicts average potential outcomes for different allocations. This method can be used to get inference for allocations obtained by the OptimalPolicy class        when the policy scores used came from the mcf. The details of this methods are described in the working paper by Busshoff and Lechner (mimeo, 2025).
 
 **Change of Keywords**
 

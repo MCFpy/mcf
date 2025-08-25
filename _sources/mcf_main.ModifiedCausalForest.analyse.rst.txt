@@ -1,0 +1,6 @@
+﻿mcf\_main.ModifiedCausalForest.analyse
+======================================
+
+.. currentmodule:: mcf_main.ModifiedCausalForest
+
+.. autodata:: analyse

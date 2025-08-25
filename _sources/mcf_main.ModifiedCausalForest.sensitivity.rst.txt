@@ -1,0 +1,6 @@
+﻿mcf\_main.ModifiedCausalForest.sensitivity
+==========================================
+
+.. currentmodule:: mcf_main.ModifiedCausalForest
+
+.. autodata:: sensitivity

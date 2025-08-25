@@ -1,0 +1,6 @@
+﻿mcf\_main.ModifiedCausalForest.train
+====================================
+
+.. currentmodule:: mcf_main.ModifiedCausalForest
+
+.. autodata:: train

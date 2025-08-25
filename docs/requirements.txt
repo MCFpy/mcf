@@ -10,4 +10,6 @@ statsmodels
 plotly
 matplotlib
 sphinx_design
+myst-parser
+ray
 packaging>=21.3

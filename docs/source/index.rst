@@ -29,7 +29,7 @@ You can install the package from PyPI using:
     pip install mcf
 
 For a smooth experience without conflicts with other packages, use a virtual environment based on conda. You can manage conda environments either via the command line or a graphical interface. 
-The command line offers a compatible solution for all operating systems, making it our recommended choice. However, the graphical interface is more user-friendly.
+The command line offers a compatible solution for all operating systems, making it our recommended choice. However, the graphical interface is more user-friendly. As an alternative, you may also create a new virtual environment directly from the ``environment.yml`` file available in our GitHub repository.
 
 If you prefer the command line, install conda as described `here <https://docs.conda.io/projects/conda/en/latest/user-guide/install/>`__. Next open your Anaconda Prompt (Windows) or terminal (macOS and Linux) and do the following:
 

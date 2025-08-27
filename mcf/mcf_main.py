@@ -1417,9 +1417,11 @@ class ModifiedCausalForest:
 
         return results
 
-    def predict(self, data_df):
+    def predict(self: 'ModifiedCausalForest', data_df: DataFrame) -> dict:
         """
-        Compute all effects given a causal forest estimated with :meth:`~ModifiedCausalForest.train` method.
+        Compute all effects.
+
+        meth:`~ModifiedCausalForest.train` method must be run beforehand.
 
         Parameters
         ----------
@@ -1431,9 +1433,9 @@ class ModifiedCausalForest:
         Returns
         -------
         results : Dictionary.
-            Results. This dictionary has the following structure:
+            Contains the results. This dictionary has the following structure:
             'ate': ATE, 'ate_se': Standard error of ATE,
-            'ate effect_list': List of names of estimated effects,
+            'ate_effect_list': List of names of estimated effects,
             'gate': GATE, 'gate_se': SE of GATE,
             'gate_diff': GATE minus ATE,
             'gate_diff_se': Standard error of GATE minus ATE,
@@ -1458,13 +1460,23 @@ class ModifiedCausalForest:
             'bala': Effects of balancing tests,
             'bala_se': Standard error of effects of balancing tests,
             'bala_effect_list': Names of effects of balancing tests.
+            'common_support_probabilities' : pd.DataFrame containing treatment
+            probabilities for all treatments, the identifier of the observation,
+            and a dummy variable indicating whether the observation is inside or
+            outside the common support. None if _int_with_output is False.
+            'path_output': Pathlib object, location of directory in which output
+            is saved.
 
-        outpath : Pathlib object
-            Location of directory in which output is saved.
         """
-        results, self.gen_dict['outpath'] = predict_main(self, data_df)
+        self.predict_done = True
+        results = predict_main(self, data_df)
 
-        return results, self.gen_dict['outpath']
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
+        return results
 
     def predict_iv(self, data_df):
         """

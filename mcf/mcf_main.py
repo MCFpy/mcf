@@ -1127,7 +1127,7 @@ class ModifiedCausalForest:
             var_x_name_balance_test_unord=None, var_x_name_remain_ord=None,
             var_x_name_remain_unord=None, var_x_name_ord=None,
             var_x_name_unord=None, var_y_name=None, var_y_tree_name=None,
-            var_z_name_list=None, var_z_name_ord=None, var_z_name_unord=None,
+            var_z_name_cont=None, var_z_name_ord=None, var_z_name_unord=None,
             cf_alpha_reg_grid=1, cf_alpha_reg_max=0.15, cf_alpha_reg_min=0.05,
             cf_boot=1000, cf_chunks_maxsize=None, cf_compare_only_to_zero=False,
             cf_n_min_grid=1, cf_n_min_max=None, cf_n_min_min=None,
@@ -1138,8 +1138,8 @@ class ModifiedCausalForest:
             cf_penalty_type='mse_d',
             cf_subsample_factor_eval=None, cf_subsample_factor_forest=1,
             cf_tune_all=False, cf_vi_oob_yes=False,
-            cs_adjust_limits=None, cs_max_del_train=0.5, cs_min_p=0.01,
-            cs_quantil=1, cs_type=1,
+            cs_adjust_limits=None, cs_detect_const_vars_stop=True,
+            cs_max_del_train=0.5, cs_min_p=0.01, cs_quantil=1, cs_type=1,
             ct_grid_dr=100, ct_grid_nn=10, ct_grid_w=10,
             dc_check_perfectcorr=True, dc_clean_data=True, dc_min_dummy_obs=10,
             dc_screen_covariates=True, fs_rf_threshold=1, fs_other_sample=True,
@@ -1149,15 +1149,15 @@ class ModifiedCausalForest:
             gen_output_type=2, gen_panel_in_rf=True, gen_weighted=False,
             lc_cs_cv=True, lc_cs_cv_k=None, lc_cs_share=0.25,
             lc_estimator='RandomForest', lc_yes=True, lc_uncenter_po=True,
-            p_atet=False, p_gatet=False, p_bgate=False, p_cbgate=False,
-            p_ate_no_se_only=False, p_bt_yes=True,
+            p_ate_no_se_only=False, p_atet=False, p_bgate=False,
+            p_bgate_sample_share=None, p_bt_yes=True, p_cbgate=False,
             p_choice_based_sampling=False, p_choice_based_probs=None,
             p_ci_level=0.95, p_cluster_std=False, p_cond_var=True,
             p_gates_minus_previous=False, p_gates_smooth=True,
             p_gates_smooth_bandwidth=1, p_gates_smooth_no_evalu_points=50,
-            p_gates_no_evalu_points=50,
-            p_bgate_sample_share=None,
+            p_gates_no_evalu_points=50, p_gatet=False,
             p_iate=True, p_iate_se=False, p_iate_m_ate=False,
+            p_iv_aggregation_method=('local', 'global',),
             p_knn=True, p_knn_const=1, p_knn_min_k=10,
             p_nw_bandw=1, p_nw_kern=1,
             p_max_cats_z_vars=None, p_max_weight_share=0.05,
@@ -1165,7 +1165,7 @@ class ModifiedCausalForest:
             p_qiate_m_opp=False,
             p_qiate_no_of_quantiles=99, p_qiate_smooth=True,
             p_qiate_smooth_bandwidth=1,
-            p_qiate_bias_adjust=True, p_qiate_bias_adjust_draws=1000,
+            p_qiate_bias_adjust=True,
             p_se_boot_ate=None, p_se_boot_gate=None,
             p_se_boot_iate=None, p_se_boot_qiate=None,
             var_x_name_balance_bgate=None, var_cluster_name=None,
@@ -1195,7 +1195,7 @@ class ModifiedCausalForest:
             _int_with_output=True
             ):
 
-        self.version = '0.7.2'
+        self.__version__ = '0.8.0'
 
         self.int_dict = mcf_init.int_init(
             cuda=_int_cuda, cython=False,  # Cython turned off for now
@@ -1244,7 +1244,8 @@ class ModifiedCausalForest:
         self.cs_dict = mcf_init.cs_init(
             gen_dict,
             max_del_train=cs_max_del_train, min_p=cs_min_p, quantil=cs_quantil,
-            type_=cs_type, adjust_limits=cs_adjust_limits)
+            type_=cs_type, adjust_limits=cs_adjust_limits,
+            detect_const_vars_stop=cs_detect_const_vars_stop)
         self.lc_dict = mcf_init.lc_init(
             cs_cv=lc_cs_cv, cs_cv_k=lc_cs_cv_k, cs_share=lc_cs_share,
             undo_iate=lc_uncenter_po, yes=lc_yes, estimator=lc_estimator)
@@ -1290,7 +1291,7 @@ class ModifiedCausalForest:
             se_boot_qiate=p_se_boot_qiate, qiate_smooth=p_qiate_smooth,
             qiate_smooth_bandwidth=p_qiate_smooth_bandwidth,
             qiate_bias_adjust=p_qiate_bias_adjust,
-            qiate_bias_adjust_draws=p_qiate_bias_adjust_draws)
+            iv_aggregation_method=p_iv_aggregation_method)
         self.post_dict = mcf_init.post_init(
             p_dict,
             bin_corr_threshold=post_bin_corr_threshold,
@@ -1317,7 +1318,7 @@ class ModifiedCausalForest:
             x_name_remain_unord=var_x_name_remain_unord,
             x_name_ord=var_x_name_ord, x_name_unord=var_x_name_unord,
             y_name=var_y_name, y_tree_name=var_y_tree_name,
-            z_name_list=var_z_name_list, z_name_ord=var_z_name_ord,
+            z_name_cont=var_z_name_cont, z_name_ord=var_z_name_ord,
             z_name_unord=var_z_name_unord)
         self.blind_dict = self.sens_dict = None
         self.data_train_dict = self.var_x_type = self.var_x_values = None
@@ -1326,8 +1327,11 @@ class ModifiedCausalForest:
                        'analyse_list': []
                        }
         self.iv_mcf = {'firststage': None, 'reducedform': None}
+        self.predict_done = False
+        self.predict_iv_done = False
+        self.predict_different_allocations_done = False
 
-    def train(self, data_df):
+    def train(self: 'ModifiedCausalForest', data_df: DataFrame) -> dict:
         """
         Build the modified causal forest on the training data.
 
@@ -1339,20 +1343,36 @@ class ModifiedCausalForest:
 
         Returns
         -------
-        tree_df : DataFrame
-            Dataset used to build the forest.
-
-        fill_y_df : DataFrame
-            Dataset used to populate the forest with outcomes.
-
-        outpath : Pathlib object
-            Location of directory in which output is saved.
+        results : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'tree_df' : DataFrame
+                Dataset used to build the forest.
+            'fill_y_df' : DataFrame
+                Dataset used to populate the forest with outcomes.
+            'common_support_probabilities_tree': pd.DataFrame containing
+                treatment probabilities for all treatments,
+                the identifier of the observation, and a dummy variable
+                indicating whether the observation is inside or outside the
+                common support. This is for the data used to build the trees.
+                None if _int_with_output is False.
+            'common_support_probabilities_fill_y': pd.DataFrame containing
+                treatment probabilities for all treatments, the identifier of
+                the observation, and a dummy variable indicating
+                whether the observation is inside or outside the common support.
+                This is for the data used to fill the trees with outcome values.
+                None if _int_with_output is False.
+            'path_output' : Pathlib object
+                Location of directory in which output is saved.
 
         """
-        (tree_df, fill_y_df, self.gen_dict['outpath']) = train_main(self,
-                                                                    data_df)
+        results = train_main(self, data_df)
 
-        return tree_df, fill_y_df, self.gen_dict['outpath']
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
+        return results
 
     def train_iv(self, data_df):
         """

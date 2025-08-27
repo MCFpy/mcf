@@ -83,3 +83,16 @@ The sensitivity checks consist of the following steps:
 Steps 3 and 4 may be repeated, and results averaged to reduce simulation noise.
 
 Please consult the API for details on how to use the :py:meth:`~mcf_main.ModifiedCausalForest.sensitivity` method.
+
+
+GPU Support
+-----------
+
+The mcf package can leverage GPU processing power via CUDA, NVIDIA’s parallel computing platform.
+
+GPU acceleration can be enabled by setting the ``cuda``-related argument in the API to ``True`` (default: ``False``).
+
+.. note::
+
+   This feature is currently experimental. Using an incompatible or incorrect CUDA version may lead to unexpected behavior or errors.
+

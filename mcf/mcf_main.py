@@ -1374,6 +1374,49 @@ class ModifiedCausalForest:
 
         return results
 
+    def train_iv(self: 'ModifiedCausalForest', data_df: DataFrame) -> dict:
+        """
+        Train the IV modified causal forest on the training data.
+
+        Parameters
+        ----------
+        data_df : DataFrame
+            Data used to compute the causal forest. It must contain information
+            about outcomes, treatment, and features.
+
+        Returns
+        -------
+        results : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'tree_df' : DataFrame
+                Dataset used to build the forest.
+            'fill_y_df' : DataFrame
+                Dataset used to populate the forest with outcomes.
+            'common_support_probabilities_tree': pd.DataFrame containing
+                treatment probabilities for all treatments, the identifier of
+                the observation, and a dummy variable indicating
+                whether the observation is inside or outside the common support.
+                This is for the data used to build the trees.
+                None if _int_with_output is False.
+            'common_support_probabilities_fill_y': pd.DataFrame containing
+                treatment probabilities for all treatments, the identifier of
+                the observation, and a dummy variable indicating
+                whether the observation is inside or outside the common support.
+                This is for the data used to fill the trees with outcome values.
+                None if _int_with_output is False.
+            'path_output' : Pathlib object
+                Location of directory in which output is saved.
+
+        """
+        results = train_iv_main(self, data_df)
+
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
+        return results
+
     def predict(self, data_df):
         """
         Compute all effects given a causal forest estimated with :meth:`~ModifiedCausalForest.train` method.

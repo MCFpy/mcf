@@ -32,12 +32,14 @@ Methods
    .. autosummary:: 
       :toctree:
       ModifiedCausalForest.train
+      ModifiedCausalForest.train_iv
       ModifiedCausalForest.predict
       ModifiedCausalForest.analyse
       ModifiedCausalForest.sensitivity
 
 .. autosummary:: 
     ~ModifiedCausalForest.train
+    ~ModifiedCausalForest.train_iv
     ~ModifiedCausalForest.predict
     ~ModifiedCausalForest.analyse
     ~ModifiedCausalForest.sensitivity

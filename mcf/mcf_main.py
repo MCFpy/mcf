@@ -1374,7 +1374,7 @@ class ModifiedCausalForest:
 
         return results
 
-    def train_iv(self, data_df):
+    def train_iv(self: 'ModifiedCausalForest', data_df: DataFrame) -> dict:
         """
         Train the IV modified causal forest on the training data.
 
@@ -1386,23 +1386,42 @@ class ModifiedCausalForest:
 
         Returns
         -------
-        tree_df : DataFrame
-            Dataset used to build the forest.
-
-        fill_y_df : DataFrame
-            Dataset used to populate the forest with outcomes.
-
-        outpath : Pathlib object
-            Location of directory in which output is saved.
+        results : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'tree_df' : DataFrame
+                Dataset used to build the forest.
+            'fill_y_df' : DataFrame
+                Dataset used to populate the forest with outcomes.
+            'common_support_probabilities_tree': pd.DataFrame containing
+                treatment probabilities for all treatments, the identifier of
+                the observation, and a dummy variable indicating
+                whether the observation is inside or outside the common support.
+                This is for the data used to build the trees.
+                None if _int_with_output is False.
+            'common_support_probabilities_fill_y': pd.DataFrame containing
+                treatment probabilities for all treatments, the identifier of
+                the observation, and a dummy variable indicating
+                whether the observation is inside or outside the common support.
+                This is for the data used to fill the trees with outcome values.
+                None if _int_with_output is False.
+            'path_output' : Pathlib object
+                Location of directory in which output is saved.
 
         """
-        tree_df, fill_y_df = train_iv_main(self, data_df)
+        results = train_iv_main(self, data_df)
 
-        return tree_df, fill_y_df, self.gen_dict['outpath']
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
 
-    def predict(self, data_df):
+        return results
+
+    def predict(self: 'ModifiedCausalForest', data_df: DataFrame) -> dict:
         """
-        Compute all effects given a causal forest estimated with :meth:`~ModifiedCausalForest.train` method.
+        Compute all effects.
+
+        meth:`~ModifiedCausalForest.train` method must be run beforehand.
 
         Parameters
         ----------
@@ -1414,9 +1433,9 @@ class ModifiedCausalForest:
         Returns
         -------
         results : Dictionary.
-            Results. This dictionary has the following structure:
+            Contains the results. This dictionary has the following structure:
             'ate': ATE, 'ate_se': Standard error of ATE,
-            'ate effect_list': List of names of estimated effects,
+            'ate_effect_list': List of names of estimated effects,
             'gate': GATE, 'gate_se': SE of GATE,
             'gate_diff': GATE minus ATE,
             'gate_diff_se': Standard error of GATE minus ATE,
@@ -1441,18 +1460,77 @@ class ModifiedCausalForest:
             'bala': Effects of balancing tests,
             'bala_se': Standard error of effects of balancing tests,
             'bala_effect_list': Names of effects of balancing tests.
+            'common_support_probabilities' : pd.DataFrame containing treatment
+            probabilities for all treatments, the identifier of the observation,
+            and a dummy variable indicating whether the observation is inside or
+            outside the common support. None if _int_with_output is False.
+            'path_output': Pathlib object, location of directory in which output
+            is saved.
 
-        outpath : Pathlib object
-            Location of directory in which output is saved.
         """
-        results, self.gen_dict['outpath'] = predict_main(self, data_df)
+        self.predict_done = True
+        results = predict_main(self, data_df)
 
-        return results, self.gen_dict['outpath']
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
 
-    def predict_iv(self, data_df):
+        return results
+
+    def predict_different_allocations(self: 'ModifiedCausalForest',
+                                      data_df: DataFrame,
+                                      allocations_df: bool = None
+                                      ) -> dict:
         """
-        Compute all effects for instrument mcf using forests estimated by the
-        :meth:`~ModifiedCausalForest.train_iv` method.
+        Predict average potential outcomes for different allocations.
+
+        meth:`~ModifiedCausalForest.train` method must be run beforehand. The
+        details of this methods are described in the working paper by
+        Busshoff and Lechner (2025).
+
+        Parameters
+        ----------
+        data_df : DataFrame
+            Data used to compute the predictions. It must contain information
+            about features (and treatment if effects for treatment specific
+            subpopulations are desired as well).
+
+        allocations_df : Dataframe or None, optional
+            Different allocations which are to be evaluated. The length of this
+            dataframe must be the same as the length of data_df.
+            Default is None.
+
+        Returns
+        -------
+        results : Dictionary
+            Results. This dictionary has the following structure:
+            'ate': Average treatment effects
+            'ate_se': Standard error of average treatment effects
+            'ate_effect_list': List with name with estiamted effects
+            'alloc_df': Dataframe with value and variance of value for all
+                        allocations investigated.
+            'outpath' : Pathlib object. Location of directory in which output
+                        is saved.
+
+        """
+        self.predict_different_allocations_done = True
+        results, self.gen_dict['outpath'] = predict_different_allocations_main(
+            self, data_df, allocations_df)
+
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
+        return results
+
+    def predict_iv(self: 'ModifiedCausalForest', data_df: DataFrame
+                   ) -> tuple[dict, dict]:
+        """
+        Compute all effects for instrument mcf (possibly in 2 differnt ways).
+
+        :meth:`~ModifiedCausalForest.train_iv` method must be run beforehand.
 
         Parameters
         ----------
@@ -1463,10 +1541,10 @@ class ModifiedCausalForest:
 
         Returns
         -------
-        results : Dictionary.
-            Results. This dictionary has the following structure:
+        results_global : Dictionary.
+            Contains the results. This dictionary has the following structure:
             'ate': LATE, 'ate_se': Standard error of LATE,
-            'ate effect_list': List of names of estimated effects,
+            'ate_effect_list': List of names of estimated effects,
             'ate_1st': ATE 1st stage, 'ate_1st_se': Standard error of ATE (1st)
             'ate 1st_effect_list': List of names of estimated effects (1st),
             'ate_redf': ATE reduced form, 'ate_redf_se': Standard error of ATE
@@ -1508,10 +1586,23 @@ class ModifiedCausalForest:
             'bala_redf': Effects of balancing tests (reduced form),
             'bala_redf_se': Standard error of effects of balancing tests (red.),
             'bala_redf_effect_list': Names of effects of balancing tests (red.).
+            'common_support_probabilities': pd.DataFrame containing treatment
+            probabilities for all treatments, the identifier of the observation,
+            and a dummy variable indicating whether the observation is inside or
+            outside the common support. None if _int_with_output is False.
+            'path_output': Pathlib object, location of directory in which output
+            is saved.
 
-        outpath : String
-            Location of directory in which output is saved.
+            It is empty if the IV estimation method 'global' has not been
+            used.
+
+        results_local : Dictionary.
+            Same content as results_wald.
+            It is empty if the IV estimation method 'local' has not been
+            used.
+
         """
+        self.predict_iv_done = True
         # Reduce sample size to upper limit
         data_df, rnd_reduce, txt_red = check_reduce_dataframe(
             data_df, title='Prediction',
@@ -1520,18 +1611,18 @@ class ModifiedCausalForest:
         if rnd_reduce and self.int_dict['with_output']:
             print_mcf(self.gen_dict, txt_red, summary=True)
 
-        results = predict_iv_main(self, data_df)
+        results_global, results_local = predict_iv_main(self, data_df)
 
-        if (is_initialized()
+        if (self.int_dict['mp_ray_shutdown']
             and self.gen_dict['mp_parallel'] > 1
-                and len(data_df) > self.int_dict['obs_bigdata']):
+                and is_initialized()):
             shutdown()
 
-        return results, self.gen_dict['outpath']
+        return results_global, results_local
 
-    def analyse(self, results):
+    def analyse(self: 'ModifiedCausalForest', results: DataFrame) -> dict:
         """
-        Analyse estimated IATE with various descriptive tools.
+        Analyse estimated IATEs with various descriptive tools.
 
         Parameters
         ----------
@@ -1552,14 +1643,15 @@ class ModifiedCausalForest:
             IATEs contains an additional integer with a group label that comes
             from k-means clustering.
 
-        outpath : String
-            Location of directory in which output is saved.
-
         """
-        (results_plus_cluster, self.gen_dict['outpath']) = analyse_main(self,
-                                                                        results)
+        results_plus_cluster = analyse_main(self, results)
 
-        return results_plus_cluster, self.gen_dict['outpath']
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
+        return results_plus_cluster
 
     def blinder_iates(
         self, data_df, blind_var_x_protected_name=None,
@@ -1643,15 +1735,29 @@ class ModifiedCausalForest:
              blind_weights_of_blind=blind_weights_of_blind,
              blind_obs_ref_data=blind_obs_ref_data, blind_seed=blind_seed)
 
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
         return (blinded_dic, data_on_support_df, var_x_policy_ord_name,
                 var_x_policy_unord_name, var_x_blind_ord_name,
                 var_x_blind_unord_name, self.gen_dict['outpath'])
 
-    def sensitivity(self, train_df, predict_df=None, results=None,
-                    sens_cbgate=None, sens_bgate=None, sens_gate=None,
-                    sens_iate=None, sens_iate_se=None, sens_scenarios=None,
-                    sens_cv_k=None, sens_replications=2,
-                    sens_reference_population=None):
+    def sensitivity(self: 'ModifiedCausalForest',
+                    train_df: DataFrame,
+                    predict_df: DataFrame | None = None,
+                    results: dict | None = None,
+                    sens_cbgate: bool | None = None,
+                    sens_bgate: bool | None = None,
+                    sens_gate: bool | None = None,
+                    sens_iate: bool | None = None,
+                    sens_iate_se: bool | None = None,
+                    sens_scenarios: list | tuple | None = None,
+                    sens_cv_k: int | None = None,
+                    sens_replications: int = 2,
+                    sens_reference_population: int | float | None = None
+                    ) -> dict:
         """
         Compute simulation based sensitivity indicators.
 
@@ -1661,7 +1767,7 @@ class ModifiedCausalForest:
             Data with real outcomes, treatments, and covariates. Data will be
             transformed to compute sensitivity indicators.
 
-        predict_df : DataFrame (or None), optinal.
+        predict_df : DataFrame (or None), optional.
             Prediction data to compute all effects for. This data will not be
             changed in the computation process. Only covariate information is
             used from this dataset. If predict_df is not a DataFrame,
@@ -1713,9 +1819,6 @@ class ModifiedCausalForest:
             the sensitivity analysis. Default is to use the treatment with most
             observed observations.
 
-        outpath : String
-            Location of directory in which output is saved.
-
         Returns
         -------
         results_avg : Dictionary
@@ -1723,10 +1826,8 @@ class ModifiedCausalForest:
             :meth:`~ModifiedCausalForest.predict` method but (if applicable)
             averaged over replications.
 
-        outpath : String
-            Location of directory in which output is saved.
         """
-        results_avg, self.gen_dict['outpath'] = sensitivity_main(
+        results_avg = sensitivity_main(
             self, train_df, predict_df=predict_df, results=results,
             sens_cbgate=sens_cbgate, sens_bgate=sens_bgate, sens_gate=sens_gate,
             sens_iate=sens_iate, sens_iate_se=sens_iate_se,
@@ -1734,4 +1835,9 @@ class ModifiedCausalForest:
             sens_replications=sens_replications,
             sens_reference_population=sens_reference_population)
 
-        return results_avg, self.gen_dict['outpath']
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
+        return results_avg

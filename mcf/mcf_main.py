@@ -1478,6 +1478,53 @@ class ModifiedCausalForest:
 
         return results
 
+    def predict_different_allocations(self: 'ModifiedCausalForest',
+                                      data_df: DataFrame,
+                                      allocations_df: bool = None
+                                      ) -> dict:
+        """
+        Predict average potential outcomes for different allocations.
+
+        meth:`~ModifiedCausalForest.train` method must be run beforehand. The
+        details of this methods are described in the working paper by
+        Busshoff and Lechner (2025).
+
+        Parameters
+        ----------
+        data_df : DataFrame
+            Data used to compute the predictions. It must contain information
+            about features (and treatment if effects for treatment specific
+            subpopulations are desired as well).
+
+        allocations_df : Dataframe or None, optional
+            Different allocations which are to be evaluated. The length of this
+            dataframe must be the same as the length of data_df.
+            Default is None.
+
+        Returns
+        -------
+        results : Dictionary
+            Results. This dictionary has the following structure:
+            'ate': Average treatment effects
+            'ate_se': Standard error of average treatment effects
+            'ate_effect_list': List with name with estiamted effects
+            'alloc_df': Dataframe with value and variance of value for all
+                        allocations investigated.
+            'outpath' : Pathlib object. Location of directory in which output
+                        is saved.
+
+        """
+        self.predict_different_allocations_done = True
+        results, self.gen_dict['outpath'] = predict_different_allocations_main(
+            self, data_df, allocations_df)
+
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
+        return results
+
     def predict_iv(self, data_df):
         """
         Compute all effects for instrument mcf using forests estimated by the

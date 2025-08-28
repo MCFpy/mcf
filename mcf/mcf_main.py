@@ -1526,7 +1526,7 @@ class ModifiedCausalForest:
         return results
 
     def predict_iv(self: 'ModifiedCausalForest', data_df: DataFrame
-                   ) -> dict:
+                   ) -> tuple[dict, dict]:
         """
         .
         """
@@ -1538,7 +1538,7 @@ class ModifiedCausalForest:
                 and is_initialized()):
             shutdown()
 
-        return results
+        return results, results
 
     def analyse(self: 'ModifiedCausalForest', results: DataFrame) -> dict:
         """

@@ -1739,87 +1739,79 @@ class ModifiedCausalForest:
                 var_x_blind_unord_name, self.gen_dict['outpath'])
 
     def sensitivity(
-        self: "ModifiedCausalForest",
-        train_df: DataFrame,
-        predict_df: Optional[DataFrame] = None,
-        results: Optional[dict] = None,
-        sens_cbgate: Optional[bool] = None,
-        sens_bgate: Optional[bool] = None,
-        sens_gate: Optional[bool] = None,
-        sens_iate: Optional[bool] = None,
-        sens_iate_se: Optional[bool] = None,
-        sens_scenarios: Optional[Union[list, tuple]] = None,
-        sens_cv_k: Optional[int] = None,
-        sens_replications: int = 2,
-        sens_reference_population: Optional[Union[int, float]] = None):
+                    self: "ModifiedCausalForest",
+                    train_df: DataFrame,
+                    predict_df=None,
+                    results=None,
+                    sens_cbgate=None,
+                    sens_bgate=None,
+                    sens_gate=None,
+                    sens_iate=None,
+                    sens_iate_se=None,
+                    sens_scenarios=None,
+                    sens_cv_k=None,
+                    sens_replications: int = 2,
+                    sens_reference_population=None
+                    ) -> dict:
         """
-        Compute simulation based sensitivity indicators.
-
+        Compute simulation-based sensitivity indicators.
+    
         Parameters
         ----------
-        train_df : DataFrame.
+        train_df : DataFrame
             Data with real outcomes, treatments, and covariates. Data will be
             transformed to compute sensitivity indicators.
-
-        predict_df : DataFrame (or None), optional.
+    
+        predict_df : DataFrame, optional
             Prediction data to compute all effects for. This data will not be
             changed in the computation process. Only covariate information is
-            used from this dataset. If predict_df is not a DataFrame,
-            train_df will be used instead.
-
-        results : dictionary, optional.
-            The standard output dictionary from the
-            :meth:`~ModifiedCausalForest.predict` method is expected.
-            If this dictionary contains estimated IATEs, the same data as in
-            the :meth:`~ModifiedCausalForest.predict` method will be used,
-            IATEs are computed under the no effect (basic) scenario and these
-            IATEs are compared to the IATEs contained in the results dictionary.
-            If the dictionary does not contain estimated IATEs, passing it has
-            no consequence.
-
-        sens_cbgate : Boolean (or None), optional
-            Compute CBGATEs for sensitivity analysis. Default is False.
-
-        sens_bgate : Boolean (or None), optional
-            Compute BGATEs for sensitivity analysis. Default is False.
-
-        sens_gate : Boolean (or None), optional
-            Compute GATEs for sensitivity analysis. Default is False.
-
-        sens_iate : Boolean (or None), optional
-            Compute IATEs for sensitivity analysis. If the results dictionary
-            is passed, and it contains IATEs, then the default value is True,
-            and False otherwise.
-
-        sens_iate_se : Boolean (or None), optional
-            Compute Standard errors of IATEs for sensitivity analysis. Default
-            is False.
-
-        sens_scenarios : List or tuple of strings, optional.
+            used from this dataset. If None, ``train_df`` will be used.
+    
+        results : dict, optional
+            Output dictionary from :meth:`~ModifiedCausalForest.predict`.
+            If it contains estimated IATEs, they are used for the no-effect
+            (basic) scenario and compared to those in the dictionary.
+            Otherwise, passing it has no effect.
+    
+        sens_cbgate : bool, optional
+            If True, compute CBGATEs for sensitivity analysis. Default is False.
+    
+        sens_bgate : bool, optional
+            If True, compute BGATEs for sensitivity analysis. Default is False.
+    
+        sens_gate : bool, optional
+            If True, compute GATEs for sensitivity analysis. Default is False.
+    
+        sens_iate : bool, optional
+            If True, compute IATEs for sensitivity analysis.
+            If ``results`` contains IATEs, default is True, otherwise False.
+    
+        sens_iate_se : bool, optional
+            If True, compute standard errors of IATEs for sensitivity analysis.
+            Default is False.
+    
+        sens_scenarios : list or tuple of str, optional
             Different scenarios considered. Default is ('basic',).
-            'basic' : Use estimated treatment probabilities for simulations.
-            No confounding.
-
-        sens_cv_k : Integer (or None), optional
-            Data to be used for any cross-validation: Number of folds in
-            cross-validation. Default (or None) is 5.
-
-        sens_replications : Integer (or None), optional.
-            Number of replications for simulating placebo treatments. Default
-            is 2.
-
-        sens_reference_population: integer or float (or None)
-            Defines the treatment status of the reference population used by
-            the sensitivity analysis. Default is to use the treatment with most
+            - 'basic': Use estimated treatment probabilities for simulations
+              (no confounding).
+    
+        sens_cv_k : int, optional
+            Number of folds in cross-validation. Default is 5.
+    
+        sens_replications : int, optional
+            Number of replications for simulating placebo treatments.
+            Default is 2.
+    
+        sens_reference_population : int or float, optional
+            Treatment status of the reference population used by the
+            sensitivity analysis. Default is the treatment with the most
             observed observations.
-
+    
         Returns
         -------
-        results_avg : Dictionary
-            Same content as for the 
-            :meth:`~ModifiedCausalForest.predict` method but (if applicable)
-            averaged over replications.
-
+        results_avg : dict
+            Same structure as :meth:`~ModifiedCausalForest.predict`, but
+            averaged over replications (if applicable).
         """
         results_avg = sensitivity_main(
             self, train_df, predict_df=predict_df, results=results,

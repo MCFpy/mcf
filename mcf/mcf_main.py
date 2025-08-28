@@ -1528,79 +1528,78 @@ class ModifiedCausalForest:
     def predict_iv(self: 'ModifiedCausalForest', data_df: DataFrame
                    ) -> tuple[dict, dict]:
         """
-        Compute all effects for instrument mcf (possibly in 2 differnt ways).
-
-        meth:`~ModifiedCausalForest.train_iv` method must be run beforehand.
-
+        Compute all effects for instrument MCF (in two different ways).
+    
+        The :meth:`~ModifiedCausalForest.train_iv` method must be run beforehand.
+    
         Parameters
         ----------
         data_df : DataFrame
             Data used to compute the predictions. It must contain information
-            about features (and treatment if effects for treatment specific
+            about features (and treatment if effects for treatment-specific
             subpopulations are desired as well).
-
+    
         Returns
         -------
-        results_global : Dictionary.
-            Contains the results. This dictionary has the following structure:
-            'ate': LATE, 'ate_se': Standard error of LATE,
-            'ate_effect_list': List of names of estimated effects,
-            'ate_1st': ATE 1st stage, 'ate_1st_se': Standard error of ATE (1st)
-            'ate 1st_effect_list': List of names of estimated effects (1st),
-            'ate_redf': ATE reduced form, 'ate_redf_se': Standard error of ATE
-            of reduced form,
-            'ate redf_effect_list': List of names of estimated effects (red.f.),
-            'gate': LGATE, 'gate_se': SE of LGATE,
+        results_global : dict
+            Results of the global IV estimation. This dictionary has the following
+            structure:
+            'ate': LATE,
+            'ate_se': Standard error of LATE,
+            'ate_effect_list': List of estimated effects,
+            'ate_1st': ATE (first stage),
+            'ate_1st_se': Standard error of ATE (first stage),
+            'ate_1st_effect_list': List of estimated effects (first stage),
+            'ate_redf': ATE (reduced form),
+            'ate_redf_se': Standard error of ATE (reduced form),
+            'ate_redf_effect_list': List of estimated effects (reduced form),
+            'gate': LGATE,
+            'gate_se': Standard error of LGATE,
             'gate_diff': LGATE minus LATE,
-            'gate_diff_se': Standard error of LGATE minus LATE,
+            'gate_diff_se': Standard error of (LGATE − LATE),
             'cbgate': LCBGATE (all covariates balanced),
             'cbgate_se': Standard error of LCBGATE,
             'cbgate_diff': LCBGATE minus LATE,
-            'cbgate_diff_se': Standard error of LCBGATE minus LATE,
+            'cbgate_diff_se': Standard error of (LCBGATE − LATE),
             'bgate': LBGATE (only prespecified covariates balanced),
             'bgate_se': Standard error of LBGATE,
             'bgate_diff': LBGATE minus LATE,
-            'bgate_diff_se': Standard errror of LBGATE minus LATE,
-            'gate_names_values': Dictionary: Order of gates parameters
-            and name and values of LGATE effects.
-            'iate': LIATE, 'iate_se': Standard error of LIATE,
-            'iate_1st': IATE (1st stage), 'iate_1st_se': Standard error of
-            IATE (1st stage),
-            'iate_redf': IATE (reduced form), 'iate_redf_se': Standard error of
-            IATE (reduced form),
-            'iate_eff': (More) Efficient LIATE (LIATE estimated twice and
-            averaged where role of tree_building and tree_filling
-            sample is exchanged),
-            iate_1st_eff': (More) Efficient IATE (1st stage),
-            iate_redf_eff': (More) Efficient IATE (reduced form),
+            'bgate_diff_se': Standard error of (LBGATE − LATE),
+            'gate_names_values': Dictionary with order, names, and values of LGATE effects,
+            'iate': LIATE,
+            'iate_se': Standard error of LIATE,
+            'iate_1st': IATE (first stage),
+            'iate_1st_se': Standard error of IATE (first stage),
+            'iate_redf': IATE (reduced form),
+            'iate_redf_se': Standard error of IATE (reduced form),
+            'iate_eff': Efficient LIATE (averaged over two estimations),
+            'iate_1st_eff': Efficient IATE (first stage),
+            'iate_redf_eff': Efficient IATE (reduced form),
             'iate_data_df': DataFrame with LIATEs,
-            'iate_1st_data_df': DataFrame with IATEs (1st stage),
+            'iate_1st_data_df': DataFrame with IATEs (first stage),
             'iate_redf_data_df': DataFrame with IATEs (reduced form),
-            'iate_names_dic': Dictionary containing names of LIATEs,
-            'iate_1st_names_dic': Dictionary containing names of IATEs (1st),
-            'iate_redf_dic': Dictionary containing names of LIATEs (red.f.),
-            'qiate': QLIATE, 'qiate_se': Standard error of QLIATE,
-            'bala_1st': Effects of balancing tests (1st stage),
-            'bala_1st_se': Standard error of effects of balancing tests (1st),
-            'bala_1st_effect_list': Names of effects of balancing tests (1st),
-            'bala_redf': Effects of balancing tests (reduced form),
-            'bala_redf_se': Standard error of effects of balancing tests (red.),
-            'bala_redf_effect_list': Names of effects of balancing tests (red.).
-            'common_support_probabilities': pd.DataFrame containing treatment
-            probabilities for all treatments, the identifier of the observation,
-            and a dummy variable indicating whether the observation is inside or
-            outside the common support. None if _int_with_output is False.
-            'path_output': Pathlib object, location of directory in which output
-            is saved.
-
-            It is empty if the IV estimation method 'global' has not been
-            used.
-
-        results_local : Dictionary.
-            Same content as results_global.
-            It is empty if the IV estimation method 'local' has not been
-            used.
-
+            'iate_names_dic': Dictionary with names of LIATEs,
+            'iate_1st_names_dic': Dictionary with names of IATEs (first stage),
+            'iate_redf_names_dic': Dictionary with names of IATEs (reduced form),
+            'qiate': QLIATE,
+            'qiate_se': Standard error of QLIATE,
+            'bala_1st': Balancing test effects (first stage),
+            'bala_1st_se': Standard error of balancing test effects (first stage),
+            'bala_1st_effect_list': Names of balancing test effects (first stage),
+            'bala_redf': Balancing test effects (reduced form),
+            'bala_redf_se': Standard error of balancing test effects (reduced form),
+            'bala_redf_effect_list': Names of balancing test effects (reduced form),
+            'common_support_probabilities': DataFrame with treatment probabilities,
+                identifiers, and a dummy for common support (None if
+                ``_int_with_output`` is False),
+            'path_output': Pathlib object with the directory in which output is saved.
+    
+            Empty if the IV estimation method 'global' has not been used.
+    
+        results_local : dict
+            Results of the local IV estimation. Same structure as results_global.
+            Empty if the IV estimation method 'local' has not been used.
+    
         """
         self.predict_iv_done = True
         # Reduce sample size to upper limit

@@ -1738,7 +1738,7 @@ class ModifiedCausalForest:
                 var_x_policy_unord_name, var_x_blind_ord_name,
                 var_x_blind_unord_name, self.gen_dict['outpath'])
 
-    def sensitivity(self: 'ModifiedCausalForest',
+    def sensitivity(self,
                    train_df: DataFrame,
                    predict_df,
                    results: dict,
@@ -1816,7 +1816,7 @@ class ModifiedCausalForest:
         Returns
         -------
         results_avg : Dictionary
-            Same content as for the
+            Same content as for the 
             :meth:`~ModifiedCausalForest.predict` method but (if applicable)
             averaged over replications.
 

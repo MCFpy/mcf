@@ -34,6 +34,7 @@ Methods
       ModifiedCausalForest.train
       ModifiedCausalForest.train_iv
       ModifiedCausalForest.predict
+      ModifiedCausalForest.predict_different_allocations
       ModifiedCausalForest.analyse
       ModifiedCausalForest.sensitivity
 

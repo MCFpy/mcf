@@ -1525,8 +1525,7 @@ class ModifiedCausalForest:
 
         return results
 
-    def predict_iv(self: 'ModifiedCausalForest', data_df: DataFrame
-                   ) -> dict:
+    def predict_iv(self: 'ModifiedCausalForest', data_df: DataFrame):
         """
         Compute all effects for instrument mcf (possibly in 2 differnt ways).
 
@@ -1611,9 +1610,14 @@ class ModifiedCausalForest:
         if rnd_reduce and self.int_dict['with_output']:
             print_mcf(self.gen_dict, txt_red, summary=True)
 
-        results = predict_iv_main(self, data_df)
+        results_global, results_local = predict_iv_main(self, data_df)
 
-        return results
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
+        return results_global, results_local
 
     def analyse(self: 'ModifiedCausalForest', results: DataFrame) -> dict:
         """

@@ -1652,38 +1652,6 @@ class ModifiedCausalForest:
 
         return results_plus_cluster
 
-    def analyse(self, results):
-        """
-        Analyse estimated IATE with various descriptive tools.
-
-        Parameters
-        ----------
-        results : Dictionary
-            Contains estimation results. This dictionary must have the same
-            structure as the one returned from the
-            :meth:`~ModifiedCausalForest.predict` method.
-
-        Raises
-        ------
-        ValueError
-            Some of the attribute are not compatible with running this method.
-
-        Returns
-        -------
-        results_plus_cluster : Dictionary
-            Same as the results dictionary, but the DataFrame with estimated
-            IATEs contains an additional integer with a group label that comes
-            from k-means clustering.
-
-        outpath : String
-            Location of directory in which output is saved.
-
-        """
-        (results_plus_cluster, self.gen_dict['outpath']) = analyse_main(self,
-                                                                        results)
-
-        return results_plus_cluster, self.gen_dict['outpath']
-
     def blinder_iates(
         self, data_df, blind_var_x_protected_name=None,
         blind_var_x_policy_name=None, blind_var_x_unrestricted_name=None,

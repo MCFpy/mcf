@@ -1526,7 +1526,7 @@ class ModifiedCausalForest:
         return results
 
     def predict_iv(self: 'ModifiedCausalForest', data_df: DataFrame
-                   ) -> tuple[dict, dict]:
+                   ) -> Tuple[dict, dict]:
         """
         Compute all effects for instrument MCF (possibly in two different ways).
     

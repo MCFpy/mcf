@@ -1751,7 +1751,7 @@ class ModifiedCausalForest:
                    sens_cv_k,
                    sens_replications: int = 2,
                    sens_reference_population
-                   ) -> dict:
+                   ) 
         """
         Compute simulation based sensitivity indicators.
 

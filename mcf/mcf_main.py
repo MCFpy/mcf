@@ -1751,7 +1751,7 @@ class ModifiedCausalForest:
                     sens_cv_k: int | None = None,
                     sens_replications: int = 2,
                     sens_reference_population: int | float | None = None
-                    ) -> dict:
+                    )
         """
         Compute simulation based sensitivity indicators.
 

@@ -1530,23 +1530,15 @@ class ModifiedCausalForest:
         """
         .
         """
-        self.predict_iv_done = True
-        # Reduce sample size to upper limit
-        data_df, rnd_reduce, txt_red = check_reduce_dataframe(
-            data_df, title='Prediction',
-            max_obs=self.int_dict['max_obs_prediction'],
-            seed=124535, ignore_index=True)
-        if rnd_reduce and self.int_dict['with_output']:
-            print_mcf(self.gen_dict, txt_red, summary=True)
-    
-        results_global, results_local = predict_iv_main(self, data_df)
-    
+        self.predict_done = True
+        results = predict_main(self, data_df)
+
         if (self.int_dict['mp_ray_shutdown']
             and self.gen_dict['mp_parallel'] > 1
                 and is_initialized()):
             shutdown()
-    
-        return results_global, results_local
+
+        return results, results
 
     def analyse(self: 'ModifiedCausalForest', results: DataFrame) -> dict:
         """

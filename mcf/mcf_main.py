@@ -1525,10 +1525,12 @@ class ModifiedCausalForest:
 
         return results
 
-    def predict_iv(self, data_df):
+    def predict_iv(self: 'ModifiedCausalForest', data_df: DataFrame
+                   ) -> tuple[dict, dict]:
         """
-        Compute all effects for instrument mcf using forests estimated by the
-        :meth:`~ModifiedCausalForest.train_iv` method.
+        Compute all effects for instrument mcf (possibly in 2 differnt ways).
+
+        :meth:`~ModifiedCausalForest.train_iv` method must be run beforehand.
 
         Parameters
         ----------
@@ -1539,10 +1541,10 @@ class ModifiedCausalForest:
 
         Returns
         -------
-        results : Dictionary.
-            Results. This dictionary has the following structure:
+        results_global : Dictionary.
+            Contains the results. This dictionary has the following structure:
             'ate': LATE, 'ate_se': Standard error of LATE,
-            'ate effect_list': List of names of estimated effects,
+            'ate_effect_list': List of names of estimated effects,
             'ate_1st': ATE 1st stage, 'ate_1st_se': Standard error of ATE (1st)
             'ate 1st_effect_list': List of names of estimated effects (1st),
             'ate_redf': ATE reduced form, 'ate_redf_se': Standard error of ATE
@@ -1584,10 +1586,23 @@ class ModifiedCausalForest:
             'bala_redf': Effects of balancing tests (reduced form),
             'bala_redf_se': Standard error of effects of balancing tests (red.),
             'bala_redf_effect_list': Names of effects of balancing tests (red.).
+            'common_support_probabilities': pd.DataFrame containing treatment
+            probabilities for all treatments, the identifier of the observation,
+            and a dummy variable indicating whether the observation is inside or
+            outside the common support. None if _int_with_output is False.
+            'path_output': Pathlib object, location of directory in which output
+            is saved.
 
-        outpath : String
-            Location of directory in which output is saved.
+            It is empty if the IV estimation method 'global' has not been
+            used.
+
+        results_local : Dictionary.
+            Same content as results_wald.
+            It is empty if the IV estimation method 'local' has not been
+            used.
+
         """
+        self.predict_iv_done = True
         # Reduce sample size to upper limit
         data_df, rnd_reduce, txt_red = check_reduce_dataframe(
             data_df, title='Prediction',
@@ -1596,14 +1611,47 @@ class ModifiedCausalForest:
         if rnd_reduce and self.int_dict['with_output']:
             print_mcf(self.gen_dict, txt_red, summary=True)
 
-        results = predict_iv_main(self, data_df)
+        results_global, results_local = predict_iv_main(self, data_df)
 
-        if (is_initialized()
+        if (self.int_dict['mp_ray_shutdown']
             and self.gen_dict['mp_parallel'] > 1
-                and len(data_df) > self.int_dict['obs_bigdata']):
+                and is_initialized()):
             shutdown()
 
-        return results, self.gen_dict['outpath']
+        return results_global, results_local
+
+    def analyse(self: 'ModifiedCausalForest', results: DataFrame) -> dict:
+        """
+        Analyse estimated IATEs with various descriptive tools.
+
+        Parameters
+        ----------
+        results : Dictionary
+            Contains estimation results. This dictionary must have the same
+            structure as the one returned from the
+            :meth:`~ModifiedCausalForest.predict` method.
+
+        Raises
+        ------
+        ValueError
+            Some of the attribute are not compatible with running this method.
+
+        Returns
+        -------
+        results_plus_cluster : Dictionary
+            Same as the results dictionary, but the DataFrame with estimated
+            IATEs contains an additional integer with a group label that comes
+            from k-means clustering.
+
+        """
+        results_plus_cluster = analyse_main(self, results)
+
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
+        return results_plus_cluster
 
     def analyse(self, results):
         """

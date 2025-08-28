@@ -1738,20 +1738,20 @@ class ModifiedCausalForest:
                 var_x_policy_unord_name, var_x_blind_ord_name,
                 var_x_blind_unord_name, self.gen_dict['outpath'])
 
-    def sensitivity(self,
-                   train_df: DataFrame,
-                   predict_df,
-                   results: dict,
-                   sens_cbgate,
-                   sens_bgate,
-                   sens_gate,
-                   sens_iate,
-                   sens_iate_se,
-                   sens_scenarios,
-                   sens_cv_k,
-                   sens_replications: int = 2,
-                   sens_reference_population
-                   ) 
+    def sensitivity(
+        self: "ModifiedCausalForest",
+        train_df: DataFrame,
+        predict_df: Optional[DataFrame] = None,
+        results: Optional[dict] = None,
+        sens_cbgate: Optional[bool] = None,
+        sens_bgate: Optional[bool] = None,
+        sens_gate: Optional[bool] = None,
+        sens_iate: Optional[bool] = None,
+        sens_iate_se: Optional[bool] = None,
+        sens_scenarios: Optional[Union[list, tuple]] = None,
+        sens_cv_k: Optional[int] = None,
+        sens_replications: int = 2,
+        sens_reference_population: Optional[Union[int, float]] = None):
         """
         Compute simulation based sensitivity indicators.
 

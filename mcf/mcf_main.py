@@ -1526,7 +1526,7 @@ class ModifiedCausalForest:
         return results
 
     def predict_iv(self: 'ModifiedCausalForest', data_df: DataFrame
-                   ) -> Tuple[Dict, Dict]:
+                   ) -> tuple[dict, dict]:
         """
         .
         """

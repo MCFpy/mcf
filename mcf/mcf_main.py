@@ -1530,7 +1530,7 @@ class ModifiedCausalForest:
         """
         Compute all effects for instrument mcf (possibly in 2 differnt ways).
 
-        :meth:`~ModifiedCausalForest.train_iv` method must be run beforehand.
+        meth:`~ModifiedCausalForest.train_iv` method must be run beforehand.
 
         Parameters
         ----------
@@ -1602,8 +1602,8 @@ class ModifiedCausalForest:
             used.
 
         """
-        # Reduce sample size to upper limit
         self.predict_iv_done = True
+        # Reduce sample size to upper limit
         data_df, rnd_reduce, txt_red = check_reduce_dataframe(
             data_df, title='Prediction',
             max_obs=self.int_dict['max_obs_prediction'],

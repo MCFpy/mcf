@@ -1528,7 +1528,7 @@ class ModifiedCausalForest:
     def predict_iv(self: 'ModifiedCausalForest', data_df: DataFrame
                    ) -> tuple[dict, dict]:
         """
-        Compute all effects for instrument MCF (in two different ways).
+        Compute all effects for instrument MCF (possibly in two different ways).
     
         The :meth:`~ModifiedCausalForest.train_iv` method must be run beforehand.
     
@@ -1546,13 +1546,13 @@ class ModifiedCausalForest:
             structure:
             'ate': LATE,
             'ate_se': Standard error of LATE,
-            'ate_effect_list': List of estimated effects,
+            'ate_effect_list': List of names of estimated effects,
             'ate_1st': ATE (first stage),
             'ate_1st_se': Standard error of ATE (first stage),
-            'ate_1st_effect_list': List of estimated effects (first stage),
+            'ate_1st_effect_list': List of names of estimated effects (first stage),
             'ate_redf': ATE (reduced form),
             'ate_redf_se': Standard error of ATE (reduced form),
-            'ate_redf_effect_list': List of estimated effects (reduced form),
+            'ate_redf_effect_list': List of names of estimated effects (reduced form),
             'gate': LGATE,
             'gate_se': Standard error of LGATE,
             'gate_diff': LGATE minus LATE,
@@ -1572,9 +1572,9 @@ class ModifiedCausalForest:
             'iate_1st_se': Standard error of IATE (first stage),
             'iate_redf': IATE (reduced form),
             'iate_redf_se': Standard error of IATE (reduced form),
-            'iate_eff': Efficient LIATE (averaged over two estimations),
-            'iate_1st_eff': Efficient IATE (first stage),
-            'iate_redf_eff': Efficient IATE (reduced form),
+            'iate_eff': More efficient LIATE (averaged over two estimations),
+            'iate_1st_eff': More efficient IATE (first stage),
+            'iate_redf_eff': More efficient IATE (reduced form),
             'iate_data_df': DataFrame with LIATEs,
             'iate_1st_data_df': DataFrame with IATEs (first stage),
             'iate_redf_data_df': DataFrame with IATEs (reduced form),
@@ -1599,7 +1599,6 @@ class ModifiedCausalForest:
         results_local : dict
             Results of the local IV estimation. Same structure as results_global.
             Empty if the IV estimation method 'local' has not been used.
-    
         """
         self.predict_iv_done = True
         # Reduce sample size to upper limit
@@ -1609,14 +1608,14 @@ class ModifiedCausalForest:
             seed=124535, ignore_index=True)
         if rnd_reduce and self.int_dict['with_output']:
             print_mcf(self.gen_dict, txt_red, summary=True)
-
+    
         results_global, results_local = predict_iv_main(self, data_df)
-
+    
         if (self.int_dict['mp_ray_shutdown']
             and self.gen_dict['mp_parallel'] > 1
                 and is_initialized()):
             shutdown()
-
+    
         return results_global, results_local
 
     def analyse(self: 'ModifiedCausalForest', results: DataFrame) -> dict:

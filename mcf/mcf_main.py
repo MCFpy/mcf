@@ -1597,7 +1597,7 @@ class ModifiedCausalForest:
             used.
 
         results_local : Dictionary.
-            Same content as results_wald.
+            Same content as results_global.
             It is empty if the IV estimation method 'local' has not been
             used.
 

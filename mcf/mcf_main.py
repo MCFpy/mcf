@@ -1528,77 +1528,7 @@ class ModifiedCausalForest:
     def predict_iv(self: 'ModifiedCausalForest', data_df: DataFrame
                    ) -> Tuple[dict, dict]:
         """
-        Compute all effects for instrument MCF (possibly in two different ways).
-    
-        The :meth:`~ModifiedCausalForest.train_iv` method must be run beforehand.
-    
-        Parameters
-        ----------
-        data_df : DataFrame
-            Data used to compute the predictions. It must contain information
-            about features (and treatment if effects for treatment-specific
-            subpopulations are desired as well).
-    
-        Returns
-        -------
-        results_global : dict
-            Results of the global IV estimation. This dictionary has the following
-            structure:
-            'ate': LATE,
-            'ate_se': Standard error of LATE,
-            'ate_effect_list': List of names of estimated effects,
-            'ate_1st': ATE (first stage),
-            'ate_1st_se': Standard error of ATE (first stage),
-            'ate_1st_effect_list': List of names of estimated effects (first stage),
-            'ate_redf': ATE (reduced form),
-            'ate_redf_se': Standard error of ATE (reduced form),
-            'ate_redf_effect_list': List of names of estimated effects (reduced form),
-            'gate': LGATE,
-            'gate_se': Standard error of LGATE,
-            'gate_diff': LGATE minus LATE,
-            'gate_diff_se': Standard error of (LGATE − LATE),
-            'cbgate': LCBGATE (all covariates balanced),
-            'cbgate_se': Standard error of LCBGATE,
-            'cbgate_diff': LCBGATE minus LATE,
-            'cbgate_diff_se': Standard error of (LCBGATE − LATE),
-            'bgate': LBGATE (only prespecified covariates balanced),
-            'bgate_se': Standard error of LBGATE,
-            'bgate_diff': LBGATE minus LATE,
-            'bgate_diff_se': Standard error of (LBGATE − LATE),
-            'gate_names_values': Dictionary with order, names, and values of LGATE effects,
-            'iate': LIATE,
-            'iate_se': Standard error of LIATE,
-            'iate_1st': IATE (first stage),
-            'iate_1st_se': Standard error of IATE (first stage),
-            'iate_redf': IATE (reduced form),
-            'iate_redf_se': Standard error of IATE (reduced form),
-            'iate_eff': More efficient LIATE (averaged over two estimations),
-            'iate_1st_eff': More efficient IATE (first stage),
-            'iate_redf_eff': More efficient IATE (reduced form),
-            'iate_data_df': DataFrame with LIATEs,
-            'iate_1st_data_df': DataFrame with IATEs (first stage),
-            'iate_redf_data_df': DataFrame with IATEs (reduced form),
-            'iate_names_dic': Dictionary with names of LIATEs,
-            'iate_1st_names_dic': Dictionary with names of IATEs (first stage),
-            'iate_redf_names_dic': Dictionary with names of IATEs (reduced form),
-            'qiate': QLIATE,
-            'qiate_se': Standard error of QLIATE,
-            'bala_1st': Balancing test effects (first stage),
-            'bala_1st_se': Standard error of balancing test effects (first stage),
-            'bala_1st_effect_list': Names of balancing test effects (first stage),
-            'bala_redf': Balancing test effects (reduced form),
-            'bala_redf_se': Standard error of balancing test effects (reduced form),
-            'bala_redf_effect_list': Names of balancing test effects (reduced form),
-            'common_support_probabilities': DataFrame with treatment probabilities,
-                identifiers, and a dummy for common support (None if
-                ``_int_with_output`` is False),
-            'path_output': Pathlib object with the directory in which output is saved.
-    
-            Empty if the IV estimation method 'global' has not been used.
-    
-        results_local : dict
-            Results of the local IV estimation. Same structure as results_global.
-            Empty if the IV estimation method 'local' has not been used.
+        .
         """
         self.predict_iv_done = True
         # Reduce sample size to upper limit

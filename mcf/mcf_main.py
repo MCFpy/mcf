@@ -1738,11 +1738,20 @@ class ModifiedCausalForest:
                 var_x_policy_unord_name, var_x_blind_ord_name,
                 var_x_blind_unord_name, self.gen_dict['outpath'])
 
-    def sensitivity(self, train_df, predict_df=None, results=None,
-                    sens_cbgate=None, sens_bgate=None, sens_gate=None,
-                    sens_iate=None, sens_iate_se=None, sens_scenarios=None,
-                    sens_cv_k=None, sens_replications=2,
-                    sens_reference_population=None):
+    def sensitivity(self: 'ModifiedCausalForest',
+                    train_df: DataFrame,
+                    predict_df: DataFrame | None = None,
+                    results: dict | None = None,
+                    sens_cbgate: bool | None = None,
+                    sens_bgate: bool | None = None,
+                    sens_gate: bool | None = None,
+                    sens_iate: bool | None = None,
+                    sens_iate_se: bool | None = None,
+                    sens_scenarios: list | tuple | None = None,
+                    sens_cv_k: int | None = None,
+                    sens_replications: int = 2,
+                    sens_reference_population: int | float | None = None
+                    ) -> dict:
         """
         Compute simulation based sensitivity indicators.
 
@@ -1752,7 +1761,7 @@ class ModifiedCausalForest:
             Data with real outcomes, treatments, and covariates. Data will be
             transformed to compute sensitivity indicators.
 
-        predict_df : DataFrame (or None), optinal.
+        predict_df : DataFrame (or None), optional.
             Prediction data to compute all effects for. This data will not be
             changed in the computation process. Only covariate information is
             used from this dataset. If predict_df is not a DataFrame,
@@ -1804,9 +1813,6 @@ class ModifiedCausalForest:
             the sensitivity analysis. Default is to use the treatment with most
             observed observations.
 
-        outpath : String
-            Location of directory in which output is saved.
-
         Returns
         -------
         results_avg : Dictionary
@@ -1814,10 +1820,8 @@ class ModifiedCausalForest:
             :meth:`~ModifiedCausalForest.predict` method but (if applicable)
             averaged over replications.
 
-        outpath : String
-            Location of directory in which output is saved.
         """
-        results_avg, self.gen_dict['outpath'] = sensitivity_main(
+        results_avg = sensitivity_main(
             self, train_df, predict_df=predict_df, results=results,
             sens_cbgate=sens_cbgate, sens_bgate=sens_bgate, sens_gate=sens_gate,
             sens_iate=sens_iate, sens_iate_se=sens_iate_se,
@@ -1825,4 +1829,9 @@ class ModifiedCausalForest:
             sens_replications=sens_replications,
             sens_reference_population=sens_reference_population)
 
-        return results_avg, self.gen_dict['outpath']
+        if (self.int_dict['mp_ray_shutdown']
+            and self.gen_dict['mp_parallel'] > 1
+                and is_initialized()):
+            shutdown()
+
+        return results_avg

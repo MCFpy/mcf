@@ -45,8 +45,10 @@ class OptimalPolicy:
 
     fair_consistency_test : Boolean (or None), optional\
         Test for internally consistency of fairness correction.
-        The fairness corrections are applied independently to every policy
-        score (which usually is a potential outcome or an IATE(x) for each
+        When ``'fair_adjust_target'`` is ``'scores'`` or
+        ``'scores_xvariables'``, then the fairness corrections are applied
+        independently to every policy score
+        (which usually is a potential outcome or an IATE(x) for each
         treatment relative to some base treatment (i.e. comparing 1-0, 2-0,
         3-0, etc.). Thus the IATE for the 2-1 comparison can be computed as
         IATE(2-0)-IATE(1-0). This tests compares two ways to compute a
@@ -56,8 +58,14 @@ class OptimalPolicy:
         b) Difference of corresponding scores, subsequently made fair.\
         Note: Depending on the number of treatments, this test may be
         computationally more expensive than the orginal fairness corrections.\
-        Fairness adjustments are experimental.\
         Default (or None) is False.
+
+    fair_cont_min_values : Integer or float (or None),  optional
+         The methods used for fairness corrections depends on whether the
+         variable is consider as continuous or discrete. All unordered
+         variables are considered being discrete, and all ordered
+         variables with more than ``fair_cont_min_values`` are considered as
+         being discrete as well. The default (or None) is 20.
 
     fair_material_disc_method : String (or None), optional\
         Method on how to perform the discretization for materially relevant
@@ -71,7 +79,6 @@ class OptimalPolicy:
         values.\
         ``'Kmeans'`` : Use Kmeans clustering algorithm to form homogeneous
         cells.\
-        Fairness adjustments are experimental.\
         Default (or None) is 'Kmeans'.
 
     fair_protected_disc_method : String (or None), optional\
@@ -85,7 +92,6 @@ class OptimalPolicy:
         values.\
         ``'Kmeans'`` : Use Kmeans clustering algorithm to form homogeneous
         cells.\
-        Fairness adjustments are experimental.\
         Default (or None) is ``'Kmeans'``.
 
     fair_material_max_groups : Integer (or None), optional\
@@ -97,7 +103,6 @@ class OptimalPolicy:
         If ``'EqualCell'``: If more than 1 variable is included among the
         protected variables, this restriction is applied to each variable.\
         If ``'Kmeans'``: This is the number of clusters used by Kmeans.\
-        Fairness adjustments are experimental.\
         Default (or None) is 5.
 
     fair_protected_max_groups : Integer (or None), optional\
@@ -109,7 +114,6 @@ class OptimalPolicy:
         If ``'EqualCell'`` : If more than 1 variable is included among the
         protected variables, this restriction is applied to each variable.\
         If ``'Kmeans'`` : This is the number of clusters used by Kmeans.
-        Fairness adjustments are experimental.\
         Default (or None) is 5.
 
     fair_regression_method : String (or None), optional\
@@ -127,7 +131,6 @@ class OptimalPolicy:
         'automatic', every policy score might be adjusted with a different
         method. 'Mean' is included for cases in which regression methods have
         no explanatory power.\
-        Fairness adjustments are experimental.\
         Default (or None) is ``'RandomForest'``.
 
     fair_type : String (or None), optional\
@@ -138,9 +141,10 @@ class OptimalPolicy:
         residualisation and rescaling.\
         ``'Quantiled'`` : Removing dependence via (an empricial version of) the
         approach by Strack and Yang (2024) using quantiles.\
+        ``'Mean'`` and ``'MeanVar'`` are only availabe for adjusting the score
+        (not the decision variables).\
         See the paper by Bearth, Lechner, Mareckova, Muny (2024) for details on
         these methods.\
-        Fairness adjustments are experimental.\
         Default (or None) is 'Quantiled'.
 
     gen_method : String (or None), optional.\
@@ -180,11 +184,10 @@ class OptimalPolicy:
         added.
         Default (or None) is 'txtFileWithOutput'.
 
-    gen_outpath : String, Pathlib object (or None), optional
+    gen_outpath : String or Pathlib object (or None), optional
         Directory to where to put text output and figures. If it does not
         exist, it will be created.
-        None : (\*.out) directory just below to the directory where the
-        programme is run.
+        None : Directory just below the directory where the programme is run.
         Default is None.
 
     gen_output_type : Integer (or None), optional
@@ -405,18 +408,9 @@ class OptimalPolicy:
         Default (or None) is 2.
         Internal variable, change default only if you know what you do.
 
-    _int_how_many_parallel : Integer (or None), optional
-        Number of parallel process.
-        None : 80% of logical cores, if this can be effectively implemented.
-        Default is None.
-
     _int_output_no_new_dir: Boolean
         Do not create a new directory when the path already exists.
         Default (or None) is False.
-
-    _int_parallel_processing : Boolean (or None), optional
-        Multiprocessing.
-        Default (or None) is True.
 
     _int_report : Boolean, optional
         Provide information for McfOptPolReports to construct informative

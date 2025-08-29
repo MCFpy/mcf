@@ -73,6 +73,7 @@ Methods
       OptimalPolicy.evaluate
       OptimalPolicy.evaluate_multiple
       OptimalPolicy.estrisk_adjust
+      OptimalPolicy.solvefair
 
 
 .. autosummary:: 
@@ -80,6 +81,8 @@ Methods
     ~OptimalPolicy.evaluate
     ~OptimalPolicy.evaluate_multiple
     ~OptimalPolicy.estrisk_adjust
+    ~OptimalPolicy.solvefair
+
 
 
 

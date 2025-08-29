@@ -1047,10 +1047,10 @@ class ModifiedCausalForest:
    Attributes
    ----------
 
+    <NOT-ON-API>
+    
     version : String
         Version of mcf module used to create the instance.
-
-    <NOT-ON-API>
 
     blind_dict : Dictionary
         Parameters to compute (partially) blinded IATEs.

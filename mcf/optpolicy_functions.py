@@ -645,6 +645,52 @@ class OptimalPolicy:
             }
 
         return results_dic    
+
+    def evaluate(self,
+                 allocation_df: DataFrame,
+                 data_df: DataFrame,
+                 data_title: str = '',
+                 seed: int = 12434
+                 ): 
+        """
+        Evaluate allocation with potential outcome data.
+
+        Parameters
+        ----------
+        allocation_df : DataFrame
+            Optimal allocation as outputed by the
+            :meth:`~OptimalPolicy.solve`, :meth:`~OptimalPolicy.solvefair`,
+            and :meth:`~OptimalPolicy.allocate` methods.
+
+        data_df : DataFrame
+            Additional information that can be linked to allocation_df.
+
+        data_title : String, optional
+            This string is used as title in outputs. The default is ''.
+
+        seed : Integer, optional
+            Seed for random number generators. The default is 12434.
+
+        Returns
+        -------
+        results_all_dic : Dictory
+            'results_dic': Collected results of evaluation with
+                           self-explanatory keys.
+            'outpath': Output path.
+
+        """
+        (results_dic, self.gen_dict['outpath']
+         ) = op_methods.evaluate_method(self,
+                                        allocation_df,
+                                        data_df,
+                                        data_title=data_title,
+                                        seed=seed)
+        results_all_dic = {
+            'results_dic': results_dic,
+            'outpath': self.gen_dict['outpath']
+            }
+
+        return results_all_dic
     
     def solve(self, data_df, data_title=''):
         """
@@ -730,81 +776,6 @@ class OptimalPolicy:
             self.report['training_leaf_information'] = txt + allocation_txt
 
         return allocation_df, result_dic, self.gen_dict['outpath']
-
-    def evaluate(self, allocation_df, data_df, data_title='', seed=12434):
-        """
-        Evaluate allocation with potential outcome data.
-
-        Parameters
-        ----------
-        allocation_df : DataFrame
-            Optimal allocation as outputed by the :meth:`~OptimalPolicy.solve`
-            and :meth:`~OptimalPolicy.allocate` methods.
-        data_df : DataFrame
-            Additional information that can be linked to allocation_df.
-        data_title : String, optional
-            This string is used as title in outputs. The default is ''.
-        seed : Integer, optional
-            Seed for random number generators. The default is 12434.
-
-        Returns
-        -------
-        results_dic : Dictory
-            Collected results of evaluation with self-explanatory keys.
-
-        outpath : Pathlib object
-            Location of directory in which output is saved.
-
-        """
-        time_start = time()
-
-        self.report['evaluation'] = True
-        alloc_train = (op_data.dataframe_checksum(allocation_df)
-                       == self.report['training_alloc_chcksm'])
-
-        if self.gen_dict['with_output']:
-            print_dic_values_all_optp(self, summary_top=True,
-                                      summary_dic=False, stage='Evaluation')
-        var_dic, gen_dic = self.var_dict, self.gen_dict
-        txt = '\n' + '=' * 100 + '\nEvaluating allocation of '
-        txt += f'{gen_dic["method"]} with {data_title}\n' + '-' * 100
-        ps.print_mcf(gen_dic, txt, summary=True)
-        (data_df, d_ok, polscore_ok, polscore_desc_ok, desc_var
-         ) = op_data.prepare_data_eval(self, data_df)
-        if len(allocation_df) != len(data_df):
-            d_ok = False
-        op_init.init_rnd_shares(self, data_df, d_ok)
-        if d_ok:
-            allocation_df['observed'] = data_df[var_dic['d_name']]
-        allocation_df['random'] = op_eval.get_random_allocation(
-            self, len(data_df), seed)
-        if polscore_ok:
-            allocation_df['best ATE'] = op_eval.get_best_ate_allocation(
-                self, data_df)
-        results_dic = op_eval.evaluate_fct(
-            self, data_df, allocation_df, d_ok, polscore_ok, polscore_desc_ok,
-            desc_var, data_title)
-        if (self.gen_dict['with_output']
-                and self.gen_dict['variable_importance']):
-            op_eval.variable_importance(self, data_df, allocation_df, seed)
-        time_name = [f'Time for Evaluation {data_title}:     ',]
-        time_difference = [time() - time_start]
-        if self.gen_dict['with_output']:
-            time_str = ps.print_timing(
-                self.gen_dict, f'Evaluation of {data_title} with '
-                f'{gen_dic["method"]}', time_name, time_difference,
-                summary=True)
-        else:
-            time_str = ''
-        key = 'evaluate_' + data_title
-        self.time_strings[key] = time_str
-
-        train_str = 'the SAME as ' if alloc_train else 'DIFFERENT from '
-        rep_txt = ('Allocation analysed is ' + train_str + 'the one obtained '
-                   'from the training data. '
-                   )
-        self.report['evalu_list'].append((rep_txt, results_dic))
-        return results_dic, self.gen_dict['outpath']
 
     def evaluate_multiple(self, allocations_dic, data_df):
         """

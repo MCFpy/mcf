@@ -842,8 +842,8 @@ class OptimalPolicy:
         return results_all_dic
 
     def solve(self,
-              data_df: DataFrame,
-              data_title: str = ''
+              data_df,
+              data_title=''
               ): 
         """
         Solve for optimal allocation rule.

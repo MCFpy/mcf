@@ -70,6 +70,8 @@ Methods
    .. autosummary:: 
       :toctree:
       OptimalPolicy.allocate
+      OptimalPolicy.evaluate
 
 .. autosummary:: 
     ~OptimalPolicy.allocate
+    ~OptimalPolicy.evaluate

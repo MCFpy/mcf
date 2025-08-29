@@ -595,55 +595,57 @@ class OptimalPolicy:
                        }                   # might be used multiple times.
         self.number_scores = len(self.var_dict['polscore_name'])
 
-    def fairscores(self, data_df, data_title=''):
+    def allocate(self,
+                 data_df: DataFrame,
+                 data_title: str = '',
+                 fair_adjust_decision_vars: bool = False
+                 ):
         """
-        Make scores independent of protected variables. Experimental.
+        Allocate observations to treatment state.
 
         Parameters
         ----------
         data_df : DataFrame
-            Input data.
+            Input data with at least features or policy scores
+            (depending on algorithm).
+
         data_title : String, optional
             This string is used as title in outputs. The default is ''.
 
+        fair_adjust_decision_vars : Boolean, optional
+            If True, it will fairness-adjust the decision variables even when
+            fairness adjustments have not been used in training.
+            If False, no fairness adjustments of decision variables. However,
+            if fairness adjustments of decision variables have already been used
+            in training, then these variables will also be fairness adjusted in
+            the allocate method, independent of the value of
+            ``fair_adjust_decision_vars``.
+            The default is False.
+
         Returns
         -------
-        data_fair_df : DataFrame
-            Input data with additional fairness adjusted scores.
-        names_fair_scores : List of strings.
-            Names of adjusted scores.
-        outpath : Pathlib object
-            Location of directory in which output is saved.
+        results : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'allocation_df' : DataFrame
+                data_df with optimal allocation appended.
+            'outpath' : Path
+                Location of directory in which output is saved.
+
         """
-        time_start = time()
-        self.fair_dict['fairscores_used'] = True
+        (allocation_df, self.gen_dict['outpath']
+         ) = op_methods.allocate_method(
+             self,
+             data_df,
+             data_title=data_title,
+             fair_adjust_decision_vars=fair_adjust_decision_vars
+             )
+        results_dic = {
+            'allocation_df': allocation_df,
+            'outpath': self.gen_dict['outpath']
+            }
 
-        if self.gen_dict['with_output']:
-            print_dic_values_all_optp(self, summary_top=True,
-                                      summary_dic=False, stage='Fairscores')
-        self.report['fairscores'] = True
-        # Check if data are available, recode features
-        data_new_df = op_data.prepare_data_fair(self, data_df)
-
-        (data_fair_df, names_fair_scores, tests_dict) = op_fair.adjust_scores(
-            self, data_new_df)
-
-        # Timing
-        time_name = ['Time for fairness correction of scores:    ',]
-        time_difference = [time() - time_start]
-        if self.gen_dict['with_output']:
-            time_str = ps.print_timing(
-                self.gen_dict, 'Fairness correction ', time_name,
-                time_difference, summary=True)
-        else:
-            time_str = ''
-
-        key = 'fairness correction ' + data_title
-        self.time_strings[key] = time_str
-
-        return (data_fair_df, names_fair_scores, tests_dict,
-                self.gen_dict['outpath'])
-
+        return results_dic    
+    
     def solve(self, data_df, data_title=''):
         """
         Solve for optimal allocation rule.
@@ -728,83 +730,6 @@ class OptimalPolicy:
             self.report['training_leaf_information'] = txt + allocation_txt
 
         return allocation_df, result_dic, self.gen_dict['outpath']
-
-    def allocate(self, data_df, data_title=''):
-        """
-        Allocate observations to treatment state.
-
-        Parameters
-        ----------
-        data_df : DataFrame
-            Input data with at least features or policy scores
-            (depending on algorithm).
-        data_title : String, optional
-            This string is used as title in outputs. The default is ''.
-
-        Returns
-        -------
-        allocation_df : DataFrame
-            data_df with optimal allocation appended.
-
-        outpath : Pathlib object
-            Location of directory in which output is saved.
-
-        """
-        time_start = time()
-        method = self.gen_dict['method']
-        self.report['allocation'] = True
-        data_train = (op_data.dataframe_checksum(data_df)
-                      == self.report['training_data_chcksm'])
-
-        data_df.reset_index(drop=True, inplace=True)
-
-        if method == 'policy tree':
-            method_str = 'Policy Tree'
-        elif method == 'best_policy_score':
-            method_str = 'Best Policy Score'
-        elif method == 'bps_classifier':
-            method_str = 'Classifier for Best Policy Score Allocation'
-        else:
-            method_str = ''
-
-        self.report['txt'] = ('\nAllocation of unit to treatments using '
-                              f'{method_str}.'
-                              '\nTraining data '
-                              f'{"is NOT" if data_train else "is"} used.'
-                              )
-
-        if self.gen_dict['with_output']:
-            print_dic_values_all_optp(self, summary_top=True,
-                                      summary_dic=False, stage='Allocation')
-
-        allocation_df = allocation_txt = None
-        if method == 'best_policy_score':
-            allocation_df, _, _ = self.solve(
-                data_df, data_title='Prediction data')
-        elif method in ('policy tree', 'policy tree old'):
-            allocation_df, allocation_txt = op_pt.policy_tree_prediction_only(
-                self, data_df)
-        elif method == 'bps_classifier':
-            allocation_df, allocation_txt = op_bb_cl.bps_class_prediction_only(
-                self, data_df)
-
-        time_name = [f'Time for {method:20} allocation:  ',]
-        time_difference = [time() - time_start]
-        if self.gen_dict['with_output']:
-            time_str = ps.print_timing(
-                self.gen_dict, f'{method:20} Allocation ', time_name,
-                time_difference, summary=True)
-        else:
-            time_str = ''
-        key = f'{method} allocation ' + data_title
-        self.time_strings[key] = time_str
-        self.report['alloc_list'].append(self.report['txt'])
-        if allocation_txt is None:
-            self.report['leaf_information_allocate'] = None
-        else:
-            self.report['leaf_information_allocate'] = (
-                data_title + '\n' + allocation_txt)
-        return allocation_df, self.gen_dict['outpath']
 
     def evaluate(self, allocation_df, data_df, data_title='', seed=12434):
         """

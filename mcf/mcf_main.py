@@ -89,7 +89,8 @@ class ModifiedCausalForest:
         :meth:`~ModifiedCausalForest.train` method.
         Default is None.
 
-    var_x_name_remain_unord : String or List of strings (or None), optional
+    var_x_name_remain_unord : String or List of strings (or None), 
+                              optional
         Name of unordered variables that cannot be removed by feature
         selection. Only relevant for :meth:`~ModifiedCausalForest.train` method.
         Default is None.
@@ -155,7 +156,9 @@ class ModifiedCausalForest:
         The default (None) is dependent on the size of the training data:
         If there are less than 90'000 training observations: No splitting.
         Otherwise:
+        
         .. math::
+        
             \\text{cf_chunks_maxsize} = 90000 + \\frac{{(\\text{number of observations} - 90000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
 
         Default is None.
@@ -549,9 +552,8 @@ class ModifiedCausalForest:
     lc_cs_cv_k : Integer (or None), optional
         Data to be used for local centering & common support adjustment:
         Number of folds in cross-validation (if lc_cs_cv is True).
-        Default (or None) depends on the size of the training
-          training sample (N): N < 100'000: 5;  100'000 <= N < 250'000: 4
-          250'000 <= N < 500'000: 3, 500'000 <= N: 2.
+        Default (or None) depends on the size of the training sample 
+        (N): N < 100'000: 5;  100'000 <= N < 250'000: 4 250'000 <= N < 500'000: 3, 500'000 <= N: 2.
 
     lc_cs_share : Float (or None), optional
         Data to be used for local centering & common support adjustment:
@@ -966,8 +968,8 @@ class ModifiedCausalForest:
 
     _int_mp_weights_type : Integer (or None), optional
         Type of multiprocessing when computing weights:
-        1 : Groups-of-obs based (fast, lots of memory).
-        2 : Tree based (takes forever, less memory).
+        '1': Groups-of-obs based (fast, lots of memory).
+        '2' :Tree based (takes forever, less memory).
         Value of 2 will be internally changed to 1 if multiprocessing.
         Default (or None) is 1.
         Internal variable, change default only if you know what you do.
@@ -978,8 +980,7 @@ class ModifiedCausalForest:
          (i) Number of workers is halved in local centering.
          (ii) Ray is explicitely shut down.
          (iii) The number of workers used is reduced to 75% of default.
-         (iv) The data type for some numpy arrays is reduced from float64 to
-              float32.
+         (iv) The data type for some numpy arrays is reduced from float64 to float32.
          Default is 1'000'000.
 
     _int_output_no_new_dir : Boolean (or None), optional
@@ -1024,8 +1025,7 @@ class ModifiedCausalForest:
 
     _int_weight_as_sparse_splits : Integer (or None), optional
         Compute sparse weight matrix in several chuncks.
-        None : (Rows of prediction data * rows of Fill_y data)
-               / (number of training splits * 25'000 * 25'000))
+        None : (Rows of prediction data * rows of Fill_y data)/(number of training splits * 25'000 * 25'000))
         Default is None.
         Internal variable, change default only if you know what you do.
 

@@ -56,3 +56,20 @@ Optimal Policy
 .. currentmodule:: optpolicy_functions
 
 .. autoclass:: OptimalPolicy
+
+
+Methods
+^^^^^^^
+
+..
+   HACK -- Also list the methods in the "commented out" paragraph below. The
+   point here is that we don't want this to appear in the output, but the
+   autosummary below will, even when commented out, generate the separate
+   documentation page that can be cross-referenced.
+
+   .. autosummary:: 
+      :toctree:
+      OptimalPolicy.allocate
+
+.. autosummary:: 
+    ~OptimalPolicy.allocate

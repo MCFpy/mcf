@@ -31,6 +31,18 @@ class OptimalPolicy:
         Remove all missing & unnecessary variables.
         Default (or None) is True.
 
+    estrisk_value : Float or integer (or None), optional
+        The is k in the formula  'policy_score - k * standard_error'
+        used to adjust the scores for estimation risk.
+        Default (or None) is 1.
+
+    fair_adjust_target :  String (or None), optional\
+        Target for the fairness adjustment.\
+        ``'scores'`` : Adjust policy scores.\
+        ``'xvariables'`` : Adjust decision variables.\
+        ``'scores_xvariables'`` : Adjust both decision variables and score.\
+        Default (or None) is 'xvariables'.
+
     fair_consistency_test : Boolean (or None), optional\
         Test for internally consistency of fairness correction.
         The fairness corrections are applied independently to every policy

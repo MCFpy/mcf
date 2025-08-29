@@ -3,7 +3,6 @@ from mcf import reporting_functions as rep
 
 class McfOptPolReport:
     """
-    .. versionadded:: 0.8.0
         Provides reports about the main specification choices and most
         important results of the :class:`~mcf_functions.ModifiedCausalForest`
         and :class:`~optpolicy_functions.OptimalPolicy` estimations.

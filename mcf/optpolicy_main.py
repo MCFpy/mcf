@@ -596,7 +596,7 @@ class OptimalPolicy:
         self.number_scores = len(self.var_dict['polscore_name'])
 
     def allocate(self,
-                 data_df: DataFrame,
+                 data_df,
                  data_title: str = '',
                  fair_adjust_decision_vars: bool = False
                  ):
@@ -647,8 +647,8 @@ class OptimalPolicy:
         return results_dic    
 
     def evaluate(self,
-                 allocation_df: DataFrame,
-                 data_df: DataFrame,
+                 allocation_df,
+                 data_df,
                  data_title: str = '',
                  seed: int = 12434
                  ): 
@@ -693,9 +693,9 @@ class OptimalPolicy:
         return results_all_dic
 
     def evaluate_multiple(self,
-                          allocations_dic: dict,
-                          data_df: DataFrame
-                          ) -> Path:
+                          allocations_dic,
+                          data_df,
+                          ):
         """
         Evaluate several allocations simultaneously.
 
@@ -727,7 +727,7 @@ class OptimalPolicy:
         return results_dic
 
     def estrisk_adjust(self,
-                       data_df: DataFrame,
+                       data_df,
                        data_title: str = ''
                        ):
         """
@@ -765,7 +765,7 @@ class OptimalPolicy:
         return results_dic
 
     def solvefair(self,
-                  data_df: DataFrame,
+                  data_df,
                   data_title: str = ''
                   ):
         """
@@ -807,7 +807,7 @@ class OptimalPolicy:
         return results_all_dic
 
     def solve(self,
-              data_df: DataFrame,
+              data_df,
               data_title: str = ''
               ):
         """
@@ -855,8 +855,8 @@ class OptimalPolicy:
         mcf_ps.print_mcf(self.gen_dict, val_all, summary=True)
 
     def winners_losers(self,
-                       data_df: DataFrame,
-                       welfare_df: DataFrame,
+                       data_df,
+                       welfare_df,
                        welfare_reference_df: int = 0,
                        outpath: None = None,
                        title: str = ''

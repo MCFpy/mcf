@@ -973,12 +973,12 @@ class ModifiedCausalForest:
         Internal variable, change default only if you know what you do.
 
      _int_obs_bigdata : Integer or None, optional
-         If number of training observations is larger than this number, the
-         following happens during training: (i) Number of workers is
-         halved in local centering. (ii) Ray is explicitely shut down.
-         (iii) The number of workers used is reduced to 75% of default.
-         (iv) The data type for some numpy arrays is reduced from float64 to float32.
-         Default is 1'000'000.
+        If number of training observations is larger than this number, the
+        following happens during training: (i) Number of workers is
+        halved in local centering. (ii) Ray is explicitely shut down.
+        (iii) The number of workers used is reduced to 75% of default.
+        (iv) The data type for some numpy arrays is reduced from float64 to float32.
+        Default is 1'000'000.
 
     _int_output_no_new_dir : Boolean (or None), optional
         Do not create a new directory when the path already exists.

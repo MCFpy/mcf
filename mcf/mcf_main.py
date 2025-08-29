@@ -1741,17 +1741,17 @@ class ModifiedCausalForest:
     def sensitivity(
                     self: "ModifiedCausalForest",
                     train_df: DataFrame,
-                    predict_df=None,
-                    results=None,
-                    sens_cbgate=None,
-                    sens_bgate=None,
-                    sens_gate=None,
-                    sens_iate=None,
-                    sens_iate_se=None,
-                    sens_scenarios=None,
-                    sens_cv_k=None,
+                    predict_df: None = None,
+                    results: None = None,
+                    sens_cbgate: None = None,
+                    sens_bgate: None = None,
+                    sens_gate: None = None,
+                    sens_iate: None = None,
+                    sens_iate_se: None = None,
+                    sens_scenarios: None = None,
+                    sens_cv_k: None = None,
                     sens_replications: int = 2,
-                    sens_reference_population=None
+                    sens_reference_population: None = None,
                     ) -> dict:
         """
         Compute simulation-based sensitivity indicators.

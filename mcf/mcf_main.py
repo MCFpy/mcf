@@ -1331,7 +1331,7 @@ class ModifiedCausalForest:
         self.predict_iv_done = False
         self.predict_different_allocations_done = False
 
-    def train(self: 'ModifiedCausalForest', data_df: DataFrame) -> dict:
+    def train(self, data_df): 
         """
         Build the modified causal forest on the training data.
 
@@ -1374,7 +1374,7 @@ class ModifiedCausalForest:
 
         return results
 
-    def train_iv(self: 'ModifiedCausalForest', data_df: DataFrame) -> dict:
+    def train_iv(self, data_df):
         """
         Train the IV modified causal forest on the training data.
 
@@ -1417,7 +1417,7 @@ class ModifiedCausalForest:
 
         return results
 
-    def predict(self: 'ModifiedCausalForest', data_df: DataFrame) -> dict:
+    def predict(self, data_df):
         """
         Compute all effects.
 
@@ -1478,10 +1478,10 @@ class ModifiedCausalForest:
 
         return results
 
-    def predict_different_allocations(self: 'ModifiedCausalForest',
-                                      data_df: DataFrame,
+    def predict_different_allocations(self,
+                                      data_df,
                                       allocations_df: bool = None
-                                      ) -> dict:
+                                      ):
         """
         Predict average potential outcomes for different allocations.
 
@@ -1525,7 +1525,7 @@ class ModifiedCausalForest:
 
         return results
 
-    def predict_iv(self: 'ModifiedCausalForest', data_df: DataFrame):
+    def predict_iv(self, data_df):
         """
         Compute all effects for instrument mcf (possibly in 2 differnt ways).
 
@@ -1619,7 +1619,7 @@ class ModifiedCausalForest:
 
         return results_global, results_local
 
-    def analyse(self: 'ModifiedCausalForest', results: DataFrame) -> dict:
+    def analyse(self, results):
         """
         Analyse estimated IATEs with various descriptive tools.
 
@@ -1739,8 +1739,8 @@ class ModifiedCausalForest:
                 var_x_blind_unord_name, self.gen_dict['outpath'])
 
     def sensitivity(
-                    self: "ModifiedCausalForest",
-                    train_df: DataFrame,
+                    self,
+                    train_df,
                     predict_df: None = None,
                     results: None = None,
                     sens_cbgate: None = None,
@@ -1752,7 +1752,7 @@ class ModifiedCausalForest:
                     sens_cv_k: None = None,
                     sens_replications: int = 2,
                     sens_reference_population: None = None,
-                    ) -> dict:
+                    ):
         """
         Compute simulation-based sensitivity indicators.
     

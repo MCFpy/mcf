@@ -76,8 +76,7 @@ class ModifiedCausalForest:
         :meth:`~ModifiedCausalForest.train` method.
         Default is None.
 
-    var_x_name_always_in_unord : String or List of strings (or None),
-                                 optional
+    var_x_name_always_in_unord : String or List of strings (or None), optional
         Name of unordered variables that always checked on when deciding on
         the next split during tree building. Only relevant for
         :meth:`~ModifiedCausalForest.train`  method.
@@ -89,8 +88,7 @@ class ModifiedCausalForest:
         :meth:`~ModifiedCausalForest.train` method.
         Default is None.
 
-    var_x_name_remain_unord : String or List of strings (or None), 
-                              optional
+    var_x_name_remain_unord : String or List of strings (or None), optional
         Name of unordered variables that cannot be removed by feature
         selection. Only relevant for :meth:`~ModifiedCausalForest.train` method.
         Default is None.

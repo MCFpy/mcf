@@ -444,6 +444,9 @@ class OptimalPolicy:
     dc_dict : Dictionary
         Parameters used in data cleaning.
 
+    estrisk : Dictionary
+        Parameters used to account for estimation uncertainty in policy scores.
+
     fair_dict : Dictionary
         Parameters used in fairness adjustment of scores.
 

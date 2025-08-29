@@ -436,10 +436,10 @@ class OptimalPolicy:
     Attributes
     ----------
 
+    <NOT-ON-API>
+    
     version : String
         Version of mcf module used to create the instance.
-
-    <NOT-ON-API>
 
     dc_dict : Dictionary
         Parameters used in data cleaning.

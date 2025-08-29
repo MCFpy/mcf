@@ -35,10 +35,10 @@ class McfOptPolReport:
     Attributes
     ----------
 
+    <NOT-ON-API>
+
     version : String
         Version of mcf module used to create the instance.
-
-    <NOT-ON-API>
 
     gen_dict : Dictionary
         General parameters to compute reports.

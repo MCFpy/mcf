@@ -844,7 +844,7 @@ class OptimalPolicy:
     def solve(self,
               data_df: DataFrame,
               data_title: str = ''
-              ) 
+              ): 
         """
         Solve for optimal allocation rule.
 

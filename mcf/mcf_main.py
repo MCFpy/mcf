@@ -972,7 +972,7 @@ class ModifiedCausalForest:
         Default (or None) is 1.
         Internal variable, change default only if you know what you do.
 
-     _int_obs_bigdata : Integer or None, optional
+    _int_obs_bigdata : Integer or None, optional
         If number of training observations is larger than this number, 
         the following happens during training: (i) Number of workers is
         halved in local centering. (ii) Ray is explicitely 

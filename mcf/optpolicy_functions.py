@@ -844,7 +844,7 @@ class OptimalPolicy:
             }
         return results_all_dic
 
-    def print_time_strings_all_steps(self, title: str = '') -> None:
+    def print_time_strings_all_steps(self, title: str = ''):
         """Print an overview over the time needed in all steps of programme."""
         txt = '\n' + '=' * 100 + '\nSummary of computation times of all steps '
         txt += title

@@ -89,6 +89,14 @@ After initializing a class instance, we use it to solve for an optimal allocatio
     results_eva_pred, _ = myoptp.evaluate(alloc_pred_df, prediction_df,
                                           data_title='prediction')
 
+Inference for different allocations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The method ``predict_different_allocations`` enables the prediction of average potential outcomes and variances for different allocations. Details of this method are provided in the working paper by Busshoff and Lechner (mimeo, 2025).
+
+Example scripts in the User Guide illustrate the Python code for this method. Note that the ``train`` method of the ``ModifiedCausalForest`` class must be executed beforehand.
+
+
 Estimate a policy tree under uncertainty
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

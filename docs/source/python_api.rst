@@ -72,8 +72,22 @@ Methods
       OptimalPolicy.allocate
       OptimalPolicy.evaluate
       OptimalPolicy.evaluate_multiple
+      OptimalPolicy.estrisk_adjust
+      OptimalPolicy.solvefair
+      OptimalPolicy.solve
+      OptimalPolicy.print_time_strings_all_steps
+      OptimalPolicy.winners_losers
+
 
 .. autosummary:: 
     ~OptimalPolicy.allocate
     ~OptimalPolicy.evaluate
     ~OptimalPolicy.evaluate_multiple
+    ~OptimalPolicy.estrisk_adjust
+    ~OptimalPolicy.solvefair
+    ~OptimalPolicy.solve
+    ~OptimalPolicy.print_time_strings_all_steps
+    ~OptimalPolicy.winners_losers
+
+
+

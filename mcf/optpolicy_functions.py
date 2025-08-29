@@ -488,10 +488,13 @@ class OptimalPolicy:
     def __init__(
         self, dc_check_perfectcorr=True,
         dc_clean_data=True, dc_min_dummy_obs=10, dc_screen_covariates=True,
-        fair_type='MeanVar', fair_consistency_test=False,
-        fair_material_disc_method='Kmeans', fair_protected_disc_method='Kmeans',
-        fair_material_max_groups=5, fair_regression_method='RandomForest',
-        fair_protected_max_groups=5,
+        estrisk_value=1,
+        fair_adjust_target='xvariables', fair_consistency_test=False,
+        fair_cont_min_values=20,
+        fair_material_disc_method='Kmeans', fair_material_max_groups=5,
+        fair_regression_method='RandomForest',
+        fair_protected_disc_method='Kmeans', fair_protected_max_groups=5,
+        fair_type='Quantiled',
         gen_method='best_policy_score', gen_mp_parallel='None',
         gen_outfiletext='txtFileWithOutput',
         gen_outpath=None, gen_output_type=2, gen_variable_importance=True,
@@ -504,17 +507,18 @@ class OptimalPolicy:
         var_bb_restrict_name=None, var_d_name=None, var_effect_vs_0=None,
         var_effect_vs_0_se=None, var_id_name=None,
         var_material_name_ord=None, var_material_name_unord=None,
-        var_polscore_desc_name=None,
-        var_polscore_name=None, var_protected_name_ord=None,
-        var_protected_name_unord=None, var_vi_x_name=None,
-        var_vi_to_dummy_name=None, var_x_name_ord=None, var_x_name_unord=None,
-        _int_dpi=500, _int_fontsize=2,
-        _int_how_many_parallel=None, _int_output_no_new_dir=False,
-        _int_parallel_processing=True, _int_report=True, _int_with_numba=True,
-        _int_with_output=True, _int_xtr_parallel=True,
+        var_polscore_desc_name=None, var_polscore_name=None,
+        var_polscore_se_name=None,
+        var_protected_name_ord=None, var_protected_name_unord=None,
+        var_vi_x_name=None, var_vi_to_dummy_name=None,
+        var_x_name_ord=None, var_x_name_unord=None,
+        _int_dpi=500, _int_fontsize=2, _int_output_no_new_dir=False,
+        _int_report=True, _int_with_numba=True, _int_with_output=True,
+        _int_xtr_parallel=True,
             ):
 
-        self.version = '0.7.2'
+        self.version = '0.8.0'
+        self.__version__ = '0.8.0'
 
         self.int_dict = op_init.init_int(
             cuda=False, output_no_new_dir=_int_output_no_new_dir,
@@ -556,13 +560,17 @@ class OptimalPolicy:
             material_ord_name=var_material_name_ord,
             material_unord_name=var_material_name_unord,
             polscore_name=var_polscore_name,
+            polscore_se_name=var_polscore_se_name,
             protected_ord_name=var_protected_name_ord,
             protected_unord_name=var_protected_name_unord,
             x_ord_name=var_x_name_ord, x_unord_name=var_x_name_unord,
             vi_x_name=var_vi_x_name, vi_to_dummy_name=var_vi_to_dummy_name)
 
         self.fair_dict = op_init.init_fair(
+            gen_dic=self.gen_dict,
+            adjust_target=fair_adjust_target,
             consistency_test=fair_consistency_test,
+            cont_min_values=fair_cont_min_values,
             material_disc_method=fair_material_disc_method,
             protected_disc_method=fair_protected_disc_method,
             material_max_groups=fair_material_max_groups,
@@ -570,12 +578,16 @@ class OptimalPolicy:
             protected_max_groups=fair_protected_max_groups,
             adj_type=fair_type)
 
+        self.estrisk_dict = op_init.init_estrisk(value=estrisk_value)
+
         self.time_strings, self.var_x_type, self.var_x_values = {}, {}, {}
         self.bps_class_dict = {}
         self.report = {'fairscores': False,
+                       'solvefair': False,
                        'training': False,
                        'evaluation': False,
                        'allocation': False,
+                       'estriskscores': False,
                        'training_data_chcksm': 0,   # To identify training data
                        'training_alloc_chcksm': 0,  # To identify train. alloc.
                        'alloc_list': [],   # List because of possible multiple

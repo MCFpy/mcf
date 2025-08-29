@@ -764,41 +764,6 @@ class OptimalPolicy:
             }
         return results_dic
 
-    # def fairscores(self, data_df, data_title=''):
-    #     """
-    #     Make scores independent of protected variables. To be removed.
-
-    #     Parameters
-    #     ----------
-    #     data_df : DataFrame
-    #         Input data.
-
-    #     data_title : String, optional
-    #         This string is used as title in outputs. The default is ''.
-
-    #     Returns
-    #     -------
-    #     data_fair_df : DataFrame
-    #         Input data with additional fairness adjusted scores.
-
-    #     fair_scores_names : List of strings.
-    #         Names of adjusted scores.
-
-    #     tests_dict : Dictionary
-    #         Tests for consistency of different fairness adjustments. Empty
-    #         when keyword fair_consistency_test is False.
-
-    #     outpath : Pathlib object
-    #         Location of directory in which output is saved.
-    #     """
-    #     (data_fair_df, fair_scores_names, tests_dict, self.gen_dict['outpath']
-    #      ) = op_methods.fairscores_method(self,
-    #                                       data_df,
-    #                                       data_title=data_title)
-
-    #     return (data_fair_df, fair_scores_names, tests_dict,
-    #             self.gen_dict['outpath'])
-
     def solvefair(self,
                   data_df: DataFrame,
                   data_title: str = ''

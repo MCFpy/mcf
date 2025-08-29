@@ -319,7 +319,7 @@ class ModifiedCausalForest:
 
         .. math::
 
-            S = \\max((n^{0.5},min(0.67 \\n, \\frac{2 \\times (n^{0.85})}{n}))), \\text{n: # of training observations} 
+            S = \\max((n^{0.5},min(0.67n, \\frac{2 \\times (n^{0.85})}{n}))), \\text{n: # of training observations} 
 
         :math:`S \\times \\text{cf_subsample_factor_forest}, \\text{is not larger than 80%.}` 
         Default (or None) is 1.

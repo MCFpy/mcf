@@ -691,6 +691,40 @@ class OptimalPolicy:
             }
 
         return results_all_dic
+
+    def evaluate_multiple(self,
+                          allocations_dic: dict,
+                          data_df: DataFrame
+                          ) -> Path:
+        """
+        Evaluate several allocations simultaneously.
+
+        Parameters
+        ----------
+        allocations_dic : Dictionary
+            Contains dataframes with specific allocations.
+
+        data_df : DataFrame.
+            Data with the relevant information about potential outcomes
+            which
+            will be used to evaluate the allocations.
+
+        Returns
+        -------
+        results_dic : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'outpath' : Path
+                Location of directory in which output is saved.
+
+        """
+        if not self.gen_dict['with_output']:
+            raise ValueError('To use this method, allow output to be written.')
+        potential_outcomes_np = data_df[self.var_dict['polscore_name']]
+        op_eval.evaluate_multiple(self, allocations_dic, potential_outcomes_np)
+        results_dic = {'outpath': self.gen_dict['outpath']
+                       }
+
+        return results_dic
     
     def solve(self, data_df, data_title=''):
         """
@@ -776,30 +810,6 @@ class OptimalPolicy:
             self.report['training_leaf_information'] = txt + allocation_txt
 
         return allocation_df, result_dic, self.gen_dict['outpath']
-
-    def evaluate_multiple(self, allocations_dic, data_df):
-        """
-        Evaluate several allocations simultaneously.
-
-        Parameters
-        ----------
-        allocations_dic : Dictionary.
-            Contains dataframes with specific allocations.
-        data_df : DataFrame.
-            Data with the relevant information about potential outcomes which
-            will be used to evaluate the allocations.
-
-        Returns
-        -------
-        outpath : String
-            Location of directory in which output is saved.
-
-        """
-        if not self.gen_dict['with_output']:
-            raise ValueError('To use this method, allow output to be written.')
-        potential_outcomes_np = data_df[self.var_dict['polscore_name']]
-        op_eval.evaluate_multiple(self, allocations_dic, potential_outcomes_np)
-        return self.gen_dict['outpath']
 
     def print_time_strings_all_steps(self):
         """Print an overview over the time needed in all steps of programme."""

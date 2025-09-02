@@ -1,0 +1,6 @@
+﻿optpolicy\_main.OptimalPolicy.evaluate
+======================================
+
+.. currentmodule:: optpolicy_main
+
+.. automethod:: OptimalPolicy.evaluate

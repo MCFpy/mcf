@@ -301,7 +301,6 @@ def get_iate(rng, x_np, iate_type, no_effect=False):
         case m:
             raise ValueError(f'Unknown iate_type: {m!r}')
 
-#    iate *= 1
     iate += 1
     if no_effect:
         iate *= 0

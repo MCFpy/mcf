@@ -4,13 +4,13 @@ Created on Wed Dec 21 15:37:16 2022.
 # -*- coding: utf-8 -*-
 @author: MLechner
 """
-from typing import Any
 
 import numpy as np
-from numpy.typing import NDArray
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from typing import Any
+from numpy.typing import NDArray
 from scipy.linalg import toeplitz
 from scipy.stats import logistic, norm
 

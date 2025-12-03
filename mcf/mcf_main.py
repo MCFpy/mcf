@@ -29,33 +29,53 @@ class ModifiedCausalForest:
     version : String
         Version of mcf module used to create the instance.
 
+    blind_dict : Dictionary
+        Parameters to compute (partially) blinded IATEs.
+
+    cf_dict : Dictionary
+        Parameters used in training the forest (directly).
+
+    cs_dict : Dictionary
+        Parameters used in common support adjustments.
+
+    ct_dict : Dictionary
+        Parameters used in dealing with continuous treatments.
+
+    data_train_dict : Dictionary
+
     dc_dict : Dictionary
         Parameters used in data cleaning.
 
-    estrisk : Dictionary
-        Parameters used to account for estimation uncertainty in policy scores.
+    fs_dict : Dictionary
+        Parameters used in feature selection.
 
-    fair_dict : Dictionary
-        Parameters used in fairness adjustment of scores.
+    forest : List
+        List of lists containing the estimated causal forest.
 
     gen_dict : Dictionary
         General parameters used in various parts of the programme.
 
     int_dict : Dictionary
-        Parameters used in many parts of the class.
+        Internal parameters used in various parts of the class.
 
-    number_scores : Integer
-        Number of policy scores.
+    iv_mcf : Dictionary
+        Internal instances of instrumental mcf containing for first stage
+        and reduced form.
 
-    other_dict : Dictionary
-        Contains other relevant information needed for allocation (like cost,
-        constraints).
+    lc_dict : Dictionary
+        Parameters used in local centering.
 
-    pt_dict : Dictionary
-        Parameters used to build policy tree.
+    p_dict : Dictionary
+        Parameters used in prediction method.
 
-    rnd_dict : Dictionary
-        Shares for random allocation.
+    post_dict : Dictionary
+        Parameters used in analyse method.
+
+    report :
+        Provides information for McfOptPolReports to construct reports.
+
+    sens_dict : Dictionary
+        Parameters used in sensitivity method.
 
     time_strings : String
         Detailed information on how long the different methods needed.

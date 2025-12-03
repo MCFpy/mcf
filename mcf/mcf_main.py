@@ -20,6 +20,7 @@ class ModifiedCausalForest:
     dc_screen_covariates : Boolean (or None), optional
         Check features.
         Default (or None) is True.
+
     """
 
     def __init__(

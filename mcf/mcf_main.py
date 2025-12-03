@@ -21,6 +21,56 @@ class ModifiedCausalForest:
         Check features.
         Default (or None) is True.
 
+    Attributes
+    ----------
+
+    <NOT-ON-API>
+    
+    version : String
+        Version of mcf module used to create the instance.
+
+    dc_dict : Dictionary
+        Parameters used in data cleaning.
+
+    estrisk : Dictionary
+        Parameters used to account for estimation uncertainty in policy scores.
+
+    fair_dict : Dictionary
+        Parameters used in fairness adjustment of scores.
+
+    gen_dict : Dictionary
+        General parameters used in various parts of the programme.
+
+    int_dict : Dictionary
+        Parameters used in many parts of the class.
+
+    number_scores : Integer
+        Number of policy scores.
+
+    other_dict : Dictionary
+        Contains other relevant information needed for allocation (like cost,
+        constraints).
+
+    pt_dict : Dictionary
+        Parameters used to build policy tree.
+
+    rnd_dict : Dictionary
+        Shares for random allocation.
+
+    time_strings : String
+        Detailed information on how long the different methods needed.
+
+    var_dict : Dictionary
+        Variable names.
+
+    var_x_type : Dictionary
+        Types of covariates (internal).
+
+    var_x_values : Dictionary
+        Values of covariates (internal).
+
+    </NOT-ON-API>
+
     """
 
     def __init__(

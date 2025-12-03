@@ -9,8 +9,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from typing import Any
-from numpy.typing import NDArray
 from scipy.linalg import toeplitz
 from scipy.stats import logistic, norm
 
@@ -288,19 +286,18 @@ def get_iate(rng, x_np, iate_type, no_effect=False):
     cols = x_np.shape[1]
     coeff, _, _ = coefficients(rng, cols)
     index = (x_np @ coeff).reshape(-1, 1)
-
-    match iate_type:
-        case 'linear':     iate = index
-        case 'nonlinear':  iate = logistic.cdf(index, loc=0, scale=1) - 0.5
-        case 'quadratic':  iate = (index**2 - 1.25) / np.sqrt(3)
-        case 'WagerAthey':
-            x_0 = (x_np[:, 0] + np.sqrt(12)/2) / (np.sqrt(12))  # 1st X usually
-            x_1 = (x_np[:, 1] + np.sqrt(12)/2) / (np.sqrt(12))  # uniform
-            iate = (awsinglefunct(x_0) * awsinglefunct(x_1)).reshape(-1, 1)
-            iate -= 2.8
-        case m:
-            raise ValueError(f'Unknown iate_type: {m!r}')
-
+    if iate_type == 'linear':
+        iate = index
+    elif iate_type == 'nonlinear':
+        iate = logistic.cdf(index, loc=0, scale=1) - 0.5
+    elif iate_type == 'quadratic':
+        iate = (index**2 - 1.25) / np.sqrt(3)
+    elif iate_type == 'WagerAthey':
+        x_0 = (x_np[:, 0] + np.sqrt(12)/2) / (np.sqrt(12))  # 1st X usually
+        x_1 = (x_np[:, 1] + np.sqrt(12)/2) / (np.sqrt(12))  # uniform
+        iate = (awsinglefunct(x_0) * awsinglefunct(x_1)).reshape(-1, 1)
+        iate -= 2.8
+    iate *= 1
     iate += 1
     if no_effect:
         iate *= 0
@@ -355,29 +352,27 @@ def covariates_x(rng: np.random.default_rng,
     k_dumm = round(k_ord_cat / 2)
     k_ord = k_ord_cat - k_dumm
 
-    match correlation:
-        case 'low':   # all features uncorrelated
-            x_uniform = rng.uniform(low=-np.sqrt(12)/2, high=np.sqrt(12)/2,
-                                    size=(obs, k_uni))
-            x_normal = rng.normal(loc=0, scale=1, size=(obs, k_norm))
+    if correlation == 'low':   # all features uncorrelated
+        x_uniform = rng.uniform(low=-np.sqrt(12)/2, high=np.sqrt(12)/2,
+                                size=(obs, k_uni))
+        x_normal = rng.normal(loc=0, scale=1, size=(obs, k_norm))
 
-        case 'high':  # All continuous features correlated
-            first_column = np.linspace(1, 0, k_uni+k_norm)
-            toeplitz_covariance = toeplitz(first_column)
-            x_uninorm = rng.multivariate_normal(mean=np.zeros(k_uni+k_norm),
-                                                cov=toeplitz_covariance,
-                                                size=obs)
-            x_uniform = (norm.cdf(x_uninorm[:, :k_uni]) - 0.5) * np.sqrt(12)
-            x_normal = x_uninorm[:, k_uni:]
-
-        case _:  # 'middle'     All normal features correlated
-            x_uniform = rng.uniform(low=-np.sqrt(12)/2, high=np.sqrt(12)/2,
-                                    size=(obs, k_uni))
-            first_column = np.linspace(1, 0, k_norm)
-            toeplitz_covariance = toeplitz(first_column)
-            x_normal = rng.multivariate_normal(mean=np.zeros(k_norm),
-                                               cov=toeplitz_covariance,
-                                               size=obs)
+    elif correlation == 'high':  # All continuous features correlated
+        first_column = np.linspace(1, 0, k_uni+k_norm)
+        toeplitz_covariance = toeplitz(first_column)
+        x_uninorm = rng.multivariate_normal(mean=np.zeros(k_uni+k_norm),
+                                            cov=toeplitz_covariance,
+                                            size=obs)
+        x_uniform = (norm.cdf(x_uninorm[:, :k_uni]) - 0.5) * np.sqrt(12)
+        x_normal = x_uninorm[:, k_uni:]
+    else:  # 'middle'     All normal features correlated
+        x_uniform = rng.uniform(low=-np.sqrt(12)/2, high=np.sqrt(12)/2,
+                                size=(obs, k_uni))
+        first_column = np.linspace(1, 0, k_norm)
+        toeplitz_covariance = toeplitz(first_column)
+        x_normal = rng.multivariate_normal(mean=np.zeros(k_norm),
+                                           cov=toeplitz_covariance,
+                                           size=obs)
 
     grid_ord = (0.1, 0.3, 0.5, 0.7, 0.9)
     grid_unord = (0.1, 0.2, 0.3, 0.5, 0.7, 0.75, 0.8, 0.85, 0.9)
@@ -395,9 +390,7 @@ def covariates_x(rng: np.random.default_rng,
         x_ord = np.digitize(uniform_ord + add_var / 6, grid_ord)
         x_unord = np.digitize(uniform_unord + add_var / 6, grid_unord)
 
-    x_unord[:, :2] += 1
     x_np = np.concatenate((x_uniform, x_normal, x_dumm, x_ord, x_unord), axis=1)
-
     return x_np
 
 

@@ -1045,8 +1045,7 @@ class ModifiedCausalForest:
         Default is False.
 
     Attributes
-    ----------
-   
+    ----------   
     __version__ : String
         Version of mcf module used to create the instance.
 

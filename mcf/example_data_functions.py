@@ -289,6 +289,10 @@ def get_iate(rng, x_np, iate_type, no_effect=False):
     cols = x_np.shape[1]
     coeff, _, _ = coefficients(rng, cols)
     index = (x_np @ coeff).reshape(-1, 1)
+
+    match iate_type:
+        case 'linear':     iate = index
+  
     iate = 0
     iate += 1
     if no_effect:

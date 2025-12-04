@@ -80,7 +80,7 @@ class McfOptPolReport:
 
     def __init__(self, mcf=None, mcf_sense=None, optpol=None,
                  outputpath=None, outputfile=None):
-        self.gen_dict = rep.gen_init(outputfile, outputpath)
+        self.gen_cfg = rep.ReportCfg.from_args(outputfile, outputpath)
         self.mcf_o, self.opt_o, self.sens_o = mcf, optpol, mcf_sense
         self.blind_o = None  # Underlying method deprecated. No reporting.
         self.mcf = self.mcf_o is not None
@@ -90,7 +90,7 @@ class McfOptPolReport:
         self.text = {}
         self.iv = False        # Instrumental variable estimation
 
-        self.version = '0.8.0'
+        self.version = '0.9.0'
 
     def report(self):
         """Create a PDF report save file to a user provided location.
@@ -112,5 +112,6 @@ class McfOptPolReport:
 
         # Step two: Connect the text and figures save as pdf
         rep.create_pdf_file(self)
-        print(f'\nReport printed: {self.gen_dict["outfilename"]}\n')
-        return self.gen_dict['outfilename']
+        print(f'\nReport printed: {self.gen_cfg.outfilename}\n')
+        return self.gen_cfg.outfilename
+

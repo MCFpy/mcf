@@ -289,7 +289,6 @@ def get_iate(rng, x_np, iate_type, no_effect=False):
     cols = x_np.shape[1]
     coeff, _, _ = coefficients(rng, cols)
     index = (x_np @ coeff).reshape(-1, 1)
-
     match iate_type:
         case 'linear':     iate = index
         case 'nonlinear':  iate = logistic.cdf(index, loc=0, scale=1) - 0.5
@@ -301,7 +300,6 @@ def get_iate(rng, x_np, iate_type, no_effect=False):
             iate -= 2.8
         case m:
             raise ValueError(f'Unknown iate_type: {m!r}')
-
     iate += 1
     if no_effect:
         iate *= 0

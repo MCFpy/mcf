@@ -518,44 +518,47 @@ class OptimalPolicy:
         _int_xtr_parallel=True,
             ):
 
-        self.version = '0.8.0'
-        self.__version__ = '0.8.0'
+        self.version = '0.9.0'
+        self.__version__ = '0.9.0'
 
-        self.int_dict = op_init.init_int(
+        self.int_cfg = op_init.IntCfg.from_args(
             cuda=False, output_no_new_dir=_int_output_no_new_dir,
             report=_int_report, with_numba=_int_with_numba,
             with_output=_int_with_output, xtr_parallel=_int_xtr_parallel,
-            dpi=_int_dpi, fontsize=_int_fontsize)
-
-        self.gen_dict = op_init.init_gen(
+            dpi=_int_dpi, fontsize=_int_fontsize,
+            )
+        self.gen_cfg = op_init.GenCfg.from_args(
             method=gen_method, mp_parallel=gen_mp_parallel,
             outfiletext=gen_outfiletext,
             outpath=gen_outpath, output_type=gen_output_type,
             variable_importance=gen_variable_importance,
-            with_output=self.int_dict['with_output'],
-            new_outpath=not self.int_dict['output_no_new_dir'])
-
-        self.dc_dict = op_init.init_dc(
+            with_output=self.int_cfg.with_output,
+            new_outpath=not self.int_cfg.output_no_new_dir,
+            )
+        self.dc_cfg = op_init.DataCleanCfg.from_args(
             check_perfectcorr=dc_check_perfectcorr,
-            clean_data=dc_clean_data, min_dummy_obs=dc_min_dummy_obs,
-            screen_covariates=dc_screen_covariates)
-
-        self.pt_dict = op_init.init_pt(
+            clean_data=dc_clean_data,
+            min_dummy_obs=dc_min_dummy_obs,
+            screen_covariates=dc_screen_covariates,
+            )
+        self.pt_cfg = op_init.PtCfg.from_args(
             depth_tree_1=pt_depth_tree_1, depth_tree_2=pt_depth_tree_2,
             eva_cat_mult=pt_eva_cat_mult,
             enforce_restriction=pt_enforce_restriction,
             no_of_evalupoints=pt_no_of_evalupoints,
             select_values_cat=pt_select_values_cat,
-            min_leaf_size=pt_min_leaf_size)
+            min_leaf_size=pt_min_leaf_size,
+            )
+        self.other_cfg = op_init.OtherCfg.from_args(
+            other_costs_of_treat=other_costs_of_treat,
+            other_costs_of_treat_mult=other_costs_of_treat_mult,
+            other_max_shares=other_max_shares
+            )
+        self.rnd_cfg = op_init.RndCfg.from_args(rnd_shares=rnd_shares)
 
-        self.other_dict = {'costs_of_treat': other_costs_of_treat,
-                           'costs_of_treat_mult': other_costs_of_treat_mult,
-                           'max_shares': other_max_shares}
-
-        self.rnd_dict = {'shares': rnd_shares}
-
-        self.var_dict = op_init.init_var(
-            bb_restrict_name=var_bb_restrict_name, d_name=var_d_name,
+        self.var_cfg = op_init.VarCfg.from_args(
+            bb_restrict_name=var_bb_restrict_name,
+            d_name=var_d_name,
             effect_vs_0=var_effect_vs_0, effect_vs_0_se=var_effect_vs_0_se,
             id_name=var_id_name, polscore_desc_name=var_polscore_desc_name,
             material_ord_name=var_material_name_ord,
@@ -567,8 +570,8 @@ class OptimalPolicy:
             x_ord_name=var_x_name_ord, x_unord_name=var_x_name_unord,
             vi_x_name=var_vi_x_name, vi_to_dummy_name=var_vi_to_dummy_name)
 
-        self.fair_dict = op_init.init_fair(
-            gen_dic=self.gen_dict,
+        self.fair_cfg = op_init.FairCfg.from_args(
+            self.gen_cfg,
             adjust_target=fair_adjust_target,
             consistency_test=fair_consistency_test,
             cont_min_values=fair_cont_min_values,
@@ -579,7 +582,7 @@ class OptimalPolicy:
             protected_max_groups=fair_protected_max_groups,
             adj_type=fair_type)
 
-        self.estrisk_dict = op_init.init_estrisk(value=estrisk_value)
+        self.estriskcfg = op_init.EstRiskCfg(value=estrisk_value)
 
         self.time_strings, self.var_x_type, self.var_x_values = {}, {}, {}
         self.bps_class_dict = {}
@@ -594,7 +597,7 @@ class OptimalPolicy:
                        'alloc_list': [],   # List because of possible multiple
                        'evalu_list': [],   # allocation, evaluation methods
                        }                   # might be used multiple times.
-        self.number_scores = len(self.var_dict['polscore_name'])
+        self.number_scores = len(self.var_cfg.polscore_name)
 
     def allocate(self,
                  data_df,
@@ -633,7 +636,7 @@ class OptimalPolicy:
                 Location of directory in which output is saved.
 
         """
-        (allocation_df, self.gen_dict['outpath']
+        (allocation_df, self.gen_cfg.outpath
          ) = op_methods.allocate_method(
              self,
              data_df,
@@ -642,17 +645,17 @@ class OptimalPolicy:
              )
         results_dic = {
             'allocation_df': allocation_df,
-            'outpath': self.gen_dict['outpath']
+            'outpath': self.gen_cfg.outpath
             }
 
-        return results_dic    
+        return results_dic
 
     def evaluate(self,
                  allocation_df,
                  data_df,
-                 data_title: str = '',
-                 seed: int = 12434
-                 ): 
+                 data_title='',
+                 seed=12434
+                 ):
         """
         Evaluate allocation with potential outcome data.
 
@@ -680,7 +683,7 @@ class OptimalPolicy:
             'outpath': Output path.
 
         """
-        (results_dic, self.gen_dict['outpath']
+        (results_dic, self.gen_cfg.outpath
          ) = op_methods.evaluate_method(self,
                                         allocation_df,
                                         data_df,
@@ -688,15 +691,12 @@ class OptimalPolicy:
                                         seed=seed)
         results_all_dic = {
             'results_dic': results_dic,
-            'outpath': self.gen_dict['outpath']
+            'outpath': self.gen_cfg.outpath
             }
 
         return results_all_dic
 
-    def evaluate_multiple(self,
-                          allocations_dic,
-                          data_df,
-                          ):
+    def evaluate_multiple(self, allocations_dic, data_df):
         """
         Evaluate several allocations simultaneously.
 
@@ -718,19 +718,16 @@ class OptimalPolicy:
                 Location of directory in which output is saved.
 
         """
-        if not self.gen_dict['with_output']:
+        if not self.gen_cfg.with_output:
             raise ValueError('To use this method, allow output to be written.')
-        potential_outcomes_np = data_df[self.var_dict['polscore_name']]
+        potential_outcomes_np = data_df[self.var_cfg.polscore_name]
         op_eval.evaluate_multiple(self, allocations_dic, potential_outcomes_np)
-        results_dic = {'outpath': self.gen_dict['outpath']
+        results_dic = {'outpath': self.gen_cfg.outpath
                        }
 
         return results_dic
 
-    def estrisk_adjust(self,
-                       data_df,
-                       data_title: str = ''
-                       ):
+    def estrisk_adjust(self, data_df, data_title=''):
         """
         Adjust policy score for estimation risk.
 
@@ -754,21 +751,18 @@ class OptimalPolicy:
                 Location of directory in which output is saved.
 
         """
-        (data_estrisk_df, estrisk_scores_names, self.gen_dict['outpath']
+        (data_estrisk_df, estrisk_scores_names, self.gen_cfg.outpath
          ) = op_methods.estrisk_adjust_method(self,
                                               data_df,
                                               data_title=data_title)
         results_dic = {
             'data_estrisk_df': data_estrisk_df,
             'estrisk_scores_names': estrisk_scores_names,
-            'outpath': self.gen_dict['outpath']
+            'outpath': self.gen_cfg.outpath
             }
         return results_dic
 
-    def solvefair(self,
-                  data_df,
-                  data_title: str = ''
-                  ):
+    def solvefair(self, data_df, data_title=''):
         """
         Solve for optimal allocation rule with fairness adjustments.
 
@@ -796,21 +790,18 @@ class OptimalPolicy:
                 Location of directory in which output is saved.
 
         """
-        (allocation_df, result_dic, self.gen_dict['outpath']
+        (allocation_df, result_dic, self.gen_cfg.outpath
          ) = op_methods.solvefair_method(self,
                                          data_df,
                                          data_title=data_title)
         results_all_dic = {
             'allocation_df': allocation_df,
             'result_dic': result_dic,
-            'outpath': self.gen_dict['outpath']
+            'outpath': self.gen_cfg.outpath
             }
         return results_all_dic
 
-    def solve(self,
-              data_df,
-              data_title: str = ''
-              ):
+    def solve(self, data_df, data_title=''):
         """
         Solve for optimal allocation rule.
 
@@ -834,26 +825,26 @@ class OptimalPolicy:
                 Location of directory in which output is saved.
 
         """
-        (allocation_df, result_dic, self.gen_dict['outpath']
+        (allocation_df, result_dic, self.gen_cfg.outpath
          ) = op_methods.solve_method(self,
                                      data_df,
                                      data_title=data_title)
         results_all_dic = {
             'allocation_df': allocation_df,
             'result_dic': result_dic,
-            'outpath': self.gen_dict['outpath']
+            'outpath': self.gen_cfg.outpath
             }
         return results_all_dic
 
-    def print_time_strings_all_steps(self, title: str = ''):
+    def print_time_strings_all_steps(self, title=''):
         """Print an overview over the time needed in all steps of programme."""
         txt = '\n' + '=' * 100 + '\nSummary of computation times of all steps '
         txt += title
-        mcf_ps.print_mcf(self.gen_dict, txt, summary=True)
+        mcf_ps.print_mcf(self.gen_cfg, txt, summary=True)
         val_all = ''
         for _, val in self.time_strings.items():
             val_all += val
-        mcf_ps.print_mcf(self.gen_dict, val_all, summary=True)
+        mcf_ps.print_mcf(self.gen_cfg, val_all, summary=True)
 
     def winners_losers(self,
                        data_df,
@@ -861,7 +852,7 @@ class OptimalPolicy:
                        welfare_reference_df: int = 0,
                        outpath: None = None,
                        title: str = ''
-                       ): 
+                       ):
         """
         Compare the winners and loser.
 
@@ -897,7 +888,7 @@ class OptimalPolicy:
                 Location of directory in which output is saved.
 
         """
-        (data_plus_cluster_number_df, self.gen_dict['outpath']
+        (data_plus_cluster_number_df, self.gen_cfg.outpath
          ) = op_methods.winners_losers_method(
              self, data_df, welfare_df,
              welfare_reference_df=welfare_reference_df,
@@ -906,6 +897,7 @@ class OptimalPolicy:
              )
         results_dic = {
             'data_plus_cluster_number_df': data_plus_cluster_number_df,
-            'outpath': self.gen_dict['outpath']
+            'outpath': self.gen_cfg.outpath
             }
         return results_dic
+

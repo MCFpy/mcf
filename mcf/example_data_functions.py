@@ -5,7 +5,10 @@ Created on Wed Dec 21 15:37:16 2022.
 @author: MLechner
 """
 
+from typing import Any
+
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 import matplotlib.pyplot as plt
 

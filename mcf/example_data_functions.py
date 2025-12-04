@@ -289,21 +289,21 @@ def get_iate(rng, x_np, iate_type, no_effect=False):
     cols = x_np.shape[1]
     coeff, _, _ = coefficients(rng, cols)
     index = (x_np @ coeff).reshape(-1, 1)
-    match iate_type:
-        case 'linear':     iate = index
-        case 'nonlinear':  iate = logistic.cdf(index, loc=0, scale=1) - 0.5
-        case 'quadratic':  iate = (index**2 - 1.25) / np.sqrt(3)
-        case 'WagerAthey':
-            x_0 = (x_np[:, 0] + np.sqrt(12)/2) / (np.sqrt(12))  # 1st X usually
-            x_1 = (x_np[:, 1] + np.sqrt(12)/2) / (np.sqrt(12))  # uniform
-            iate = (awsinglefunct(x_0) * awsinglefunct(x_1)).reshape(-1, 1)
-            iate -= 2.8
-        case m:
-            raise ValueError(f'Unknown iate_type: {m!r}')
-    iate += 1
-    if no_effect:
-        iate *= 0
-    return iate
+            match iate_type:
+                case 'linear':     iate = index
+                case 'nonlinear':  iate = logistic.cdf(index, loc=0, scale=1) - 0.5
+                case 'quadratic':  iate = (index**2 - 1.25) / np.sqrt(3)
+                case 'WagerAthey':
+                    x_0 = (x_np[:, 0] + np.sqrt(12)/2) / (np.sqrt(12))  # 1st X usually
+                    x_1 = (x_np[:, 1] + np.sqrt(12)/2) / (np.sqrt(12))  # uniform
+                    iate = (awsinglefunct(x_0) * awsinglefunct(x_1)).reshape(-1, 1)
+                    iate -= 2.8
+                case m:
+                    raise ValueError(f'Unknown iate_type: {m!r}')
+            iate += 1
+            if no_effect:
+                iate *= 0
+            return iate
 
 
 def coefficients(rng, k_cont, k_ord_cat=None, k_unord=None):

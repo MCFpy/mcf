@@ -344,11 +344,10 @@ def treatment_d(rng, no_treat, k_all, x_np, inst_np, strength_iv=1,
     return d_np
 
 
-def covariates_x(rng: np.random.Generator,
+def covariates_x(rng: np.random.default_rng,
                  k_all: int,
                  obs: int,
-                 correlation: str = 'middle'
-                 ) -> np.array:
+                 correlation: str = 'middle') -> np.array:
     """Randomly sample the covariates."""
     k_cont, k_ord_cat, k_unord = k_all
     k_uni = round(k_cont/2)
@@ -356,29 +355,27 @@ def covariates_x(rng: np.random.Generator,
     k_dumm = round(k_ord_cat / 2)
     k_ord = k_ord_cat - k_dumm
 
-    match correlation:
-        case 'low':   # all features uncorrelated
-            x_uniform = rng.uniform(low=-np.sqrt(12)/2, high=np.sqrt(12)/2,
-                                    size=(obs, k_uni))
-            x_normal = rng.normal(loc=0, scale=1, size=(obs, k_norm))
+    if correlation == 'low':   # all features uncorrelated
+        x_uniform = rng.uniform(low=-np.sqrt(12)/2, high=np.sqrt(12)/2,
+                                size=(obs, k_uni))
+        x_normal = rng.normal(loc=0, scale=1, size=(obs, k_norm))
 
-        case 'high':  # All continuous features correlated
-            first_column = np.linspace(1, 0, k_uni+k_norm)
-            toeplitz_covariance = toeplitz(first_column)
-            x_uninorm = rng.multivariate_normal(mean=np.zeros(k_uni+k_norm),
-                                                cov=toeplitz_covariance,
-                                                size=obs)
-            x_uniform = (norm.cdf(x_uninorm[:, :k_uni]) - 0.5) * np.sqrt(12)
-            x_normal = x_uninorm[:, k_uni:]
-
-        case _:  # 'middle'     All normal features correlated
-            x_uniform = rng.uniform(low=-np.sqrt(12)/2, high=np.sqrt(12)/2,
-                                    size=(obs, k_uni))
-            first_column = np.linspace(1, 0, k_norm)
-            toeplitz_covariance = toeplitz(first_column)
-            x_normal = rng.multivariate_normal(mean=np.zeros(k_norm),
-                                               cov=toeplitz_covariance,
-                                               size=obs)
+    elif correlation == 'high':  # All continuous features correlated
+        first_column = np.linspace(1, 0, k_uni+k_norm)
+        toeplitz_covariance = toeplitz(first_column)
+        x_uninorm = rng.multivariate_normal(mean=np.zeros(k_uni+k_norm),
+                                            cov=toeplitz_covariance,
+                                            size=obs)
+        x_uniform = (norm.cdf(x_uninorm[:, :k_uni]) - 0.5) * np.sqrt(12)
+        x_normal = x_uninorm[:, k_uni:]
+    else:  # 'middle'     All normal features correlated
+        x_uniform = rng.uniform(low=-np.sqrt(12)/2, high=np.sqrt(12)/2,
+                                size=(obs, k_uni))
+        first_column = np.linspace(1, 0, k_norm)
+        toeplitz_covariance = toeplitz(first_column)
+        x_normal = rng.multivariate_normal(mean=np.zeros(k_norm),
+                                           cov=toeplitz_covariance,
+                                           size=obs)
 
     grid_ord = (0.1, 0.3, 0.5, 0.7, 0.9)
     grid_unord = (0.1, 0.2, 0.3, 0.5, 0.7, 0.75, 0.8, 0.85, 0.9)
@@ -396,9 +393,7 @@ def covariates_x(rng: np.random.Generator,
         x_ord = np.digitize(uniform_ord + add_var / 6, grid_ord)
         x_unord = np.digitize(uniform_unord + add_var / 6, grid_unord)
 
-    x_unord[:, :2] += 1
     x_np = np.concatenate((x_uniform, x_normal, x_dumm, x_ord, x_unord), axis=1)
-
     return x_np
 
 

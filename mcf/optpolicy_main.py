@@ -275,7 +275,7 @@ class OptimalPolicy:
 
         .. math::
 
-            0.1 \\times \\frac{\\text{Number of training observations}}{{\\text{Number of leaves}}}
+            min(0.1 \\times \\frac{\\text{Number of training observations}}{{\\text{Number of leaves}}}, 100)
 
         (if treatment shares are restricted this is multiplied by the smallest
         share allowed). Only relevant if gen_method is 'policy tree'.

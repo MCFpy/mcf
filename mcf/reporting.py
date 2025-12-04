@@ -41,7 +41,7 @@ class McfOptPolReport:
 
     <NOT-ON-API>
 
-    gen_dict : Dictionary
+    gen_cfg : GenCfg dataclass
         General parameters to compute reports.
 
     mcf_o : Dictionary

@@ -291,7 +291,8 @@ def get_iate(rng, x_np, iate_type, no_effect=False):
     index = (x_np @ coeff).reshape(-1, 1)
 
     match iate_type:
-        case 'linear':     iate = index
+        case 'linear':     
+            iate = index
   
     iate = 0
     iate += 1

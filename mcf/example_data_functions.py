@@ -284,34 +284,24 @@ def get_iate(rng, x_np, iate_type, no_effect=False):
     """Compute IATE."""
     def awsinglefunct(x_0):
         """Compute the single function of WA transformation."""
-        return 1 + 1 / (1 + np.exp(-20 * (x_0 - 1/3)))
+        return (1 + 1 / (1 + np.exp(-20 * (x_0 - 1/3))))
 
     cols = x_np.shape[1]
     coeff, _, _ = coefficients(rng, cols)
     index = (x_np @ coeff).reshape(-1, 1)
-
-    match iate_type:
-
-        case 'linear':
-            iate = index
-
-        case 'nonlinear':
-            iate = logistic.cdf(index, loc=0, scale=1) - 0.5
-
-        case 'quadratic':
-            iate = (index**2 - 1.25) / np.sqrt(3)
-
-        case 'WagerAthey':
-            x_0 = (x_np[:, 0] + np.sqrt(12)/2) / np.sqrt(12)
-            x_1 = (x_np[:, 1] + np.sqrt(12)/2) / np.sqrt(12)
-            iate = (awsinglefunct(x_0) * awsinglefunct(x_1)).reshape(-1, 1)
-            iate -= 2.8
-
-        case other:
-            raise ValueError(f'Unknown iate_type: {other!r}')
-
+    if iate_type == 'linear':
+        iate = index
+    elif iate_type == 'nonlinear':
+        iate = logistic.cdf(index, loc=0, scale=1) - 0.5
+    elif iate_type == 'quadratic':
+        iate = (index**2 - 1.25) / np.sqrt(3)
+    elif iate_type == 'WagerAthey':
+        x_0 = (x_np[:, 0] + np.sqrt(12)/2) / (np.sqrt(12))  # 1st X usually
+        x_1 = (x_np[:, 1] + np.sqrt(12)/2) / (np.sqrt(12))  # uniform
+        iate = (awsinglefunct(x_0) * awsinglefunct(x_1)).reshape(-1, 1)
+        iate -= 2.8
+    iate *= 1
     iate += 1
-
     if no_effect:
         iate *= 0
 

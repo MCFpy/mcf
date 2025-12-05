@@ -1183,58 +1183,55 @@ class ModifiedCausalForest:
 
     <NOT-ON-API>
 
-    blind_dict : Dictionary
-        Parameters to compute (partially) blinded IATEs.
-
-    cf_dict : Dictionary
+    cf_cfg : CfCfg dataclass
         Parameters used in training the forest (directly).
 
-    cs_dict : Dictionary
+    cs_cfg : CsCfg dataclass
         Parameters used in common support adjustments.
 
-    ct_dict : Dictionary
+    ct_cfg :  CTCfg dataclass
         Parameters used in dealing with continuous treatments.
 
     data_train_dict : Dictionary
 
-    dc_dict : Dictionary
+    dc_cfg : DCCfg dataclass
         Parameters used in data cleaning.
 
-    fs_dict : Dictionary
+    fs_cfg : FsCfg Dictionary
         Parameters used in feature selection.
 
     forest : List
         List of lists containing the estimated causal forest.
 
-    gen_dict : Dictionary
+    gen_cfg : DenCfg dataclass
         General parameters used in various parts of the programme.
 
-    int_dict : Dictionary
+    int_cfg : Dataclass
         Internal parameters used in various parts of the class.
 
     iv_mcf : Dictionary
         Internal instances of instrumental mcf containing for first stage
         and reduced form.
 
-    lc_dict : Dictionary
+    lc_cfg : LcCfg dataclass
         Parameters used in local centering.
 
-    p_dict : Dictionary
+    p_cfg : PCfg dataclass
         Parameters used in prediction method.
 
-    post_dict : Dictionary
+    post_cfg : PostCfg dataclass
         Parameters used in analyse method.
 
     report :
         Provides information for McfOptPolReports to construct reports.
 
-    sens_dict : Dictionary
+    sens_cfg : SensCfg dataclass
         Parameters used in sensitivity method.
 
     time_strings : String
         Detailed information on how long the different methods needed.
 
-    var_dict : Dictionary
+    var_cfg : Instance of VarCfg Dataclass
         Variable names.
 
     var_x_type : Dictionary

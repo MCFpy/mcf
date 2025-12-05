@@ -725,15 +725,13 @@ class ModifiedCausalForest:
         Defines the method used to obtain aggregated effects.
         Possible values are `local`, `global`, `('local', 'global',)`.
 
-        `local` :
-            LIATEs will be computed and aggregated to 
-            obtain LGATEs, LBGATEs, LATEs, etc. This estimator 
-            is internally consistent.
+        `local` : LIATEs will be computed and aggregated to 
+                  obtain LGATEs, LBGATEs, LATEs, etc. This estimator 
+                  is internally consistent.
                   
-        `global` : 
-            LATEs will be directly computed as the ratio of
-            reduced form and first–stage predictions. This estimator
-            is not necessarily internally consistent.
+        `global` : LATEs will be directly computed as the ratio of
+                   reduced form and first–stage predictions. This estimator
+                   estimator is not necessarily internally consistent.
             
         For the differences in assumptions and properties of the two
         approaches see Lechner and Mareckova (2025).
@@ -844,19 +842,16 @@ class ModifiedCausalForest:
         This defines how to evaluate the estimated regressions in the adjustment
         procedures:
     
-        `zeros` :
-            The values of the (centered) covariates are set to zero.
+        `zeros` : The values of the (centered) covariates are set to zero.
     
-        `observables`:
-            They are set to their empirical distribution for the
-            training data (unconditional on treatment).
+        `observables`: They are set to their empirical distribution for the
+                       training data (unconditional on treatment).
     
-        `weighted_observables` :
-            As `observables`, but observations are weighted
-            by the forest weights (across treatments). This
-            imposes some localness on the X-distribution and still removes
-            the impact of treatment-control differences of X-values in the
-            leaves.
+        `weighted_observables` : As `observables`, but observations are weighted
+                                 by the forest weights (across treatments). This
+                                 imposes some localness on the X-distribution and 
+                                 still removes the impact of treatment-control 
+                                 differences of X-values in the leaves.
 
     p_ba_use_prop_score : Boolean (or None), optional
         If True, propensity score is used as regressor. Propensity is estimated

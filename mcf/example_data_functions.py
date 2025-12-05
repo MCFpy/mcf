@@ -189,20 +189,34 @@ def example_data(obs_y_d_x_iate: int = 1000,
     return train_df, pred_df, name_dict
 
 
-def get_observed_outcome(y_pot, d_np):
+def get_observed_outcome(y_pot: NDArray[Any],
+                         d_np: NDArray[Any]
+                         ) -> NDArray[Any]:
     """Get the observed values from the potentials."""
     y_np = y_pot[np.arange(len(y_pot)), d_np[:, 0]].reshape(-1, 1)
     return y_np
 
 
-def instrument(rng, obs):
+def instrument(rng: np.random.Generator, obs: int) -> NDArray[np.int8]:
     """Create instrument."""
     instr_train = np.int8(rng.uniform(low=0, high=1, size=(obs, 1)) > 0.5)
+
     return instr_train
 
 
-def get_outcomes(rng, x_np, d_np, k_all, iate_type='WagerAthey',
-                 plot_iate=True, no_effect=False):
+def get_outcomes(rng: np.random.Generator,
+                 x_np: NDArray[Any],
+                 d_np: NDArray[Any],
+                 k_all: tuple[int, int, int],
+                 iate_type: str = 'WagerAthey',
+                 plot_iate: bool = True,
+                 no_effect: bool = False
+                 ) -> tuple[NDArray[Any],
+                            NDArray[Any],
+                            NDArray[Any],
+                            NDArray[Any],
+                            NDArray[Any],
+                            ]:
     """Simulate the outcome data."""
     k_cont, k_ord_cat, k_unord = k_all
     obs, treat = len(x_np), len(np.unique(d_np))
@@ -239,10 +253,15 @@ def get_outcomes(rng, x_np, d_np, k_all, iate_type='WagerAthey',
 
     if plot_iate:
         plot_pot_iate(xb_np, iate, (y_0, y_1), (noise_y0, noise_y1))
+
     return y_pot, y_pot_se, iate, ite, y_obs
 
 
-def plot_pot_iate(x_indx, iate, y_pot, noise):
+def plot_pot_iate(x_indx: NDArray[Any],
+                  iate: NDArray[Any],
+                  y_pot: NDArray[Any],
+                  noise: tuple[NDArray[Any], NDArray[Any],]
+                  ) -> None:
     """Plot heterogeneity."""
     y_0, y_1 = y_pot
     noise_y0, noise_y1 = noise
@@ -280,7 +299,11 @@ def plot_pot_iate(x_indx, iate, y_pot, noise):
     plt.close()
 
 
-def get_iate(rng, x_np, iate_type, no_effect = False):
+def get_iate(rng: np.random.Generator,
+             x_np: NDArray[Any],
+             iate_type: str,
+             no_effect: bool = False
+             ) -> NDArray[Any]:
     """Compute IATE."""
     def awsinglefunct(x_0):
         """Compute the single function of WA transformation."""
@@ -310,7 +333,14 @@ def get_iate(rng, x_np, iate_type, no_effect = False):
     return iate
 
 
-def coefficients(rng, k_cont, k_ord_cat=None, k_unord=None):
+def coefficients(rng: np.random.Generator,
+                 k_cont: int,
+                 k_ord_cat: int | None = None,
+                 k_unord: int | None = None
+                 ) -> tuple[NDArray[Any],
+                            NDArray[Any] | None,
+                            NDArray[Any] | None
+                            ]:
     """Make coefficients for different variable types."""
     coeff_cont = np.linspace(1, 1/k_cont, k_cont)
     coeff_ord = None if k_ord_cat is None else np.linspace(1, 1/k_ord_cat,
@@ -320,8 +350,14 @@ def coefficients(rng, k_cont, k_ord_cat=None, k_unord=None):
     return coeff_cont, coeff_ord, coeff_unord
 
 
-def treatment_d(rng, no_treat, k_all, x_np, inst_np, strength_iv=1,
-                correlation_x='middle'):
+def treatment_d(rng: np.random.Generator,
+                no_treat: int,
+                k_all: tuple[int, int, int],
+                x_np: NDArray[Any],
+                inst_np: NDArray[np.int8],
+                strength_iv: int | float = 1,
+                correlation_x: str = 'middle'
+                ) -> NDArray[Any]:
     """Create treatment variable."""
     noise = (rng.normal(loc=0, scale=1, size=(len(x_np), 1))
              + (inst_np - 0.5) * strength_iv)
@@ -404,8 +440,11 @@ def covariates_x(rng: np.random.Generator,
     return x_np
 
 
-def descriptive_stats(train_df: pd.DataFrame, pred_df: pd.DataFrame,
-                      name_dict: dict, x_name: (str, None) = None):
+def descriptive_stats(train_df: pd.DataFrame,
+                      pred_df: pd.DataFrame,
+                      name_dict: dict,
+                      x_name: list[str] = None
+                      ) -> None:
     """Get descriptive statistics of data generating process."""
     width = 100
     pd.set_option('display.max_columns', None)

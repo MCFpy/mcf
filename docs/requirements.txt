@@ -1,4 +1,4 @@
-sphinx>=9
+sphinx>=8
 pygments>=2.15
 pydata-sphinx-theme>=0.15.3
 sphinx-copybutton

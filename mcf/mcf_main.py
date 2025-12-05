@@ -404,6 +404,17 @@ class ModifiedCausalForest:
         < 1 : Respective quantile.
         Default (or None) is 1.
 
+    cs_detect_const_vars_stop : Integer or float (or None)
+        Control variables that have no variation inside a treatment
+        arm violate the common support condition. If
+        'cs_detect_vars_no_var_stop' is True, data will be checked for
+        such variables and an exception is raised if such a variable is
+        detected. Then, the user has to decide to either adjust the
+        data (by deleting either observations with the value of the variable)
+        that creates the problem (recommended solution) or  to delete this
+        variable.
+        Default (or None) is True.
+
     ct_grid_dr : Integer (or None), optional
         Number of grid point for discretization of continuous treatment
         (with 0 mass point; grid is defined in terms of quantiles of

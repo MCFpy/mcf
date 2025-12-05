@@ -41,24 +41,15 @@ class ModifiedCausalForest:
         must be provided.
         Default is None.
 
-    var_x_name_balance_bgate :  String or List of strings (or None), optional
+    var_x_name_balance_bgate : String or List of strings (or None), optional
         Variables to balance the GATEs on. Only relevant if p_bgate is
         True. The distribution of these variables is kept constant when a
         BGATE is computed. None: Use the other heterogeneity variables
         (var_z_...) (if there are any) for balancing. Default is None.
 
-    var_cluster_name :  String or List of string (or None), optional
-        Name of variable defining clusters. Only relevant if p_cluster_std
-        is True.
-        Default is None.
-
-    var_id_name : String or List of string (or None), optional
-        Name of identifier. None: Identifier will be added to the data.
-        Default is None.
-
-    var_iv_name : String or List of string (or None), optional
-        Name of binary instrumental variable. Only relevant if train_iv method
-        is used.
+    var_x_name_ba : List, tuple (or None), optional 
+        List or tuple of names of features used as regressors.
+        These variables must be included var_x_name_ord or var_x_name_unord
         Default is None.
 
     var_x_name_balance_test_ord : String or List of strings (or None), optional
@@ -94,6 +85,20 @@ class ModifiedCausalForest:
     var_x_name_remain_unord : String or List of strings (or None), optional
         Name of unordered variables that cannot be removed by feature
         selection. Only relevant for :meth:`~ModifiedCausalForest.train` method.
+        Default is None.
+
+    var_cluster_name : String or List of string (or None), optional
+        Name of variable defining clusters. Only relevant if p_cluster_std
+        is True.
+        Default is None.
+
+    var_id_name : String or List of string (or None), optional
+        Name of identifier. None: Identifier will be added to the data.
+        Default is None.
+
+    var_iv_name : String or List of string (or None), optional
+        Name of binary instrumental variable. Only relevant if train_iv method
+        is used.
         Default is None.
 
     var_w_name : String or List of string (or None), optional

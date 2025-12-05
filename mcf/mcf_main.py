@@ -524,6 +524,8 @@ class ModifiedCausalForest:
     gen_mp_parallel : Integer (or None), optional
         Number of parallel processes (using ray on CPU). The smaller this
         value is, the slower the programme, the smaller its demands on RAM.
+        If trainings data is larger than _int_obs_bigdata, gen_mp_parallel is
+        reduced to 75% of specified value.
         None : 80% of logical cores.
         Default is None.
 
@@ -561,8 +563,9 @@ class ModifiedCausalForest:
         regression is selected among scikit-learn's Random Forest, Support
         Vector Machines, and AdaBoost Regression based on their out-of-sample
         mean squared error. The method selection is either performed on the
-        subsample used to build the forest ((1-lc_cs_share) for training,
-        lc_cs_share for test).
+        subsample used to build the forest ((1-lc_cs_share) share of data for
+        training and lc_cs_share share of data for test) or
+        cross-validation (see the keyword lc_cs_cv).
         Default (or None) is True.
 
     lc_estimator : String (or None), optional
@@ -583,7 +586,7 @@ class ModifiedCausalForest:
 
     lc_uncenter_po : Boolean (or None), optional
         Predicted potential outcomes are re-adjusted for local centering
-        are added to data output (iate and iate_eff in results dictionary).
+        and are added to data output (iate and iate_eff in results dictionary).
         Default (or None) is True.
 
     lc_cs_cv : Boolean (or None), optional
@@ -595,8 +598,9 @@ class ModifiedCausalForest:
     lc_cs_cv_k : Integer (or None), optional
         Data to be used for local centering & common support adjustment:
         Number of folds in cross-validation (if lc_cs_cv is True).
-        Default (or None) depends on the size of the training sample 
-        (N): N < 100'000: 5;  100'000 <= N < 250'000: 4 250'000 <= N < 500'000: 3, 500'000 <= N: 2.
+        Default (or None) depends on the size of the training
+          training sample (N): N < 100'000: 5;  100'000 <= N < 250'000: 4
+          250'000 <= N < 500'000: 3, 500'000 <= N: 2.
 
     lc_cs_share : Float (or None), optional
         Data to be used for local centering & common support adjustment:

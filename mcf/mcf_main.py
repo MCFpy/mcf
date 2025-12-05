@@ -1105,8 +1105,8 @@ class ModifiedCausalForest:
          
         (ii) The number of workers used is reduced to 75% of default.
          
-        (iii) The data type for some numpy arrays is reduced from float64 to
-               float32.
+        (iii) The data type for some numpy arrays is reduced from float64 
+              to float32.
                
         Default is 1'000'000.
 
@@ -1153,7 +1153,7 @@ class ModifiedCausalForest:
     _int_weight_as_sparse_splits : Integer (or None), optional
         Compute sparse weight matrix in several chuncks.
         None : (Rows of prediction data * rows of Fill_y data)
-               /(number of training splits * 25'000 * 25'000)
+               divided by (number of training splits * 25'000 * 25'000)
         Default is None.
         Internal variable, change default only if you know what you do.
 

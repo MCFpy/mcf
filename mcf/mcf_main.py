@@ -723,21 +723,16 @@ class ModifiedCausalForest:
 
     p_iv_aggregation_method : String or list/tuple of strings (or None), optional
         Defines the method used to obtain aggregated effects.
-        Possible values are ``local``, ``global``, ``('local', 'global',)``.
-    
-        ``local`` :
-            LIATEs will be computed and aggregated to obtain
-            LGATEs, LBGATEs, LATEs, etc. This estimator is internally
-            consistent.
-    
-        ``global`` :
-            LATEs will be directly computed as the ratio of
-            reduced form and first–stage predictions. This estimator
-            is not necessarily internally consistent.
-    
+        Possible values are `local`, `global`, `('local', 'global',)`.
+        `local` : LIATEs will be computed and aggregated to obtain LGATEs, 
+                  LBGATEs, LATEs, etc. This estimator is internally
+                  consistent.
+        `global` : LATEs will be directly computed as the ratio of
+                   reduced form and first–stage predictions. This estimator
+                   is not necessarily internally consistent.
         For the differences in assumptions and properties of the two
         approaches see Lechner and Mareckova (2025).
-        Default (or None) is ``('local', 'global',)``.
+        Default (or None) is `('local', 'global',)`.
 
     p_ci_level : Float (or None), optional
         Confidence level for bounds used in plots.

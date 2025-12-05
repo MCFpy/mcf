@@ -328,9 +328,13 @@ class ModifiedCausalForest:
 
         .. math::
 
-            S = \\max((n^{0.5},min(0.67n, \\frac{2 \\times (n^{0.85})}{n}))), \\text{n: # of training observations} 
+            S = \\max(n^{0.5},min(0.67 \\n, \\frac{4 \\times (frac{n}{2}^{0.85})}{n})), \\text{n: # of training observations}
 
-        :math:`S \\times \\text{cf_subsample_factor_forest}, \\text{is not larger than 80%.}` 
+        Maximum share is 0.67. Minimum share is
+
+        .. math::
+            \\frac{2 \\times (frac{n}{2}^{0.5})}{n}
+
         Default (or None) is 1.
 
     cf_subsample_factor_eval : Float or Boolean (or None), optional

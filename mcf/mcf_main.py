@@ -274,7 +274,7 @@ class ModifiedCausalForest:
         & penalty functions.
         Default (or None) is 1.
 
-    cf_p_diff_penalty : Integer (or None), optional
+    cf_p_diff_penalty : Float (or None), optional
         Penalty function (depends on the value of `mce_vart`).
 
         `mce_vart == 0`
@@ -287,7 +287,7 @@ class ModifiedCausalForest:
     
             .. math::
     
-                \\frac{2 \\times (\\text{n} \\times \\text{subsam_share})^{0.9}}{\\text{n} \\times \\text{subsam_share}} \\times \\sqrt{\\frac{\\text{no_of_treatments} \\times (\\text{no_of_treatments} - 1)}{2}}
+                \\frac{2 \\times (\\text{n} \\times \\text{subsam_share})^{0.9}}{\\text{n} \\times \\text{subsam_share}} \\times \\sqrt{\\frac{\\text{no_of_treatments} \\times (\\text{no_of_treatments} - 1)}{2}}  
     
         `mce_vart == 2`
             Multiplier of penalty (in terms of MSE(y) value function without splits) for penalty.  
@@ -296,11 +296,12 @@ class ModifiedCausalForest:
     
             .. math::
     
-                \\frac{100 \\times 4 \\times (n \\times \\text{f_c.subsam_share})^{0.8}}{n \\times \\text{f_c.subsam_share}}
+                \\frac{100 \\times 4 \\times (n \\times \\text{f_c.subsam_share})^{0.8}}{n \\times \\text{f_c.subsam_share}}  
     
         `mce_vart == 3`
             Probability of using p-score (0-1). None : 0.5. Increase value if balancing tests indicate problems. 
-            Default is None.
+        
+        Default is None.
     
     cf_penalty_type : String (or None), optional
         Type of penalty function.

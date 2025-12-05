@@ -1152,8 +1152,8 @@ class ModifiedCausalForest:
 
     _int_weight_as_sparse_splits : Integer (or None), optional
         Compute sparse weight matrix in several chuncks.
-        None : (Rows of prediction data * rows of Fill_y data)
-               divided by (number of training splits * 25'000 * 25'000)
+        None : Rows of prediction data times rows of Fill_y data
+               divided by (number of training splits times 25'000 * 25'000)
         Default is None.
         Internal variable, change default only if you know what you do.
 

@@ -739,7 +739,6 @@ class ModifiedCausalForest:
         approaches see Lechner and Mareckova (2025).
         Default (or None) is ``('local', 'global',)``.
 
-
     p_ci_level : Float (or None), optional
         Confidence level for bounds used in plots.
         Default (or None) is 0.95.

@@ -322,20 +322,24 @@ class ModifiedCausalForest:
         :math:`4 + \\text{number of training observations}^{0.2}`
         Default is None.
 
-    cf_subsample_factor_forest : Float (or None), optional
-        Multiplier of default size of subsampling sample (S) used to build
-        tree.
-
+    cf_subsample_factor_forest : float or None, optional
+        Multiplier of the default size of the subsampling sample (``S``) used to
+        build each tree.
+    
         .. math::
-
-            S = \\max(n^{0.5},min(0.67 \\n, \\frac{4 \\times (frac{n}{2}^{0.85})}{n})), \\text{n: # of training observations}
-
-        Maximum share is 0.67. Minimum share is
-
+    
+            S = \max\left(n^{0.5},\ \min\left(0.67\,n,\ \frac{4 \times \left(\frac{n}{2}\right)^{0.85}}{n}\right)\right)
+    
+        where ``n`` is the number of training observations.
+    
+        Maximum share is 0.67. Minimum share is:
+    
         .. math::
-            \\frac{2 \\times (frac{n}{2}^{0.5})}{n}
+    
+            \frac{2 \times \left(\frac{n}{2}\right)^{0.5}}{n}
+    
+        Default (or ``None``) is 1.
 
-        Default (or None) is 1.
 
     cf_subsample_factor_eval : Float or Boolean (or None), optional
         Size of subsampling sample used to populate tree.

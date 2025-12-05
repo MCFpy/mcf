@@ -1246,36 +1246,46 @@ class ModifiedCausalForest:
 
     def __init__(
             self,
-            var_d_name=None, var_id_name=None, var_iv_name=None,
+            var_cluster_name=None,
+            var_d_name=None,
+            var_id_name=None, var_iv_name=None,
             var_w_name=None,
             var_x_name_always_in_ord=None, var_x_name_always_in_unord=None,
             var_x_name_balance_test_ord=None,
-            var_x_name_balance_test_unord=None, var_x_name_remain_ord=None,
-            var_x_name_remain_unord=None, var_x_name_ord=None,
-            var_x_name_unord=None, var_y_name=None, var_y_tree_name=None,
+            var_x_name_balance_test_unord=None,
+            var_x_name_remain_ord=None, var_x_name_remain_unord=None,
+            var_x_name_ord=None, var_x_name_unord=None,
+            var_x_name_balance_bgate=None, var_x_name_ba=None,
+            var_y_name=None, var_y_tree_name=None,
             var_z_name_cont=None, var_z_name_ord=None, var_z_name_unord=None,
             cf_alpha_reg_grid=1, cf_alpha_reg_max=0.15, cf_alpha_reg_min=0.05,
-            cf_boot=1000, cf_chunks_maxsize=None, cf_compare_only_to_zero=False,
-            cf_n_min_grid=1, cf_n_min_max=None, cf_n_min_min=None,
-            cf_n_min_treat=None, cf_nn_main_diag_only=False, cf_m_grid=1,
-            cf_m_random_poisson=True, cf_m_share_max=0.6, cf_m_share_min=0.1,
-            cf_match_nn_prog_score=True, cf_mce_vart=1,
+            cf_boot=1_000, cf_chunks_maxsize=None,
+            cf_compare_only_to_zero=False, cf_n_min_grid=1, cf_n_min_max=None,
+            cf_n_min_min=None, cf_n_min_treat=None, cf_nn_main_diag_only=False,
+            cf_m_grid=1, cf_m_random_poisson=True, cf_m_share_max=0.6,
+            cf_m_share_min=0.1, cf_match_nn_prog_score=True, cf_mce_vart=1,
             cf_random_thresholds=None, cf_p_diff_penalty=None,
-            cf_penalty_type='mse_d',
-            cf_subsample_factor_eval=None, cf_subsample_factor_forest=1,
-            cf_tune_all=False, cf_vi_oob_yes=False,
+            cf_penalty_type='mse_d', cf_subsample_factor_eval=None,
+            cf_subsample_factor_forest=1, cf_tune_all=False,
+            cf_vi_oob_yes=False,
             cs_adjust_limits=None, cs_detect_const_vars_stop=True,
             cs_max_del_train=0.5, cs_min_p=0.01, cs_quantil=1, cs_type=1,
             ct_grid_dr=100, ct_grid_nn=10, ct_grid_w=10,
             dc_check_perfectcorr=True, dc_clean_data=True, dc_min_dummy_obs=10,
-            dc_screen_covariates=True, fs_rf_threshold=1, fs_other_sample=True,
-            fs_other_sample_share=0.33, fs_yes=False,
-            gen_d_type='discrete', gen_iate_eff=False, gen_panel_data=False,
-            gen_mp_parallel=None, gen_outfiletext=None, gen_outpath=None,
-            gen_output_type=2, gen_panel_in_rf=True, gen_weighted=False,
+            dc_screen_covariates=True,
+            fs_rf_threshold=1, fs_other_sample=True, fs_other_sample_share=0.33,
+            fs_yes=False,
+            gen_ate_eff=False, gen_d_type='discrete', gen_gate_eff=False,
+            gen_iate_eff=False, gen_mp_parallel=None, gen_qiate_eff=False,
+            gen_outfiletext=None, gen_outpath=None, gen_output_type=2,
+            gen_panel_data=False, gen_panel_in_rf=True, gen_weighted=False,
             lc_cs_cv=True, lc_cs_cv_k=None, lc_cs_share=0.25,
             lc_estimator='RandomForest', lc_yes=True, lc_uncenter_po=True,
             p_ate_no_se_only=False, p_atet=False, p_bgate=False,
+            p_ba=False, p_ba_adj_method='weighted_observables',
+            p_ba_pos_weights_only=False, p_ba_use_prop_score=True,
+            p_ba_use_prog_score=True, p_ba_use_x=False,
+            p_ba_estimator='RandomForest', p_ba_cv_k=None,
             p_bgate_sample_share=None, p_bt_yes=True, p_cbgate=False,
             p_choice_based_sampling=False, p_choice_based_probs=None,
             p_ci_level=0.95, p_cluster_std=False, p_cond_var=True,
@@ -1284,118 +1294,150 @@ class ModifiedCausalForest:
             p_gates_no_evalu_points=50, p_gatet=False,
             p_iate=True, p_iate_se=False, p_iate_m_ate=False,
             p_iv_aggregation_method=('local', 'global',),
-            p_knn=True, p_knn_const=1, p_knn_min_k=10,
-            p_nw_bandw=1, p_nw_kern=1,
+            p_knn=True, p_knn_const=1, p_knn_min_k=10, p_nw_bandw=1,
+            p_nw_kern=1,
             p_max_cats_z_vars=None, p_max_weight_share=0.05,
             p_qiate=False, p_qiate_se=False, p_qiate_m_mqiate=False,
-            p_qiate_m_opp=False,
-            p_qiate_no_of_quantiles=99, p_qiate_smooth=True,
-            p_qiate_smooth_bandwidth=1,
-            p_qiate_bias_adjust=True,
-            p_se_boot_ate=None, p_se_boot_gate=None,
+            p_qiate_m_opp=False, p_qiate_no_of_quantiles=99,
+            p_qiate_smooth=True, p_qiate_smooth_bandwidth=1,
+            p_qiate_bias_adjust=False, p_se_boot_ate=None, p_se_boot_gate=None,
             p_se_boot_iate=None, p_se_boot_qiate=None,
-            var_x_name_balance_bgate=None, var_cluster_name=None,
             post_bin_corr_threshold=0.1, post_bin_corr_yes=True,
-            post_est_stats=True, post_kmeans_no_of_groups=None,
-            post_kmeans_max_tries=1000, post_kmeans_min_size_share=None,
-            post_kmeans_replications=10, post_kmeans_single=False,
-            post_kmeans_yes=True, post_random_forest_vi=True,
-            post_relative_to_first_group_only=True, post_plots=True,
+            post_est_stats=True,
+            post_kmeans_no_of_groups=None, post_kmeans_max_tries=1_000,
+            post_kmeans_min_size_share=None, post_kmeans_replications=10,
+            post_kmeans_single=False, post_kmeans_yes=True,
+            post_random_forest_vi=True, post_relative_to_first_group_only=True,
+            post_plots=True,
             post_tree=True,
             _int_cuda=False, _int_del_forest=False,
             _int_descriptive_stats=True, _int_dpi=500, _int_fontsize=2,
             _int_iate_chunk_size=None,
             _int_keep_w0=False, _int_no_filled_plot=20,
             _int_max_cats_cont_vars=None, _int_max_save_values=50,
-            _int_max_obs_training=float('inf'), _int_max_obs_prediction=250000,
-            _int_max_obs_kmeans=200000, _int_max_obs_post_rel_graphs=50000,
+            _int_max_obs_training=float('inf'), _int_max_obs_prediction=250_000,
+            _int_max_obs_kmeans=200_000, _int_max_obs_post_rel_graphs=50_000,
             _int_mp_ray_del=('refs',), _int_mp_ray_objstore_multiplier=1,
             _int_mp_ray_shutdown=None, _int_mp_vim_type=None,
             _int_mp_weights_tree_batch=None, _int_mp_weights_type=1,
-            _int_obs_bigdata=1000000,
+            _int_obs_bigdata=1_000_000,
             _int_output_no_new_dir=False, _int_red_largest_group_train=False,
             _int_replication=False, _int_report=True, _int_return_iate_sp=False,
             _int_seed_sample_split=67567885, _int_share_forest_sample=0.5,
-            _int_show_plots=True, _int_verbose=True,
+            _int_show_plots=True,
+            _int_verbose=True,
             _int_weight_as_sparse=True, _int_weight_as_sparse_splits=None,
             _int_with_output=True
             ):
 
-        self.__version__ = '0.8.0'
+        self.__version__ = '0.9.0'
 
-        self.int_dict = mcf_init.int_init(
-            cuda=_int_cuda, cython=False,  # Cython turned off for now
-            del_forest=_int_del_forest,
-            descriptive_stats=_int_descriptive_stats, dpi=_int_dpi,
-            fontsize=_int_fontsize,
-            max_save_values=_int_max_save_values, mp_ray_del=_int_mp_ray_del,
-            mp_ray_objstore_multiplier=_int_mp_ray_objstore_multiplier,
-            mp_weights_tree_batch=_int_mp_weights_tree_batch,
-            mp_weights_type=_int_mp_weights_type,
-            no_filled_plot=_int_no_filled_plot,
-            return_iate_sp=_int_return_iate_sp, replication=_int_replication,
+        self.int_cfg = mcf_init.IntCfg(
+            cuda_in=_int_cuda, cython_in=False,  # Cython turned off for now
+            del_forest_in=_int_del_forest,
+            descriptive_stats_in=_int_descriptive_stats, dpi_in=_int_dpi,
+            fontsize_in=_int_fontsize,
+            iate_chunk_size_in=_int_iate_chunk_size,
+            max_save_values_in=_int_max_save_values,
+            max_obs_training_in=_int_max_obs_training,
+            max_obs_prediction_in=_int_max_obs_prediction,
+            max_obs_kmeans_in=_int_max_obs_kmeans,
+            max_obs_post_rel_graphs_in=_int_max_obs_post_rel_graphs,
+            max_cats_cont_vars_in=_int_max_cats_cont_vars,
+            mp_ray_del_in=_int_mp_ray_del,
+            mp_ray_objstore_multiplier_in=_int_mp_ray_objstore_multiplier,
+            mp_weights_tree_batch_in=_int_mp_weights_tree_batch,
+            mp_weights_type_in=_int_mp_weights_type,
+            mp_vim_type_in=_int_mp_vim_type,
+            no_filled_plot_in=_int_no_filled_plot,
+            obs_bigdata_in=_int_obs_bigdata,
+            output_no_new_dir_in=_int_output_no_new_dir,
+            report_in=_int_report,
+            replication_in=_int_replication,
             seed_sample_split=_int_seed_sample_split,
-            share_forest_sample=_int_share_forest_sample,
-            show_plots=_int_show_plots, verbose=_int_verbose,
-            weight_as_sparse=_int_weight_as_sparse, keep_w0=_int_keep_w0,
-            with_output=_int_with_output, mp_ray_shutdown=_int_mp_ray_shutdown,
-            mp_vim_type=_int_mp_vim_type,
-            obs_bigdata=_int_obs_bigdata,
-            output_no_new_dir=_int_output_no_new_dir, report=_int_report,
-            weight_as_sparse_splits=_int_weight_as_sparse_splits,
-            max_cats_cont_vars=_int_max_cats_cont_vars,
-            iate_chunk_size=_int_iate_chunk_size,
-            max_obs_training=_int_max_obs_training,
-            max_obs_prediction=_int_max_obs_prediction,
-            max_obs_kmeans=_int_max_obs_kmeans,
-            max_obs_post_rel_graphs=_int_max_obs_post_rel_graphs,
-            p_ate_no_se_only=p_ate_no_se_only
+            share_forest_sample_in=_int_share_forest_sample,
+            show_plots_in=_int_show_plots,
+            weight_as_sparse_in=_int_weight_as_sparse,
+            keep_w0_in=_int_keep_w0,
+            mp_ray_shutdown_in=_int_mp_ray_shutdown,
+            weight_as_sparse_splits_in=_int_weight_as_sparse_splits,
             )
-        gen_dict = mcf_init.gen_init(
-            self.int_dict,
-            d_type=gen_d_type, iate_eff=gen_iate_eff,
-            mp_parallel=gen_mp_parallel, outfiletext=gen_outfiletext,
-            outpath=gen_outpath, output_type=gen_output_type,
-            weighted=gen_weighted, panel_data=gen_panel_data,
-            panel_in_rf=gen_panel_in_rf)
-        self.dc_dict = mcf_init.dc_init(
+        gen_cfg = mcf_init.GenCfg.from_args(
+            self.int_cfg,
+            ate_eff=gen_ate_eff,
+            d_type=gen_d_type,
+            gate_eff=gen_gate_eff,
+            iate_eff=gen_iate_eff,
+            mp_parallel=gen_mp_parallel,
+            return_iate_sp=_int_return_iate_sp,
+            p_ate_no_se_only=p_ate_no_se_only,
+            outfiletext=gen_outfiletext,
+            outpath=gen_outpath,
+            output_type=gen_output_type,
+            panel_data=gen_panel_data,
+            panel_in_rf=gen_panel_in_rf,
+            qiate_eff=gen_qiate_eff,
+            verbose=_int_verbose,
+            weighted=gen_weighted,
+            with_output=_int_with_output,
+            )
+        self.dc_cfg = mcf_init.DCCfg.from_args(
             check_perfectcorr=dc_check_perfectcorr,
-            clean_data=dc_clean_data, min_dummy_obs=dc_min_dummy_obs,
-            screen_covariates=dc_screen_covariates)
-        self.ct_dict = {'grid_dr': ct_grid_dr, 'grid_nn': ct_grid_nn,
-                        'grid_w': ct_grid_w}
-        self.fs_dict = mcf_init.fs_init(
-            rf_threshold=fs_rf_threshold, other_sample=fs_other_sample,
-            other_sample_share=fs_other_sample_share, yes=fs_yes)
-        self.cs_dict = mcf_init.cs_init(
-            gen_dict,
-            max_del_train=cs_max_del_train, min_p=cs_min_p, quantil=cs_quantil,
-            type_=cs_type, adjust_limits=cs_adjust_limits,
-            detect_const_vars_stop=cs_detect_const_vars_stop)
-        self.lc_dict = mcf_init.lc_init(
+            clean_data=dc_clean_data,
+            min_dummy_obs=dc_min_dummy_obs,
+            screen_covariates=dc_screen_covariates
+            )
+        self.ct_cfg = mcf_init.CtGrid.from_args(
+            grid_dr=ct_grid_dr,
+            grid_nn=ct_grid_nn,
+            grid_w=ct_grid_w
+            )
+        self.fs_cfg = mcf_init_train.FsCfg.from_args(
+            rf_threshold=fs_rf_threshold,
+            other_sample=fs_other_sample,
+            other_sample_share=fs_other_sample_share,
+            yes=fs_yes
+            )
+        self.cs_cfg = mcf_init_train.CsCfg.from_args(
+            gen_cfg,
+            adjust_limits=cs_adjust_limits,
+            detect_const_vars_stop=cs_detect_const_vars_stop,
+            max_del_train=cs_max_del_train, min_p=cs_min_p,
+            quantil=cs_quantil,
+            type_=cs_type,
+            )
+        self.lc_cfg = mcf_init_train.LcCfg.from_args(
             cs_cv=lc_cs_cv, cs_cv_k=lc_cs_cv_k, cs_share=lc_cs_share,
-            undo_iate=lc_uncenter_po, yes=lc_yes, estimator=lc_estimator)
-        self.cf_dict = mcf_init.cf_init(
+            estimator=lc_estimator,
+            undo_iate=lc_uncenter_po,
+            yes=lc_yes,
+            )
+        self.cf_cfg = mcf_init_train.CfCfg.from_args(
             alpha_reg_grid=cf_alpha_reg_grid, alpha_reg_max=cf_alpha_reg_max,
-            alpha_reg_min=cf_alpha_reg_min, boot=cf_boot,
+            alpha_reg_min=cf_alpha_reg_min,
+            boot=cf_boot,
             chunks_maxsize=cf_chunks_maxsize,
             compare_only_to_zero=cf_compare_only_to_zero,
-            nn_main_diag_only=cf_nn_main_diag_only, m_grid=cf_m_grid,
-            m_share_max=cf_m_share_max, m_share_min=cf_m_share_min,
-            m_random_poisson=cf_m_random_poisson,
+            m_grid=cf_m_grid, m_share_max=cf_m_share_max,
+            m_share_min=cf_m_share_min, m_random_poisson=cf_m_random_poisson,
             match_nn_prog_score=cf_match_nn_prog_score, mce_vart=cf_mce_vart,
-            vi_oob_yes=cf_vi_oob_yes, n_min_grid=cf_n_min_grid,
+            nn_main_diag_only=cf_nn_main_diag_only, n_min_grid=cf_n_min_grid,
             n_min_max=cf_n_min_max, n_min_min=cf_n_min_min,
             n_min_treat=cf_n_min_treat,
             p_diff_penalty=cf_p_diff_penalty, penalty_type=cf_penalty_type,
+            random_thresholds=cf_random_thresholds,
             subsample_factor_eval=cf_subsample_factor_eval,
             subsample_factor_forest=cf_subsample_factor_forest,
             tune_all=cf_tune_all,
-            random_thresholds=cf_random_thresholds)
-        p_dict = mcf_init.p_init(
-            gen_dict,
-            ate_no_se_only=p_ate_no_se_only, cbgate=p_cbgate, atet=p_atet,
-            bgate=p_bgate, bt_yes=p_bt_yes,
+            vi_oob_yes=cf_vi_oob_yes,
+            zero_tol=self.int_cfg.zero_tol,
+            )
+        p_cfg = mcf_init_ps.PCfg.from_args(
+            gen_cfg,
+            ate_no_se_only=p_ate_no_se_only, atet=p_atet,
+            bgate=p_bgate, bgate_sample_share=p_bgate_sample_share,
+            bt_yes=p_bt_yes,
+            cbgate=p_cbgate,
             choice_based_sampling=p_choice_based_sampling,
             choice_based_probs=p_choice_based_probs, ci_level=p_ci_level,
             cluster_std=p_cluster_std, cond_var=p_cond_var,
@@ -1404,24 +1446,39 @@ class ModifiedCausalForest:
             gates_smooth_bandwidth=p_gates_smooth_bandwidth,
             gates_smooth_no_evalu_points=p_gates_smooth_no_evalu_points,
             gatet=p_gatet, gate_no_evalu_points=p_gates_no_evalu_points,
-            bgate_sample_share=p_bgate_sample_share,
-            iate=p_iate, iate_se=p_iate_se, iate_m_ate=p_iate_m_ate, knn=p_knn,
-            knn_const=p_knn_const, knn_min_k=p_knn_min_k, nw_bandw=p_nw_bandw,
-            nw_kern=p_nw_kern, max_cats_z_vars=p_max_cats_z_vars,
+            iate=p_iate, iate_se=p_iate_se, iate_m_ate=p_iate_m_ate,
+            iv_aggregation_method=p_iv_aggregation_method,
+            knn=p_knn, knn_const=p_knn_const, knn_min_k=p_knn_min_k,
+            max_cats_z_vars=p_max_cats_z_vars,
             max_weight_share=p_max_weight_share,
-            se_boot_ate=p_se_boot_ate, se_boot_gate=p_se_boot_gate,
-            se_boot_iate=p_se_boot_iate,
-            qiate=p_qiate, qiate_se=p_qiate_se,
-            qiate_m_mqiate=p_qiate_m_mqiate, qiate_m_opp=p_qiate_m_opp,
+            nw_bandw=p_nw_bandw, nw_kern=p_nw_kern,
+            qiate=p_qiate, qiate_se=p_qiate_se, qiate_m_mqiate=p_qiate_m_mqiate,
+            qiate_m_opp=p_qiate_m_opp,
             qiate_no_of_quantiles=p_qiate_no_of_quantiles,
-            se_boot_qiate=p_se_boot_qiate, qiate_smooth=p_qiate_smooth,
             qiate_smooth_bandwidth=p_qiate_smooth_bandwidth,
-            qiate_bias_adjust=p_qiate_bias_adjust,
-            iv_aggregation_method=p_iv_aggregation_method)
-        self.post_dict = mcf_init.post_init(
-            p_dict,
+            qiate_bias_adjust=p_qiate_bias_adjust, qiate_smooth=p_qiate_smooth,
+            se_boot_ate=p_se_boot_ate, se_boot_gate=p_se_boot_gate,
+            se_boot_iate=p_se_boot_iate, se_boot_qiate=p_se_boot_qiate,
+            )
+        self.p_ba_cfg = mcf_init_ps.PBiasAdjustmentCfg.from_args(
+            adj_method=p_ba_adj_method,
+            cv_k=p_ba_cv_k,
+            estimator=p_ba_estimator,
+            pos_weights_only=p_ba_pos_weights_only,
+            use_prop_score=p_ba_use_prop_score,
+            use_prog_score=p_ba_use_prog_score,
+            use_x=p_ba_use_x,
+            yes=p_ba,
+            clustering=p_cfg.cluster_std,
+            weighted=gen_cfg.weighted,
+            continuous=gen_cfg.d_type == 'continuous',
+            qiate=p_cfg.qiate,
+            )
+        self.post_cfg = mcf_init_ps.PostCfg.from_args(
+            p_cfg,
             bin_corr_threshold=post_bin_corr_threshold,
-            bin_corr_yes=post_bin_corr_yes, est_stats=post_est_stats,
+            bin_corr_yes=post_bin_corr_yes,
+            est_stats=post_est_stats,
             kmeans_no_of_groups=post_kmeans_no_of_groups,
             kmeans_max_tries=post_kmeans_max_tries,
             kmeans_replications=post_kmeans_replications,
@@ -1429,14 +1486,17 @@ class ModifiedCausalForest:
             kmeans_min_size_share=post_kmeans_min_size_share,
             random_forest_vi=post_random_forest_vi,
             relative_to_first_group_only=post_relative_to_first_group_only,
-            plots=post_plots, tree=post_tree)
-        self.var_dict, self.gen_dict, self.p_dict = mcf_init.var_init(
-            gen_dict, self.fs_dict, p_dict,
-            x_name_balance_bgate=var_x_name_balance_bgate,
+            plots=post_plots, tree=post_tree
+            )
+        var_cfg = mcf_init.VarCfg.from_args(
+            gen_cfg=gen_cfg, p_cfg=p_cfg, fs_yes=self.fs_cfg.yes,
+            p_ba_yes=self.p_ba_cfg.yes, p_ba_use_x=self.p_ba_cfg.use_x,
             cluster_name=var_cluster_name,
-            d_name=var_d_name, id_name=var_id_name, w_name=var_w_name,
-            iv_name=var_iv_name,
+            d_name=var_d_name, id_name=var_id_name, iv_name=var_iv_name,
+            w_name=var_w_name,
             x_name_balance_test_ord=var_x_name_balance_test_ord,
+            x_name_balance_bgate=var_x_name_balance_bgate,
+            x_name_ba=var_x_name_ba,
             x_name_balance_test_unord=var_x_name_balance_test_unord,
             x_name_always_in_ord=var_x_name_always_in_ord,
             x_name_always_in_unord=var_x_name_always_in_unord,
@@ -1445,8 +1505,12 @@ class ModifiedCausalForest:
             x_name_ord=var_x_name_ord, x_name_unord=var_x_name_unord,
             y_name=var_y_name, y_tree_name=var_y_tree_name,
             z_name_cont=var_z_name_cont, z_name_ord=var_z_name_ord,
-            z_name_unord=var_z_name_unord)
-        self.blind_dict = self.sens_dict = None
+            z_name_unord=var_z_name_unord
+            )
+        # Hide this part of code in little helper
+        self.gen_cfg, self.p_cfg, self.var_cfg = var_helper(var_cfg)
+
+        self.sens_cfg = None
         self.data_train_dict = self.var_x_type = self.var_x_values = None
         self.forest, self.time_strings = None, {}
         self.report = {'predict_list': [],   # Needed for multiple predicts
@@ -1456,8 +1520,10 @@ class ModifiedCausalForest:
         self.predict_done = False
         self.predict_iv_done = False
         self.predict_different_allocations_done = False
+        self.instance_used_for_training = False
+        self.instance_used_for_prediction = False
 
-    def train(self, data_df): 
+    def train(self, data_df):
         """
         Build the modified causal forest on the training data.
 
@@ -1491,10 +1557,10 @@ class ModifiedCausalForest:
                 Location of directory in which output is saved.
 
         """
+        self.instance_used_for_training = True
         results = train_main(self, data_df)
 
-        if (self.int_dict['mp_ray_shutdown']
-            and self.gen_dict['mp_parallel'] > 1
+        if (self.int_cfg.mp_ray_shutdown and self.gen_cfg.mp_parallel > 1
                 and is_initialized()):
             shutdown()
 
@@ -1534,16 +1600,16 @@ class ModifiedCausalForest:
                 Location of directory in which output is saved.
 
         """
+        self.instance_used_for_training = True
         results = train_iv_main(self, data_df)
 
-        if (self.int_dict['mp_ray_shutdown']
-            and self.gen_dict['mp_parallel'] > 1
+        if (self.int_cfg.mp_ray_shutdown and self.gen_cfg.mp_parallel > 1
                 and is_initialized()):
             shutdown()
 
         return results
 
-    def predict(self, data_df):
+    def predict(self, data_df, new_keywords=None):
         """
         Compute all effects.
 
@@ -1555,6 +1621,42 @@ class ModifiedCausalForest:
             Data used to compute the predictions. It must contain information
             about features (and treatment if effects for treatment specific
             subpopulations are desired as well).
+        
+        new_keywords: Dictionary (or None). Default is None.
+            Parameters of mcf instance to be changed. The keys in the dictionary
+            are the parameters to be changed when running this method (and all
+            methods that are run subsequently, like analyse or sensitivity),
+            and the values corresponding to the keys are the new value (None is
+            not allowed as new value).
+            However, not all parameters can differ from those used during
+            training. The following parameters can be changed, and thus
+            specified as keys in this dictionary (some of these will however
+            not influence the results of this method, but of other other used
+            with the same instance):
+            'gen_output_type';
+            'var_x_name_balance_test_ord',  'var_x_name_balance_test_unord',
+            'var_x_name_balance_bgate', 'var_x_name_ba', 'var_z_name_ord',
+            'var_z_name_unord', 'p_ba', 'p_ba_adj_method',
+            'p_ba_pos_weights_only', 'p_ba_use_x', 'p_ba_use_prop_score',
+            'p_ba_use_prog_score', 'p_ate_no_se_only', 'p_atet', 'p_gatet',
+            'p_bgate', 'p_cbgate', 'p_iate', 'p_iate_se', 'p_iate_m_ate',
+            'p_bgate_sample_share', 'p_gates_minus_previous',
+            'p_gates_smooth_bandwidth', 'p_gates_smooth',
+            'p_gates_smooth_no_evalu_points', 'p_gates_no_evalu_points',
+            'p_qiate', 'p_qiate_se', 'p_qiate_m_mqiate', 'p_qiate_m_opp',
+            'p_qiate_no_of_quantiles', 'p_qiate_smooth'
+            'p_qiate_smooth_bandwidth', 'p_qiate_bias_adjust', 'p_bt_yes',
+            'p_choice_based_sampling', 'p_choice_based_probs', 'p_cond_var',
+            'p_knn', 'p_knn_const', 'p_knn_min_k', 'p_nw_bandw', 'p_nw_kern',
+            'p_ci_level', 'p_se_boot_ate', 'p_se_boot_gate', 'p_se_boot_iate',
+            'p_se_boot_qiate';
+            'post_bin_corr_threshold', 'post_bin_corr_yes', 'post_est_stats',
+            'post_kmeans_yes', 'post_kmeans_no_of_groups',
+            'post_kmeans_max_tries', 'post_kmeans_min_size_share',
+            'post_kmeans_replications', 'post_kmeans_single',
+            'post_random_forest_vi', 'post_relative_to_first_group_only',
+            'post_plots', 'post_tree'.
+
 
         Returns
         -------
@@ -1578,9 +1680,6 @@ class ModifiedCausalForest:
             'qiate': QIATE, 'qiate_se': Standard error of QIATEs,
             'qiate_diff': QIATE minus QIATE at median,
             'qiate_diff_se': Standard error of QIATE minus QIATE at median,
-            'iate_eff': (More) Efficient IATE (IATE estimated twice and
-            averaged where role of tree_building and tree_filling
-            sample is exchanged),
             'iate_data_df': DataFrame with IATEs,
             'iate_names_dic': Dictionary containing names of IATEs,
             'bala': Effects of balancing tests,
@@ -1594,20 +1693,20 @@ class ModifiedCausalForest:
             is saved.
 
         """
-        self.predict_done = True
-        results = predict_main(self, data_df)
+        if new_keywords is not None:
+            change_keywords(self, 'unconfound', 'predict', new_keywords)
 
-        if (self.int_dict['mp_ray_shutdown']
-            and self.gen_dict['mp_parallel'] > 1
+        self.predict_done = True
+        self.instance_used_for_prediction = True
+
+        results = predict_main(self, data_df)
+        if (self.int_cfg.mp_ray_shutdown and self.gen_cfg.mp_parallel > 1
                 and is_initialized()):
             shutdown()
 
         return results
 
-    def predict_different_allocations(self,
-                                      data_df,
-                                      allocations_df: bool = None
-                                      ):
+    def predict_different_allocations(self, data_df, allocations_df):
         """
         Predict average potential outcomes for different allocations.
 
@@ -1641,17 +1740,17 @@ class ModifiedCausalForest:
 
         """
         self.predict_different_allocations_done = True
-        results, self.gen_dict['outpath'] = predict_different_allocations_main(
+
+        results, self.gen_cfg.outpath = predict_different_allocations_main(
             self, data_df, allocations_df)
 
-        if (self.int_dict['mp_ray_shutdown']
-            and self.gen_dict['mp_parallel'] > 1
+        if (self.int_cfg.mp_ray_shutdown and self.gen_cfg.mp_parallel > 1
                 and is_initialized()):
             shutdown()
 
         return results
 
-    def predict_iv(self, data_df):
+    def predict_iv(self, data_df, new_keywords=None):
         """
         Compute all effects for instrument mcf (possibly in 2 differnt ways).
 
@@ -1663,6 +1762,39 @@ class ModifiedCausalForest:
             Data used to compute the predictions. It must contain information
             about features (and treatment if effects for treatment specific
             subpopulations are desired as well).
+
+        new_keywords: Dictionary (or None). Default is None.
+            Parameters of mcf instance to be changed. The keys in the dictionary
+            are the parameters to be changed when running this method (and all
+            methods that are run subsequently, like analyse or sensitivity),
+            and the values corresponding to the keys are the new value (None is
+            not allowed as new value).
+            However, not all parameters can differ from those used during
+            training. The following parameters can be changed, and thus
+            specified as keys in this dictionary:
+            'gen_output_type',
+            'var_x_name_balance_test_ord',  'var_x_name_balance_test_unord',
+            'var_x_name_balance_bgate', 'var_x_name_ba', 'var_z_name_ord',
+            'var_z_name_unord', 'p_ba', 'p_ba_adj_method',
+            'p_ba_pos_weights_only', 'p_ba_use_x', 'p_ba_use_prop_score',
+            'p_ba_use_prog_score', 'p_ate_no_se_only', 'p_atet', 'p_gatet',
+            'p_bgate', 'p_cbgate', 'p_iate', 'p_iate_se', 'p_iate_m_ate',
+            'p_bgate_sample_share', 'p_gates_minus_previous',
+            'p_gates_smooth_bandwidth', 'p_gates_smooth',
+            'p_gates_smooth_no_evalu_points', 'p_gates_no_evalu_points',
+            'p_qiate', 'p_qiate_se', 'p_qiate_m_mqiate', 'p_qiate_m_opp',
+            'p_qiate_no_of_quantiles', 'p_qiate_smooth'
+            'p_qiate_smooth_bandwidth', 'p_qiate_bias_adjust', 'p_bt_yes',
+            'p_choice_based_sampling', 'p_choice_based_probs', 'p_cond_var',
+            'p_knn', 'p_knn_const', 'p_knn_min_k', 'p_nw_bandw', 'p_nw_kern',
+            'p_ci_level', 'p_iv_aggregation_method', 'p_se_boot_ate',
+            'p_se_boot_gate', 'p_se_boot_iate', 'p_se_boot_qiate',
+            'post_bin_corr_threshold', 'post_bin_corr_yes', 'post_est_stats',
+            'post_kmeans_yes', 'post_kmeans_no_of_groups',
+            'post_kmeans_max_tries', 'post_kmeans_min_size_share',
+            'post_kmeans_replications', 'post_kmeans_single',
+            'post_random_forest_vi', 'post_relative_to_first_group_only',
+            'post_plots', 'post_tree'.
 
         Returns
         -------
@@ -1727,25 +1859,30 @@ class ModifiedCausalForest:
             used.
 
         """
+        if new_keywords is not None:
+            change_keywords(self, 'iv', 'predict', new_keywords)
+
         self.predict_iv_done = True
+        self.instance_used_for_prediction = True
+
         # Reduce sample size to upper limit
         data_df, rnd_reduce, txt_red = check_reduce_dataframe(
             data_df, title='Prediction',
-            max_obs=self.int_dict['max_obs_prediction'],
+            max_obs=self.int_cfg.max_obs_prediction,
             seed=124535, ignore_index=True)
-        if rnd_reduce and self.int_dict['with_output']:
-            print_mcf(self.gen_dict, txt_red, summary=True)
+        if rnd_reduce and self.gen_cfg.with_output:
+            print_mcf(self.gen_cfg, txt_red, summary=True)
 
         results_global, results_local = predict_iv_main(self, data_df)
 
-        if (self.int_dict['mp_ray_shutdown']
-            and self.gen_dict['mp_parallel'] > 1
+        if (self.int_cfg.mp_ray_shutdown
+            and self.gen_cfg.mp_parallel > 1
                 and is_initialized()):
             shutdown()
 
         return results_global, results_local
 
-    def analyse(self, results):
+    def analyse(self, results, new_keywords=None):
         """
         Analyse estimated IATEs with various descriptive tools.
 
@@ -1755,7 +1892,42 @@ class ModifiedCausalForest:
             Contains estimation results. This dictionary must have the same
             structure as the one returned from the
             :meth:`~ModifiedCausalForest.predict` method.
-
+        
+        new_keywords: Dictionary (or None). Default is None.
+            Parameters of mcf instance to be changed. The keys in the dictionary
+            are the parameters to be changed when running this method (and all
+            methods that are run subsequently, like analyse or sensitivity),
+            and the values corresponding to the keys are the new value (None is
+            not allowed as new value).
+            However, not all parameters can differ from those used during
+            training. The following parameters can be changed, and thus
+            specified as keys in this dictionary (some of these will however
+            not influence the results of this method, but of other other used
+            with the same instance):
+            'gen_output_type';
+            'var_x_name_balance_test_ord',  'var_x_name_balance_test_unord',
+            'var_x_name_balance_bgate', 'var_x_name_ba', 'var_z_name_ord',
+            'var_z_name_unord', 'p_ba', 'p_ba_adj_method',
+            'p_ba_pos_weights_only', 'p_ba_use_x', 'p_ba_use_prop_score',
+            'p_ba_use_prog_score', 'p_ate_no_se_only', 'p_atet', 'p_gatet',
+            'p_bgate', 'p_cbgate', 'p_iate', 'p_iate_se', 'p_iate_m_ate',
+            'p_bgate_sample_share', 'p_gates_minus_previous',
+            'p_gates_smooth_bandwidth', 'p_gates_smooth',
+            'p_gates_smooth_no_evalu_points', 'p_gates_no_evalu_points',
+            'p_qiate', 'p_qiate_se', 'p_qiate_m_mqiate', 'p_qiate_m_opp',
+            'p_qiate_no_of_quantiles', 'p_qiate_smooth'
+            'p_qiate_smooth_bandwidth', 'p_qiate_bias_adjust', 'p_bt_yes',
+            'p_choice_based_sampling', 'p_choice_based_probs', 'p_cond_var',
+            'p_knn', 'p_knn_const', 'p_knn_min_k', 'p_nw_bandw', 'p_nw_kern',
+            'p_ci_level', 'p_se_boot_ate', 'p_se_boot_gate', 'p_se_boot_iate',
+            'p_se_boot_qiate';
+            'post_bin_corr_threshold', 'post_bin_corr_yes', 'post_est_stats',
+            'post_kmeans_yes', 'post_kmeans_no_of_groups',
+            'post_kmeans_max_tries', 'post_kmeans_min_size_share',
+            'post_kmeans_replications', 'post_kmeans_single',
+            'post_random_forest_vi', 'post_relative_to_first_group_only',
+            'post_plots', 'post_tree'.
+            
         Raises
         ------
         ValueError
@@ -1769,175 +1941,94 @@ class ModifiedCausalForest:
             from k-means clustering.
 
         """
+        estimator = 'iv' if self.predict_iv_done else 'unconfound'
+
+        if new_keywords is not None:
+            change_keywords(self, estimator, 'analyse', new_keywords)
+
         results_plus_cluster = analyse_main(self, results)
 
-        if (self.int_dict['mp_ray_shutdown']
-            and self.gen_dict['mp_parallel'] > 1
+        if (self.int_cfg.mp_ray_shutdown
+            and self.gen_cfg.mp_parallel > 1
                 and is_initialized()):
             shutdown()
 
         return results_plus_cluster
 
-    def blinder_iates(
-        self, data_df, blind_var_x_protected_name=None,
-        blind_var_x_policy_name=None, blind_var_x_unrestricted_name=None,
-        blind_weights_of_blind=None, blind_obs_ref_data=50,
-            blind_seed=123456):
-        """
-        Compute IATEs that causally depend less on protected variables.
-
-        WARNING
-        This method is deprecated and will be removed in future
-        versions. Use the method fairscores of the OptimalPolicy class instead.
-
-        Parameters
-        ----------
-        data_df : DataFrame.
-            Contains data needed to
-            :meth:`~ModifiedCausalForest.predict` the various adjusted IATES.
-
-        blind_var_x_protected_name : List of strings (or None), optional
-            Names of protected variables. Names that are
-            explicitly denoted as blind_var_x_unrestricted_name or as
-            blind_var_x_policy_name and used to compute IATEs will be
-            automatically added to this list. Default is None.
-
-        blind_var_x_policy_name : List of strings (or None), optional
-            Names of decision variables. Default is None.
-
-        blind_var_x_unrestricted_name : List of strings (or None), optional
-            Names of unrestricted variables. Default is None.
-
-        blind_weights_of_blind : Tuple of float (or None), optional
-            Weights to compute weighted means of blinded and unblinded IATEs.
-            Between 0 and 1. 1 implies all weight goes to fully blinded IATEs.
-
-        blind_obs_ref_data : Integer (or None), optional
-            Number of observations to be used for blinding. Runtime of
-            programme is almost linear in this parameter. Default is 50.
-
-        blind_seed : Integer, optional.
-            Seed for the random selection of the reference data.
-            Default is 123456.
-
-        Returns
-        -------
-        blinded_dic : Dictionary.
-            Contains potential outcomes that do not fully
-            depend on some protected attributes (and non-modified IATE).
-
-        data_on_support_df : DataFrame.
-            Features that are on the common support.
-
-        var_x_policy_ord_name : List of strings
-            Ordered variables to be used to build the decision rules.
-
-        var_x_policy_unord_name : List of strings.
-            Unordered variables to be used to build the decision rules.
-
-        var_x_blind_ord_name : List of strings
-            Ordered variables to be used to blind potential outcomes.
-
-        var_x_blind_unord_name : List of strings.
-            Unordered variables to be used to blind potential outcomes.
-
-        outpath : Pathlib object
-            Location of directory in which output is saved.
-
-        """
-        print('This method of reducing dependence on protected '
-              'variables is deprecated. Use the method '
-              'fairscores of the OptimalPolicy class instead.')
-
-        (blinded_dic, data_on_support_df, var_x_policy_ord_name,
-         var_x_policy_unord_name, var_x_blind_ord_name,
-         var_x_blind_unord_name, self.gen_dict['outpath']
-         ) = blinder_iates_main(
-             self,
-             data_df, blind_var_x_protected_name=blind_var_x_protected_name,
-             blind_var_x_policy_name=blind_var_x_policy_name,
-             blind_var_x_unrestricted_name=blind_var_x_unrestricted_name,
-             blind_weights_of_blind=blind_weights_of_blind,
-             blind_obs_ref_data=blind_obs_ref_data, blind_seed=blind_seed)
-
-        return (blinded_dic, data_on_support_df, var_x_policy_ord_name,
-                var_x_policy_unord_name, var_x_blind_ord_name,
-                var_x_blind_unord_name, self.gen_dict['outpath'])
-
-    def sensitivity(
-                    self,
-                    train_df,
-                    predict_df: None = None,
-                    results: None = None,
-                    sens_cbgate: None = None,
-                    sens_bgate: None = None,
-                    sens_gate: None = None,
-                    sens_iate: None = None,
-                    sens_iate_se: None = None,
-                    sens_scenarios: None = None,
-                    sens_cv_k: None = None,
-                    sens_replications: int = 2,
-                    sens_reference_population: None = None,
+    def sensitivity(self, train_df, predict_df, results,
+                    sens_cbgate, sens_bgate, sens_gate,
+                    sens_iate, sens_iate_se,
+                    sens_scenarios, sens_cv_k, sens_replications,
+                    sens_reference_population
                     ):
         """
-        Compute simulation-based sensitivity indicators.
-    
+        Compute simulation based sensitivity indicators.
+
         Parameters
         ----------
-        train_df : DataFrame
+        train_df : DataFrame.
             Data with real outcomes, treatments, and covariates. Data will be
             transformed to compute sensitivity indicators.
-    
-        predict_df : DataFrame, optional
+
+        predict_df : DataFrame (or None), optional.
             Prediction data to compute all effects for. This data will not be
             changed in the computation process. Only covariate information is
-            used from this dataset. If None, ``train_df`` will be used.
-    
-        results : dict, optional
-            Output dictionary from :meth:`~ModifiedCausalForest.predict`.
-            If it contains estimated IATEs, they are used for the no-effect
-            (basic) scenario and compared to those in the dictionary.
-            Otherwise, passing it has no effect.
-    
-        sens_cbgate : bool, optional
-            If True, compute CBGATEs for sensitivity analysis. Default is False.
-    
-        sens_bgate : bool, optional
-            If True, compute BGATEs for sensitivity analysis. Default is False.
-    
-        sens_gate : bool, optional
-            If True, compute GATEs for sensitivity analysis. Default is False.
-    
-        sens_iate : bool, optional
-            If True, compute IATEs for sensitivity analysis.
-            If ``results`` contains IATEs, default is True, otherwise False.
-    
-        sens_iate_se : bool, optional
-            If True, compute standard errors of IATEs for sensitivity analysis.
-            Default is False.
-    
-        sens_scenarios : list or tuple of str, optional
+            used from this dataset. If predict_df is not a DataFrame,
+            train_df will be used instead.
+
+        results : dictionary, optional.
+            The standard output dictionary from the
+            :meth:`~ModifiedCausalForest.predict` method is expected.
+            If this dictionary contains estimated IATEs, the same data as in
+            the :meth:`~ModifiedCausalForest.predict` method will be used,
+            IATEs are computed under the no effect (basic) scenario and these
+            IATEs are compared to the IATEs contained in the results dictionary.
+            If the dictionary does not contain estimated IATEs, passing it has
+            no consequence.
+
+        sens_cbgate : Boolean (or None), optional
+            Compute CBGATEs for sensitivity analysis. Default is False.
+
+        sens_bgate : Boolean (or None), optional
+            Compute BGATEs for sensitivity analysis. Default is False.
+
+        sens_gate : Boolean (or None), optional
+            Compute GATEs for sensitivity analysis. Default is False.
+
+        sens_iate : Boolean (or None), optional
+            Compute IATEs for sensitivity analysis. If the results dictionary
+            is passed, and it contains IATEs, then the default value is True,
+            and False otherwise.
+
+        sens_iate_se : Boolean (or None), optional
+            Compute Standard errors of IATEs for sensitivity analysis. Default
+            is False.
+
+        sens_scenarios : List or tuple of strings, optional.
             Different scenarios considered. Default is ('basic',).
-            - 'basic': Use estimated treatment probabilities for simulations
-              (no confounding).
-    
-        sens_cv_k : int, optional
-            Number of folds in cross-validation. Default is 5.
-    
-        sens_replications : int, optional
-            Number of replications for simulating placebo treatments.
-            Default is 2.
-    
-        sens_reference_population : int or float, optional
-            Treatment status of the reference population used by the
-            sensitivity analysis. Default is the treatment with the most
+            'basic' : Use estimated treatment probabilities for simulations.
+            No confounding.
+
+        sens_cv_k : Integer (or None), optional
+            Data to be used for any cross-validation: Number of folds in
+            cross-validation. Default (or None) is 5.
+
+        sens_replications : Integer (or None), optional.
+            Number of replications for simulating placebo treatments. Default
+            is 2.
+
+        sens_reference_population: integer or float (or None)
+            Defines the treatment status of the reference population used by
+            the sensitivity analysis. Default is to use the treatment with most
             observed observations.
-    
+
         Returns
         -------
-        results_avg : dict
-            Same structure as :meth:`~ModifiedCausalForest.predict`, but
-            averaged over replications (if applicable).
+        results_avg : Dictionary
+            Same content as for the
+            :meth:`~ModifiedCausalForest.predict` method but (if applicable)
+            averaged over replications.
+
         """
         results_avg = sensitivity_main(
             self, train_df, predict_df=predict_df, results=results,
@@ -1947,8 +2038,8 @@ class ModifiedCausalForest:
             sens_replications=sens_replications,
             sens_reference_population=sens_reference_population)
 
-        if (self.int_dict['mp_ray_shutdown']
-            and self.gen_dict['mp_parallel'] > 1
+        if (self.int_cfg.mp_ray_shutdown
+            and self.gen_cfg.mp_parallel > 1
                 and is_initialized()):
             shutdown()
 

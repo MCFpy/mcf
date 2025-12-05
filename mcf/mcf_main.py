@@ -834,6 +834,67 @@ class ModifiedCausalForest:
         Computes only the ATE without standard errors.
         Default (or None) is False.
 
+    p_ba : Boolean (or None), optional
+        If True, bias adjustment is used. Default is False.
+
+    p_ba_adj_method : String (or None), optional
+        Type of adjustment method used. Possible methods are 'zeros',
+        'observables', 'weighted_observables'.
+        Default is 'weighted_observables'.
+        This defines how to evaluate the estimated regressions in the adjustment
+        procedures:
+        'zeros': The values of the (centered) covariates are set to zero.
+        'observables': They are set to their empirical distribution for the
+            training data (unconditional on treatment).
+        'weighted_observables': As observables, but observations are weighted
+            given the weights from the forests (across treatments). This
+            imposes some localness on the X-distribution and still removes
+            the impact of treatment control differences of X-values in the
+            leaves.
+
+    p_ba_use_prop_score : Boolean (or None), optional
+        If True, propensity score is used as regressor. Propensity is estimated
+        with random forest classifier from scikit-learn.
+        Default is True.
+
+    p_ba_use_prog_score : Boolean (or None), optional 
+        If True, prognostic scores are used as regressors. The prognostic scores
+        are estimated in the same way and governed by the same parameters as
+        defined for local centering. If automatic choice of method, the method
+        will be optimally chosen within each treatment arm.
+        Default is True.
+
+    p_ba_estimator : String (or None), optional
+        The estimator used for the prognostic scores. Only relevant if
+        p_ba_use_prog_score is True.
+        Possible choices are scikit-learn's regression methods
+        'RandomForest', 'RandomForestNminl5', 'RandomForestNminls5',
+        'SupportVectorMachine', 'SupportVectorMachineC2',
+        'SupportVectorMachineC4',
+        'AdaBoost', 'AdaBoost100', 'AdaBoost200',
+        'GradBoost', 'GradBoostDepth6', 'GradBoostDepth12', 'LASSO',
+        'NeuralNet', 'NeuralNetLarge',  'NeuralNetLarger', 'Mean'.
+        If set to 'automatic', the estimator with the lowest out-of-sample
+        mean squared error (MSE) is selected. Whether this selection is based on
+        cross-validation or a test sample is governed by the keyword lc_cs_cv.
+        'Mean' is included for the cases when none of the methods have
+        explanatory power.
+        Default (or None) is 'RandomForest'.
+
+    p_ba_cv_k : Integer (or None), optional
+        Number of folds in cross-validation for bias adjustment.
+        Default (or None) depends on the size of the training sample (N): 
+        N < 100'000: 5;  100'000 <= N < 250'000: 4; 250'000 <= N < 500'000: 3;
+        500'000 <= N: 2.
+
+    p_ba_use_x : Boolean (or None), optional
+        If True, use variables specified in VAR_X_BA_NAME as regressors.
+        Default is False.
+
+    p_ba_pos_weights_only : Boolean (or None), optional
+        If True, all adjusted weights will be forced to be positive.
+        Default is False.
+
     post_est_stats : Boolean (or None), optional
         Descriptive Analyses of IATEs (p_iate must be True).
         Default (or None) is True.

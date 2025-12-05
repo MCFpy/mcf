@@ -1085,8 +1085,8 @@ p_ba_adj_method : String (or None), optional
     _int_iate_chunk_size : Integer or None, optional
         Number of IATEs that are estimated in a single ray worker.
         Default is number of prediction observations / workers.
-        If programme crashes in second part of IATE because of excess memory
-        consumption, reduce _int_iate_chunk_size.
+        If programme crashes in second part of IATE (2/2) because of excess
+        memory consumption, reduce _int_iate_chunk_size.
 
     _int_mp_weights_tree_batch : Integer (or None), optional
         Number of batches to split data in weight computation for variable
@@ -1097,21 +1097,21 @@ p_ba_adj_method : String (or None), optional
         Internal variable, change default only if you know what you do.
 
     _int_mp_weights_type : Integer (or None), optional
-        Type of multiprocessing when computing weights.
-        1 : Groups of observations based (fast, lots of memory).
+        Type of multiprocessing when computing weights:
+        1 : Groups-of-obs based (fast, lots of memory).
         2 : Tree based (takes forever, less memory).
-        Value of 2 will be internally changed to 1 if multiprocessing
+        Value of 2 will be internally changed to 1 if multiprocessing.
         Default (or None) is 1.
         Internal variable, change default only if you know what you do.
 
-    _int_obs_bigdata : Integer or None, optional
-        If number of training observations is larger than this number, 
-        the following happens during training: (i) Number of workers is
-        halved in local centering. (ii) Ray is explicitely 
-        shut down. (iii) The number of workers used is reduced 
-        to 75% of default. (iv) The data type for some numpy arrays is 
-        reduced from float64 to float32.
-        Default is 1'000'000.
+     _int_obs_bigdata : Integer or None, optional
+         If number of training observations is larger than this number, the
+         following happens during training:
+         (i) Number of workers is halved in local centering.
+         (ii) The number of workers used is reduced to 75% of default.
+         (iii) The data type for some numpy arrays is reduced from float64 to
+              float32.
+         Default is 1'000'000.
 
     _int_output_no_new_dir : Boolean (or None), optional
         Do not create a new directory when the path already exists.

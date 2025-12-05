@@ -1091,25 +1091,24 @@ class ModifiedCausalForest:
         Internal variable, change default only if you know what you do.
 
     _int_mp_weights_type : Integer (or None), optional
-        Type of multiprocessing when computing weights. 
-        1 : Groups-of-obs based (fast, lots of memory). 2 : Tree based (takes 
-        forever, less memory). Value of 2 will be internally changed to 1 if 
-        multiprocessing. 
+        Type of multiprocessing when computing weights. 1: Groups-of-obs 
+        based (fast, lots of memory). 2: Tree based (takes forever, less 
+        memory). Value of 2 will be internally changed to 1 if multiprocessing. 
         Default (or None) is 1.
         Internal variable, change default only if you know what you do.
 
-     _int_obs_bigdata : Integer or None, optional
-         If number of training observations is larger than this number, the
-         following happens during training.
+    _int_obs_bigdata : Integer or None, optional
+        If number of training observations is larger than this number, the
+        following happens during training.
          
-         (i) Number of workers is halved in local centering.
+        (i) Number of workers is halved in local centering.
          
-         (ii) The number of workers used is reduced to 75% of default.
+        (ii) The number of workers used is reduced to 75% of default.
          
-         (iii) The data type for some numpy arrays is reduced from float64 to
+        (iii) The data type for some numpy arrays is reduced from float64 to
                float32.
                
-         Default is 1'000'000.
+        Default is 1'000'000.
 
     _int_output_no_new_dir : Boolean (or None), optional
         Do not create a new directory when the path already exists.

@@ -26,7 +26,7 @@ def example_data(obs_y_d_x_iate: int = 1000,
                  strength_iv: int = 1,
                  correlation_x: str = 'middle',
                  no_effect=False,
-                 ):
+                 ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """
     Create example data to be used with mcf estimation and optimal policy.
 

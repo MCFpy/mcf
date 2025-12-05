@@ -160,12 +160,12 @@ class ModifiedCausalForest:
         If cf_chunks_maxsize is larger than the sample size, there is no random
         splitting.
         The default (None) is dependent on the size of the training data:
-        If there are less than 90'000 training observations: No splitting.
+        If there are less than 100'000 training observations: No splitting.
         Otherwise:
         
         .. math::
         
-            \\text{cf_chunks_maxsize} = 90000 + \\frac{{(\\text{number of observations} - 90000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
+            \\text{cf_chunks_maxsize} = 100000 + \\frac{{(\\text{number of observations} - 100000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
 
         Default is None.
 

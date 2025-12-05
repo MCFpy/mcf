@@ -493,11 +493,32 @@ class ModifiedCausalForest:
         'continuous': Continuous treatment.
         Default (or None) is 'discrete'.
 
+    gen_ate_eff : Boolean (or None), optional
+        Compute more efficient ATE (ATEs are estimated twice
+        and averaged where the role of tree_building and tree_filling sample is
+        exchanged; X-fitting). Conservative inference is provided for these
+        parameters by averaging the variances of the estimators.
+        Default (or None) is False.
+
+    gen_gate_eff : Boolean (or None), optional
+        Compute more efficient GATEs / BGATEs / CBGATEs (effects are estimated
+        twice and averaged where the role of tree_building and tree_filling
+        sample is exchanged; X-fitting). Conservative inference is provided for
+        these parameters by averaging the variances of the estimators.
+        Default (or None) is False.
+
     gen_iate_eff : Boolean (or None), optional
-        Additionally, compute more efficient IATE (IATE are estimated twice
-        and averaged where role of tree_building and tree_filling sample is
-        exchanged; X-fitting). No inference is attempted for these
-        parameters.
+        Compute more efficient IATEs (IATEs are estimated twice
+        and averaged where the role of tree_building and tree_filling sample is
+        exchanged; X-fitting). Conservative inference is provided for these
+        parameters by averaging the variances of the estimators.
+        Default (or None) is False.
+
+    gen_qiate_eff : Boolean (or None), optional
+        Compute more efficient QIATEs (effects are estimated
+        twice and averaged where the role of tree_building and tree_filling
+        sample is exchanged; X-fitting). Conservative inference is provided for
+        these parameters by averaging the variances of the estimators.
         Default (or None) is False.
 
     gen_mp_parallel : Integer (or None), optional

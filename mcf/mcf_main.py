@@ -724,12 +724,17 @@ class ModifiedCausalForest:
     p_iv_aggregation_method : String or list/tuple of strings (or None), optional
         Defines the method used to obtain aggregated effects.
         Possible values are `local`, `global`, `('local', 'global',)`.
-        `local` : LIATEs will be computed and aggregated to obtain LGATEs, 
-                  LBGATEs, LATEs, etc. This estimator is internally
-                  consistent.
-        `global` : LATEs will be directly computed as the ratio of
-                   reduced form and first–stage predictions. This estimator
-                   is not necessarily internally consistent.
+
+        `local` :
+            LIATEs will be computed and aggregated to 
+            obtain LGATEs, LBGATEs, LATEs, etc. This estimator 
+            is internally consistent.
+                  
+        `global` : 
+            LATEs will be directly computed as the ratio of
+            reduced form and first–stage predictions. This estimator
+            is not necessarily internally consistent.
+            
         For the differences in assumptions and properties of the two
         approaches see Lechner and Mareckova (2025).
         Default (or None) is `('local', 'global',)`.
@@ -832,22 +837,22 @@ class ModifiedCausalForest:
         If True, bias adjustment is used. Default is False.
 
     p_ba_adj_method : String (or None), optional
-        Type of adjustment method used. Possible methods are ``zeros``,
-        ``observables``, ``weighted_observables``.
-        Default is ``weighted_observables``.
+        Type of adjustment method used. Possible methods are `zeros`,
+        `observables`, `weighted_observables`.
+        Default is `weighted_observables`.
     
         This defines how to evaluate the estimated regressions in the adjustment
         procedures:
     
-        ``zeros`` :
+        `zeros` :
             The values of the (centered) covariates are set to zero.
     
-        ``observables`` :
+        `observables`:
             They are set to their empirical distribution for the
             training data (unconditional on treatment).
     
-        ``weighted_observables`` :
-            As ``observables``, but observations are weighted
+        `weighted_observables` :
+            As `observables`, but observations are weighted
             by the forest weights (across treatments). This
             imposes some localness on the X-distribution and still removes
             the impact of treatment-control differences of X-values in the

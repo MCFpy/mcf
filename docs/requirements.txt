@@ -11,4 +11,5 @@ plotly
 matplotlib
 myst-parser
 ray
+sphinx_design
 packaging>=21.3

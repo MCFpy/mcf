@@ -700,7 +700,7 @@ class ModifiedCausalForest:
 
     p_qiate_m_opp : Boolean (or None), optional.
        QIATE(x, q) - QIATE(x, 1-q) will be estimated (q denotes quantil level,
-       q < 0.5),
+       q < 0.5).
        Default is False.
 
     p_qiate_no_of_quantiles : Integer (or None), optional
@@ -710,7 +710,7 @@ class ModifiedCausalForest:
     p_qiate_smooth : Boolean (or None), optional
         Smooth estimated QIATEs using kernel smoothing.
         Default is True.
-
+        
     p_qiate_smooth_bandwidth : Integer or Float (or None), optional
         Multiplier applied to default bandwidth used for kernel smoothing
         of QIATE.
@@ -718,12 +718,27 @@ class ModifiedCausalForest:
 
     p_qiate_bias_adjust : Boolean (or None), optional
         Bias correction procedure for QIATEs based on simulations.
-        Default is True.
-    If p_qiate_bias_adjust is True, P_IATE_SE is set to True as well.
+        Default is False.
+        If p_qiate_bias_adjust is True, p_iate_se is set to True as well.
 
     p_qiate_bias_adjust_draws : Integer or Float (or None), optional
         Number of random draws used in computing the bias adjustment.
         Default is 1000.
+
+    p_iv_aggregation_method : String or list/tuple of strings (or None), optional
+        Defines method used to obtain aggregated effects.
+        Possible values are `local`, `global`,
+                            (`local`, `global`,)
+        `local` : LIATEs will be computed and aggregated to obtain
+                  LGATEs, LBGATEs, LATEs, etc..
+                  This estimator is internally consistent.
+        `global` : LATEs will be directly
+                   computed as the ratio of reduced form and first
+                   stage predictions. This estimator is not
+                   necessarily internally consistent.
+         For the differences in assumptions and properties of the two
+         approaches see Lechner and Mareckova (2025).
+         Default (or None) is (`local`, `global`,).
 
     p_ci_level : Float (or None), optional
         Confidence level for bounds used in plots.

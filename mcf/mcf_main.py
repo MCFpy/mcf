@@ -327,9 +327,9 @@ class ModifiedCausalForest:
 
         .. math::
 
-            S = \\max(min(x,0.67),\\frac{2 \\cdot (\\frac{n}{2})^0.5}{n}), 
+            S = \\max\left(min(x,0.67),\\frac{2 \\cdot (\\frac{n}{2})^{0.5}}{n}\right), 
             
-        where n is the training sample size and :math:`x = \\min(\\frac{4 \\cdot (\\frac{n}{2})^0.85}{n},0.67) \\cdot \\text{multiplier}.`
+        where n is the training sample size and :math:`x = \\min\left(\\frac{4 \\cdot (\\frac{n}{2})^{0.85}}{n},0.67\right) \\cdot \\text{multiplier}.`
 
     cf_subsample_factor_eval : Float or Boolean (or None), optional
         Size of subsampling sample used to populate tree.

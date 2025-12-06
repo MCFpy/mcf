@@ -323,13 +323,13 @@ class ModifiedCausalForest:
         Default is None.
 
     cf_subsample_factor_forest : Float (or None), optional
-        Multiplier of default size of subsampling sample (S) used to build
-        tree.
+        Subsample size (S) multiplier for tree building. Default (or None) is 1.
 
         .. math::
 
             S = \\max((n^{0.5},min(0.67n, \\frac{2 \\times (n^{0.85})}{n}))), \\text{n: # of training observations} 
-
+            S = \\max(min(x,0.67,\\frac{2\\frac{n}{2}^{0.5}}{n})
+            
         :math:`S \\times \\text{cf_subsample_factor_forest}, \\text{is not larger than 80%.}` 
         Default (or None) is 1.
 

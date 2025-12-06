@@ -327,7 +327,7 @@ class ModifiedCausalForest:
 
         .. math::
 
-            S = \\max\\left(min(x,0.67),\\frac{2 \\cdot (\\frac{n}{2})^{0.5}}{n}\\right), 
+            S = \\max\\left(\\min(x,0.67),\\frac{2 \\cdot (\\frac{n}{2})^{0.5}}{n}\\right), 
             
         where n is the training sample size and :math:`x = \\min\\left(\\frac{4 \\cdot (\\frac{n}{2})^{0.85}}{n},0.67\\right) \\cdot \\text{multiplier}.`
 

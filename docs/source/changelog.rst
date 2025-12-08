@@ -27,6 +27,102 @@ Changelog
 
     Note the absence of the tilde '~' in this case. 
 
+Version 0.9.0
+-------------
+
+Documentation
+~~~~~~~~~~~~~
+
+- MCF-IV (mcf for instrumental variables documentation added). This version is experimental and a complete documentation will only be added in a later version.
+- The predict and predict_iv methods return a dictionary with important outputs from the estimations. The documentation of these outputs has been improved.
+   
+Example data function 
+~~~~~~~~~~~~~~~~~~~~~
+
+- An instrumental variable has been added. Its name can be accessed in returned dictionary with names using the key 'inst_bin_name'
+
+- New keywords:
+        - strength_iv : Integer or Float, optional. The larger this number is, the stronger the instrument will be.                                 Default is 1.      
+
+Example programmes
+~~~~~~~~~~~~~~~~~~
+
+- mcf_iv.py (new): Demonstrates an application of instrumental variable estimation with the mcf.
+
+
+ModifiedCausalForest class
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- The method blinder_iates is no longer available. Fairness is now dealt with the methods provided in the OptPolicy class.
+
+- There are now options to estimate all ATEs, GATEs, QIATEs, and IATEs in a more efficient manner (so far, this option was only available for the IATEs). This is done by training the mcf twice, where the data used to build the forest, and the data used to fill the leaves with outcome values change their roles. Subsequently, the predictions from both forests are averaged. The same is true for the variance. However since the average variance is most likely an overestimation of the true variance, the resulting inference is conservative. Computation time is roughly doubled. Note that the dictionary returned by the predict method will no longer return explicit results for efficient IATEs in addition to 'normal' IATEs.
+
+- There is now the possibility to use different values of parameters for the predict(), predict_iv(), and analyse() methods. The parameters affected and their new values must be supplied in a dictionary and passed directly to those methods using the keyword 'new_keywords'. This dictionary is used to change the configuration attributes of the instance used for training (it is important that these changes are performed on instances not yet used by predict() or predict_iv()). Thus, if one instances is trained onces and used for different parameters by the predict(), predict_iv() it is important to deepcopy it (from copy module).
+
+- New methods:
+      - train_iv: Instrumental mcf. Trains the forests for the reduced forms and the first stages.
+      - predict_iv: Instrumental mcf. Predicts average and aggregated effects.
+
+- New keywords of class:
+      - gen_ate_eff : More efficent estimation of ATE. Default is False.
+      - gen_gate_eff : More efficent estimation of all GATE-like parameters. Default is False.
+      - gen_qiate_eff : More efficent estimation of IATEs. Default is False.
+      - var_iv_name : Name of binary instrumental variable. Only relevant if train_iv method is used. Default is None.
+      - p_iv_aggregation_method : String or list/tuple of strings (or None), optional. Defines method used to obtain aggregated effects. Possible values are 'local', 'global', ('local', 'global',) 'local': LIATEs will be computed and aggregated to obtain LGATEs, LBGATEs, LATEs, etc.. This estimator is "internally consistent".'global': LATEs (only) are directly computed as the ratio of reduced form and first stage predictions. This estimator is not necessarily "internally consistent". For the differences in assumptions and properties of the two approaches see Lechner and Mareckova (2025). Default is ('local', 'global',).
+      - p_ba, p_ba_adj_method, p_ba_use_prop_score, p_ba_use_prog_score,
+        p_ba_use_x, p_ba_pos_weights_only, p_ba_estimator,  p_ba_cv_k
+        are new keywords for an yet very experimental and undocumented new
+        feature.
+
+- New keyword of predict(), predict_iv(), analyse() method
+      - new_keywords : Dictionary (or None), optional. Default is None.
+          The keys in the dictionary are the parameters to be changed
+          when running this method (and all methods that are run subsequently,
+          like analyse or sensitivity), and the values corresponding to the
+          keys are the new value (None is not allowed as new value).
+          However, not all parameters can differ from those used during
+          training. The following parameters can be changed, and thus
+          specified as keys in this dictionary:
+          'gen_output_type',
+          'var_x_name_balance_test_ord',  'var_x_name_balance_test_unord',
+          'var_x_name_balance_bgate', 'var_x_name_ba', 'var_z_name_ord',
+          'var_z_name_unord', 'p_ba', 'p_ba_adj_method',
+          'p_ba_pos_weights_only', 'p_ba_use_x', 'p_ba_use_prop_score',
+          'p_ba_use_prog_score', 'p_ate_no_se_only', 'p_atet', 'p_gatet',
+          'p_bgate', 'p_cbgate', 'p_iate', 'p_iate_se', 'p_iate_m_ate',
+          'p_bgate_sample_share', 'p_gates_minus_previous',
+          'p_gates_smooth_bandwidth', 'p_gates_smooth',
+          'p_gates_smooth_no_evalu_points', 'p_gates_no_evalu_points',
+          'p_qiate', 'p_qiate_se', 'p_qiate_m_mqiate', 'p_qiate_m_opp',
+          'p_qiate_no_of_quantiles', 'p_qiate_smooth'
+          'p_qiate_smooth_bandwidth', 'p_qiate_bias_adjust', 'p_bt_yes',
+          'p_choice_based_sampling', 'p_choice_based_probs', 'p_cond_var',
+          'p_knn', 'p_knn_const', 'p_knn_min_k', 'p_nw_bandw', 'p_nw_kern',
+          'p_ci_level', 'p_iv_aggregation_method', 'p_se_boot_ate',
+          'p_se_boot_gate', 'p_se_boot_iate', 'p_se_boot_qiate',
+          'post_bin_corr_threshold', 'post_bin_corr_yes', 'post_est_stats',
+          'post_kmeans_yes', 'post_kmeans_no_of_groups',
+          'post_kmeans_max_tries', 'post_kmeans_min_size_share',
+          'post_kmeans_replications', 'post_kmeans_single',
+          'post_random_forest_vi', 'post_relative_to_first_group_only',
+          'post_plots', 'post_tree'.
+
+- Change of default values
+      - p_qiate_bias_adjust is False (as the bias adjustment is usually not effective)
+
+- Small bug fixes
+       - Output for Gates (unordered variables) has now the correct labels.
+
+- Speed increases.
+
+
+OptimalPolicy class
+~~~~~~~~~~~~~~
+    
+- Change of default value
+      - pt_min_leaf_size: Default value will not be larger than 100.
+
+
 Version 0.8.0
 -------------
 

@@ -38,7 +38,7 @@ The results of the balancing tests are part of the txt-file in the output folder
         var_x_name_ord="x_cont0"
         )
     
-    my_mcf.gen_dict["outpath"]
+    my_mcf.gen_cfg.outpath
 
 Example
 ~~~~~~~

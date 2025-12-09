@@ -341,7 +341,8 @@ to the DataFrame holding the potential outcomes, treatment variable and the feat
 
 .. code-block:: python
 
-    alloc_pred_df, _ = my_optimal_policy.allocate(prediction_df, data_title='prediction')
+    out_pred = my_optimal_policy.allocate(prediction_df, data_title='prediction')
+    alloc_pred_df = out_pred['allocation_df']
 
 To evaluate this allocation rule, again apply the :py:meth:`~optpolicy_main.OptimalPolicy.allocate` method similar to above.
 

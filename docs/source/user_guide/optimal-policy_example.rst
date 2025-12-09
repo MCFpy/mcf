@@ -158,6 +158,7 @@ results_eva_pred = myoptp_fair.evaluate(
     data_title='prediction'
     )
 
+
 The method ``winners_losers`` compares winners and losers between two allocations. It uses the k-means algorithm to cluster individuals who exhibit similar gains and losses across the two user-provided allocations. Each resulting group is described by the policy scores as well as the decision, protected, and materially relevant variables.
 
 

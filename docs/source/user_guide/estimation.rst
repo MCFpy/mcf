@@ -122,7 +122,7 @@ Another way to access the estimated :math:`\textrm{ATET's}` is through the outpu
 
 .. code-block:: python
 
-    my_mcf.gen_dict["outpath"]
+    my_mcf.gen_cfg.outpath
 
 You can also specify this path through the ``gen_outpath`` parameter of the class :py:meth:`~mcf_main.ModifiedCausalForest`. The output folder will contain csv-files with the estimated :math:`\textrm{ATET's}` in the subfolder `ate_iate`.
 
@@ -162,7 +162,7 @@ A simpler way to inspect the estimated :math:`\textrm{GATE's}` is through the ou
 
 .. code-block:: python
 
-    my_mcf.gen_dict["outpath"]
+    my_mcf.gen_cfg.outpath
 
 You can also specify this path through the ``gen_outpath`` parameter of the class :py:meth:`~mcf_main.ModifiedCausalForest`. The output folder will contain both csv-files with the results as well as plots of the estimated :math:`\textrm{GATE's}` in the subfolder `gate`.
 

@@ -47,7 +47,7 @@ Another way to access the estimated :math:`\textrm{ATE's}` is through the output
         var_d_name="treat",
         var_x_name_ord=["x_cont0", "x_cont1"]
     )
-    my_mcf.gen_dict["outpath"]
+    my_mcf.gen_cfg.outpath
 
 You can also specify this path through the ``gen_outpath`` parameter of the class :py:meth:`~mcf_main.ModifiedCausalForest`. The output folder will contain csv-files with the estimated :math:`\textrm{ATE's}` in the subfolder `ate_iate`.
 

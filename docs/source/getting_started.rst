@@ -295,7 +295,8 @@ To find the Optimal Policy Tree, we use the :py:meth:`~optpolicy_main.OptimalPol
 .. code-block:: python
 
     train_pt_df = results["iate_data_df"]
-    alloc_train_df, _, _ = my_optimal_policy.solve(training_df, data_title='training')
+    out_train = my_optimal_policy.solve(training_df, data_title='training')
+    alloc_train_df = out_train['allocation_df']
 
 The returned DataFrame contains the optimal allocation rule for the training data.
 

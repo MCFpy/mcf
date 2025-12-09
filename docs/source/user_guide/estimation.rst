@@ -260,6 +260,6 @@ Example
 Increase in Efficiency
 ----------------------
 
-ATEs, GATEs, QIATEs, and IATEs can be estimated more efficiently by training the algortihm twice. In this procedure, the data used to build the forest and the data used to populate the leaves with outcome values switch roles. The predictions from both forests are then averaged. The same approach is applied to the variance. However, because the averaged variance is likely to overestimate the true variance, the resulting inference is conservative. 
+ATEs, GATEs, QIATEs, and IATEs can be estimated more efficiently by training the algortihm twice (``gen_ate_eff``, ``gen_gate_eff``, ``gen_qiate_eff``, ``gen_iate_eff``). In this procedure, the data used to build the forest and the data used to populate the leaves with outcome values switch roles. The predictions from both forests are then averaged. The same approach is applied to the variance. However, because the averaged variance is likely to overestimate the true variance, the resulting inference is conservative. 
 
 Note that computation time is approximately doubled. Also, the dictionary returned by the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method provides results for the standard effects only (i.e., without efficiency optimization).

@@ -118,7 +118,7 @@ We use the :py:func:`~example_data_functions.example_data` function to generate 
     iate_df = results.get('iate_data_df')
     print("\nDataFrame of Individualized Treatment Effects:\n", iate_df)
     
-    # Create an instance of the OptimalPolicy class:
+    # Create an instance of the OptimalPolicy class
     my_optimal_policy = OptimalPolicy(
         var_d_name="treat",
         var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
@@ -127,23 +127,18 @@ We use the :py:func:`~example_data_functions.example_data` function to generate 
         )
     
     # Learn an optimal policy rule using the predicted potential outcomes
-    out_train = my_optimal_policy.solve(training_df, data_title='training')
-    alloc_train_df = out_train['allocation_df']
+    solve_dict = my_optimal_policy.solve(training_df, data_title='training')
     
-    # Evaluate the optimal policy rule on the training data:
-    results_eva_train, _ = my_optimal_policy.evaluate(alloc_train_df, training_df,
+    # Evaluate the optimal policy rule on the training data
+    my_optimal_policy.evaluate(solve_dict['allocation_df'], training_df,
                                                data_title='training')
     
     # Allocate observations to treatment state using the prediction data
-    out_pred = my_optimal_policy.allocate(prediction_df, data_title='prediction')
-    alloc_pred_df = out_pred['allocation_df']
+    alloc_pred_df = my_optimal_policy.allocate(prediction_df, data_title='prediction')
     
-    # Evaluate allocation with potential outcome data.
-    results_eva_pred, _ = my_optimal_policy.evaluate(alloc_pred_df, prediction_df,
+    # Evaluate allocation with potential outcome data
+    my_optimal_policy.evaluate(alloc_pred_df['allocation_df'], prediction_df,
                                               data_title='prediction')
-    
-    # Allocation DataFrame for the training set
-    print(alloc_train_df)
     
     # Produce a PDF-report that summarises the results
     my_report = McfOptPolReport(mcf=my_mcf,

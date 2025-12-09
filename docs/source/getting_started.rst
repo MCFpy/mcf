@@ -156,14 +156,13 @@ The simplest way to get an overview of your results is to read the PDF-report th
     mcf_report.report()
 
 
-You can also access all the results programmatically. Here's how to do it:
-
-The :py:meth:`~mcf_main.ModifiedCausalForest.predict` method returns a ``results`` dictionary with the estimation results. To have a look at the keys of the dictionary, run:
+The :py:meth:`~mcf_main.ModifiedCausalForest.predict` method (and :py:meth:`~mcf_main.ModifiedCausalForest.predict_iv`, see API) returns a dictionary with all major estimation results. It includes ATE, QIATE, GATE and IATE estimates with standard errors, a dataframe including the potential outcomes, as well as common-support probabilities and the output directory path. To access the keys of the dictionary programmatically, run:
 
 .. code-block:: python
 
-    keys = results.get('iate_data_df').keys()
+    keys = results.keys()
     print("Keys in your dictionary:\n", keys)
+
 
 By default, the average treatment effects (:math:`\textrm{ATE's}`) as well as the individualized average treatment effects (:math:`\textrm{IATE's}`) are estimated. If these terms do not sound familiar, :doc:`here <user_guide/estimation>` you can learn more about the different kinds of heterogeneous treatment effects.
 
@@ -183,13 +182,7 @@ In the same way, you can access and print the standard errors of the respective 
     ate_se_array = results.get('ate_se')
     print("\nStandard Error of ATE:\n", ate_se_array)
 
-The estimated :math:`\textrm{IATE's}`, along with the locally centered and uncentered potential outcomes, are saved as columns in a Pandas DataFrame, which can be accessed from the ``results`` dictionary. If you do not know the variable names of your estimation in advance, have a look at the keys of this dictionary:
-
-.. code-block:: python
-
-    results.get('iate_data_df').keys()
-
-You can access these elements all at once or independently in the following ways:
+The estimated :math:`\textrm{IATE's}`, along with the locally centered and uncentered potential outcomes, are saved as columns in a Pandas DataFrame, which can be accessed from the ``results`` dictionary. Please have a look at the dictionary keys to also find the corresponding variable names. The elements can be accessed all at once or independently in the following ways:
 
 .. code-block:: python
 

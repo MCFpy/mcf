@@ -51,7 +51,7 @@ With ``post_est_stats`` set to True, the distribution of the estimated :math:`\t
 
 .. code-block:: python
 
-    my_mcf.gen_dict["outpath"]
+    my_mcf.gen_cfg.outpath
 
 You can also specify this path through the ``gen_outpath`` parameter of the class :py:meth:`~mcf_main.ModifiedCausalForest`. The output folder will contain the jpeg/pdf-files of the plots as well as csv-files of the underlying data in the subfolder `ate_iate`.
 

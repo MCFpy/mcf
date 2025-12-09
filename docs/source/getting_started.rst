@@ -215,7 +215,7 @@ The columns ``outcome_lc1vs0_iate``, ``outcome_lc2vs0_iate``, and ``outcome_lc2v
 
 
 
-**Note (1)**, if you specify the methods as in the provided example files, you have access to all the elements discussed above directly from the ``results`` tuple. For example,
+**Note (1)**, if you specify the methods as in the provided example files, you have access to all the elements discussed above directly from ``results``. For example,
 
 .. code-block:: python
 

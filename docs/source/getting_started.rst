@@ -102,11 +102,11 @@ Accessing and customizing output location
 
 The **mcf** package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder where these results are stored. 
 Any method you are using, returns the location of these output files as last return (the reporting method returns the full file name of the pdf file in addition). 
-Manually, you can find the location of the output folder by accessing the ``outpath`` entry of the ``gen_dict`` attribute of your Modified Causal Forest:
+Manually, you can find the location of the output folder by accessing the ``outpath`` entry of the ``gen_cfg`` attribute of your Modified Causal Forest:
 
 .. code-block:: python
 
-    my_mcf.gen_dict["outpath"]
+    my_mcf.gen_cfg.outpath
 
 We recommend you specify your preferred location for the output folder using the ``gen_outpath`` parameter of the class :py:class:`~mcf_main.ModifiedCausalForest`.
 

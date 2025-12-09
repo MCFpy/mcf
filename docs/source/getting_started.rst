@@ -80,7 +80,7 @@ Below you find a list of optional parameters that are often used to initialize a
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
     | ``p_atet``                       | If True, :math:`\textrm{ATE's}` are also computed by treatment status (:math:`\textrm{ATET's}`). Default: False.  |
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
-    | ``var_z_name_cont``              | Continuous feature(s) with many values used for :math:`\textrm{GATE}` estimation.                                    |
+    | ``var_z_name_cont``              | Continuous feature(s) with many values used for :math:`\textrm{GATE}` estimation.                                 |
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+
     | ``var_z_name_ord``               | Ordered feature(s) with few values used for :math:`\textrm{GATE}` estimation.                                     |
     +----------------------------------+-------------------------------------------------------------------------------------------------------------------+

@@ -96,10 +96,11 @@ After initializing a class instance, we use it to solve for an optimal allocatio
         data_title='prediction'
         )
     
-    results_eva_pred, _ = myoptp.evaluate(
+    results_eva_pred = myoptp.evaluate(
         alloc_pred_df['allocation_df'], 
         prediction_df,
         data_title='prediction')
+
 
 Inference for different allocations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

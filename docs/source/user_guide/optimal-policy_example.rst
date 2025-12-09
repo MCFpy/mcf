@@ -124,39 +124,39 @@ method to build the decision rule.
 
 .. code-block:: python
 
-# Initializing a class instance.
-myoptp_fair = OptimalPolicy(
-    gen_method='policy_tree',
-    var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
-    var_protected_name_ord=('x_ord0'),
-    var_x_name_ord=('x_cont0'),
-    pt_depth_tree_1=2,
-    pt_depth_tree_2=0,
-    gen_outpath=os.getcwd() + '/out'
-)
-
-# Solve, allocate, and evaluate methods.
-alloc_train_fair_dict = myoptp_fair.solvefair(
-    training_df.copy(),
-    data_title='training'
+    # Initializing a class instance.
+    myoptp_fair = OptimalPolicy(
+        gen_method='policy_tree',
+        var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
+        var_protected_name_ord=('x_ord0'),
+        var_x_name_ord=('x_cont0'),
+        pt_depth_tree_1=2,
+        pt_depth_tree_2=0,
+        gen_outpath=os.getcwd() + '/out'
     )
-
-results_eva_train = myoptp_fair.evaluate(
-    alloc_train_fair_dict['allocation_df'],
-    training_df.copy(),
-    data_title='training'
-    )
-
-alloc_pred_fair_dict = myoptp_fair.allocate(
-    prediction_df.copy(),
-    data_title='prediction'
-    )
-
-results_eva_pred = myoptp_fair.evaluate(
-    alloc_pred_fair_dict['allocation_df'],
-    prediction_df.copy(),
-    data_title='prediction'
-    )
+    
+    # Solve, allocate, and evaluate methods.
+    alloc_train_fair_dict = myoptp_fair.solvefair(
+        training_df.copy(),
+        data_title='training'
+        )
+    
+    results_eva_train = myoptp_fair.evaluate(
+        alloc_train_fair_dict['allocation_df'],
+        training_df.copy(),
+        data_title='training'
+        )
+    
+    alloc_pred_fair_dict = myoptp_fair.allocate(
+        prediction_df.copy(),
+        data_title='prediction'
+        )
+    
+    results_eva_pred = myoptp_fair.evaluate(
+        alloc_pred_fair_dict['allocation_df'],
+        prediction_df.copy(),
+        data_title='prediction'
+        )
 
 
 The method ``winners_losers`` compares winners and losers between two allocations. It uses the k-means algorithm to cluster individuals who exhibit similar gains and losses across the two user-provided allocations. Each resulting group is described by the policy scores as well as the decision, protected, and materially relevant variables.
@@ -169,7 +169,7 @@ Finally, the code creates a PDF report. Please note that the program saves by de
 
 .. code-block:: python
 
-    # Creating a PDF report.
+    # Generate the PDF report.
     my_report = McfOptPolReport(
         optpol=myoptp, outputfile='Report_OptP_' + 'policy_tree')
     my_report.report()
@@ -205,17 +205,29 @@ Estimating a policy rule using the best-score method
 .. code-block:: python
 
     # Solve, allocate, and evaluate methods.
-    alloc_train_df, _, _ = myoptp.solve(training_df, data_title='training')
-    results_eva_train, _ = myoptp.evaluate(alloc_train_df, training_df,
-                                           data_title='training')
-    alloc_pred_df, _ = myoptp.allocate(prediction_df,
-                                       data_title='prediction')
-    results_eva_pred, _ = myoptp.evaluate(alloc_pred_df, prediction_df,
-                                      data_title='prediction')
+    alloc_train_df = myoptp.solve(
+        training_df,
+        data_title='training')
+    
+    results_eva_train = myoptp.evaluate(
+        alloc_train_df['allocation_df'] ,
+        training_df,
+        data_title='training'
+        )
+    
+    alloc_pred_df = myoptp.allocate(
+        prediction_df,
+        data_title='prediction'
+        )
+    
+    results_eva_pred = myoptp.evaluate(
+        alloc_pred_df['allocation_df'],
+        prediction_df,
+        data_title='prediction')
 
 .. code-block:: python
 
-    # Creating a PDF report.
+    # Generate a PDF report.
     my_report = McfOptPolReport(
         optpol=myoptp, outputfile='Report_OptP_' + 'best_policy_score')
     my_report.report()

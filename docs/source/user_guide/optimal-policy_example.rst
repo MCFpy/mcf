@@ -81,11 +81,13 @@ After initializing a class instance, we use it to solve for an optimal allocatio
 .. code-block:: python
 
     # Solve, allocate, and evaluate methods.
-    alloc_train_df, _, _ = myoptp.solve(training_df, data_title='training')
-    results_eva_train, _ = myoptp.evaluate(alloc_train_df, training_df,
+    out_train = myoptp.solve(training_df, data_title='training')
+    alloc_train_df = out_train['allocation_df']
+    results_eva_train = myoptp.evaluate(alloc_train_df , training_df,
                                            data_title='training')
-    alloc_pred_df, _ = myoptp.allocate(prediction_df, 
+    out_pred = myoptp.allocate(prediction_df,
                                        data_title='prediction')
+    alloc_pred_df = out_pred['allocation_df']
     results_eva_pred, _ = myoptp.evaluate(alloc_pred_df, prediction_df,
                                           data_title='prediction')
 

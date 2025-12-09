@@ -23,7 +23,7 @@ The code below creates artificial example data for training and prediction.
     from mcf.optpolicy_main import OptimalPolicy
     from mcf.reporting import McfOptPolReport
 
-    # Creating data.
+    # Generate the data.
     training_df, prediction_df, name_dict = example_data(
         obs_y_d_x_iate=1000, obs_x_iate=1000, no_treatments=3)
 
@@ -81,15 +81,25 @@ After initializing a class instance, we use it to solve for an optimal allocatio
 .. code-block:: python
 
     # Solve, allocate, and evaluate methods.
-    out_train = myoptp.solve(training_df, data_title='training')
-    alloc_train_df = out_train['allocation_df']
-    results_eva_train = myoptp.evaluate(alloc_train_df , training_df,
-                                           data_title='training')
-    out_pred = myoptp.allocate(prediction_df,
-                                       data_title='prediction')
-    alloc_pred_df = out_pred['allocation_df']
-    results_eva_pred, _ = myoptp.evaluate(alloc_pred_df, prediction_df,
-                                          data_title='prediction')
+    alloc_train_df = myoptp.solve(
+        training_df, 
+        data_title='training')
+    
+    results_eva_train = myoptp.evaluate(
+        alloc_train_df['allocation_df'] ,
+        training_df,
+        data_title='training'
+        )
+    
+    alloc_pred_df = myoptp.allocate(
+        prediction_df,
+        data_title='prediction'
+        )
+    
+    results_eva_pred, _ = myoptp.evaluate(
+        alloc_pred_df['allocation_df'], 
+        prediction_df,
+        data_title='prediction')
 
 Inference for different allocations
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -113,35 +123,38 @@ method to build the decision rule.
 
 .. code-block:: python
 
-    # Initializing a class instance.
-    myoptp = OptimalPolicy(
-        gen_method='policy_tree',
-        var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
-        var_protected_name_ord=('x_ord0'),
-        var_x_name_ord=('x_cont0'),
-        pt_depth_tree_1=2,
-        pt_depth_tree_2=0,
-        gen_outpath=os.getcwd() + '/out'
+# Initializing a class instance.
+myoptp_fair = OptimalPolicy(
+    gen_method='policy_tree',
+    var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
+    var_protected_name_ord=('x_ord0'),
+    var_x_name_ord=('x_cont0'),
+    pt_depth_tree_1=2,
+    pt_depth_tree_2=0,
+    gen_outpath=os.getcwd() + '/out'
+)
+
+# Solve, allocate, and evaluate methods.
+alloc_train_fair_dict = myoptp_fair.solvefair(
+    training_df.copy(),
+    data_title='training'
     )
 
-    # Solve, allocate, and evaluate methods.
-    alloc_train_df, _, _ = myoptp.solvefair(
-        training_df,
-        data_title='training'
+results_eva_train = myoptp_fair.evaluate(
+    alloc_train_fair_dict['allocation_df'],
+    training_df.copy(),
+    data_title='training'
     )
-    results_eva_train, _ = myoptp.evaluate(
-        alloc_train_df,
-        training_df,
-        data_title='training'
+
+alloc_pred_fair_dict = myoptp_fair.allocate(
+    prediction_df.copy(),
+    data_title='prediction'
     )
-    alloc_pred_df, _ = myoptp.allocate(
-        prediction_df,
-        data_title='prediction'
-    )
-    results_eva_pred, _ = myoptp.evaluate(
-        alloc_pred_df,
-        prediction_df,
-        data_title='prediction'
+
+results_eva_pred = myoptp_fair.evaluate(
+    alloc_pred_fair_dict['allocation_df'],
+    prediction_df.copy(),
+    data_title='prediction'
     )
 
 The method ``winners_losers`` compares winners and losers between two allocations. It uses the k-means algorithm to cluster individuals who exhibit similar gains and losses across the two user-provided allocations. Each resulting group is described by the policy scores as well as the decision, protected, and materially relevant variables.

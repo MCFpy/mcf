@@ -138,7 +138,7 @@ Next we will train the Modified Causal Forest on the ``train_mcf_df`` data using
 
     my_mcf.train(training_df)
 
-Now we are ready to estimate heterogeneous treatment effects on the ``pred_mcf_train_pt_df`` data using the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method.
+Now we are ready to estimate heterogeneous treatment effects on the ``prediction_df`` data using the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method.
 
 .. code-block:: python
 
@@ -294,7 +294,6 @@ To find the Optimal Policy Tree, we use the :py:meth:`~optpolicy_main.OptimalPol
 
 .. code-block:: python
 
-    train_pt_df = results["iate_data_df"]
     solve_dict = my_optimal_policy.solve(training_df, data_title='training')
 
 The returned DataFrame contains the optimal allocation rule for the training data.

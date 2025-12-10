@@ -25,7 +25,10 @@ The code below creates artificial example data for training and prediction.
 
     # Generate the data.
     training_df, prediction_df, name_dict=example_data(
-        obs_y_d_x_iate=1000, obs_x_iate=1000, no_treatments=3)
+        obs_y_d_x_iate=1000, 
+        obs_x_iate=1000, 
+        no_treatments=3
+        )
 
 Estimating an optimal policy tree
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -35,12 +38,13 @@ Next, we initialize an instance by calling the :py:class:`~optpolicy_main.Optima
 .. code-block:: python
 
     # Initializing a class instance.
-    myoptp=OptimalPolicy(gen_method='policy_tree',
-                           var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
-                           var_x_name_ord=('x_cont0', 'x_ord0'),
-                           pt_depth_tree_1=2,
-                           pt_depth_tree_2=0,
-                           gen_outpath=os.getcwd() + '/out')
+    myoptp=OptimalPolicy(
+        gen_method='policy_tree',
+        var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
+        pt_depth_tree_1=2,
+        pt_depth_tree_2=0,
+        gen_outpath=os.getcwd() + '/out'
+        )
 
 Estimating sequentially optimal policy trees
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -50,12 +54,14 @@ Alternatively, we can create an instance to estimate sequentially optimal policy
 .. code-block:: python
 
     # Initializing a class instance.
-    myoptp=OptimalPolicy(gen_method='policy_tree',
-                           var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
-                           var_x_name_ord=('x_cont0', 'x_ord0'),
-                           pt_depth_tree_1=2,
-                           pt_depth_tree_2=1,
-                           gen_outpath=os.getcwd() + '/out')
+    myoptp=OptimalPolicy(
+        gen_method='policy_tree',
+        var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
+        var_x_name_ord=('x_cont0', 'x_ord0'),
+        pt_depth_tree_1=2,
+        pt_depth_tree_2=1,
+        gen_outpath=os.getcwd() + '/out'
+        )
 
 Estimating a constrained optimal policy tree
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -65,13 +71,15 @@ The following code block creates a constrained optimal policy tree, considering 
 .. code-block:: python
 
     # Initializing a class instance.
-    myoptp=OptimalPolicy(gen_method='policy_tree',
-                           var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
-                           var_x_name_ord=('x_cont0', 'x_ord0'),
-                           pt_depth_tree_1=2,
-                           pt_depth_tree_2=0,
-                           other_max_shares=(0.2, 0.8, 0),
-                           gen_outpath=os.getcwd() + '/out')
+    myoptp=OptimalPolicy(
+        gen_method='policy_tree',
+        var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
+        var_x_name_ord=('x_cont0', 'x_ord0'),
+        pt_depth_tree_1=2,
+        pt_depth_tree_2=0,
+        other_max_shares=(0.2, 0.8, 0),
+        gen_outpath=os.getcwd() + '/out'
+        )
 
 Solve, allocate, and evaluate methods
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -83,7 +91,8 @@ After initializing a class instance, we use it to solve for an optimal allocatio
     # Solve, allocate, and evaluate methods.
     alloc_train_df=myoptp.solve(
         training_df, 
-        data_title='training')
+        data_title='training'
+        )
     
     results_eva_train=myoptp.evaluate(
         alloc_train_df['allocation_df'] ,
@@ -99,7 +108,8 @@ After initializing a class instance, we use it to solve for an optimal allocatio
     results_eva_pred=myoptp.evaluate(
         alloc_pred_df['allocation_df'], 
         prediction_df,
-        data_title='prediction')
+        data_title='prediction'
+        )
 
 
 Inference for different allocations
@@ -133,7 +143,7 @@ method to build the decision rule.
         pt_depth_tree_1=2,
         pt_depth_tree_2=0,
         gen_outpath=os.getcwd() + '/out'
-    )
+        )
     
     # Solve, allocate, and evaluate methods.
     alloc_train_fair_dict=myoptp_fair.solvefair(
@@ -172,7 +182,8 @@ Finally, the code creates a PDF report. Please note that the program saves by de
     # Generate the PDF report.
     my_report=McfOptPolReport(
         optpol=myoptp, 
-        outputfile='Report_OptP_' + 'policy_tree')
+        outputfile='Report_OptP_' + 'policy_tree'
+        )
     my_report.report()
 
 Best Policy Scores
@@ -202,11 +213,11 @@ Estimating a policy rule using the best-score method
 
     # Initializing a class instance.
     myoptp=OptimalPolicy(
-                          gen_method='best_policy_score',
-                          var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
-                          var_x_name_ord=('x_cont0', 'x_ord0'),
-                          gen_outpath=os.getcwd() + '/out'
-                          )
+        gen_method='best_policy_score',
+        var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
+        var_x_name_ord=('x_cont0', 'x_ord0'),
+        gen_outpath=os.getcwd() + '/out'
+        )
 
 .. code-block:: python
 
@@ -217,7 +228,7 @@ Estimating a policy rule using the best-score method
         )
     
     results_eva_train=myoptp.evaluate(
-        alloc_train_df['allocation_df'] ,
+        alloc_train_df['allocation_df'],
         training_df,
         data_title='training'
         )
@@ -230,7 +241,8 @@ Estimating a policy rule using the best-score method
     results_eva_pred=myoptp.evaluate(
         alloc_pred_df['allocation_df'],
         prediction_df,
-        data_title='prediction')
+        data_title='prediction'
+        )
 
 .. code-block:: python
 

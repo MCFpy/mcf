@@ -5,22 +5,33 @@ Created on Sun Jul 16 14:03:58 2023
 # -*- coding: utf-8 -*-
 @author: MLechner
 """
+from typing import Any, TYPE_CHECKING
+
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 
+if TYPE_CHECKING:
+    from mcf.optpolicy_main import OptimalPolicy
 
-def black_box_allocation(optp_, data_df, bb_rest_variable, seed=234356):
+
+def black_box_allocation(optp_: 'OptimalPolicy',
+                         data_df: pd.DataFrame,
+                         bb_rest_variable: bool,
+                         seed: int = 234356
+                         ) -> pd.DataFrame:
     """Compute various Black-Box allocations and return to main programme."""
-    rng = np.random.default_rng(seed)
-    var_dic, ot_dic = optp_.var_dict, optp_.other_dict
-    po_np = data_df[var_dic['polscore_name']].to_numpy()
+    rng = np.random.default_rng(seed=seed)
+    var_cfg, other_cfg = optp_.var_cfg, optp_.other_cfg
+    po_np = data_df[var_cfg.polscore_name].to_numpy()
     no_obs, no_treat = po_np.shape
     largest_gain = largest_gain_fct(po_np)
     allocations_df = pd.DataFrame(data=largest_gain,
                                   columns=('bb',))
-    if ot_dic['restricted']:
+    if other_cfg.restricted:
         max_by_cat = np.int64(
-            np.floor(no_obs * np.array(ot_dic['max_shares'])))
+            np.floor(no_obs * np.array(other_cfg.max_shares))
+            )
         random_rest = random_rest_fct(no_treat, no_obs, max_by_cat, rng)
         allocations_df['bb_rest_rnd'] = random_rest
         largest_gain_rest = largest_gain_rest_fct(
@@ -32,19 +43,25 @@ def black_box_allocation(optp_, data_df, bb_rest_variable, seed=234356):
                        ] = largest_gain_rest_random_order
         if bb_rest_variable:
             largest_gain_rest_other_var = largest_gain_rest_other_var_fct(
-                po_np, no_treat, max_by_cat, var_dic, largest_gain, data_df)
+                po_np, no_treat, max_by_cat, var_cfg, largest_gain, data_df)
             name = 'bb_rest_maxgain_' + '_'.join(
-                var_dic['bb_restrict_name'])
+                var_cfg.bb_restrict_name)
             allocations_df[name] = largest_gain_rest_other_var
+
     return allocations_df
 
 
-def largest_gain_fct(po_np):
+def largest_gain_fct(po_np: NDArray[Any]) -> NDArray[Any]:
     """Compute allocation with largest gains."""
     return np.argmax(po_np, axis=1)
 
 
-def random_rest_fct(no_treat, no_obs, max_by_cat, rng, max_attempts=10):
+def random_rest_fct(no_treat: int,
+                    no_obs: int,
+                    max_by_cat: list[float],
+                    rng: np.random.Generator,
+                    max_attempts: int = 10,
+                    ) -> NDArray[Any]:
     """Compute random allocation under restrictions."""
     allocations = np.zeros(no_obs, dtype=int)
     so_far_by_cat = np.zeros_like(max_by_cat, dtype=int)
@@ -61,7 +78,12 @@ def random_rest_fct(no_treat, no_obs, max_by_cat, rng, max_attempts=10):
     return allocations
 
 
-def largest_gain_rest_fct(po_np, no_treat, no_obs, max_by_cat, largest_gain):
+def largest_gain_rest_fct(po_np: NDArray[Any],
+                          no_treat: int,
+                          no_obs: int,
+                          max_by_cat: list[float],
+                          largest_gain: NDArray[Any],
+                          ) -> NDArray[Any]:
     """Compute allocation based on largest gains, under restrictions."""
     val_best_treat = np.empty(no_obs)
     for i in range(no_obs):
@@ -73,8 +95,13 @@ def largest_gain_rest_fct(po_np, no_treat, no_obs, max_by_cat, largest_gain):
     return allocations
 
 
-def largest_gain_rest_random_order_fct(po_np, no_treat, no_obs, max_by_cat,
-                                       largest_gain, rng):
+def largest_gain_rest_random_order_fct(po_np: NDArray[Any],
+                                       no_treat: int,
+                                       no_obs: int,
+                                       max_by_cat: list[float],
+                                       largest_gain: NDArray[Any],
+                                       rng: np.random.Generator,
+                                       ) -> NDArray[Any]:
     """Compute allocation based on first come first served, restricted."""
     order_random = np.arange(no_obs)
     rng.shuffle(order_random)
@@ -84,11 +111,15 @@ def largest_gain_rest_random_order_fct(po_np, no_treat, no_obs, max_by_cat,
     return allocations
 
 
-def largest_gain_rest_other_var_fct(po_np, no_treat, max_by_cat,
-                                    var_dic, largest_gain, data_df):
+def largest_gain_rest_other_var_fct(po_np: NDArray[Any],
+                                    no_treat: int,
+                                    max_by_cat: list[float],
+                                    var_cfg: Any,
+                                    largest_gain: NDArray[Any],
+                                    data_df) -> NDArray[Any]:
     """Compute allocation of largest gain under restriction, order by var."""
     order_other_var = np.flip(
-        np.argsort(data_df[var_dic['bb_restrict_name']].to_numpy(), axis=0))
+        np.argsort(data_df[var_cfg.bb_restrict_name].to_numpy(), axis=0))
     order_other_var = [x[0] for x in order_other_var]
     allocations = largest_gain_rest_idx_fct(
         order_other_var, largest_gain, max_by_cat, po_np.copy(), no_treat)
@@ -98,7 +129,7 @@ def largest_gain_rest_other_var_fct(po_np, no_treat, max_by_cat,
 
 # def largest_gain_rest_idx_fct(order_treat, largest_gain_alloc, max_by_cat,
 #                               po_np, no_treat):
-#     """Get index of largest gain under restr. for each obs with given order."""
+#    """Get index of largest gain under restr. for each obs with given order."""
 #     def helper_largest_gain(best_last, po_np_i, so_far_by_cat, max_by_cat):
 #         po_np_i[best_last] = float('-inf')
 #         best_candidates = np.where(po_np_i == np.max(po_np_i))[0]
@@ -133,8 +164,12 @@ def largest_gain_rest_other_var_fct(po_np, no_treat, max_by_cat,
 #     return largest_gain_rest
 
 
-def largest_gain_rest_idx_fct(order_treat, largest_gain_alloc, max_by_cat,
-                              po_np, no_treat):
+def largest_gain_rest_idx_fct(order_treat: NDArray[Any],
+                              largest_gain_alloc: NDArray[Any],
+                              max_by_cat: NDArray[Any],
+                              po_np: NDArray[Any],
+                              no_treat: int
+                              ) -> NDArray[Any]:
     """
     Get index of largest gain under restrictions for each observation (obs).
 

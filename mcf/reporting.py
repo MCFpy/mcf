@@ -114,4 +114,3 @@ class McfOptPolReport:
         rep.create_pdf_file(self)
         print(f'\nReport printed: {self.gen_cfg.outfilename}\n')
         return self.gen_cfg.outfilename
-

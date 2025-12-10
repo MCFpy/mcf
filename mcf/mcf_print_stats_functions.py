@@ -6,86 +6,117 @@ Created on Thu May 11 16:30:11 2023
 @author: MLechner
 # -*- coding: utf-8 -*-
 """
+from dataclasses import is_dataclass, fields
 from datetime import datetime, timedelta
 from io import StringIO
+from pathlib import Path
+from typing import Any, TYPE_CHECKING
 
 from scipy.stats import norm
 import pandas as pd
 import numpy as np
+from numpy.typing import NDArray
 
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
 
+if TYPE_CHECKING:
+    from mcf.mcf_main import ModifiedCausalForest
 
-def print_dic_values_all(mcf_, summary_top=True, summary_dic=True, train=True,
-                         title=''
-                         ):
+
+def print_dic_values_all(mcf_: 'ModifiedCausalForest',
+                         summary_top: bool = True,
+                         summary_dic: bool = True,
+                         train: bool = True,
+                         title: str = '',
+                         ) -> None:
     """Print the dictionaries."""
     txt = '=' * 100 + '\nModified Causal Forest: '
     txt += 'Training ' if train else 'Prediction '
     txt += title + '\n' + '-' * 100
-    print_mcf(mcf_.gen_dict, txt, summary=summary_top)
+    print_mcf(mcf_.gen_cfg, txt, summary=summary_top)
     print_dic_values(mcf_, summary=summary_dic, train=train)
 
 
-def print_dic_values(mcf_, summary=False, train=None):
+def print_dic_values(mcf_: 'ModifiedCausalForest',
+                     summary: bool = False,
+                     train: bool | None = None
+                     ) -> None:
     """Print values of dictionaries that determine module."""
-    dic_list = [mcf_.int_dict, mcf_.gen_dict, mcf_.dc_dict, mcf_.ct_dict,
-                mcf_.fs_dict, mcf_.cs_dict, mcf_.lc_dict, mcf_.cf_dict,
-                mcf_.p_dict, mcf_.post_dict, mcf_.var_dict]
-    dic_name_list = ['int_dict', 'gen_dict', 'dc_dict', 'ct_dict',
-                     'fs_dict', 'cs_dict', 'lc_dict', 'cf_dict',
-                     'p_dict', 'post_dict', 'var_dict']
-    if mcf_.sens_dict is not None:
-        dic_list.append('sens_dict')
-    if mcf_.blind_dict is not None:
-        dic_list.append('blind_dict')
+    dic_list = []
+    dic_name_list = []
+    dc_list = [mcf_.ct_cfg, mcf_.cs_cfg, mcf_.int_cfg, mcf_.gen_cfg,
+               mcf_.dc_cfg, mcf_.fs_cfg, mcf_.lc_cfg, mcf_.var_cfg,
+               mcf_.cf_cfg, mcf_.p_cfg, mcf_.p_ba_cfg, mcf_.post_cfg,
+               ]
+    dc_label_list = ['ct_cfg', 'cs_cfg', 'int_cfg', 'gen_cfg',
+                     'dc_cfg', 'fs_cfg', 'lc_cfg', 'var_cfg',
+                     'cf_cfg', 'p_cfg', 'p_ba_cfg', 'post_cfg'
+                     ]
+    if mcf_.sens_cfg is not None:
+        dc_list.append(mcf_.sens_cfg)
+    print_str_list = [string_dc(dc_inst, dc_label_list[idx])
+                      for idx, dc_inst in enumerate(dc_list)
+                      ]
+    print_str = '\n'.join(print_str_list)
+    print_mcf(mcf_.gen_cfg, print_str, summary=summary)
+
+    # if mcf_.blind_dict is not None:
+    #     dic_list.append('blind_dict')
     if not train:
         dic_list.extend([mcf_.var_x_type, mcf_.var_x_values])
         dic_name_list.extend(['var_x_type', 'var_x_values'])
     for dic, dic_name in zip(dic_list, dic_name_list):
-        print_dic(dic, dic_name, mcf_.gen_dict, summary=summary)
-    print_mcf(mcf_.gen_dict, '\n', summary=summary)
+        print_dic(dic, dic_name, mcf_.gen_cfg, summary=summary)
+    print_mcf(mcf_.gen_cfg, '\n', summary=summary)
 
 
-def desc_by_treatment(mcf_, data_df, summary=False, stage=1):
+def desc_by_treatment(mcf_: 'ModifiedCausalForest',
+                      data_df: pd.DataFrame,
+                      summary: bool = False,
+                      stage: int = 1
+                      ) -> None:
     """Descripe stats by treatment in different versions."""
     if stage == 1:
-        variables_to_desc = [*mcf_.var_dict['y_name'],
-                             *mcf_.var_dict['x_name_balance_test']
+        variables_to_desc = [*mcf_.var_cfg.y_name,
+                             *mcf_.var_cfg.x_name_balance_test,
                              ]
     elif stage == 2:
-        variables_to_desc = [*mcf_.var_dict['y_name'],
-                             *mcf_.var_dict['x_name']]
+        variables_to_desc = [*mcf_.var_cfg.y_name,
+                             *mcf_.var_cfg.x_name]
     else:
-        variables_to_desc = [*mcf_.var_dict['x_name']]
-    d_name = (mcf_.var_dict['grid_nn_name']
-              if mcf_.gen_dict['d_type'] == 'continuous'
-              else mcf_.var_dict['d_name'])
+        variables_to_desc = [*mcf_.var_cfg.x_name]
+    d_name = (mcf_.var_cfg.grid_nn_name
+              if mcf_.gen_cfg.d_type == 'continuous'
+              else mcf_.var_cfg.d_name)
     statistics_by_treatment(
-        mcf_.gen_dict, data_df, d_name, variables_to_desc,
-        only_next=mcf_.gen_dict['d_type'] == 'continuous',
+        mcf_.gen_cfg, data_df, d_name, variables_to_desc,
+        only_next=mcf_.gen_cfg.d_type == 'continuous',
         summary=summary, data_train_dic=mcf_.data_train_dict)
 
 
-def print_mcf(gen_dic, *strings, summary=False, non_summary=True):
+def print_mcf(gen_cfg: Any,
+              *strings: str,
+              summary: bool = False,
+              non_summary: bool = True
+              ) -> None:
     """Print output to different files and terminal."""
-    if gen_dic['print_to_terminal']:
+    if gen_cfg.print_to_terminal:
         print(*strings)
-    if gen_dic['print_to_file']:
+    if gen_cfg.print_to_file:
         if non_summary:
-            print_f(gen_dic['outfiletext'], *strings)
+            print_f(gen_cfg.outfiletext, *strings)
         if summary:
-            print_f(gen_dic['outfilesummary'], *strings)
+            print_f(gen_cfg.outfilesummary, *strings)
 
 
-def print_f(file_to_print_to, *strings):
+def print_f(file_to_print_to: Path | str, *strings: str) -> None:
     """
     Print strings into file (substitute print function).
 
     Parameters
     ----------
-    file_to_print : String.
+    file_to_print : String, Path.
         Name of file to print to.
     *strings : Non-keyword arguments.
 
@@ -103,9 +134,13 @@ def print_f(file_to_print_to, *strings):
                 file.write(text)
 
 
-def print_dic(dic, dic_name, gen_dic, summary=False):
+def print_dic(dic: dict,
+              dic_name: str,
+              gen_cfg: Any,
+              summary: bool = False,
+              ) -> None:
     """Print dictionary in a simple way."""
-    print_mcf(gen_dic, '\n' + dic_name, '\n' + '- ' * 50, summary=summary)
+    print_mcf(gen_cfg, '\n' + dic_name, '\n' + '- ' * 50, summary=summary)
     for keys, values in dic.items():
         if isinstance(values, (list, tuple)):
             if not values:
@@ -114,23 +149,51 @@ def print_dic(dic, dic_name, gen_dic, summary=False):
                 sss = [str(x) for x in values]
             else:
                 sss = [str(values[0]), ' ... ', str(values[-1])]
-            print_mcf(gen_dic, keys, ':  ', ' '.join(sss), summary=summary)
+            print_mcf(gen_cfg, keys, ':  ', ' '.join(sss), summary=summary)
         else:
-            print_mcf(gen_dic, keys, ':  ', values, summary=summary)
+            print_mcf(gen_cfg, keys, ':  ', values, summary=summary)
 
 
-def print_timing(gen_dic, title, text, time_diff, summary=False):
+def string_dc(dc_instance: Any, label: str) -> str:
+    """Return a readable one-per-line dump of a dataclass instance."""
+    if not is_dataclass(dc_instance):
+        raise TypeError('str_dc expects a dataclass instance')
+
+    fs = fields(dc_instance)
+    if not fs:
+        return f'{dc_instance.__class__.__name__}()'
+
+    name_w = max(len(f.name) for f in fs)
+    lines = []
+    for f in fs:
+        val = getattr(dc_instance, f.name)
+        lines.append(f'{label}.{f.name:<{name_w}} = {val!r}')
+
+    return '\n'.join(lines)
+
+
+def print_timing(gen_cfg: Any,
+                 title: str,
+                 text: str,
+                 time_diff: float,
+                 summary: bool = False,
+                 ) -> str:
     """Show date and duration of a programme and its different parts."""
     print_str = '\n' + '-' * 100 + '\n'
     print_str += f'{title} executed at: {datetime.now()}\n' + '- ' * 50
     for i in range(0, len(text), 1):
         print_str += '\n' + f'{text[i]} {timedelta(seconds=time_diff[i])}'
     print_str += '\n'  # + '-' * 100
-    print_mcf(gen_dic, print_str, summary=summary)
+    print_mcf(gen_cfg, print_str, summary=summary)
+
     return print_str
 
 
-def print_descriptive_df(gen_dic, data_df, varnames='all', summary=False):
+def print_descriptive_df(gen_cfg: Any,
+                         data_df: pd.DataFrame,
+                         varnames: str = 'all',
+                         summary: bool = False,
+                         ) -> None:
     """Print descriptive statistics of a DataFrame."""
     data_sel = data_df[varnames] if varnames != 'all' else data_df
     desc_stat = data_sel.describe()
@@ -142,22 +205,28 @@ def print_descriptive_df(gen_dic, data_df, varnames='all', summary=False):
             'display.max_rows', 500, 'display.max_columns', 500,
             'display.expand_frame_repr', True, 'display.width', 150,
             'chop_threshold', 1e-13):
-        print_mcf(gen_dic, '\nShort info on data used:\n' + '- ' * 50,
+        print_mcf(gen_cfg, '\nShort info on data used:\n' + '- ' * 50,
                   summary=summary)
         to_print_1 = StringIO()
         data_sel.info(verbose=True, memory_usage='deep', buf=to_print_1,
                       show_counts=True)
-        print_mcf(gen_dic,  to_print_1.getvalue(), summary=summary)
-        print_mcf(gen_dic, to_print_2, summary=summary)
+        print_mcf(gen_cfg,  to_print_1.getvalue(), summary=summary)
+        print_mcf(gen_cfg, to_print_2, summary=summary)
 
 
-def statistics_by_treatment(gen_dic, data_df, treat_name, var_name,
-                            only_next=False, summary=False, median_yes=True,
-                            std_yes=True, balancing_yes=True,
-                            data_train_dic=None):
+def statistics_by_treatment(gen_cfg: Any,
+                            data_df: pd.DataFrame,
+                            treat_name, var_name,
+                            only_next: bool = False,
+                            summary: bool = False,
+                            median_yes: bool = True,
+                            std_yes: bool = True,
+                            balancing_yes: bool = True,
+                            data_train_dic: dict | None = None
+                            ) -> None:
     """Descriptive statistics by treatment status."""
     txt = '\n------------- Statistics by treatment status ------------------'
-    print_mcf(gen_dic, txt, summary=summary)
+    print_mcf(gen_cfg, txt, summary=summary)
     data = data_df[treat_name+var_name]
     if data_train_dic is not None and len(data_train_dic) > 0:
         data = change_name_value_df(data,
@@ -174,29 +243,35 @@ def statistics_by_treatment(gen_dic, data_df, treat_name, var_name,
             'display.max_rows', 500, 'display.max_columns', 500,
             'display.expand_frame_repr', True, 'display.width', 150,
             'chop_threshold', 1e-13):
-        print_mcf(gen_dic, 'Number of observations:', summary=summary)
-        print_mcf(gen_dic, count2.transpose(), summary=summary)
-        print_mcf(gen_dic, '\nMean', summary=summary)
-        print_mcf(gen_dic, mean.transpose(), summary=summary)
+        print_mcf(gen_cfg, 'Number of observations:', summary=summary)
+        print_mcf(gen_cfg, count2.transpose(), summary=summary)
+        print_mcf(gen_cfg, '\nMean', summary=summary)
+        print_mcf(gen_cfg, mean.transpose(), summary=summary)
         if median_yes:
-            print_mcf(gen_dic, '\nMedian', summary=False)
-            print_mcf(gen_dic, data.groupby(treat_name).median().transpose(),
+            print_mcf(gen_cfg, '\nMedian', summary=False)
+            print_mcf(gen_cfg, data.groupby(treat_name).median().transpose(),
                       summary=False)
         if std_yes:
-            print_mcf(gen_dic, '\nStandard deviation', summary=False)
-            print_mcf(gen_dic, std.transpose(), summary=False)
+            print_mcf(gen_cfg, '\nStandard deviation', summary=False)
+            print_mcf(gen_cfg, std.transpose(), summary=False)
         if balancing_yes:
-            balancing_tests(gen_dic, mean, std, count, only_next,
+            balancing_tests(gen_cfg, mean, std, count, only_next,
                             summary=summary, subtitle='(descriptive)')
 
 
-def balancing_tests(gen_dic, mean, std, count, only_next=False, summary=False,
-                    subtitle=''):
+def balancing_tests(gen_cfg: Any,
+                    mean: pd.DataFrame,
+                    std: pd.DataFrame,
+                    count: pd.DataFrame,
+                    only_next: bool = False,
+                    summary: bool = False,
+                    subtitle: str = ''
+                    ) -> None:
     """Compute balancing tests."""
     std = std.replace(to_replace=0, value=-1)
     value_of_treat = list(reversed(mean.index))
     value_of_treat2 = value_of_treat[:]
-    print_mcf(gen_dic, '\n' + '=' * 100 + '\nBalancing tests ' + subtitle
+    print_mcf(gen_cfg, '\n' + '=' * 100 + '\nBalancing tests ' + subtitle
               + '\n' + '- ' * 50, summary=summary)
     for i in value_of_treat:
         if i >= value_of_treat[-1]:
@@ -218,26 +293,15 @@ def balancing_tests(gen_dic, mean, std, count, only_next=False, summary=False,
                         f'\n{mean_diff.index[jdx]:30} {val:10.5f}'
                         f'{std_diff.iloc[jdx]:10.5f} {t_diff.iloc[jdx]:9.2f}'
                         f'{p_diff[jdx]:9.2f} {stand_diff.iloc[jdx]:9.2f}')
-                print_mcf(gen_dic, txt, summary=summary)
+                print_mcf(gen_cfg, txt, summary=summary)
                 if only_next:
                     break
 
 
-def variable_features(mcf_, summary=False):
-    """
-    Show variables and their key features.
-
-    Parameters
-    ----------
-    gen_dic : Dict. General parameters.
-    var_x_type : Dict. Name and type of variable.
-    var_x_values : Dict. Name and values of variables.
-
-    Returns
-    -------
-    None.
-
-    """
+def variable_features(mcf_: 'ModifiedCausalForest',
+                      summary: bool = False
+                      ) -> None:
+    """Show variables and their key features."""
     var_x_type, var_x_values = mcf_.var_x_type, mcf_.var_x_values
     txt = '\n' + '=' * 100 + '\nFeatures used to build causal forest\n'
     txt += '-' * 100
@@ -259,12 +323,21 @@ def variable_features(mcf_, summary=False):
         else:
             txt += f'Unordered {len(var_x_values[name])} different values'
     txt += '\n' + '-' * 100
-    print_mcf(mcf_.gen_dict, txt, summary=summary)
+    print_mcf(mcf_.gen_cfg, txt, summary=summary)
 
 
-def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
-                 continuous=False, print_first_line=True, print_last_line=True,
-                 small_p_val_only=False, no_comparison=False):
+def print_effect(est: NDArray[Any],
+                 stderr: NDArray[Any],
+                 t_val: NDArray[Any],
+                 p_val: NDArray[Any],
+                 effect_list: list[int],
+                 add_title: str | None = None,
+                 continuous: bool = False,
+                 print_first_line: bool = True,
+                 print_last_line: bool = True,
+                 small_p_val_only: bool = False,
+                 no_comparison: bool = False,
+                 ) -> str:
     """Print treatment effects.
 
     Parameters
@@ -332,11 +405,18 @@ def print_effect(est, stderr, t_val, p_val, effect_list, add_title=None,
         print_str += '\n'
     if print_last_line:
         print_str += '- ' * 50
+
     return print_str
 
 
-def effect_to_csv(est, stderr, t_val, p_val, effect_list, path=None,
-                  label=None):
+def effect_to_csv(est: NDArray[Any],
+                  stderr: NDArray[Any],
+                  t_val: NDArray[Any],
+                  p_val: NDArray[Any],
+                  effect_list: list[int],
+                  path: Path | None = None,
+                  label: str | None = None
+                  ) -> None:
     """Save effects to csv files.
 
     Parameters
@@ -370,30 +450,34 @@ def effect_to_csv(est, stderr, t_val, p_val, effect_list, path=None,
             names_pval.append('ATE_p_' + effect_name)
     if stderr is None:
         names = names_est
-        if isinstance(est, (list, tuple)):
-            data = est
-        elif isinstance(est, (float, int)):
-            data = [est]
-        elif isinstance(est, np.ndarray):
-            data = np.reshape(est, (1, -1))
-        else:
-            raise TypeError('Unknown data type for saving effects to file.')
+        match est:
+            case list() | tuple() as seq: data = seq
+            case float() | int() as x:    data = [x]
+            case np.ndarray() as arr:     data = np.reshape(arr, (1, -1))
+            case _:
+                raise TypeError('Unknown data type for saving effects to file.')
+
     else:
         names = names_est + names_se + names_tval + names_pval
-        if isinstance(est, (list, tuple)):
-            data = est + stderr + t_val + p_val
-        elif isinstance(est, (float, int)):
-            data = [est, stderr, t_val, p_val]
-        elif isinstance(est, np.ndarray):
-            data = np.concatenate((est, stderr, t_val, p_val))
-            data = np.reshape(data, (1, -1))
-        else:
-            raise TypeError('Unknown data type for saving effects to file.')
+        match est:
+            case list() | tuple() as seq:
+                data = seq + stderr + t_val + p_val
+            case float() | int() as x:
+                data = [x, stderr, t_val, p_val]
+            case np.ndarray() as arr:
+                data = np.concatenate((arr, stderr, t_val, p_val))
+                data = np.reshape(data, (1, -1))
+            case _:
+                raise TypeError('Unknown data type for saving effects to file.')
+
     data_df = pd.DataFrame(data, columns=names)
     data_df.to_csv(file, index=False)
 
 
-def print_se_info(cluster_std, se_boot, additional_info=None):
+def print_se_info(cluster_std: bool,
+                  se_boot: int,
+                  additional_info: str | None = None
+                  ) -> str:
     """Print some info on computation of standard errors."""
     print_str = ''
     if cluster_std:
@@ -407,26 +491,40 @@ def print_se_info(cluster_std, se_boot, additional_info=None):
     if additional_info is not None:
         print_str += '\n' + additional_info
     print(print_str)
+
     return print_str
 
 
-def txt_weight_stat(larger_0, equal_0, mean_pos, std_pos, gini_all, gini_pos,
-                    share_largest_q, sum_larger, obs_larger, gen_dic, p_dic,
-                    share_censored=0, continuous=False, d_values_cont=None):
+def txt_weight_stat(nonzero: NDArray[Any],
+                    equalzero: NDArray[Any],
+                    mean_nonzero: NDArray[Any],
+                    std_nonzero: NDArray[Any],
+                    gini_all: NDArray[Any],
+                    gini_nonzero: NDArray[Any],
+                    share_largest_q: NDArray[Any],
+                    sum_larger: NDArray[Any],
+                    obs_larger: NDArray[Any],
+                    gen_cfg: Any,
+                    p_cfg: Any,
+                    share_censored: NDArray[Any] | float | int = 0,
+                    continuous: bool = False,
+                    d_values_cont: bool | None = None
+                    ) -> None:
     """Print the weight statistics.
 
     Parameters
     ----------
-    larger_0 : Numpy array.
-    equal_0 : Numpy array.
-    mean_pos : Numpy array.
-    std_pos : Numpy array.
+    nonzero : Numpy array.
+    equalzero : Numpy array.
+    mean_nonzero : Numpy array.
+    std_nonzero : Numpy array.
     gini_all : Numpy array.
-    gini_pos : Numpy array.
-    share_largest_q :Numpy array.
+    gini_nonzero : Numpy array.
+    share_largest_q : Numpy array.
     sum_larger : Numpy array.
     obs_larger : Numpy array.
-    gen_dic, p_dic : Dict. Parameters.
+    gen_cfg : GenCfg dataclass. Parameters.
+    p_cfg : PCfg dataclass. Parameters.
     share_censored: Numpy array. Default is 0.
     continuous : Boolean. Default is False.
     d_values_cont : Boolean. Default is None.
@@ -436,7 +534,7 @@ def txt_weight_stat(larger_0, equal_0, mean_pos, std_pos, gini_all, gini_pos,
     None.
 
     """
-    d_values = d_values_cont if continuous else gen_dic['d_values']
+    d_values = d_values_cont if continuous else gen_cfg.d_values
     txt = ''
     for j, d_value in enumerate(d_values):
         if continuous:
@@ -444,33 +542,45 @@ def txt_weight_stat(larger_0, equal_0, mean_pos, std_pos, gini_all, gini_pos,
                 continue
         txt += '\n' + '- ' * 50 + f'\nTreatment group: {d_value:<4}\n'
         txt += '- ' * 50
-        txt += (f'\n# of weights <> 0: {round(larger_0[j], 2):<6} '
-                f'# of weights = 0: {round(equal_0[j], 2):<6} '
-                f'Mean of non-zero weights: {mean_pos[j]:7.4f} '
-                f'Std of non-zero weights: {std_pos[j]:7.4f}')
+        txt += (f'\n# of weights <> 0: {round(nonzero[j], 2):<6} '
+                f'# of weights = 0: {round(equalzero[j], 2):<6} '
+                f'Mean of non-zero weights: {mean_nonzero[j]:7.4f} '
+                f'Std of non-zero weights: {std_nonzero[j]:7.4f}'
+                )
         txt += ('\nGini coefficient (incl. weights=0):                        '
-                f'{gini_all[j]:7.2f}%')
+                f'{gini_all[j]:7.2f}'
+                )
         txt += ('\nGini coefficient (non-zero weights > 0):                   '
-                f'{gini_pos[j]:7.2f}%')
+                f'{gini_nonzero[j]:7.2f}'
+                )
         txt += ('\nShare of 1% / 5% / 10% largest weights of all weights <> 0:'
                 f'{share_largest_q[j, 0]:7.2f}% {share_largest_q[j, 1]:7.2f}%'
-                f' {share_largest_q[j, 2]:7.2f}%')
+                f' {share_largest_q[j, 2]:7.2f}%'
+                )
         txt += '\nShare of abs(weights) > 0.5,0.25,0.1,...,0.01 (among w<>0): '
-        for i in range(len(p_dic['q_w'])):
+        for i in range(len(p_cfg.q_w)):
             txt += f'{sum_larger[j, i]:7.2f}%'
         txt += '\nShare of obs. with abs(weights)>0.5, ..., 0.01 (among w<>0):'
-        for i in range(len(p_dic['q_w'])):
+        for i in range(len(p_cfg.q_w)):
             txt += f'{obs_larger[j, i]:7.2f}%'
         if np.size(share_censored) > 1:
             txt += ('\nShare of weights censored at'
-                    f' {p_dic["max_weight_share"]:8.2%}: '
-                    f'{share_censored[j]:8.4%}')
+                    f' {p_cfg.max_weight_share:8.2%}: {share_censored[j]:8.4%}'
+                    )
     txt += '\n' + '=' * 100
     return txt
 
 
-def print_iate(iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic,
-               extra_title=''):
+def print_iate(iate: NDArray[Any],
+               iate_se: NDArray[Any] | None,
+               iate_p: NDArray[Any] | None,
+               effect_list: list[list[int | float]],
+               gen_cfg: Any,
+               p_cfg: Any,
+               var_cfg: Any,
+               extra_title: str = '',
+               zero_tol: float = 1e-15,
+               ) -> str:
     """Print statistics for the two types of IATEs.
 
     Parameters
@@ -480,8 +590,9 @@ def print_iate(iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic,
     iate_t : 4D Numpy array.
     iate_p : 4D Numpy array.
     effect_list : List. Names of effects.
-    gen_dic, p_dic : Dict. Control paramaters.
-    var_dic : Dict. Variables.
+    gen_cfg : GenCfg dataclass. Parameters.
+    p_cfg : PCfg dataclass. Control paramaters.
+    var_cfg : VarCfg Dataclass. Variables.
     reg_round : Boolean. True if regular estimation round. Default is True.
 
     Returns
@@ -495,7 +606,7 @@ def print_iate(iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic,
     print_str = ('\n' + str_f + '\nDescriptives for IATE estimation '
                  + extra_title + '\n' + str_m)
     print_str_short = ''
-    iterator = 2 if p_dic['iate_m_ate'] else 1
+    iterator = 2 if p_cfg.iate_m_ate else 1
     for types in range(iterator):
         if types == 0:
             print_str += '\nEffect: IATE\n' + str_l
@@ -503,14 +614,14 @@ def print_iate(iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic,
             print_str += ('Effect: IATE minus ATE '
                           + '(weights not censored)\n' + str_l)
         for o_idx in range(no_outcomes):
-            y_name = var_dic["y_name"][o_idx]
+            y_name = var_cfg.y_name[o_idx]
             if len(y_name) > 3 and y_name[-3:] == '_lc':
                 y_name = y_name[:-3]
             string = f'\nOutcome variable: {y_name}\n'
             print_str_short += string
             print_str += string + str_l
             str1 = '\nComparison        Mean       Median           Std'
-            if p_dic['iate_se']:
+            if p_cfg.iate_se:
                 string = (str1 + '    Effect > 0  mean(SE)  sig 10%'
                           '   sig 5%   sig 1%')
             else:
@@ -519,17 +630,17 @@ def print_iate(iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic,
             print_str += string
             for jdx, effects in enumerate(effect_list):
                 fdstring = (f'{effects[0]:<9.5f} vs {effects[1]:>9.5f}'
-                            if gen_dic['d_type'] == 'continuous' else
+                            if gen_cfg.d_type == 'continuous' else
                             f'{effects[0]:<4} vs {effects[1]:>4} ')
                 string = '\n' + fdstring
                 est = iate[:, o_idx, jdx, types].reshape(-1)
-                if p_dic['iate_se']:
+                if p_cfg.iate_se:
                     stderr = iate_se[:, o_idx, jdx, types].reshape(-1)
                     p_val = iate_p[:, o_idx, jdx, types].reshape(-1)
                 string += (f'{np.mean(est):12.5f} {np.median(est):12.5f}'
                            f' {np.std(est):12.5f} '
-                           f'{np.count_nonzero(est > 1e-15) / n_obs:7.2%}')
-                if p_dic['iate_se']:
+                           f'{np.count_nonzero(est > zero_tol) / n_obs:7.2%}')
+                if p_cfg.iate_se:
                     string += (
                         f' {np.mean(stderr):12.5f}'
                         f' {np.count_nonzero(p_val < 0.1)/n_obs:8.2%}'
@@ -539,15 +650,18 @@ def print_iate(iate, iate_se, iate_p, effect_list, gen_dic, p_dic, var_dic,
                 print_str += string
         print_str += '\n' + str_m + '\n'
     print_str += '\n' + str_m
-    if p_dic['iate_se']:
-        print_str += ('\n' + print_se_info(p_dic['cluster_std'],
-                                           p_dic['se_boot_iate']))
-        print_str += print_minus_ate_info(gen_dic['weighted'], print_it=False,
-                                          gate_or_iate='IATE')
+    if p_cfg.iate_se:
+        print_str += '\n' + print_se_info(p_cfg.cluster_std, p_cfg.se_boot_iate)
+        print_str += print_minus_ate_info(gen_cfg.weighted, print_it=False,
+                                          gate_or_iate='IATE'
+                                          )
     return print_str, print_str_short
 
 
-def print_minus_ate_info(weighted, print_it=True, gate_or_iate='GATE'):
+def print_minus_ate_info(weighted: bool,
+                         print_it: bool = True,
+                         gate_or_iate: str = 'GATE'
+                         ) -> str:
     """Print info about effects minus ATE."""
     print_str = ('Weights used for comparison with ATE are not truncated. '
                  f'Therefore, {gate_or_iate}s - ATE may not aggregate to 0.'
@@ -557,12 +671,22 @@ def print_minus_ate_info(weighted, print_it=True, gate_or_iate='GATE'):
                       'sampling weights are used.')
     if print_it:
         print(print_str)
+
     return print_str
 
 
-def print_effect_z(g_r, gm_r, z_values, gate_str, ate_str, print_output=True,
-                   gates_minus_previous=False, iv=False, qiate=False,
-                   gmopp_r=None):
+def print_effect_z(g_r: list[Any] | tuple[Any],
+                   gm_r: list[Any] | tuple[Any],
+                   z_values: list[int],
+                   gate_str: str,
+                   ate_str: str,
+                   print_output: bool = True,
+                   gates_minus_previous: bool = False,
+                   iv: bool = False,
+                   qiate: bool = False,
+                   gmopp_r: list[Any] | None = None,
+                   z_values_org: float | int | None = None,
+                   ) -> str:
     """Print treatment effects."""
     no_of_effect_per_z = np.size(g_r[0][0])
     if gates_minus_previous:
@@ -590,7 +714,9 @@ def print_effect_z(g_r, gm_r, z_values, gate_str, ate_str, print_output=True,
                       + '\n')
     prec = find_precision(z_values)
     if prec == 0:
-        z_values, _ = mcf_gp.recode_if_all_prime(z_values.copy(), None)
+        z_values, _ = mcf_gp.recode_if_all_prime(z_values.copy(), None,
+                                                 z_values_org
+                                                 )
     for j in range(no_of_effect_per_z):
         for zind, z_val in enumerate(z_values):
             treat_s = f'{g_r[zind][4][j][0]:<3} vs {g_r[zind][4][j][1]:>3}'
@@ -640,10 +766,11 @@ def print_effect_z(g_r, gm_r, z_values, gate_str, ate_str, print_output=True,
         print_str += '\n' + '-' * 100
     if print_output:
         print(print_str)
+
     return print_str
 
 
-def find_precision(values):
+def find_precision(values: NDArray[Any]):
     """Find precision so that all values can be differentiated in printing."""
     len_v = len(np.unique(values))
     precision = 20
@@ -652,10 +779,11 @@ def find_precision(values):
         if len(set(rounded)) == len_v:  # all unique
             precision = prec            # + 2
             break
+
     return precision
 
 
-def stars(pval):
+def stars(pval: np.floating | float) -> str:
     """Create string with stars for p-values."""
     if pval < 0.001:
         return '****'
@@ -665,20 +793,25 @@ def stars(pval):
         return '  **'
     if pval < 0.1:
         return '   *'
+
     return '    '
 
 
-def del_added_chars(name, prime=False, catv=False):
+def del_added_chars(name: str, prime: bool = False, catv: bool = False) -> str:
     """Remove added indicators for primes and categoricals for printing."""
     if prime and name.endswith('_prime'):
         name = name[:-6]
     elif catv and name.endswith('catv'):
         name = name[:-4]
+
     return name
 
 
-def change_name_value_df(indata_df, in_out_name_dict, indata_value,
-                         outdata_value):
+def change_name_value_df(indata_df: pd.DataFrame,
+                         in_out_name_dict: dict,
+                         indata_value: dict,
+                         outdata_value: dict,
+                         ) -> pd.DataFrame:
     """Change names and values of primes back to original (discrete values."""
     # Rename columns
     # outdata_df = indata_df.rename(columns=in_out_name_dict, inplace=False)

@@ -10,7 +10,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.8.0
+Version: 0.9.0
 
 This is an example to show how the mcf can be implemented relying completely on
 defaults. Note that usually in application it is very likely to be appropriate
@@ -42,7 +42,7 @@ VAR_X_NAME_ORD = ('x_cont0',)  # Using VAR_X_NAME_UNORD instead is fine as well
 if not APPLIC_PATH.exists():
     APPLIC_PATH.mkdir(parents=True)
 
-# Modules may sent many irrelevant warnings: Globally ignore them
+# Modules may send many irrelevant warnings: Globally ignore them
 warnings.filterwarnings('ignore')
 # -----------------------------------------------------------------------------
 mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,

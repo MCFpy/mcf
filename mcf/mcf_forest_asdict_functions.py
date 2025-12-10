@@ -6,13 +6,16 @@ Contains the functions for saving trees and travelling inside them.
 @author: Michael Lechner
 # -*- coding: utf-8 -*-
 """
+from typing import Any
+
 import numpy as np
+from numpy.typing import NDArray
 
 
 def make_default_tree_dict(n_leaf_min: int,
                            number_of_features: int,
-                           indices_train: list[int],
-                           indices_oob: list[int],
+                           indices_train: list[int] | NDArray[np.integer],
+                           indices_oob: list[int] | NDArray[np.integer],
                            bigdata_train: bool = False
                            ) -> dict:
     """
@@ -30,23 +33,23 @@ def make_default_tree_dict(n_leaf_min: int,
         All information about the causal tree.
     """
     leaves_max = int(np.ceil(len(indices_train) / n_leaf_min) * 2)
-    max_cols_int, max_cols_float = 10, 3
-    if (leaves_max < 127 and number_of_features < 127
-            and len(indices_train) < 127 and len(indices_oob) < 127):
-        leaf_info_int = -np.ones((leaves_max, max_cols_int), dtype=np.int8)
-        leaf_ids = np.arange(leaves_max, dtype=np.int8)
-    elif (leaves_max < 32767 and number_of_features < 32767
-          and len(indices_train) < 32767 and len(indices_oob) < 32767):
-        leaf_info_int = -np.ones((leaves_max, max_cols_int), dtype=np.int16)
-        leaf_ids = np.arange(leaves_max, dtype=np.int16)
-    elif (leaves_max < 2147483647 and number_of_features < 2147483647
-          and len(indices_train) < 2147483647
-          and len(indices_oob) < 2147483647):
-        leaf_info_int = -np.ones((leaves_max, max_cols_int), dtype=np.int32)
-        leaf_ids = np.arange(leaves_max, dtype=np.int32)
+
+    mx = max(leaves_max, number_of_features,
+             len(indices_train), len(indices_oob)
+             )
+    if mx <= np.iinfo(np.int8).max:
+        dtype = np.int8
+    elif mx <= np.iinfo(np.int16).max:
+        dtype = np.int16
+    elif mx <= np.iinfo(np.int32).max:
+        dtype = np.int32
     else:
-        leaf_info_int = -np.ones((leaves_max, max_cols_int), dtype=np.int64)
-        leaf_ids = np.arange(leaves_max, dtype=np.int64)
+        dtype = np.int64
+
+    max_cols_int, max_cols_float = 10, 3
+    leaf_info_int = -np.ones((leaves_max, max_cols_int), dtype=dtype)
+    leaf_ids = np.arange(leaves_max, dtype=dtype)
+
     leaf_info_int[:, 0] = leaf_ids
     leaf_info_int[0, 1] = -1
     leaf_info_int[0, 6] = 0
@@ -69,10 +72,12 @@ def make_default_tree_dict(n_leaf_min: int,
     #               9: Leaf size of OOB data in leaf
     if bigdata_train:
         leaf_info_float = -np.ones((leaves_max, max_cols_float),
-                                   dtype=np.float32)
+                                   dtype=np.float32
+                                   )
     else:
         leaf_info_float = -np.ones((leaves_max, max_cols_float),
-                                   dtype=np.float64)
+                                   dtype=np.float64
+                                   )
     leaf_info_float[:, 0] = leaf_ids
     # leaf_info_float 0: ID of leaf
     #                 1: Cut-of value of ordered variables
@@ -126,17 +131,19 @@ def cut_back_empty_cells_tree(tree: dict) -> dict:
     return tree
 
 
-def delete_training_data_forest(forest: list) -> list:
+def delete_training_data_forest(forest: list[Any]) -> list[Any]:
     """Delete training data from forest."""
     for tree in forest:
         tree['train_data_list'] = None
+
     return forest
 
 
-def delete_data_from_forest(forest: list) -> list:
+def delete_data_from_forest(forest: list[Any]) -> list[Any]:
     """Delete oob data from forest."""
     for tree in forest:
         tree['oob_indices'] = None
         tree['oob_data_list'] = None
         tree['train_data_list'] = None
+
     return forest

@@ -150,7 +150,7 @@ class OptimalPolicy:
 
     gen_method : String (or None), optional.\
         Method to compute assignment algorithm (available methods:
-        ``'best_policy_score'``, ``'bps_classifier'``, ``'policy tree'``).
+        ``'best_policy_score'``, ``'bps_classifier'``, ``'policy_tree'``).
         ``'best_policy_score'`` conducts Black-Box allocations, which are
         obtained by using the scores directly (potentially subject to
         restrictions). When the Black-Box allocations are used for
@@ -164,7 +164,7 @@ class OptimalPolicy:
         simple neural network, two classification random forests with minimum
         leaf size of 2 and 5, and ADDABoost. The selection is made according
         to the out-of-sample performance on scikit-learns Accuracy Score.
-        The implemented ``'policy tree'`` 's are optimal trees, i.e. all
+        The implemented ``'policy_tree'`` 's are optimal trees, i.e. all
         possible trees are checked if they lead to a better performance.
         If restrictions are specified, then this is incorporated into
         treatment specific cost parameters. Many ideas of the
@@ -255,7 +255,7 @@ class OptimalPolicy:
         Changes the number of the evaluation points (pt_no_of_evalupoints)
         for the unordered (categorical) variables to:
         :math:`\\text{pt_eva_cat_mult} \\times \\text{pt_no_of_evalupoints}`
-        (available only for the method 'policy tree').
+        (available only for the method 'policy_tree').
         Default (or None) is 2.
 
     pt_no_of_evalupoints : Integer (or None), optional
@@ -264,7 +264,7 @@ class OptimalPolicy:
         the optimal splitting rule. This parameter is closely related to
         the approximation parameter of Zhou, Athey, Wager (2022)(A) with
         :math:`\\text{pt_no_of_evalupoints} = \\text{number of observation} / \\text{A}`.
-        Only relevant if gen_method is 'policy tree'.
+        Only relevant if gen_method is 'policy_tree'.
         Default (or None) is 100.
 
     pt_min_leaf_size : Integer (or None), optional
@@ -278,7 +278,7 @@ class OptimalPolicy:
             min(0.1 \\times \\frac{\\text{Number of training observations}}{{\\text{Number of leaves}}}, 100)
 
         (if treatment shares are restricted this is multiplied by the smallest
-        share allowed). Only relevant if gen_method is 'policy tree'.
+        share allowed). Only relevant if gen_method is 'policy_tree'.
         Default is None.
 
     pt_select_values_cat : Boolean (or None), optional
@@ -295,7 +295,7 @@ class OptimalPolicy:
         variables according to a values of the policy score as one would do
         for a standard random forest. If this set is still too large, a
         random sample of the entailed combinations is drawn. Method 1 is
-        only available for the method 'policy tree'.
+        only available for the method 'policy_tree'.
 
     rnd_shares : Tuple of floats (or None), optional
         Share of treatments of a stochastic assignment as computed by the
@@ -430,7 +430,7 @@ class OptimalPolicy:
         Parallelize to a larger degree to make sure all CPUs are busy for
         most of the time.
         Default (or None) is True.
-        Only used for 'policy tree' and
+        Only used for 'policy_tree' and
         only used if _int_parallel_processing > 1 (or None)
 
 
@@ -483,7 +483,7 @@ class OptimalPolicy:
         Values of covariates (internal).
 
     </NOT-ON-API>
-    
+
     """
 
     def __init__(
@@ -600,10 +600,10 @@ class OptimalPolicy:
         self.number_scores = len(self.var_cfg.polscore_name)
 
     def allocate(self,
-                 data_df,
+                 data_df: DataFrame,
                  data_title: str = '',
                  fair_adjust_decision_vars: bool = False
-                 ):
+                 ) -> tuple[DataFrame, Path]:
         """
         Allocate observations to treatment state.
 
@@ -847,12 +847,12 @@ class OptimalPolicy:
         mcf_ps.print_mcf(self.gen_cfg, val_all, summary=True)
 
     def winners_losers(self,
-                       data_df,
-                       welfare_df,
-                       welfare_reference_df: int = 0,
-                       outpath: None = None,
+                       data_df: DataFrame,
+                       welfare_df: DataFrame,
+                       welfare_reference_df: DataFrame | int = 0,
+                       outpath: Path | None = None,
                        title: str = ''
-                       ):
+                       ) -> tuple[DataFrame, Path]:
         """
         Compare the winners and loser.
 
@@ -900,4 +900,3 @@ class OptimalPolicy:
             'outpath': self.gen_cfg.outpath
             }
         return results_dic
-

@@ -13,7 +13,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.8.0
+Version: 0.9.0
 
 This is an example showing how to use the adjustments for policy score
 uncertainty in the mcf optimal policy module.
@@ -30,7 +30,7 @@ from mcf.optpolicy_main import OptimalPolicy
 from mcf.reporting import McfOptPolReport
 
 # ---- This script is experimental !
-#      Be careful, it will run for a very long time!
+#      Be careful, it will run for a long time!
 
 
 # ------------- NOT passed to OptimalPolicy -----------------------------------
@@ -225,17 +225,17 @@ for mult_idx, muliplier in enumerate(ESTRISK_VALUE_TUPLE):
     params = params_org.copy()
     params['estrisk_value'] = muliplier
     myoptp_risk = OptimalPolicy(**params)
-    estrisk_dict = myoptp_risk.estrisk_adjust(training_df.copy(),
-                                              data_title='training'
-                                              )
-    training_risk_df = estrisk_dict['data_estrisk_df']
-    polscore_risk_name = myoptp_risk.var_dict['polscore_name'].copy()
+    estrisk = myoptp_risk.estrisk_adjust(training_df.copy(),
+                                         data_title='training'
+                                         )
+    training_risk_df = estrisk['data_estrisk_df']
+    polscore_risk_name = myoptp_risk.var_cfg.polscore_name.copy()
 
     for midx, gen_method in enumerate(GEN_METHOD_ALL):
         print(f'Optp_method: {gen_method}, '
               f'value of adjustment parameter: {muliplier}')
         myoptp = deepcopy(myoptp_risk)
-        myoptp.gen_dict['method'] = gen_method
+        myoptp.gen_cfg.method = gen_method
         # ----- Training data ----------
         solve_dict = myoptp.solve(training_risk_df.copy(),
                                   data_title='training fair'

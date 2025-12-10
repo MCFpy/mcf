@@ -11,9 +11,10 @@ from copy import deepcopy
 from numbers import Real  # For type checking only
 from math import inf
 from random import randrange
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
+from numpy.typing import NDArray
 from pandas import DataFrame
 import ray
 
@@ -22,19 +23,17 @@ from mcf import mcf_print_stats_functions as mcf_ps
 from mcf import optpolicy_pt_add_functions as opt_pt_add
 from mcf import optpolicy_pt_eff_functions as opt_pt_eff
 from mcf import mcf_general_sys as mcf_sys
+
 if TYPE_CHECKING:
     from mcf.optpolicy_main import OptimalPolicy
 
 
 def policy_tree_allocation(optp_: 'OptimalPolicy',
                            data_df: DataFrame
-                           ) -> tuple[DataFrame,
-                                      str,
-                                      dict
-                                      ]:
+                           ) -> tuple[DataFrame, str, dict]:
     """Compute optimal policy tree brute force (recursive algorithm)."""
-    var_dic, ot_dic, pt_dic = optp_.var_dict, optp_.other_dict, optp_.pt_dict
-    po_np = data_df[var_dic['polscore_name']].to_numpy()
+    var_cfg, other_cfg, pt_cfg = optp_.var_cfg, optp_.other_cfg, optp_.pt_cfg
+    po_np = data_df[var_cfg.polscore_name].to_numpy()
     no_obs = len(po_np)
     if k := len(optp_.var_x_type) > 30:
         txt_warning = ('\n\nWARNING\n'
@@ -45,24 +44,26 @@ def policy_tree_allocation(optp_: 'OptimalPolicy',
                        '\nWARNING\n\n')
     else:
         txt_warning = ''
-    if ot_dic['restricted']:
+    if other_cfg.restricted:
         max_by_treat = np.int64(
-            np.floor(no_obs * np.array(ot_dic['max_shares'])))
-        if all((share >= 1) for share in ot_dic['max_shares']):
+            np.floor(no_obs * np.array(other_cfg.max_shares))
+            )
+        if all((share >= 1) for share in other_cfg.max_shares):
             raise ValueError('All shares larger than 1, but claimed to be'
                              ' restricted specification.'
-                             f'{ot_dic["max_shares"]}')
+                             f'{other_cfg.max_shares}'
+                             )
     else:
-        max_by_treat = np.int64(no_obs * np.ones(len(ot_dic['max_shares'])))
-    optp_.other_dict['max_by_treat'] = max_by_treat
-    if ot_dic['restricted']:
+        max_by_treat = np.int64(no_obs * np.ones(len(other_cfg.max_shares)))
+    optp_.other_cfg.max_by_treat = max_by_treat
+    if other_cfg.restricted:
         costs_of_treat_update = opt_pt_add.automatic_cost(optp_, data_df)
     else:
-        costs_of_treat_update = ot_dic['costs_of_treat']
+        costs_of_treat_update = other_cfg.costs_of_treat
     # Do not update cost information in attribute but keep it separate
-    optp_.pt_dict['cost_of_treat_restrict'] = np.array(costs_of_treat_update)
+    optp_.pt_cfg.cost_of_treat_restrict = np.array(costs_of_treat_update)
 
-    tree_levels = 2 if pt_dic['depth_tree_2'] > 1 else 1
+    tree_levels = 2 if pt_cfg.depth_tree_2 > 1 else 1
     data_df_list = [data_df]   # Put df in list for use of iterators
     level_2_dic = {'level_1_tree': None, 'level_2_tree_list': []}
     for tree_number in range(tree_levels):  # Iterate over levels
@@ -73,30 +74,30 @@ def policy_tree_allocation(optp_: 'OptimalPolicy',
             txt = f'\nCreating {level_str} level optimal policy tree'
             if tree_number == 1:
                 txt += f'. Leaf of first tree: {idx+1}'
-            if optp_.gen_dict['with_output']:
-                mcf_ps.print_mcf(optp_.gen_dict, txt, summary=False)
+            if optp_.gen_cfg.with_output:
+                mcf_ps.print_mcf(optp_.gen_cfg, txt, summary=False)
             while best_tree is None:
-                if optp_.gen_dict['method'] == 'policy_tree':
+                if optp_.gen_cfg.method == 'policy_tree':
                     best_tree, _, _ = opt_pt_eff.optimal_tree_eff_proc(
                         optp_local, data_tmp_df, seed=12345)
-                elif optp_.gen_dict['method'] == 'policy tree old':
+                elif optp_.gen_cfg.method == 'policy tree old':
                     best_tree, _, _ = optimal_tree_proc(optp_local, data_tmp_df,
                                                         seed=12345)
                 if best_tree is None:
-                    if optp_.gen_dict['with_output']:
+                    if optp_.gen_cfg.with_output:
                         txt = ('No tree obtained for depth '
-                               f'{optp_local.pt_dict["depth"]-1}. Depth is '
+                               f'{optp_local.pt_cfg.depth-1}. Depth is '
                                'reduced.\nIf results are desired for original '
                                'depth level, try reducing the minimum leaf size'
                                ' or increasing the # of evaluation points.')
-                        mcf_ps.print_mcf(optp_.gen_dict, txt, summary=True)
-                    optp_local.pt_dict['depth'] -= 1
-                    if optp_local.pt_dict['depth'] == 1:
+                        mcf_ps.print_mcf(optp_.gen_cfg, txt, summary=True)
+                    optp_local.pt_cfg.depth -= 1
+                    if optp_local.pt_cfg.depth == 1:
                         break
             if tree_number == 1:
                 level_2_dic['level_2_tree_list'].append(best_tree)
         if tree_levels == 1:
-            optp_.pt_dict['policy_tree'] = best_tree
+            optp_.pt_cfg.policy_tree = best_tree
         elif tree_levels == 2:
             if tree_number == 0:
                 level_2_dic['level_1_tree'] = best_tree
@@ -105,7 +106,7 @@ def policy_tree_allocation(optp_: 'OptimalPolicy',
                     optp_local, data_df, best_tree)
             elif tree_number == 1:
                 # collect all trees and form new tree from the two tree levels
-                optp_.pt_dict['policy_tree'] = merge_tree_levels(
+                optp_.pt_cfg.policy_tree = merge_tree_levels(
                     leaf_id_df_list, level_2_dic)
 
     pt_alloc_np, _, _, pt_alloc_txt, tree_info_dic = pred_policy_allocation(
@@ -141,12 +142,13 @@ def policy_tree_prediction_only(optp_: 'OptimalPolicy',
                                  f' {no_in_val}')
     pt_alloc_np, _, _, pt_alloc_txt, _ = pred_policy_allocation(optp_, data_df)
     allocation_df = DataFrame(data=pt_alloc_np, columns=('Policy Tree',))
+
     return allocation_df, pt_alloc_txt
 
 
 def pred_policy_allocation(optp_: 'OptimalPolicy',
-                           data_df: DataFrame
-                           ) -> tuple[np.ndarray, list, list, str, dict]:
+                           data_df: DataFrame,
+                           ) -> tuple[NDArray[Any], list, list, str, dict]:
     """Get predictions of optimal policy tree.
 
     Content of tree for each node:
@@ -167,7 +169,7 @@ def pred_policy_allocation(optp_: 'OptimalPolicy',
     def pred_treat_fct(treat: list,
                        indx_in_leaf: list,
                        total_obs: int
-                       ) -> np.ndarray:
+                       ) -> NDArray[Any]:
         """Collect data and bring in the same order as original data."""
         pred_treat = np.zeros((total_obs, 2), dtype=np.int64)
         idx_start = 0
@@ -182,23 +184,24 @@ def pred_policy_allocation(optp_: 'OptimalPolicy',
             idx_start = idx_end
         pred_treat = pred_treat[pred_treat[:, 0].argsort()]  # sort on indices
         pred_treat = pred_treat[:, 1]
+
         return pred_treat
 
-    pt_dic, x_values = optp_.pt_dict, optp_.var_x_values
-    gen_dic = optp_.gen_dict
+    pt_cfg, x_values = optp_.pt_cfg, optp_.var_x_values
+    gen_cfg = optp_.gen_cfg
     x_name = list(x_values.keys())
     data_df_x = data_df[x_name]   # pylint: disable=E1136
     total_obs = len(data_df_x)
     x_indx = DataFrame(data=range(len(data_df_x)), columns=('Sorter',))
-    length = len(pt_dic['policy_tree'])
+    length = len(pt_cfg.policy_tree)
     ids = [None for _ in range(length)]
     terminal_leafs = []
     terminal_leafs_id = []
     for leaf_i in range(length):
-        ids[leaf_i] = pt_dic['policy_tree'][leaf_i][0]
-        if pt_dic['policy_tree'][leaf_i][4] == 1:
-            terminal_leafs.append(pt_dic['policy_tree'][leaf_i])
-            terminal_leafs_id.append(pt_dic['policy_tree'][leaf_i][0])
+        ids[leaf_i] = pt_cfg.policy_tree[leaf_i][0]
+        if pt_cfg.policy_tree[leaf_i][4] == 1:
+            terminal_leafs.append(pt_cfg.policy_tree[leaf_i])
+            terminal_leafs_id.append(pt_cfg.policy_tree[leaf_i][0])
     if len(set(ids)) != len(ids):
         raise ValueError('Some leaf IDs are identical. Rerun programme.')
 
@@ -208,15 +211,15 @@ def pred_policy_allocation(optp_: 'OptimalPolicy',
     indx_in_leaf = [None for _ in range(len(terminal_leafs))]
     for i, leaf in enumerate(terminal_leafs):
         splits_seq[i], _, obs[i], treat[i], indx_in_leaf[i] = two_leafs_info(
-            pt_dic['policy_tree'], x_indx, data_df_x, leaf,
+            pt_cfg.policy_tree, x_indx, data_df_x, leaf,
             polscore_is_index=True)
     predicted_treatment = pred_treat_fct(treat, indx_in_leaf, total_obs)
 
-    if gen_dic['with_output']:
+    if gen_cfg.with_output:
         fairness_xvariable_correction = (
-            optp_.fair_dict['solvefair_used']
-            and optp_.fair_dict['adjust_target'] in ('xvariables',
-                                                     'scores_xvariables',)
+            optp_.fair_cfg.solvefair_used
+            and optp_.fair_cfg.adjust_target in ('xvariables',
+                                                 'scores_xvariables',)
             )
         text, tree_dic = opt_pt_add.describe_tree(
             optp_, splits_seq, treat, obs,
@@ -233,11 +236,8 @@ def two_leafs_info(tree: list[list, ...],
                    polscore_df: DataFrame,
                    x_df: DataFrame,
                    leaf: list,
-                   polscore_is_index: bool = False
-                   ) -> tuple[tuple[list, list],
-                              tuple,
-                              tuple[int, int]
-                              ]:
+                   polscore_is_index: bool = False,
+                   ) -> tuple[tuple[list, list], tuple, tuple[int, int]]:
     """Compute the information contained in two adjacent leaves.
 
     Parameters
@@ -310,7 +310,7 @@ def two_leafs_info(tree: list[list, ...],
 
 def subsample_leaf(any_df: DataFrame,
                    x_df: DataFrame,
-                   split: dict
+                   split: dict,
                    ) -> tuple[DataFrame, DataFrame]:
     """Reduces dataframes to data in leaf.
 
@@ -345,20 +345,20 @@ def subsample_leaf(any_df: DataFrame,
 # No longer used part of old policy tree
 def optimal_tree_proc(optp_: 'OptimalPolicy',
                       data_df: DataFrame,
-                      seed: int = 12345
-                      ) -> tuple[list, np.ndarray, int]:
+                      seed: int = 12345,
+                      ) -> tuple[list, NDArray[Any], int]:
     """Build optimal policy tree."""
-    gen_dic, pt_dic, int_dic = optp_.gen_dict, optp_.pt_dict, optp_.int_dict
-    ot_dic = optp_.other_dict
-    if gen_dic['with_output']:
+    gen_cfg, pt_cfg, int_cfg = optp_.gen_cfg, optp_.pt_cfg, optp_.int_cfg
+    other_cfg = optp_.other_cfg
+    if gen_cfg.with_output:
         print('\nBuilding optimal policy / decision tree')
     (data_x, data_ps, data_ps_diff, name_x, type_x, values_x
      ) = opt_pt_add.prepare_data_for_tree_building(optp_, data_df, seed=seed)
     optimal_tree, x_trees = None, []
-    if gen_dic['mp_parallel'] > 1.5:
+    if gen_cfg.mp_parallel > 1.5:
         if not ray.is_initialized():
             mcf_sys.init_ray_with_fallback(
-                gen_dic['mp_parallel'], int_dic, gen_dic,
+                gen_cfg.mp_parallel, int_cfg, gen_cfg,
                 ray_err_txt='Ray does not start up in policy tree estimation.'
                 )
         data_x_ref = ray.put(data_x)
@@ -366,15 +366,16 @@ def optimal_tree_proc(optp_: 'OptimalPolicy',
         data_ps_diff_ref = ray.put(data_ps_diff)
         still_running = [ray_tree_search_multip_single.remote(
             data_ps_ref, data_ps_diff_ref, data_x_ref, name_x, type_x,
-            values_x, gen_dic, pt_dic, ot_dic, pt_dic['depth'], m_i,
-            int_dic['with_numba'], m_i**3)
+            values_x, gen_cfg, pt_cfg, other_cfg, pt_cfg.depth, m_i,
+            int_cfg.with_numba, m_i**3, zero_tol=int_cfg.zero_tol,
+            )
             for m_i in range(len(type_x))]
         idx, x_trees = 0, [None for _ in range(len(type_x))]
         while len(still_running) > 0:
-            finished, still_running = ray.wait(still_running)
+            finished, still_running = ray.wait(still_running, num_returns=1)
             finished_res = ray.get(finished)
             for ret_all_i in finished_res:
-                if gen_dic['with_output']:
+                if gen_cfg.with_output:
                     mcf_gp.share_completed(idx+1, len(type_x))
                 x_trees[idx] = ret_all_i
                 idx += 1
@@ -386,17 +387,17 @@ def optimal_tree_proc(optp_: 'OptimalPolicy',
         optimal_tree, obs_total = x_trees[max_i][0], x_trees[max_i][2]
     else:
         optimal_tree, optimal_reward, obs_total = tree_search(
-            data_ps, data_ps_diff, data_x, name_x, type_x, values_x, pt_dic,
-            gen_dic, ot_dic, pt_dic['depth'], with_numba=int_dic['with_numba'],
-            seed=seed)
-
+            data_ps, data_ps_diff, data_x, name_x, type_x, values_x, pt_cfg,
+            gen_cfg, other_cfg, pt_cfg.depth, with_numba=int_cfg.with_numba,
+            seed=seed, zero_tol=int_cfg.zero_tol,
+            )
     return optimal_tree, optimal_reward, obs_total
 
 
 # No longer used, part of old policy tree (therefore no annotations)
 def tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
-                pt_dic, gen_dic, ot_dic, treedepth, no_further_splits=False,
-                with_numba=True, seed=12345):
+                pt_cfg, gen_cfg, other_cfg, treedepth, no_further_splits=False,
+                with_numba=True, seed=12345, zero_tol=1e-15):
     """Build tree.
 
     Parameters
@@ -409,7 +410,7 @@ def tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
     name_x : List of strings. Name of policy variables.
     type_x : List of strings. Type of policy variable.
     values_x : List of sets. Values of x for non-continuous variables.
-    pt_dic, gen_dic : Dict's. Parameters.
+    pt_cfg, gen_cfg : Dict's. Parameters.
     treedepth : Int. Current depth of tree.
     no_further_splits : Boolean.
         Further splits do not matter. Take next (1st) split as final. Default
@@ -424,39 +425,43 @@ def tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
     """
     if treedepth == 1:  # Evaluate tree
         tree, reward, no_by_treat = opt_pt_add.evaluate_leaf(
-            data_ps, gen_dic, ot_dic, pt_dic, with_numba=with_numba)
+            data_ps, gen_cfg, other_cfg, pt_cfg, with_numba=with_numba)
     else:
-        if not no_further_splits and (treedepth < pt_dic['depth']):
+        if not no_further_splits and (treedepth < pt_cfg.depth):
             no_further_splits = opt_pt_add.only_1st_tree_fct3(
-                data_ps, pt_dic['cost_of_treat_restrict'])
-        min_leaf_size = pt_dic['min_leaf_size'] * 2**(treedepth - 2)
+                data_ps, pt_cfg.cost_of_treat_restrict
+                )
+        min_leaf_size = pt_cfg.min_leaf_size * 2**(treedepth - 2)
         no_of_x, reward = len(type_x), -inf
         tree = no_by_treat = None
         for m_i in range(no_of_x):
-            if gen_dic['with_output']:
-                if treedepth == pt_dic['depth']:
+            if gen_cfg.with_output:
+                if treedepth == pt_cfg.depth:
                     txt = (f'{name_x[m_i]:20s}  {m_i / no_of_x * 100:4.1f}%'
                            ' of variables completed')
-                    mcf_ps.print_mcf(gen_dic, txt, summary=False)
-            if type_x[m_i] == 'cont':
-                values_x_to_check = opt_pt_add.get_values_cont_x(
-                    data_x[:, m_i], pt_dic['no_of_evalupoints'],
-                    with_numba=with_numba)
-            elif type_x[m_i] == 'disc':
-                values_x_to_check = values_x[m_i][:]
-            else:
-                if treedepth < pt_dic['depth']:
-                    values_x_to_check = opt_pt_add.combinations_categorical(
-                        data_x[:, m_i], data_ps_diff,
-                        pt_dic['no_of_evalupoints'], with_numba,
-                        seed=seed)
-                else:
+                    mcf_ps.print_mcf(gen_cfg, txt, summary=False)
+            match type_x[m_i]:
+                case 'cont':
+                    values_x_to_check = opt_pt_add.get_values_cont_x(
+                        data_x[:, m_i], pt_cfg.no_of_evalupoints,
+                        with_numba=with_numba
+                        )
+                case 'disc':
                     values_x_to_check = values_x[m_i][:]
+                case _:
+                    if treedepth < pt_cfg.depth:
+                        values_x_to_check = opt_pt_add.combinations_categorical(
+                            data_x[:, m_i], data_ps_diff,
+                            pt_cfg.no_of_evalupoints, with_numba,
+                            seed=seed
+                            )
+                    else:
+                        values_x_to_check = values_x[m_i][:]
             for val_x in values_x_to_check:
                 if type_x[m_i] == 'unord':
                     left = np.isin(data_x[:, m_i], val_x)
                 else:
-                    left = data_x[:, m_i] <= (val_x + 1e-15)
+                    left = data_x[:, m_i] <= (val_x + zero_tol)
                 obs_left = np.count_nonzero(left)
                 if not (min_leaf_size <= obs_left
                         <= (len(left) - min_leaf_size)):
@@ -464,18 +469,22 @@ def tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
                 right = np.invert(left)
                 tree_l, reward_l, no_by_treat_l = tree_search(
                     data_ps[left, :], data_ps_diff[left, :], data_x[left, :],
-                    name_x, type_x, values_x, pt_dic, gen_dic, ot_dic,
+                    name_x, type_x, values_x, pt_cfg, gen_cfg, other_cfg,
                     treedepth - 1, no_further_splits, with_numba=with_numba,
-                    seed=seed+1)
+                    seed=seed+1, zero_tol=zero_tol,
+                    )
                 tree_r, reward_r, no_by_treat_r = tree_search(
                     data_ps[right, :], data_ps_diff[right, :],
-                    data_x[right, :], name_x, type_x, values_x, pt_dic,
-                    gen_dic, ot_dic, treedepth - 1, no_further_splits,
-                    with_numba=with_numba, seed=seed+1)
-                if ot_dic['restricted'] and pt_dic['enforce_restriction']:
+                    data_x[right, :], name_x, type_x, values_x, pt_cfg,
+                    gen_cfg, other_cfg, treedepth - 1, no_further_splits,
+                    with_numba=with_numba, seed=seed+1,
+                    zero_tol=zero_tol,
+                    )
+                if other_cfg.restricted and pt_cfg.enforce_restriction:
                     reward_l, reward_r = opt_pt_add.adjust_reward(
                         no_by_treat_l, no_by_treat_r, reward_l, reward_r,
-                        with_numba, ot_dic['max_by_treat'])
+                        with_numba, other_cfg.max_by_treat
+                        )
                 if reward_l + reward_r > reward:
                     reward = reward_l + reward_r
                     no_by_treat = no_by_treat_l + no_by_treat_r
@@ -486,12 +495,13 @@ def tree_search(data_ps, data_ps_diff, data_x, name_x, type_x, values_x,
     return tree, reward, no_by_treat
 
 
-def merge_trees(tree_l: list[list, ...], tree_r: list[list, ...],
+def merge_trees(tree_l: list[list],
+                tree_r: list[list],
                 name_x_m: str,
                 type_x_m: str,
                 val_x: Real | set[Real],
                 treedepth: int,
-                ) -> list[list, ...]:
+                ) -> list[list]:
     """Merge trees and add new split.
 
     0: Node identifier (INT: 0-...)
@@ -539,26 +549,34 @@ def merge_trees(tree_l: list[list, ...], tree_r: list[list, ...],
         for i_r in tree_r:
             new_tree[i] = i_r
             i += 1
+
     return new_tree
 
 
 # No longer used, more efficient code available (no annotations)
 @ray.remote
-def ray_tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x,
-                                  type_x, values_x, gen_dic, pt_dic, ot_dic,
-                                  treedepth, m_i, with_numba=True,
-                                  seed=123456):
+def ray_tree_search_multip_single(data_ps, data_ps_diff, data_x,
+                                  name_x, type_x, values_x,
+                                  gen_cfg, pt_cfg, other_cfg,
+                                  treedepth, m_i,
+                                  with_numba=True, seed=123456,
+                                  zero_tol: float = 1e-15,
+                                  ):
     """Prepare function for Ray."""
-    return tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x,
-                                     type_x, values_x, gen_dic, pt_dic, ot_dic,
-                                     treedepth, m_i, with_numba=with_numba,
-                                     seed=seed)
+    return tree_search_multip_single(data_ps, data_ps_diff, data_x,
+                                     name_x, type_x, values_x,
+                                     gen_cfg, pt_cfg, other_cfg,
+                                     treedepth, m_i,
+                                     with_numba=with_numba, seed=seed,
+                                     zero_tol=zero_tol,
+                                     )
 
 
 # No longer used, more efficient code available (no annotations)
 def tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x, type_x,
-                              values_x, gen_dic, pt_dic, ot_dic, treedepth,
-                              m_i, with_numba=True, seed=12345):
+                              values_x, gen_cfg, pt_cfg, other_cfg, treedepth,
+                              m_i, with_numba=True, seed=12345,
+                              zero_tol: float = 1e-15,):
     """Build tree. Only first level. For multiprocessing only.
 
     Parameters
@@ -571,8 +589,8 @@ def tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x, type_x,
     name_x : List of strings. Name of policy variables.
     type_x : List of strings. Type of policy variable.
     values_x : List of sets. Values of x for non-continuous variables.
-    pt_dic : Dict. Parameters.
-    gen_dic : Dict. Parameters.
+    pt_cfg : PtCfg dataclass. Parameters.
+    gen_cfg : gen_cfg dataclass. Parameters.
     treedepth : Int. Current depth of tree.
     seed: Int. Seed for combinatorical.
 
@@ -587,13 +605,14 @@ def tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x, type_x,
     reward, tree, no_by_treat = -inf, None, None
     if type_x[m_i] == 'cont':
         values_x_to_check = opt_pt_add.get_values_cont_x(
-            data_x[:, m_i], pt_dic['no_of_evalupoints'], with_numba=with_numba)
+            data_x[:, m_i], pt_cfg.no_of_evalupoints, with_numba=with_numba
+            )
     elif type_x[m_i] == 'disc':
         values_x_to_check = values_x[m_i][:]
     else:
-        if treedepth < pt_dic['depth']:
+        if treedepth < pt_cfg.depth:
             values_x_to_check = opt_pt_add.combinations_categorical(
-                data_x[:, m_i], data_ps_diff, pt_dic['no_of_evalupoints'],
+                data_x[:, m_i], data_ps_diff, pt_cfg.no_of_evalupoints,
                 with_numba, seed=seed)
         else:
             values_x_to_check = values_x[m_i][:]
@@ -601,24 +620,26 @@ def tree_search_multip_single(data_ps, data_ps_diff, data_x, name_x, type_x,
         if type_x[m_i] == 'unord':
             left = np.isin(data_x[:, m_i], val_x)
         else:
-            left = data_x[:, m_i] <= (val_x + 1e-15)
+            left = data_x[:, m_i] <= (val_x + zero_tol)
         obs_left = np.count_nonzero(left)
-        if not (pt_dic['min_leaf_size'] <= obs_left
-                <= (len(left)-pt_dic['min_leaf_size'])):
+        if not (pt_cfg.min_leaf_size <= obs_left
+                <= (len(left)-pt_cfg.min_leaf_size)
+                ):
             continue
         right = np.invert(left)
         tree_l, reward_l, no_by_treat_l = tree_search(
             data_ps[left, :], data_ps_diff[left, :], data_x[left, :],
-            name_x, type_x, values_x, pt_dic, gen_dic, ot_dic, treedepth - 1,
-            with_numba=with_numba, seed=seed+1)
+            name_x, type_x, values_x, pt_cfg, gen_cfg, other_cfg, treedepth - 1,
+            with_numba=with_numba, seed=seed+1, zero_tol=zero_tol,)
         tree_r, reward_r, no_by_treat_r = tree_search(
             data_ps[right, :], data_ps_diff[right, :], data_x[right, :],
-            name_x, type_x, values_x, pt_dic, gen_dic, ot_dic, treedepth - 1,
-            with_numba=with_numba, seed=seed+1)
-        if ot_dic['restricted'] and pt_dic['enforce_restriction']:
+            name_x, type_x, values_x, pt_cfg, gen_cfg, other_cfg, treedepth - 1,
+            with_numba=with_numba, seed=seed+1, zero_tol=zero_tol,)
+        if other_cfg.restricted and pt_cfg.enforce_restriction:
             reward_l, reward_r = opt_pt_add.adjust_reward(
                 no_by_treat_l, no_by_treat_r, reward_l, reward_r,
-                with_numba, ot_dic['max_by_treat'])
+                with_numba, other_cfg.max_by_treat
+                )
         if reward_l + reward_r > reward:
             reward = reward_l + reward_r
             no_by_treat = no_by_treat_l + no_by_treat_r
@@ -645,39 +666,42 @@ def final_leaf_dict(leaf: list, left_right: str) -> dict:
         print(leaf)
         raise ValueError('No valid entries in final leaf.')
     return_dic = {'x_name': leaf[5], 'x_type': leaf[6],
-                  'cut-off or set': leaf[7], 'left or right': left_right}
+                  'cut-off or set': leaf[7], 'left or right': left_right
+                  }
     return return_dic
 
 
 def get_adjusted_optp(optp_: 'OptimalPolicy',
                       tree_number: int,
-                      tree_levels: int
+                      tree_levels: int,
                       ) -> 'OptimalPolicy':
     """Copy and adjust instance of policy tree."""
     optp_local = deepcopy(optp_)
-    if tree_number == 0:
-        optp_local.pt_dict['depth'] = optp_.pt_dict['depth_tree_1']
-        if tree_levels == 2:
-            # Adjust minimum leaf size --> speeds up computation
-            optp_local.pt_dict['min_leaf_size'] = round(
-                optp_.pt_dict['min_leaf_size']
-                * 2**(optp_.pt_dict['depth_tree_2'] - 1))
-    elif tree_number == 1:
-        optp_local.pt_dict['depth'] = optp_.pt_dict['depth_tree_2']
-    else:
-        raise NotImplementedError('Not yet (?) implemented for more than 2 '
-                                  'levels of optimal trees.')
+    match tree_number:
+        case 0:
+            optp_local.pt_cfg.depth = optp_.pt_cfg.depth_tree_1
+            if tree_levels == 2:
+                # Adjust minimum leaf size --> speeds up computation
+                optp_local.pt_cfg.min_leaf_size = round(
+                    optp_.pt_cfg.min_leaf_size
+                    * 2**(optp_.pt_cfg.depth_tree_2 - 1))
+        case 1:
+            optp_local.pt_cfg.depth = optp_.pt_cfg.depth_tree_2
+        case _:
+            raise NotImplementedError('Not yet (?) implemented for more than 2 '
+                                      'levels of optimal trees.'
+                                      )
     return optp_local
 
 
 def get_data_from_tree(optp_local: 'OptimalPolicy',
                        data_df: DataFrame,
-                       tree: list[list, ...]
-                       ) -> tuple[list[DataFrame, ...], list[int, ...]]:
+                       tree: list[list]
+                       ) -> tuple[list[DataFrame], list[int]]:
     """Get the data for the final leafs as list."""
     leaf_data_df_list, leaf_id_list = [], []
-    optp_local.pt_dict[('policy_tree')] = tree
-    optp_local.gen_dict['with_output'] = False
+    optp_local.pt_cfg.policy_tree = tree
+    optp_local.gen_cfg.with_output = False
     _, idx_in_leaf, leaf_id, _, _ = pred_policy_allocation(optp_local, data_df)
     for idx, id_ in zip(idx_in_leaf, leaf_id):
         for idx_left_right in idx:
@@ -688,9 +712,9 @@ def get_data_from_tree(optp_local: 'OptimalPolicy',
     return leaf_data_df_list, leaf_id_list
 
 
-def merge_tree_levels(leaf_id_list: list[int, ...],
-                      level_2_dic: dict
-                      ) -> list[list, ...]:
+def merge_tree_levels(leaf_id_list: list[int],
+                      level_2_dic: dict,
+                      ) -> list[list]:
     """Merge second level trees to first level tree."""
     no_final_double_leafs = round(len(leaf_id_list) / 2)
     tree = deepcopy(level_2_dic['level_1_tree'])
@@ -710,13 +734,14 @@ def merge_tree_levels(leaf_id_list: list[int, ...],
             tree[leaf_1_idx][3] = tree_2_r[0][0]
             tree[leaf_1_idx][4] = 0     # Not a final leaf anymore
             tree = tree + tree_2_l + tree_2_r
+
     return tree
 
 
-# TODO: Das muss effizienter gehen
-def find_leaf_one_idx(tree: list[list, ...], leaf_id: int):
+def find_leaf_one_idx(tree: list[list], leaf_id: int) -> int:
     """Find id of a leaf in another tree."""
     for idx, leaf in enumerate(tree):
         if leaf_id == leaf[0]:
             return idx
+
     raise ValueError('Leaf id not found.')

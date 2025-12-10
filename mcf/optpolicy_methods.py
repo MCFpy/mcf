@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
 def estrisk_adjust_method(optp_: 'OptimalPolicy',
                           data_df: pd.DataFrame,
-                          data_title: str = ''
+                          data_title: str = '',
                           ) -> tuple[pd.DataFrame, list, Path]:
     """
     Adjust policy score for estimation risk.
@@ -55,14 +55,15 @@ def estrisk_adjust_method(optp_: 'OptimalPolicy',
     """
     time_start = time()
 
-    optp_.estrisk_dict['estrisk_used'] = True
+    optp_.estriskcfg.estrisk_used = True
 
-    if optp_.gen_dict['with_output']:
-        print_dic_values_all_optp(optp_, summary_top=True,
+    if optp_.gen_cfg.with_output:
+        print_dic_values_all_optp(optp_,
+                                  summary_top=True,
                                   summary_dic=False,
                                   title='Transform scores for estimation risk',
-                                  stage='Estrisk')
-
+                                  stage='Estrisk',
+                                  )
     optp_.report['estriskscores'] = True
     # Check if variables are available and have correct lengths
     op_data.check_data_estrisk(optp_, data_df)
@@ -73,9 +74,9 @@ def estrisk_adjust_method(optp_: 'OptimalPolicy',
     # Timing
     time_name = ['Time for estimation risk adjustment of scores:    ',]
     time_difference = [time() - time_start]
-    if optp_.gen_dict['with_output']:
+    if optp_.gen_cfg.with_output:
         time_str = mcf_ps.print_timing(
-            optp_.gen_dict, 'Estimation risk correction ', time_name,
+            optp_.gen_cfg, 'Estimation risk correction ', time_name,
             time_difference, summary=True)
     else:
         time_str = ''
@@ -83,12 +84,12 @@ def estrisk_adjust_method(optp_: 'OptimalPolicy',
     key = 'estimation risk adjustment ' + data_title
     optp_.time_strings[key] = time_str
 
-    return data_estrisk_df, estrisk_scores_names, optp_.gen_dict['outpath']
+    return data_estrisk_df, estrisk_scores_names, optp_.gen_cfg.outpath
 
 
 def solvefair_method(optp_: 'OptimalPolicy',
                      data_df: pd.DataFrame,
-                     data_title: str = ''
+                     data_title: str = '',
                      ) -> tuple[pd.DataFrame, dict, Path]:
     """Compute fairness allocations following method suggested by BLMM2025."""
     # Step 1: General overhead - fairness dic in reporting
@@ -102,10 +103,10 @@ def solvefair_method(optp_: 'OptimalPolicy',
     # Step 1: General overhead & fairness dic in reporting
     time_start = time()
     # references, no copies
-    optp_.fair_dict['solvefair_used'] = True
+    optp_.fair_cfg.solvefair_used = True
     optp_.report['solvefair'] = True
 
-    if optp_.gen_dict['with_output']:
+    if optp_.gen_cfg.with_output:
         print_dic_values_all_optp(optp_,
                                   summary_top=True,
                                   summary_dic=False,
@@ -117,42 +118,42 @@ def solvefair_method(optp_: 'OptimalPolicy',
     time0 = time()
 
     # Step 2: Transform scores if needed
-    if optp_.fair_dict['adjust_target'] in ('scores', 'scores_xvariables',):
+    if optp_.fair_cfg.adjust_target in ('scores', 'scores_xvariables',):
         (data_fair_df, scores_fair_names, _,
-         optp_.fair_dict, optp_.var_dict, optp_.report['fairscores_build_stats']
-         ) = op_fair.adjust_scores(deepcopy(optp_.fair_dict),
-                                   deepcopy(optp_.gen_dict),
-                                   deepcopy(optp_.var_dict),
+         optp_.fair_cfg, optp_.var_cfg, optp_.report['fairscores_build_stats']
+         ) = op_fair.adjust_scores(deepcopy(optp_.fair_cfg),
+                                   deepcopy(optp_.gen_cfg),
+                                   deepcopy(optp_.var_cfg),
                                    data_new_df,
                                    seed=1234567
                                    )
     else:    # No adjustment of scores
         data_fair_df = data_new_df
-        scores_fair_names = optp_.var_dict['polscore_name'].copy()
+        scores_fair_names = optp_.var_cfg.polscore_name.copy()
     time1 = time()
 
     # Step 3: Transform data if needed
-    if optp_.fair_dict['adjust_target'] in ('xvariables', 'scores_xvariables',):
+    if optp_.fair_cfg.adjust_target in ('xvariables', 'scores_xvariables',):
         (data_fair_df, x_fair_ord_name, x_fair_unord_name, _,
-         optp_.fair_dict, optp_.report['fair_decision_vars_build_stats']
-         ) = op_fair.adjust_decision_variables(deepcopy(optp_.fair_dict),
-                                               deepcopy(optp_.gen_dict),
-                                               deepcopy(optp_.var_dict),
+         optp_.fair_cfg, optp_.report['fair_decision_vars_build_stats']
+         ) = op_fair.adjust_decision_variables(deepcopy(optp_.fair_cfg),
+                                               deepcopy(optp_.gen_cfg),
+                                               deepcopy(optp_.var_cfg),
                                                data_fair_df,
                                                training=True,
                                                seed=1234567
                                                )
 
     else:  # No adjustment of variables
-        x_fair_ord_name = (optp_.var_dict['x_ord_name'].copy()
-                           if optp_.var_dict['x_ord_name'] else [])
-        x_fair_unord_name = (optp_.var_dict['x_unord_name'].copy()
-                             if optp_.var_dict['x_unord_name'] else [])
+        x_fair_ord_name = (optp_.var_cfg.x_ord_name.copy()
+                           if optp_.var_cfg.x_ord_name else [])
+        x_fair_unord_name = (optp_.var_cfg.x_unord_name.copy()
+                             if optp_.var_cfg.x_unord_name else [])
     time2 = time()
 
     # Step 4: use solve method with transformed data
-    (optp_.fair_dict['org_name_dict'], optp_.var_dict
-     ) = op_fair.update_names_for_solve_in_self(optp_.var_dict,
+    (optp_.fair_cfg.org_name_dict, optp_.var_cfg
+     ) = op_fair.update_names_for_solve_in_self(optp_.var_cfg,
                                                 scores_fair_names,
                                                 x_fair_ord_name,
                                                 x_fair_unord_name
@@ -160,7 +161,7 @@ def solvefair_method(optp_: 'OptimalPolicy',
 
     solve_dict = optp_.solve(
         data_fair_df.copy(),
-        data_title=f'training fair ({optp_.fair_dict["adjust_target"]})'
+        data_title=f'training fair ({optp_.fair_cfg.adjust_target})'
         )
     allocation_df = solve_dict['allocation_df']
     result_dic = solve_dict['result_dic']
@@ -179,21 +180,21 @@ def solvefair_method(optp_: 'OptimalPolicy',
                        time() - time3,
                        time() - time_start,
                        ]
-    if optp_.gen_dict['with_output']:
+    if optp_.gen_cfg.with_output:
         time_str = mcf_ps.print_timing(
-            optp_.gen_dict, 'Fairness specific computations ', time_name,
+            optp_.gen_cfg, 'Fairness specific computations ', time_name,
             time_difference, summary=True)
     else:
         time_str = ''
     key = 'Fairness adjustments ' + data_title
     optp_.time_strings[key] = time_str
 
-    return allocation_df, result_dic, optp_.gen_dict['outpath']
+    return allocation_df, result_dic, optp_.gen_cfg.outpath
 
 
 def solve_method(optp_: 'OptimalPolicy',
                  data_df: pd.DataFrame,
-                 data_title: str = ''
+                 data_title: str = '',
                  ) -> tuple[pd.DataFrame, dict, Path]:
     """
     Solve for optimal allocation rule.
@@ -231,10 +232,10 @@ def solve_method(optp_: 'OptimalPolicy',
     op_init.init_gen_solve(optp_, data_df)
     op_init.init_other_solve(optp_)
     result_dic = {}
-    method = optp_.gen_dict['method']
+    method = optp_.gen_cfg.method
     if method in ('policy_tree', 'policy tree old'):
         op_init.init_pt_solve(optp_, len(data_df))
-    if optp_.gen_dict['with_output']:
+    if optp_.gen_cfg.with_output:
         print_dic_values_all_optp(optp_, summary_top=True,
                                   summary_dic=False, title='Training',
                                   stage='Training')
@@ -262,9 +263,9 @@ def solve_method(optp_: 'OptimalPolicy',
     # Timing
     time_name = [f'Time for {method:20} training:    ',]
     time_difference = [time() - time_start]
-    if optp_.gen_dict['with_output']:
+    if optp_.gen_cfg.with_output:
         time_str = mcf_ps.print_timing(
-            optp_.gen_dict, f'{method:20} Training ', time_name,
+            optp_.gen_cfg, f'{method:20} Training ', time_name,
             time_difference, summary=True)
     else:
         time_str = ''
@@ -282,13 +283,13 @@ def solve_method(optp_: 'OptimalPolicy',
             f' (using data from {data_title})\n')
         optp_.report['training_leaf_information'] = txt + allocation_txt
 
-    return allocation_df, result_dic, optp_.gen_dict['outpath']
+    return allocation_df, result_dic, optp_.gen_cfg.outpath
 
 
 def allocate_method(optp_: 'OptimalPolicy',
                     data_df: pd.DataFrame,
                     data_title: str = '',
-                    fair_adjust_decision_vars: bool = False
+                    fair_adjust_decision_vars: bool = False,
                     ) -> tuple[pd.DataFrame, Path]:
     """
     Allocate observations to treatment state.
@@ -324,21 +325,19 @@ def allocate_method(optp_: 'OptimalPolicy',
         fair_adjust_decision_vars = False
 
     time_start = time()
-    method = optp_.gen_dict['method']
+    method = optp_.gen_cfg.method
     optp_.report['allocation'] = True
     data_train = (op_data.dataframe_checksum(data_df)
                   == optp_.report['training_data_chcksm']
                   )
     data_df.reset_index(drop=True, inplace=True)
 
-    if method == 'policy_tree':
-        method_str = 'Policy Tree'
-    elif method == 'best_policy_score':
-        method_str = 'Best Policy Score'
-    elif method == 'bps_classifier':
-        method_str = 'Classifier for Best Policy Score Allocation'
-    else:
-        method_str = ''
+    match method:
+        case 'policy_tree':       method_str = 'Policy Tree'
+        case 'best_policy_score': method_str = 'Best Policy Score'
+        case 'bps_classifier':    method_str = ('Classifier for Best Policy '
+                                                'Score Allocation')
+        case _:                   method_str = ''
 
     optp_.report['txt'] = ('\nAllocation of unit to treatments using '
                            f'{method_str}.'
@@ -346,43 +345,44 @@ def allocate_method(optp_: 'OptimalPolicy',
                            f'{"is NOT" if data_train else "is"} used.'
                            )
 
-    if optp_.gen_dict['with_output']:
-        if optp_.fair_dict['solvefair_used']:
+    if optp_.gen_cfg.with_output:
+        if optp_.fair_cfg.solvefair_used:
             stage, title = 'Fairness', 'Allocation - Fairness'
         else:
             stage, title = 'Allocation', 'Allocation'
-        if optp_.estrisk_dict['estrisk_used']:
+        if optp_.estriskcfg.estrisk_used:
             title += ' Estimation risk adjustment'
         print_dic_values_all_optp(optp_,
                                   summary_top=True, summary_dic=False,
                                   title=title, stage=stage
                                   )
 
-    if optp_.fair_dict['solvefair_used']:
-        data_df, optp_.fair_dict, txt = op_fair.fair_adjust_data_for_pred(
-            optp_.fair_dict, optp_.gen_dict, optp_.var_dict,
+    if optp_.fair_cfg.solvefair_used:
+        data_df, optp_.fair_cfg, txt = op_fair.fair_adjust_data_for_pred(
+            optp_.fair_cfg, optp_.gen_cfg, optp_.var_cfg,
             data_df, fair_adjust_decision_vars
             )
         optp_.report['txt'] += txt
 
     allocation_df = allocation_txt = None
-    if method == 'best_policy_score':
-        solve_dict = optp_.solve(
-            data_df, data_title='Prediction data')
-        allocation_df = solve_dict['allocation_df']
-    elif method in ('policy_tree', 'policy tree old'):
-        allocation_df, allocation_txt = op_pt.policy_tree_prediction_only(
-            optp_, data_df
-            )
-    elif method == 'bps_classifier':
-        allocation_df, allocation_txt = op_bb_cl.bps_class_prediction_only(
-            optp_, data_df
-            )
+    match method:
+        case 'best_policy_score':
+            solve_dict = optp_.solve(data_df, data_title='Prediction data')
+            allocation_df = solve_dict['allocation_df']
+        case 'policy_tree' | 'policy tree old':
+            allocation_df, allocation_txt = op_pt.policy_tree_prediction_only(
+                optp_, data_df
+                )
+        case 'bps_classifier':
+            allocation_df, allocation_txt = op_bb_cl.bps_class_prediction_only(
+                optp_, data_df
+                )
+
     time_name = [f'Time for {method:20} allocation:  ',]
     time_difference = [time() - time_start]
-    if optp_.gen_dict['with_output']:
+    if optp_.gen_cfg.with_output:
         time_str = mcf_ps.print_timing(
-            optp_.gen_dict, f'{method:20} Allocation ',
+            optp_.gen_cfg, f'{method:20} Allocation ',
             time_name, time_difference, summary=True
             )
     else:
@@ -396,14 +396,14 @@ def allocate_method(optp_: 'OptimalPolicy',
         optp_.report['leaf_information_allocate'] = (
             data_title + '\n' + allocation_txt)
 
-    return allocation_df, optp_.gen_dict['outpath']
+    return allocation_df, optp_.gen_cfg.outpath
 
 
 def evaluate_method(optp_: 'OptimalPolicy',
                     allocation_df: pd.DataFrame,
                     data_df: pd.DataFrame,
                     data_title: str = '',
-                    seed: int = 12434
+                    seed: int = 12434,
                     ) -> tuple[dict, Path]:
     """
     Evaluate allocation with potential outcome data.
@@ -435,12 +435,12 @@ def evaluate_method(optp_: 'OptimalPolicy',
     alloc_train = (op_data.dataframe_checksum(allocation_df)
                    == optp_.report['training_alloc_chcksm'])
 
-    if optp_.gen_dict['with_output']:
-        if optp_.fair_dict['solvefair_used']:
+    if optp_.gen_cfg.with_output:
+        if optp_.fair_cfg.solvefair_used:
             stage, title = 'Fairness', 'Evaluation - Fairness'
         else:
             stage, title = 'Evaluation', 'Evaluation'
-        if optp_.estrisk_dict['estrisk_used']:
+        if optp_.estriskcfg.estrisk_used:
             title += ' Estimation risk adjustment'
         if alloc_train:
             title += ' Training data'
@@ -450,17 +450,17 @@ def evaluate_method(optp_: 'OptimalPolicy',
                                   summary_dic=False, title=title, stage=stage
                                   )
 
-    var_dic, gen_dic = optp_.var_dict, optp_.gen_dict
+    var_cfg, gen_cfg = optp_.var_cfg, optp_.gen_cfg
     txt = '\n' + '=' * 100 + '\nEvaluating allocation of '
-    txt += f'{gen_dic["method"]} with {data_title} data\n' + '-' * 100
-    mcf_ps.print_mcf(gen_dic, txt, summary=True)
+    txt += f'{gen_cfg.method} with {data_title} data\n' + '-' * 100
+    mcf_ps.print_mcf(gen_cfg, txt, summary=True)
     (data_df, d_ok, polscore_ok, polscore_desc_ok, desc_var
      ) = op_data.prepare_data_eval(optp_, data_df)
     if len(allocation_df) != len(data_df):
         d_ok = False
     op_init.init_rnd_shares(optp_, data_df, d_ok)
     if d_ok:
-        allocation_df['observed'] = data_df[var_dic['d_name']]
+        allocation_df['observed'] = data_df[var_cfg.d_name]
     allocation_df['random'] = op_eval.get_random_allocation(optp_,
                                                             len(data_df),
                                                             seed
@@ -474,18 +474,18 @@ def evaluate_method(optp_: 'OptimalPolicy',
                                        d_ok, polscore_ok, polscore_desc_ok,
                                        desc_var, data_title
                                        )
-    if (optp_.gen_dict['with_output']
-            and optp_.gen_dict['variable_importance']):
+    if (optp_.gen_cfg.with_output
+            and optp_.gen_cfg.variable_importance):
         op_eval.variable_importance(optp_,
                                     data_df, allocation_df,
                                     seed=seed, data_title=data_title
                                     )
     time_name = [f'Time for Evaluation with {data_title} data:     ',]
     time_difference = [time() - time_start]
-    if optp_.gen_dict['with_output']:
+    if optp_.gen_cfg.with_output:
         time_str = mcf_ps.print_timing(
-            optp_.gen_dict, f'Evaluation of {data_title} data with '
-            f'{gen_dic["method"]}', time_name, time_difference,
+            optp_.gen_cfg, f'Evaluation of {data_title} data with '
+            f'{gen_cfg.method}', time_name, time_difference,
             summary=True)
     else:
         time_str = ''
@@ -497,13 +497,13 @@ def evaluate_method(optp_: 'OptimalPolicy',
                f'from the training data ({data_title}). '
                f'{"bb"} stands for {"black box"}. '
                )
-    if optp_.estrisk_dict['estrisk_used']:
+    if optp_.estriskcfg.estrisk_used:
         rep_txt += ('If a value function is shown, it refers to the mean value '
                     'of the allocation adjusted for estimation risk.')
 
     optp_.report['evalu_list'].append((rep_txt, results_dic))
 
-    return results_dic, optp_.gen_dict['outpath']
+    return results_dic, optp_.gen_cfg.outpath
 
 
 def evaluate_multiple_self(optp_: 'OptimalPolicy',
@@ -527,12 +527,12 @@ def evaluate_multiple_self(optp_: 'OptimalPolicy',
         Location of directory in which output is saved.
 
     """
-    if not optp_.gen_dict['with_output']:
+    if not optp_.gen_cfg.with_output:
         raise ValueError('To use this method, allow output to be written.')
-    potential_outcomes_np = data_df[optp_.var_dict['polscore_name']]
+    potential_outcomes_np = data_df[optp_.var_cfg.polscore_name]
     op_eval.evaluate_multiple(optp_, allocations_dic, potential_outcomes_np)
 
-    return optp_.gen_dict['outpath']
+    return optp_.gen_cfg.outpath
 
 
 def print_dic_values_all_optp(optp_: 'OptimalPolicy',
@@ -543,36 +543,49 @@ def print_dic_values_all_optp(optp_: 'OptimalPolicy',
                               ) -> None:
     """Print the dictionaries."""
     txt = '=' * 100 + f'\nOptimal Policy Module ({title}) with '
-    txt += f'{optp_.gen_dict["method"]}' + '\n' + '-' * 100
-    mcf_ps.print_mcf(optp_.gen_dict, txt, summary=summary_top)
+    txt += f'{optp_.gen_cfg.method}' + '\n' + '-' * 100
+    mcf_ps.print_mcf(optp_.gen_cfg, txt, summary=summary_top)
     print_dic_values_optp(optp_, summary=summary_dic, stage=stage)
 
 
 def print_dic_values_optp(optp_: 'OptimalPolicy',
                           summary: bool = False,
-                          stage: bool = None
+                          stage: bool = None,
                           ) -> None:
     """Print values of dictionaries that determine module."""
+    dic_list, dic_name_list = [], []
     if stage == 'Estrisk':
         # Rest of info comes via a subsequent call to solve or solvefair
-        dic_list = [optp_.estrisk_dict,]
-        dic_name_list = ['estrisk_dict',]
+        dc_list = [optp_.estriskcfg,]
+        label_list = ['estriskcfg']
     else:
-        dic_list = [optp_.int_dict, optp_.gen_dict, optp_.dc_dict,
-                    optp_.other_dict, optp_.rnd_dict, optp_.var_dict]
-        dic_name_list = ['int_dict', 'gen_dict', 'dc_dict',
-                         'other_dict', 'rnd_dict', 'var_dict']
-        if optp_.gen_dict['method'] in ('policy_tree', 'policy tree old'):
-            add_list = [optp_.var_x_type, optp_.var_x_values, optp_.pt_dict]
-            add_list_name = ['var_x_type', 'var_x_values', 'pt_dict']
+        dc_list = [optp_.int_cfg, optp_.gen_cfg, optp_.var_cfg, optp_.dc_cfg,
+                   optp_.other_cfg, optp_.rnd_cfg,
+                   ]
+        label_list = ['int_cfg', 'gen_cfg', 'var_cfg', 'dc_cfg',
+                   'other_cfg', 'rnd_cfg',
+                   ]
+        if stage == 'Fairness':
+            dc_list.append(optp_.fair_cfg)
+
+        if optp_.gen_cfg.method in ('policy_tree', 'policy tree old'):
+            dc_list.append(optp_.pt_cfg)
+            label_list.append('pt_cfg')
+            add_list = [optp_.var_x_type, optp_.var_x_values,]
+            add_list_name = ['var_x_type', 'var_x_values',]
             dic_list.extend(add_list)
             dic_name_list.extend(add_list_name)
-    if stage == 'Fairness':
-        dic_list.append(optp_.fair_dict)
-        dic_name_list.append('fair_dict')
+
+        print_str_list = [mcf_ps.string_dc(dc, label)
+                          for dc, label in zip(dc_list, label_list)
+                          ]
+        print_str = '\n'.join(print_str_list)
+        mcf_ps.print_mcf(optp_.gen_cfg, print_str, summary=summary)
+
     for dic, dic_name in zip(dic_list, dic_name_list):
-        mcf_ps.print_dic(dic, dic_name, optp_.gen_dict, summary=summary)
-    mcf_ps.print_mcf(optp_.gen_dict, '\n', summary=summary)
+        mcf_ps.print_dic(dic, dic_name, optp_.gen_cfg, summary=summary)
+
+    mcf_ps.print_mcf(optp_.gen_cfg, '\n', summary=summary)
 
 
 def winners_losers_method(optp_org: 'OptimalPolicy',
@@ -588,28 +601,28 @@ def winners_losers_method(optp_org: 'OptimalPolicy',
     if outpath is not None:  # Otherwise, outpath from self is taken
         if not isinstance(outpath, Path):
             outpath = Path(outpath)
-        optp_.gen_dict['outpath'] = outpath
-        optp_.gen_dict['outfiletext'] = (
-            outpath / optp_org.gen_dict['outfiletext'].name
+        optp_.gen_cfg.outpath = outpath
+        optp_.gen_cfg.outfiletext = (
+            outpath / optp_org.gen_cfg.outfiletext.name
             )
-        optp_.gen_dict['outfilesummary'] = (
-            outpath / optp_org.gen_dict['outfilesummary'].name
+        optp_.gen_cfg.outfilesummary = (
+            outpath / optp_org.gen_cfg.outfilesummary.name
             )
 
-    optp_.gen_dict['print_to_file'] = True
+    optp_.gen_cfg.print_to_file = True
     # Define relevant variables for descriptive stats
-    variables_to_desc = optp_.var_dict['polscore_name']
-    variables_to_desc.extend(optp_.var_dict['x_ord_name'])
-    variables_to_desc.extend(optp_.var_dict['x_unord_name'])
-    variables_to_desc.extend(optp_.var_dict['protected_ord_name'])
-    variables_to_desc.extend(optp_.var_dict['protected_unord_name'])
-    variables_to_desc.extend(optp_.var_dict['material_ord_name'])
-    variables_to_desc.extend(optp_.var_dict['material_unord_name'])
+    variables_to_desc = optp_.var_cfg.polscore_name
+    variables_to_desc.extend(optp_.var_cfg.x_ord_name)
+    variables_to_desc.extend(optp_.var_cfg.x_unord_name)
+    variables_to_desc.extend(optp_.var_cfg.protected_ord_name)
+    variables_to_desc.extend(optp_.var_cfg.protected_unord_name)
+    variables_to_desc.extend(optp_.var_cfg.material_ord_name)
+    variables_to_desc.extend(optp_.var_cfg.material_unord_name)
 
-    names_unordered = optp_.var_dict['x_unord_name']
-    names_unordered.extend(optp_.var_dict['x_unord_name'])
-    names_unordered.extend(optp_.var_dict['protected_unord_name'])
-    names_unordered.extend(optp_.var_dict['material_unord_name'])
+    names_unordered = optp_.var_cfg.x_unord_name
+    names_unordered.extend(optp_.var_cfg.x_unord_name)
+    names_unordered.extend(optp_.var_cfg.protected_unord_name)
+    names_unordered.extend(optp_.var_cfg.material_unord_name)
 
     variables_to_desc = mcf_gp.remove_dupl_keep_order(variables_to_desc)
     names_unordered = mcf_gp.remove_dupl_keep_order(names_unordered)
@@ -656,7 +669,7 @@ def winners_losers_method(optp_org: 'OptimalPolicy',
     if len(np.unique(welfare_diff_np)) < 2:  # Not enough variation
         data_df[welfare_cluster_id_name] = np.zero((len(data_df), 1,))
 
-        return data_df, optp_.gen_dict['outpath']
+        return data_df, optp_.gen_cfg.outpath
 
     welfare_diff_df = pd.DataFrame(welfare_diff_np, columns=[name_diff])
     # kmeans clustering
@@ -666,14 +679,18 @@ def winners_losers_method(optp_org: 'OptimalPolicy',
         'kmeans_no_of_groups': [2, 3, 4, 5, 6, 7, 8],
         'kmeans_min_size_share': 1,
         }
-
     silhouette_avg_prev, cluster_lab_np = -1, None
     txt = ('\n' + '=' * 100 + '\nK-Means++ clustering: ' + title + '\n'
            + name_diff)
     txt += '\n' + '-' * 100
     for cluster_no in km_dic['kmeans_no_of_groups']:
         (cluster_lab_tmp, silhouette_avg, merge) = kmeans_labels(
-            welfare_diff_df, km_dic, cluster_no)
+            welfare_diff_df,
+            no_of_clusters=cluster_no,
+            kmeans_max_tries=km_dic['kmeans_max_tries'],
+            kmeans_replications=km_dic['kmeans_replications'],
+            kmeans_min_size_share=km_dic['kmeans_min_size_share'],
+            )
         txt += (f'\nNumber of clusters: {cluster_no}   '
                 f'Average silhouette score: {silhouette_avg: 8.3f}')
         if merge:
@@ -720,14 +737,14 @@ def winners_losers_method(optp_org: 'OptimalPolicy',
         x_km = data_to_desc_df
     cl_means = x_km.groupby(by=cl_group).mean(numeric_only=True)
 
-    mcf_ps.print_mcf(optp_.gen_dict, txt, summary=True)
+    mcf_ps.print_mcf(optp_.gen_cfg, txt, summary=True)
 
     txt = cl_means.transpose().to_string() + '\n' + '-' * 100
     pd.set_option('display.max_rows', 1000, 'display.max_columns', 100)
-    mcf_ps.print_mcf(optp_.gen_dict, txt, summary=True)
+    mcf_ps.print_mcf(optp_.gen_cfg, txt, summary=True)
     pd.set_option('display.max_rows', None, 'display.max_columns', None)
 
     # Return clusternumber together with data
     data_df[welfare_cluster_id_name] = cl_group.reshape(-1, 1)
 
-    return data_df, optp_.gen_dict['outpath']
+    return data_df, optp_.gen_cfg.outpath

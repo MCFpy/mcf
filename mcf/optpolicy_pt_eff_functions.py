@@ -12,10 +12,11 @@ from itertools import count
 from numbers import Real  # For type checking only
 from math import inf
 from random import randrange
-from typing import TYPE_CHECKING, Sequence, TypeVar
+from typing import Any, TYPE_CHECKING, Sequence, TypeVar
 
 from numba import njit
 import numpy as np
+from numpy.typing import NDArray
 import ray
 from pandas import DataFrame
 
@@ -32,54 +33,56 @@ T = TypeVar('T')
 def optimal_tree_eff_proc(optp_: 'OptimalPolicy',
                           data_df: DataFrame,
                           seed: int = 12345
-                          ) -> tuple[list[list, ...], np.ndarray, int]:
+                          ) -> tuple[list[list], NDArray[Any], int]:
     """Build optimal policy tree."""
-    gen_dic, pt_dic, int_dic = optp_.gen_dict, optp_.pt_dict, optp_.int_dict
-    ot_dic = optp_.other_dict
-    if gen_dic['with_output']:
+    gen_cfg, pt_cfg, int_cfg = optp_.gen_cfg, optp_.pt_cfg, optp_.int_cfg
+    other_cfg = optp_.other_cfg
+    if gen_cfg.with_output:
         print('\nBuilding optimal policy / decision tree')
     (data_x, data_ps, data_ps_diff, data_opt_treat, name_x, type_x, values_x,
      values_comp_all
      ) = prepare_data_for_tree_building_eff(optp_, data_df, seed=seed)
     # All values_x are already sorted before this step
     optimal_tree, x_trees = None, []
-    if gen_dic['mp_parallel'] > 1.5:
+    if gen_cfg.mp_parallel > 1.5:
         if not ray.is_initialized():
             mcf_sys.init_ray_with_fallback(
-                gen_dic['mp_parallel'], int_dic, gen_dic,
+                gen_cfg.mp_parallel, int_cfg, gen_cfg,
                 ray_err_txt='Ray does not start up in policy tree estimation.'
                 )
         data_x_ref = ray.put(data_x)
         data_ps_ref = ray.put(data_ps)
         data_ps_diff_ref = ray.put(data_ps_diff)
         data_opt_treat_ref = ray.put(data_opt_treat)
-        if int_dic['xtr_parallel']:
+        if int_cfg.xtr_parallel:
             # Variable and single tree are in single worker
             values_x_xtr_p = prepare_ordered_for_xtr_splits(type_x, values_x)
             still_running = [ray_tree_search_eff_multip_single.remote(
                 data_ps_ref, data_ps_diff_ref, data_opt_treat_ref, data_x_ref,
                 name_x, type_x, values_x, values_comp_all,
-                gen_dic, ot_dic, pt_dic, pt_dic['depth'],
-                m_i, int_dic['with_numba'], m_i**3,
-                values_x_xtr_p[m_i][split_mi]
+                gen_cfg, other_cfg, pt_cfg, pt_cfg.depth,
+                m_i, int_cfg.with_numba, m_i**3,
+                values_x_xtr_p[m_i][split_mi],
+                zero_tol=int_cfg.zero_tol,
                 ) for m_i in range(len(type_x))
                 for split_mi in range(len(values_x_xtr_p[m_i]))]
         else:
             # Variable and single tree are in single worker
             still_running = [ray_tree_search_eff_multip_single.remote(
-                data_ps_ref, data_ps_diff_ref, data_x_ref, name_x, type_x,
-                values_x, values_comp_all,
-                gen_dic, ot_dic, pt_dic, pt_dic['depth'],
-                m_i, int_dic['with_numba'], m_i**3
+                data_ps_ref, data_ps_diff_ref, data_opt_treat_ref, data_x_ref,
+                name_x, type_x, values_x, values_comp_all,
+                gen_cfg, other_cfg, pt_cfg, pt_cfg.depth,
+                m_i, int_cfg.with_numba, m_i**3,
+                zero_tol=int_cfg.zero_tol,
                 )
                 for m_i in range(len(type_x))]
         total_threads = len(still_running)
         idx, x_trees = 0, []
         while len(still_running) > 0:
-            finished, still_running = ray.wait(still_running)
+            finished, still_running = ray.wait(still_running, num_returns=1)
             finished_res = ray.get(finished)
             for ret_all_i in finished_res:
-                if gen_dic['with_output']:
+                if gen_cfg.with_output:
                     mcf_gp.share_completed(idx+1, total_threads)
                 x_trees.append(ret_all_i)
                 idx += 1
@@ -94,32 +97,31 @@ def optimal_tree_eff_proc(optp_: 'OptimalPolicy',
          ) = tree_search_eff(
             data_ps, data_ps_diff, data_opt_treat, data_x,
             name_x, type_x, values_x,
-            values_comp_all, pt_dic, gen_dic, ot_dic, pt_dic['depth'],
-            with_numba=int_dic['with_numba'], seed=seed)
+            values_comp_all, pt_cfg, gen_cfg, other_cfg, pt_cfg.depth,
+            with_numba=int_cfg.with_numba, seed=seed,
+            zero_tol=int_cfg.zero_tol,
+            )
 
     return optimal_tree, optimal_reward, obs_total
 
 
-def tree_search_eff(data_ps: np.ndarray,
-                    data_ps_diff: np.ndarray,
-                    data_opt_treat: np.ndarray,
-                    data_x: np.ndarray,
-                    name_x: list[str, ...],
-                    type_x: list[str, ...],
-                    values_x:  list[set, ...],
-                    values_comp_all: list[list, ...],
-                    pt_dic: dict,
-                    gen_dic: dict,
-                    ot_dic: dict,
+def tree_search_eff(data_ps: NDArray[Any],
+                    data_ps_diff: NDArray[Any],
+                    data_opt_treat: NDArray[Any],
+                    data_x: NDArray[Any],
+                    name_x: list[str],
+                    type_x: list[str],
+                    values_x:  list[set],
+                    values_comp_all: list[list],
+                    pt_cfg: Any,
+                    gen_cfg: Any,
+                    other_cfg: Any,
                     treedepth: int,
                     no_further_splits: bool = False,
                     with_numba: bool = True,
-                    seed: int = 12345
-                    ) -> tuple[list[list, ...],
-                               float,
-                               list[int],
-                               list[list, ...]
-                               ]:
+                    seed: int = 12345,
+                    zero_tol: float=1e-15,
+                    ) -> tuple[list[list], float, list[int], list[list]]:
     """Build tree EFF.
 
     Parameters
@@ -131,7 +133,7 @@ def tree_search_eff(data_ps: np.ndarray,
     type_x : List of strings. Type of policy variable.
     values_x : List of sets. Values of x in initial data.
     values_comp_all : Categorical values.
-    pt_dic, gen_dic : Dict's. Parameters.
+    pt_cfg, gen_cfg : DCs, Dict's. Parameters.
     treedepth : Int. Current depth of tree.
     no_further_splits : Boolean.
         Further splits do not matter. Take next (1st) split as final. Default
@@ -146,13 +148,13 @@ def tree_search_eff(data_ps: np.ndarray,
     """
     if treedepth == 1:  # Evaluate tree, end of splitting
         tree, reward, no_by_treat = opt_pt_add.evaluate_leaf(
-            data_ps, gen_dic, ot_dic, pt_dic, with_numba=with_numba)
+            data_ps, gen_cfg, other_cfg, pt_cfg, with_numba=with_numba)
     else:
-        if not no_further_splits and (treedepth < pt_dic['depth']):
+        if not no_further_splits and (treedepth < pt_cfg.depth):
             no_further_splits = opt_pt_add.only_1st_tree_fct3(
-                data_ps, pt_dic['cost_of_treat_restrict'])
+                data_ps, pt_cfg.cost_of_treat_restrict)
 
-        min_leaf_size = pt_dic['min_leaf_size'] * 2**(treedepth - 2)
+        min_leaf_size = pt_cfg.min_leaf_size * 2**(treedepth - 2)
         no_of_x, reward = len(type_x), -inf
         tree = no_by_treat = None
 
@@ -162,30 +164,30 @@ def tree_search_eff(data_ps: np.ndarray,
         # For very shallow trees that are subject to restrictions, this is not
         # enforced as it is more likely to lead to violations of the
         # restrictions.
-        if treedepth < 4 and (pt_dic['depth'] > 2 or not ot_dic['restricted']):
+        if treedepth < 4 and (pt_cfg.depth > 2 or not other_cfg.restricted):
             no_gain_splitting = no_further_gain_split_funct(data_opt_treat)
         else:
             no_gain_splitting = False
 
         # Iterate over the single variables
-        no_variation = np.ptp(data_x, axis=0) < 1e-15
+        no_variation = np.ptp(data_x, axis=0) < zero_tol
         for m_i in range(no_of_x):
             if no_variation[m_i]:
                 continue
             data_x_m_i = data_x[:, m_i]
             type_x_mi = type_x[m_i]
 
-            if gen_dic['with_output']:
-                if treedepth == pt_dic['depth']:
+            if gen_cfg.with_output:
+                if treedepth == pt_cfg.depth:
                     txt = (f'{name_x[m_i]:20s}  {m_i / no_of_x * 100:4.1f}%'
                            ' of variables completed')
-                    mcf_ps.print_mcf(gen_dic, txt, summary=False)
+                    mcf_ps.print_mcf(gen_cfg, txt, summary=False)
 
             values_x_to_check, values_comp_all[m_i] = get_val_to_check_eff(
                 type_x[m_i], values_x[m_i][:], values_comp_all[m_i],
-                data_x_m_i, data_ps_diff, pt_dic['no_of_evalupoints'],
-                select_values_cat=pt_dic['select_values_cat'],
-                eva_cat_mult=pt_dic['eva_cat_mult'],
+                data_x_m_i, data_ps_diff, pt_cfg.no_of_evalupoints,
+                select_values_cat=pt_cfg.select_values_cat,
+                eva_cat_mult=pt_cfg.eva_cat_mult,
                 with_numba=with_numba,
                 seed=seed,
                 no_gain_split=no_gain_splitting
@@ -196,7 +198,7 @@ def tree_search_eff(data_ps: np.ndarray,
                 if type_x_mi == 'unord':
                     left = np.isin(data_x_m_i, val_x)
                 else:
-                    left = data_x_m_i <= (val_x + 1e-15)
+                    left = data_x_m_i <= (val_x + zero_tol)
                 obs_left = left.sum()
 
                 if obs_left < min_leaf_size:
@@ -214,28 +216,30 @@ def tree_search_eff(data_ps: np.ndarray,
                     data_ps[left, :], data_ps_diff[left, :],
                     data_opt_treat[left], data_x[left, :],
                     name_x, type_x, values_x, values_comp_all,
-                    pt_dic, gen_dic, ot_dic,
+                    pt_cfg, gen_cfg, other_cfg,
                     treedepth-1,
                     no_further_splits,
                     with_numba=with_numba,
-                    seed=seed+1
+                    seed=seed+1,
+                    zero_tol=zero_tol,
                     )
                 (tree_r, reward_r, no_by_treat_r, values_comp_all
                  ) = tree_search_eff(
                     data_ps[right, :], data_ps_diff[right, :],
                     data_opt_treat[right], data_x[right, :],
                     name_x, type_x, values_x, values_comp_all,
-                    pt_dic, gen_dic, ot_dic,
+                    pt_cfg, gen_cfg, other_cfg,
                     treedepth-1,
                     no_further_splits,
                     with_numba=with_numba,
-                    seed=seed+1
+                    seed=seed+1,
+                    zero_tol=zero_tol,
                     )
-                if ot_dic['restricted'] and pt_dic['enforce_restriction']:
+                if other_cfg.restricted and pt_cfg.enforce_restriction:
                     reward_l, reward_r = opt_pt_add.adjust_reward(
                         no_by_treat_l, no_by_treat_r, reward_l, reward_r,
-                        with_numba, ot_dic['max_by_treat'])
-
+                        with_numba, other_cfg.max_by_treat
+                        )
                 if reward_l + reward_r > reward:
                     reward = reward_l + reward_r
                     no_by_treat = no_by_treat_l + no_by_treat_r
@@ -308,14 +312,14 @@ def tree_search_eff(data_ps: np.ndarray,
 #     return new_tree
 
 
-def merge_trees_eff(tree_l: list[list, ...],
-                    tree_r: list[list, ...],
+def merge_trees_eff(tree_l: list[list],
+                    tree_r: list[list],
                     name_x_m: str,
                     type_x_m: str,
                     val_x: float,
                     treedepth: int,
                     _id_gen=count(1),
-                    ) -> tuple[list[list, ...]]:
+                    ) -> list[list]:
     """Merge trees and add new split (optimized version-limited gain).
 
     0: Node identifier (INT: 0-...)
@@ -371,61 +375,69 @@ def merge_trees_eff(tree_l: list[list, ...],
 
 @ray.remote
 def ray_tree_search_eff_multip_single(
-        data_ps: np.ndarray,
-        data_ps_diff: np.ndarray,
-        data_opt_treat: np.ndarray,
-        data_x: np.ndarray,
-        name_x: list[str, ...],
-        type_x: list[str, ...],
-        values_x: list[set, ...],
-        values_comp_all: list[list, ...],
-        gen_dic: dict, ot_dic: dict, pt_dic: dict,
+        data_ps: NDArray[Any],
+        data_ps_diff: NDArray[Any],
+        data_opt_treat: NDArray[Any],
+        data_x: NDArray[Any],
+        name_x: list[str],
+        type_x: list[str],
+        values_x: list[set],
+        values_comp_all: list[list],
+        gen_cfg: Any,
+        other_cfg: Any,
+        pt_cfg: Any,
         treedepth: int,
         m_i: int,
         with_numba: bool = True,
         seed: int = 123456,
-        first_split_idx: Real | None = None
-        ) -> tuple[list[list, ...], float, list[int]]:
+        first_split_idx: Real | None = None,
+        zero_tol: float = 1e-15,
+        ) -> tuple[list[list], float, list[int]]:
     """Prepare function for Ray."""
     return tree_search_eff_multip_single(
         data_ps, data_ps_diff, data_opt_treat, data_x,
         name_x, type_x, values_x,
-        values_comp_all, gen_dic, ot_dic, pt_dic, treedepth, m_i,
-        with_numba=with_numba, seed=seed, first_split_idx=first_split_idx
+        values_comp_all, gen_cfg, other_cfg, pt_cfg, treedepth, m_i,
+        with_numba=with_numba, seed=seed, first_split_idx=first_split_idx,
+        zero_tol=zero_tol,
         )
 
 
 def tree_search_eff_multip_single(
-        data_ps: np.ndarray,
-        data_ps_diff: np.ndarray,
-        data_opt_treat: np.ndarray,
-        data_x: np.ndarray,
-        name_x: list[str, ...],
-        type_x: list[str, ...],
-        values_x: list[set, ...],
-        values_comp_all: list[list, ...],
-        gen_dic: dict,  ot_dic: dict, pt_dic: dict,
+        data_ps: NDArray[Any],
+        data_ps_diff: NDArray[Any],
+        data_opt_treat: NDArray[Any],
+        data_x: NDArray[Any],
+        name_x: list[str],
+        type_x: list[str],
+        values_x: list[set],
+        values_comp_all: list[list],
+        gen_cfg: Any,
+        other_cfg: Any,
+        pt_cfg: Any,
         treedepth: int,
         m_i: int,
         with_numba: bool = True,
         seed: int = 123456,
-        first_split_idx: Real | None = None
-        ) -> tuple[list[list, ...], float, list[int]]:
+        first_split_idx: Real | None = None,
+        zero_tol: float = 1e-15,
+        ) -> tuple[list[list], float, list[int]]:
     """Build tree. Only first level. For multiprocessing only."""
     assert treedepth != 1, 'This should not happen in Multiprocessing.'
     reward, tree, no_by_treat = -inf, None, None
 
-    min_leaf_size = pt_dic['min_leaf_size']
+    min_leaf_size = pt_cfg.min_leaf_size
     x_col = data_x[:, m_i]
 
     values_x_to_check, values_comp_all[m_i] = get_val_to_check_eff(
         type_x[m_i], values_x[m_i][:], values_comp_all[m_i], x_col,
-        data_ps_diff, pt_dic['no_of_evalupoints'],
-        select_values_cat=pt_dic['select_values_cat'],
-        eva_cat_mult=pt_dic['eva_cat_mult'],
+        data_ps_diff, pt_cfg.no_of_evalupoints,
+        select_values_cat=pt_cfg.select_values_cat,
+        eva_cat_mult=pt_cfg.eva_cat_mult,
         with_numba=with_numba,
         seed=seed,
-        first_split_idx=first_split_idx)
+        first_split_idx=first_split_idx,
+        )
 
     type_x_m_i, name_x_m_i = type_x[m_i], name_x[m_i]
     obs_all = x_col.shape[0]
@@ -433,7 +445,7 @@ def tree_search_eff_multip_single(
         if type_x_m_i == 'unord':
             left = np.isin(x_col, val_x)
         else:
-            left = x_col <= (val_x + 1e-15)
+            left = x_col <= (val_x + zero_tol)
 
         # Fast check of stopping criteria: Leaf size too small
         obs_left = left.sum()
@@ -446,87 +458,94 @@ def tree_search_eff_multip_single(
         tree_l, reward_l, no_by_treat_l, values_comp_all = tree_search_eff(
             data_ps[left, :], data_ps_diff[left, :],
             data_opt_treat[left], data_x[left, :],
-            name_x, type_x, values_x, values_comp_all, pt_dic, gen_dic, ot_dic,
+            name_x, type_x, values_x, values_comp_all,
+            pt_cfg, gen_cfg, other_cfg,
             treedepth - 1,
-            with_numba=with_numba,
-            seed=seed + 1
+            with_numba=with_numba, seed=seed + 1, zero_tol=zero_tol,
             )
         tree_r, reward_r, no_by_treat_r, values_comp_all = tree_search_eff(
             data_ps[right, :], data_ps_diff[right, :],
             data_opt_treat[right], data_x[right, :],
-            name_x, type_x, values_x, values_comp_all, pt_dic, gen_dic, ot_dic,
+            name_x, type_x, values_x, values_comp_all,
+            pt_cfg, gen_cfg, other_cfg,
             treedepth - 1,
-            with_numba=with_numba,
-            seed=seed + 1
+            with_numba=with_numba, seed=seed + 1, zero_tol=zero_tol,
             )
-        if ot_dic['restricted'] and pt_dic['enforce_restriction']:
+        if other_cfg.restricted and pt_cfg.enforce_restriction:
             reward_l, reward_r = opt_pt_add.adjust_reward(
                 no_by_treat_l, no_by_treat_r, reward_l, reward_r,
-                with_numba, ot_dic['max_by_treat'])
+                with_numba, other_cfg.max_by_treat
+                )
         if reward_l + reward_r > reward:
             reward = reward_l + reward_r
             no_by_treat = no_by_treat_l + no_by_treat_r
             tree = merge_trees_eff(tree_l, tree_r, name_x_m_i,
-                                   type_x_m_i, val_x, treedepth)
+                                   type_x_m_i, val_x, treedepth
+                                   )
     return tree, reward, no_by_treat
 
 
 def get_val_to_check_eff(type_x_m_i: str,
                          values_x_m_i: Real,
-                         values_comp_all_m_i: list[tuple, ...],
-                         data_x_m_i: np.ndarray,
-                         data_ps_diff: np.ndarray,
+                         values_comp_all_m_i: list[tuple],
+                         data_x_m_i: NDArray[Any],
+                         data_ps_diff: NDArray[Any],
                          no_of_evalupoints: int,
                          select_values_cat: bool = False,
                          eva_cat_mult: int = 1,
                          with_numba: bool = True,
                          seed: int = 1234,
                          first_split_idx: Real | None = None,
-                         no_gain_split: bool = False
+                         no_gain_split: bool = False,
                          ) -> tuple[list, list]:
     """Get the values to check for next splits of leaf."""
-    if type_x_m_i in ('cont', 'disc'):
-        if no_gain_split:
-            max_x, min_x = data_x_m_i.max(), data_x_m_i.min()
-            values_x_to_check = (min_x + 0.5 * (max_x - min_x),)
-        else:
-            values_x_to_check_tmp = get_values_cont_ord_x_eff(data_x_m_i,
-                                                              values_x_m_i)
-            if first_split_idx is not None and len(values_x_to_check_tmp) > 2:
-                if not isinstance(first_split_idx, set):
-                    first_split_idx_set = set(first_split_idx)
-
-                values_x_to_check = [val for val in values_x_to_check_tmp
-                                     if val in first_split_idx_set]
-                if not values_x_to_check:
-                    values_x_to_check = values_x_to_check_tmp
+    match type_x_m_i:
+        case 'cont' | 'disc':
+            if no_gain_split:
+                max_x, min_x = data_x_m_i.max(), data_x_m_i.min()
+                values_x_to_check = (min_x + 0.5 * (max_x - min_x),)
             else:
-                values_x_to_check = values_x_to_check_tmp
-    elif type_x_m_i == 'unord':
-        # Take the pre-computed values of the splitting points that fall into
-        # the range of the data
-        if no_gain_split:
-            no_of_evalupoints = 1
-            eva_cat_mult = 1
-        values_x_to_check, values_comp_all_m_i = combinations_categorical_eff(
-            data_x_m_i, data_ps_diff, values_comp_all_m_i, no_of_evalupoints,
-            select_values=select_values_cat,
-            factor=eva_cat_mult,
-            with_numba=with_numba,
-            seed=seed)
-    else:
-        raise ValueError('Wrong data type')
+                values_x_to_check_tmp = get_values_cont_ord_x_eff(data_x_m_i,
+                                                                  values_x_m_i)
+                if first_split_idx is not None and len(values_x_to_check_tmp
+                                                       ) > 2:
+                    if not isinstance(first_split_idx, set):
+                        first_split_idx_set = set(first_split_idx)
+
+                    values_x_to_check = [val for val in values_x_to_check_tmp
+                                         if val in first_split_idx_set]
+                    if not values_x_to_check:
+                        values_x_to_check = values_x_to_check_tmp
+                else:
+                    values_x_to_check = values_x_to_check_tmp
+        case 'unord':
+            # Take the pre-computed values of the splitting points that fall
+            #  into the range of the data
+            if no_gain_split:
+                no_of_evalupoints = 1
+                eva_cat_mult = 1
+            (values_x_to_check, values_comp_all_m_i
+             ) = combinations_categorical_eff(
+                data_x_m_i, data_ps_diff, values_comp_all_m_i,
+                no_of_evalupoints,
+                select_values=select_values_cat,
+                factor=eva_cat_mult,
+                with_numba=with_numba,
+                seed=seed)
+        case _:
+            raise ValueError('Wrong data type')
+
     return values_x_to_check, values_comp_all_m_i
 
 
-def combinations_categorical_eff(single_x_np: np.ndarray,
-                                 ps_np_diff: np.ndarray,
-                                 values_comp_all: list[tuple, ...] | None,
+def combinations_categorical_eff(single_x_np: NDArray[Any],
+                                 ps_np_diff: NDArray[Any],
+                                 values_comp_all: list[tuple] | None,
                                  no_of_evalupoints: int,
                                  select_values: bool = False,
                                  factor: Real = 1,
                                  with_numba: bool = True,
-                                 seed: int = 123456
+                                 seed: int = 123456,
                                  ) -> tuple[list, list]:
     """Create all possible combinations of list elements, w/o complements."""
     values = np.unique(single_x_np)
@@ -593,7 +612,7 @@ def combinations_categorical_eff(single_x_np: np.ndarray,
 
 def add_combis(combinations_: list,
                values_sorted: list,
-               no_values_to_add: int
+               no_values_to_add: int,
                ) -> list:
     """Add combinations."""
     no_to_add = min(no_values_to_add, len(values_sorted) // 2)
@@ -606,7 +625,7 @@ def add_combis(combinations_: list,
 @lru_cache(maxsize=None)
 def find_evapoints_cat(no_values: int,
                        no_of_evalupoints: int,
-                       with_numba: bool = True
+                       with_numba: bool = True,
                        ) -> int:
     """Find number of categories that find to no_of_evaluation points."""
     if no_values < 6:
@@ -731,8 +750,8 @@ def all_combinations_no_complements_eff(values: Sequence[T]
 #     return list_wo_compl
 
 
-def drop_complements_eff(list_all: list[tuple, ...],
-                         values: list[Real, ...],
+def drop_complements_eff(list_all: list[tuple],
+                         values: list[Real],
                          sublist: bool = True
                          ) -> list:
     """
@@ -769,10 +788,10 @@ def drop_complements_eff(list_all: list[tuple, ...],
 
 
 # Appears to be optimized as much as possible. 5.6.2024
-def sorted_values_into_combinations_eff(values_sorted: np.ndarray,
+def sorted_values_into_combinations_eff(values_sorted: NDArray[Any],
                                         no_of_ps: int,
-                                        no_of_values: int
-                                        ) -> list[tuple, ...]:
+                                        no_of_values: int,
+                                        ) -> list[tuple]:
     """
     Transfrom sorted values into unique combinations of values.
 
@@ -800,13 +819,13 @@ def sorted_values_into_combinations_eff(values_sorted: np.ndarray,
 def prepare_data_for_tree_building_eff(optp_: 'OptimalPolicy',
                                        data_df: DataFrame,
                                        seed: int = 123456
-                                       ) -> tuple[np.ndarray, np.ndarray,
+                                       ) -> tuple[NDArray[Any], NDArray[Any],
                                                   list, list, list,  list, list
                                                   ]:
     """Prepare data for tree building."""
     x_type, x_values = optp_.var_x_type, optp_.var_x_values
     # x_values is numpy array
-    data_ps = data_df[optp_.var_dict['polscore_name']].to_numpy()
+    data_ps = data_df[optp_.var_cfg.polscore_name].to_numpy()
     data_ps_diff = data_ps[:, 1:] - data_ps[:, 0, np.newaxis]
     data_opt_treat = np.argmax(data_ps, axis=1)
     no_of_x = len(x_type)
@@ -819,29 +838,29 @@ def prepare_data_for_tree_building_eff(optp_: 'OptimalPolicy',
         vals = np.array(x_values[key])  # Values are sorted - all vars
         if type_x[j] == 'cont':
             obs = len(vals)
-            start = obs / optp_.pt_dict['no_of_evalupoints'] / 2
+            start = obs / optp_.pt_cfg.no_of_evalupoints / 2
             stop = obs - 1 - start
             indi = np.linspace(start, stop,
-                               num=optp_.pt_dict['no_of_evalupoints'],
+                               num=optp_.pt_cfg.no_of_evalupoints,
                                dtype=np.int32)
             values_x[j] = vals[indi]
         else:
             values_x[j] = vals.copy()
     data_x = data_df[name_x].to_numpy()
     del data_df
-    if optp_.gen_dict['x_unord_flag']:
+    if optp_.gen_cfg.x_unord_flag:
         for m_i in range(no_of_x):
             if type_x[m_i] == 'unord':
                 data_x[:, m_i] = np.round(data_x[:, m_i])
                 (values_x[m_i], values_comp_all[m_i]
                  ) = combinations_categorical_eff(
                     data_x[:, m_i], data_ps_diff, None,
-                    optp_.pt_dict['no_of_evalupoints'],
-                    select_values=optp_.pt_dict['select_values_cat'],
-                    factor=optp_.pt_dict['eva_cat_mult'],
-                    with_numba=optp_.int_dict['with_numba'],
-                    seed=seed)
-
+                    optp_.pt_cfg.no_of_evalupoints,
+                    select_values=optp_.pt_cfg.select_values_cat,
+                    factor=optp_.pt_cfg.eva_cat_mult,
+                    with_numba=optp_.int_cfg.with_numba,
+                    seed=seed
+                    )
     return (data_x, data_ps, data_ps_diff, data_opt_treat,
             name_x, type_x, values_x, values_comp_all
             )
@@ -863,13 +882,14 @@ def prepare_ordered_for_xtr_splits(type_x: list, values_x: list) -> list:
                                                      number_of_splits)
             else:
                 values_x_xtr_p[idx] = [values_to_split]    # Make it a list
+
     return values_x_xtr_p
 
 
 # Optimized version
-def get_values_cont_ord_x_eff(data_vector: np.ndarray,
-                              x_values: np.ndarray
-                              ) -> np.ndarray:
+def get_values_cont_ord_x_eff(data_vector: NDArray[Any],
+                              x_values: NDArray[Any],
+                              ) -> NDArray[Any]:
     """Get cut-off points for tree splitting for single continuous variables.
 
     Parameters
@@ -901,7 +921,7 @@ def get_values_cont_ord_x_eff(data_vector: np.ndarray,
     return split_x_values
 
 
-def no_further_gain_split_funct(opt_treat: np.ndarray) -> bool:
+def no_further_gain_split_funct(opt_treat: NDArray[Any]) -> bool:
     """Define if additional leaf splitting can lead to improvements."""
     no_further_gain_split = np.all(opt_treat == opt_treat[0])
 

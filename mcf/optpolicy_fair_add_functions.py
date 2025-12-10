@@ -7,8 +7,10 @@ Functions for correcting scores w.r.t. protected variables.
 # -*- coding: utf-8 -*-
 """
 from copy import deepcopy
+from typing import Any
 
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 from sklearn.cluster import KMeans
 
@@ -27,32 +29,32 @@ def cont_or_discrete(data_df: pd.DataFrame,
     x_cont_names, x_discr_names = [], []
 
     for var in x_ord_name:
-        info_var_dict = {}
+        info_var_dic = {}
         unique_count = data_df[var].nunique()
         if unique_count < cont_min_values:
-            info_var_dict['type'] = 'discr'
-            info_var_dict['fair_name'] = var + '_fair'
+            info_var_dic['type'] = 'discr'
+            info_var_dic['fair_name'] = var + '_fair'
             x_discr_names.append(var)
         else:
-            info_var_dict['type'] = 'cont'
-            info_var_dict['fair_name'] = var + '_fair'
+            info_var_dic['type'] = 'cont'
+            info_var_dic['fair_name'] = var + '_fair'
             x_cont_names.append(var)
-        info_dict[var] = info_var_dict.copy()
+        info_dict[var] = info_var_dic.copy()
 
     for var in x_unord_name:
-        info_var_dict = {}
-        info_var_dict['type'] = 'discr'
+        info_var_dic = {}
+        info_var_dic['type'] = 'discr'
         x_discr_names.append(var)
-        info_dict[var] = info_var_dict.copy()
+        info_dict[var] = info_var_dic.copy()
 
     return x_cont_names, x_discr_names, info_dict
 
 
-def score_combinations(scores_fair_np: np.ndarray,
+def score_combinations(scores_fair_np: NDArray[Any],
                        scores_fair_name: list | tuple,
-                       scores_np: np.ndarray,
+                       scores_np: NDArray[Any],
                        scores_name: list | tuple
-                       ) -> tuple[np.ndarray, np.ndarray, list, list]:
+                       ) -> tuple[NDArray[Any], NDArray[Any], list, list]:
     """Find and create combinations of scores that can be tested."""
     fs_np, fs_name, s_np, s_name = check_if_variation(
         scores_fair_np, scores_fair_name, scores_np, scores_name)
@@ -74,11 +76,11 @@ def score_combinations(scores_fair_np: np.ndarray,
     return test_np, test_fair_np, test_name, test_fair_name
 
 
-def check_if_variation(fair_scores_np: np.ndarray,
+def check_if_variation(fair_scores_np: NDArray[Any],
                        fairscores_name: list | tuple,
-                       scores_np: np.ndarray,
-                       scores_name: list | tuple
-                       ) -> tuple[np.ndarray, list, np.ndarray, list]:
+                       scores_np: NDArray[Any],
+                       scores_name: list | tuple,
+                       ) -> tuple[NDArray[Any], list, NDArray[Any], list]:
     """Delete scores without variation."""
     const = 1e-8
     score_const = (np.std(fair_scores_np, axis=0)
@@ -97,54 +99,50 @@ def check_if_variation(fair_scores_np: np.ndarray,
     return fs_np, fs_name, s_np, s_name
 
 
-def change_variable_names_fair(var_dict: dict,
-                               fairscore_name: list | tuple
+def change_variable_names_fair(var_cfg: Any,
+                               fairscore_name: list | tuple,
                                ) -> dict:
     """Change variable names to account for fair scores."""
-    var_dic = deepcopy(var_dict)
-    if var_dic['polscore_desc_name'] is not None:
-        var_dic['polscore_desc_name'].extend(
-            var_dic['polscore_name'].copy())
+    var_cfg = deepcopy(var_cfg)
+    if var_cfg.polscore_desc_name is not None:
+        var_cfg.polscore_desc_name.extend(var_cfg.polscore_name.copy())
     else:
-        var_dic['polscore_desc_name'] = var_dic['polscore_name'].copy()
+        var_cfg.polscore_desc_name = var_cfg.polscore_name.copy()
     # Remove duplicates from list without changing order
-    var_dic['polscore_desc_name'] = remove_duplicates(
-        var_dic['polscore_desc_name'])
+    var_cfg.polscore_desc_name = remove_duplicates(var_cfg.polscore_desc_name)
 
-    if (var_dic['vi_x_name'] is not None
-            and var_dic['protected_ord_name'] is not None):
-        var_dic['vi_x_name'].extend(var_dic['protected_ord_name'])
-    elif (var_dic['vi_x_name'] is None
-          and var_dic['protected_ord_name'] is not None):
-        var_dic['vi_x_name'] = var_dic['protected_ord_name']
+    if var_cfg.vi_x_name is not None and var_cfg.protected_ord_name is not None:
+        var_cfg.vi_x_name.extend(var_cfg.protected_ord_name)
+    elif var_cfg.vi_x_name is None and var_cfg.protected_ord_name is not None:
+        var_cfg.vi_x_name = var_cfg.protected_ord_name
 
-    if (var_dic['vi_to_dummy_name'] is not None
-            and var_dic['protected_unord_name'] is not None):
-        var_dic['vi_to_dummy_name'].extend(var_dic['protected_unord_name'])
-    elif (var_dic['vi_to_dummy_name'] is None
-          and var_dic['protected_ord_name'] is not None):
-        var_dic['vi_to_dummy_name'] = var_dic['protected_unord_name']
+    if (var_cfg.vi_to_dummy_name is not None
+            and var_cfg.protected_unord_name is not None):
+        var_cfg.vi_to_dummy_name.extend(var_cfg.protected_unord_name)
+    elif (var_cfg.vi_to_dummy_name is None
+          and var_cfg.protected_ord_name is not None):
+        var_cfg.vi_to_dummy_name = var_cfg.protected_unord_name
 
-    if var_dic['vi_x_name'] is not None:
-        var_dic['vi_x_name'] = unique_list(var_dic['vi_x_name'])
-    if var_dic['vi_to_dummy_name'] is not None:
-        var_dic['vi_to_dummy_name'] = unique_list(var_dic['vi_to_dummy_name'])
+    if var_cfg.vi_x_name is not None:
+        var_cfg.vi_x_name = unique_list(var_cfg.vi_x_name)
+    if var_cfg.vi_to_dummy_name is not None:
+        var_cfg.vi_to_dummy_name = unique_list(var_cfg.vi_to_dummy_name)
 
-    var_dic['polscore_name'] = fairscore_name
+    var_cfg.polscore_name = fairscore_name
 
-    return var_dic
+    return var_cfg
 
 
-def fair_stats(gen_dic: dict,
-               var_dic: dict,
+def fair_stats(gen_cfg: Any,
+               var_cfg: Any,
                data_df: pd.DataFrame,
                var_name: list | tuple,
                var_fair_name: list | tuple,
                var_continuous: bool = True,
-               cont_min_values: int | float = 20
+               cont_min_values: int | float = 20,
                ) -> str:
     """Compute descriptive statistics of fairness adjustments."""
-    prot_names = var_dic['protected_name']
+    prot_names = var_cfg.protected_name
     if var_continuous:
         measure = 'Correlation'
         var_type = 'continuous'
@@ -160,7 +158,7 @@ def fair_stats(gen_dic: dict,
     all_variables = [x for x in all_variables_all
                      if not (x in seen or seen.add(x))]
     stats = np.round(data_df[all_variables].describe().T, 3)
-    # TODO: Is this need or the result of a previous bug?
+
     data_df = data_df.loc[:, ~data_df.columns.duplicated()]
     if var_continuous:
         corr = np.round(data_df[all_variables].corr() * 100, 1)
@@ -204,23 +202,25 @@ def fair_stats(gen_dic: dict,
               'variables in %'
             + '\n' + label + '\n' + str(correlations_df)
             )
-    mcf_ps.print_mcf(gen_dic, txt, summary=True)
+    mcf_ps.print_mcf(gen_cfg, txt, summary=True)
+
     return txt
 
 
-def var_to_std(var: np.ndarray, constant: np.ndarray) -> np.ndarray:
+def var_to_std(var: NDArray[Any], constant: NDArray[Any]) -> NDArray[Any]:
     """Change variance to standard deviation."""
     var_neu = var.copy()
     mask_var = var < constant
     if mask_var.any():
         var_neu = np.where(mask_var, constant, var)
+
     return np.sqrt(var_neu)
 
 
-def bound_std(std: np.ndarray,
+def bound_std(std: NDArray[Any],
               bound: float,
               no_of_scores: int
-              ) -> np.ndarray:
+              ) -> NDArray[Any]:
     """Lower bound for standard deviation to avoid explosion of values."""
     std_neu = std.copy()
     for idx in range(no_of_scores):
@@ -231,64 +231,64 @@ def bound_std(std: np.ndarray,
     return std_neu
 
 
-def data_quantilized(fair_dic: dict,
-                     protected_in_np: np.ndarray,
-                     material_in_np: np.ndarray,
+def data_quantilized(fair_cfg: Any,
+                     protected_in_np: NDArray[Any],
+                     material_in_np: NDArray[Any],
                      seed: int = 12345
-                     ) -> tuple[np.ndarray, np.ndarray, str]:
+                     ) -> tuple[NDArray[Any], NDArray[Any], str]:
     """Prepare the data (discretize) for fairness quantilization."""
     txt = ''
     # Materially relevant variables if they exist, and if relevant
     if material_in_np is not None:
-        mat_max_groups = fair_dic['material_max_groups']
-        if fair_dic['material_disc_method'] == 'EqualCell':
-            material_np = discretize_equalcell(material_in_np,
-                                               mat_max_groups
-                                               )
-        elif fair_dic['material_disc_method'] == 'Kmeans':
-            material_np = discretize_kmeans(material_in_np,
-                                            mat_max_groups,
-                                            seed=seed
-                                            )
-        elif fair_dic['material_disc_method'] == 'NoDiscretization':
-            material_np = recode_no_discretization(material_in_np)
-        else:
-            raise ValueError('Unknown discretization method.')
-        if fair_dic['material_disc_method'] != 'NoDiscretization':
+        mat_max_groups = fair_cfg.material_max_groups
+        method = getattr(fair_cfg, 'material_disc_method')
+
+        match method:
+            case 'EqualCell':
+                material_np = discretize_equalcell(material_in_np,
+                                                   mat_max_groups
+                                                   )
+            case 'Kmeans':
+                material_np = discretize_kmeans(material_in_np,
+                                                mat_max_groups, seed=seed
+                                                )
+            case 'NoDiscretization':
+                material_np = recode_no_discretization(material_in_np)
+            case _:
+                raise ValueError(f'Unknown discretization method: {method!r}')
+
+        if fair_cfg.material_disc_method != 'NoDiscretization':
             txt += ('\nMaterially relevant features discretized: '
                     f'{len(np.unique(material_np))} cells.'
                     )
     else:
         material_np = None
 
-    if fair_dic['protected_disc_method'] == 'EqualCell':
-        protected_np = discretize_equalcell(
-            protected_in_np,
-            fair_dic['protected_max_groups']
-            )
-    elif fair_dic['protected_disc_method'] == 'Kmeans':
-        protected_np = discretize_kmeans(
-            protected_in_np,
-            fair_dic['protected_max_groups'],
-            seed=seed+124335
-            )
-    elif fair_dic['protected_disc_method'] == 'NoDiscretization':
-        protected_np = recode_no_discretization(protected_in_np)
-    else:
-        raise ValueError('Unknown discretization method.')
+    method = getattr(fair_cfg, 'protected_disc_method')
+    k = fair_cfg.protected_max_groups
+    match method:
+        case 'EqualCell':
+            protected_np = discretize_equalcell(protected_in_np, k)
+        case 'Kmeans':
+            protected_np = discretize_kmeans(protected_in_np, k,
+                                             seed=seed + 124335
+                                             )
+        case 'NoDiscretization':
+            protected_np = recode_no_discretization(protected_in_np)
+        case _:
+            raise ValueError(f'Unknown discretization method: {method!r}')
 
-    if fair_dic['protected_disc_method'] != 'NoDiscretization':
+    if fair_cfg.protected_disc_method != 'NoDiscretization':
         txt += ('\nProtected features discretized: '
                 f'{len(np.unique(protected_np))} cells.'
                 )
-
     return protected_np, material_np, txt
 
 
-def discretize_kmeans(data_in_np: np.ndarray,
+def discretize_kmeans(data_in_np: NDArray[Any],
                       max_groups: int | float,
                       seed: int = 12345
-                      ) -> np.ndarray:
+                      ) -> NDArray[Any]:
     """Discretize using cells of similar size (for cont. features)."""
     data_np = KMeans(
         n_clusters=max_groups,
@@ -305,7 +305,9 @@ def discretize_kmeans(data_in_np: np.ndarray,
     return data_np.reshape(-1, 1)
 
 
-def discretize_equalcell(data_in_np: np.ndarray, max_groups: int) -> np.ndarray:
+def discretize_equalcell(data_in_np: NDArray[Any],
+                         max_groups: int
+                         ) -> NDArray[Any]:
     """Discretize using cells of similar size (for cont. features)."""
     data_np = data_in_np.copy()
 
@@ -322,7 +324,7 @@ def discretize_equalcell(data_in_np: np.ndarray, max_groups: int) -> np.ndarray:
     return data_np.reshape(-1, 1)
 
 
-def no_discretization(data_np: np.ndarray | None, threshold: int) -> bool:
+def no_discretization(data_np: NDArray[Any] | None, threshold: int) -> bool:
     """Check if unique values summed up over columns is > than threshold."""
     if data_np is None:
         return True
@@ -337,23 +339,23 @@ def no_discretization(data_np: np.ndarray | None, threshold: int) -> bool:
     return True
 
 
-def recode_no_discretization(data_in_np: np.ndarray) -> np.ndarray:
+def recode_no_discretization(data_in_np: NDArray[Any]) -> NDArray[Any]:
     """Recode unique values starting with 0."""
     _, ids = np.unique(data_in_np, axis=0, return_inverse=True)
 
     return ids.reshape(-1, 1)
 
 
-def reshuffle_share_rows(data_org_np: np.ndarray,
+def reshuffle_share_rows(data_org_np: NDArray[Any],
                          share: float,
-                         seed: int = None
-                         ) -> np.ndarray:
+                         seed: int = None,
+                         ) -> NDArray[Any]:
     """Reshuffle a share of rows in a numpy array."""
     data_np = data_org_np.copy()
     if share == 0:
         return data_np
 
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(seed=seed)
     n_rows = data_np.shape[0]
     n_sample = int(np.floor(share * n_rows))
 
@@ -372,11 +374,11 @@ def reshuffle_share_rows(data_org_np: np.ndarray,
     return result
 
 
-def add_noise_discrete(xvars_in_np: np.ndarray,
+def add_noise_discrete(xvars_in_np: NDArray[Any],
                        seed: int = 1234567,
-                       ) -> tuple[np.ndarray, list[float], list[list[float]]]:
+                       ) -> tuple[NDArray[Any], list[float], list[list[float]]]:
     """Add a little noise to discrete variables."""
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(seed=seed)
     noise = rng.uniform(-0.05, 0.05, size=(xvars_in_np.shape[0],))
     xvars_noise_np = xvars_in_np.copy()
     unique_values_all = []
@@ -393,9 +395,9 @@ def add_noise_discrete(xvars_in_np: np.ndarray,
     return xvars_noise_np, unique_values_all
 
 
-def remove_noise_discrete(xvars_noise_np: np.ndarray,
+def remove_noise_discrete(xvars_noise_np: NDArray[Any],
                           unique_values_all: list[list[float]],
-                          ) -> tuple[np.ndarray, list[float]]:
+                          ) -> NDArray[Any]:
     """Remove the noise from discrete variables."""
     xvars_np = np.zeros_like(xvars_noise_np)
 

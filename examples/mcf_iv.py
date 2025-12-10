@@ -10,7 +10,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.8.0
+Version: 0.9.0
 
 This is an example to show how IV estimation can be implemented relying on
 defaults. Note that usually in applications it is very likely to be appropriate
@@ -36,7 +36,6 @@ training_df, prediction_df, name_dict = example_data(
     strength_iv=10,
     no_effect=True
     )
-
 # ------------------ Parameters of the ModifiedCausalForest -------------------
 APPLIC_PATH = Path.cwd() / 'example/output'
 
@@ -80,7 +79,7 @@ P_IV_AGGREGATION_METHOD = None
 if not APPLIC_PATH.exists():
     APPLIC_PATH.mkdir(parents=True)
 
-# Modules may sent many irrelevant warnings: Globally ignore them
+# Modules may send many irrelevant warnings: Globally ignore them
 warnings.filterwarnings('ignore')
 # -----------------------------------------------------------------------------
 mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
@@ -95,7 +94,6 @@ mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
                              cf_boot=CF_BOOT,
                              p_iv_aggregation_method=P_IV_AGGREGATION_METHOD,
                              )
-
 mymcf.train_iv(training_df)
 results_global, results_local = mymcf.predict_iv(prediction_df)
 

@@ -8,39 +8,43 @@ Created on Mon Dec  4 14:34:33 2023
 # -*- coding: utf-8 -*-
 """
 import numpy as np
-import torch
+
+try:
+    import torch  # type: ignore[import]
+except (ImportError, OSError):
+    torch = None  # type: ignore[assignment]
 
 
-def tdtype(type_='float', precision=32):
+def tdtype(type_: str = 'float', precision: int = 32) -> torch.dtype:
     """Set precision and type of torch tensor."""
-    if type_ == 'bool':
-        datatype = torch.bool
-    elif type_ == 'int':
-        if precision == 8:
-            datatype = torch.int8
-        elif precision == 16:
-            datatype = torch.int16
-        elif precision == 32:
-            datatype = torch.int32
-        elif precision == 64:
-            datatype = torch.int64
-        else:
-            raise ValueError('Precision for int must be 8, 16, 32, or 64')
-    elif type_ == 'float':
-        if precision == 16:
-            datatype = torch.float16
-        elif precision == 32:
-            datatype = torch.float32
-        elif precision == 64:
-            datatype = torch.float64
-        else:
-            raise ValueError('Precision for float must be 16, 32, or 64')
-    else:
-        raise ValueError('type_ must be bool, int, or float.')
-    return datatype
+    match type_:
+        case 'bool':
+            return torch.bool
+
+        case 'int':
+            match precision:
+                case 8: return torch.int8
+                case 16: return torch.int16
+                case 32: return torch.int32
+                case 64: return torch.int64
+                case _: raise ValueError('Precision for int must be 8, '
+                                         '16, 32, or 64'
+                                         )
+        case 'float':
+            match precision:
+                case 16: return torch.float16
+                case 32: return torch.float32
+                case 64: return torch.float64
+                case _: raise ValueError('Precision for float must be '
+                                         '16, 32, or 64'
+                                         )
+        case _:
+            raise ValueError('type_ must be bool, int, or float.')
 
 
-def split_into_batches(data_size, batch_max_size):
+def split_into_batches(data_size: int,
+                       batch_max_size: int
+                       ) -> list[np.integer]:
     """
     Split a dataset into batches of indices.
 
@@ -60,4 +64,5 @@ def split_into_batches(data_size, batch_max_size):
     indices = np.arange(data_size)
     batches = [tuple(indices[i:i + batch_max_size])
                for i in range(0, data_size, batch_max_size)]
+
     return batches

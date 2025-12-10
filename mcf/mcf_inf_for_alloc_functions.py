@@ -7,9 +7,13 @@ when policy scores evaluated here are based on mcf training.
 @author: MLechner
 """
 from copy import deepcopy
+from pathlib import Path
+from typing import Any, TYPE_CHECKING
 from time import time
 
 import numpy as np
+from numpy.typing import NDArray
+from pandas import DataFrame
 import pandas as pd
 
 from mcf import mcf_ate_functions as mcf_ate
@@ -22,8 +26,14 @@ from mcf import mcf_local_centering_functions as mcf_lc
 from mcf import mcf_print_stats_functions as mcf_ps
 from mcf import mcf_weight_functions as mcf_w
 
+if TYPE_CHECKING:
+    from mcf.mcf_main import ModifiedCausalForest
 
-def predict_different_allocations_main(self, data_df, allocations_df=None):
+
+def predict_different_allocations_main(self,
+                                       data_df: DataFrame,
+                                       allocations_df: DataFrame | None = None
+                                       ) -> tuple[dict, Path]:
     """
     Predict average potential outcomes + IATEs for different allocations.
 
@@ -72,7 +82,7 @@ def predict_different_allocations_main(self, data_df, allocations_df=None):
                                                       )
     mcf_init_update.int_update_pred(self, len(data_df))
     mcf_init_update.post_update_pred(self, data_df)
-    if self.int_dict['with_output']:
+    if self.gen_cfg.with_output:
         mcf_ps.print_dic_values_all(self, summary_top=True, summary_dic=False,
                                     train=False
                                     )
@@ -80,12 +90,12 @@ def predict_different_allocations_main(self, data_df, allocations_df=None):
     #    variables to prime numbers, cont. vars. This is done here as we need
     #    the same variables as were used in training.
     data_df = mcf_data.create_xz_variables(self, data_df, train=False)
-    if self.int_dict['with_output'] and self.int_dict['verbose']:
+    if self.gen_cfg.with_output and self.gen_cfg.verbose:
         mcf_data.print_prime_value_corr(self.data_train_dict,
-                                        self.gen_dict, summary=False
+                                        self.gen_cfg, summary=False
                                         )
     # Clean data and remove missings and unncessary variables
-    if self.dc_dict['clean_data']:
+    if self.dc_cfg.clean_data:
         data_df, report['alloc_prediction_obs'] = mcf_data.clean_data(
             self, data_df, train=False, d_alloc_names=alloc_names
             )
@@ -94,10 +104,12 @@ def predict_different_allocations_main(self, data_df, allocations_df=None):
     time_1 = time()
 
     # Enforce common support as determined in training
-    if self.cs_dict['type']:
+    if self.cs_cfg.type_:
         (data_df, _, report['alloc_cs_p_share_deleted'],
-         report['alloc_cs_p_obs_remain'], _, _, _, _) = mcf_cs.common_support(
-             self, data_df, None, train=False)
+         report['alloc_cs_p_obs_remain'], _, _, _, _
+         ) = mcf_cs.common_support_p_score(self, data_df, None, train=False,
+                                           p_score_only=False
+                                           )
     else:
         report['alloc_cs_p_share_deleted'] = 0
         report['alloc_cs_p_obs_remain'] = len(data_df)
@@ -107,7 +119,7 @@ def predict_different_allocations_main(self, data_df, allocations_df=None):
     time_2 = time()
 
     # Enforce local centering for IATE as (and if) enforced in training
-    if self.lc_dict['yes'] and self.lc_dict['uncenter_po']:
+    if self.lc_cfg.yes and self.lc_cfg.uncenter_po:
         (_, _, y_pred_x_df, _) = mcf_lc.local_centering(self, data_df,
                                                         None, train=False)
     else:
@@ -118,18 +130,16 @@ def predict_different_allocations_main(self, data_df, allocations_df=None):
 
     ate_dic = w_alloc_np = w_alloc_var_np = None
 
-    only_one_fold_one_round = (self.cf_dict['folds'] == 1
-                               and len(self.cf_dict['est_rounds']) == 1)
-    for fold in range(self.cf_dict['folds']):
+    only_one_fold_one_round = (self.cf_cfg.folds == 1
+                               and len(self.cf_cfg.est_rounds) == 1)
+    for fold in range(self.cf_cfg.folds):
         time_w_start = time()
         if only_one_fold_one_round:
             forest_dic = self.forest[fold][0]
         else:
             forest_dic = deepcopy(self.forest[fold][0])
-        if self.int_dict['with_output'] and self.int_dict['verbose']:
-            print(f'\n\nWeight maxtrix {fold+1} /'
-                  f'{self.cf_dict["folds"]} forests'
-                  )
+        if self.gen_cfg.with_output and self.gen_cfg.verbose:
+            print(f'\n\nWeight maxtrix {fold+1} / {self.cf_cfg.folds} forests')
         weights_dic = mcf_w.get_weights_mp(
             self, data_df, forest_dic, reg_round='regular', with_output=True)
         time_delta_weight += time() - time_w_start
@@ -142,7 +152,7 @@ def predict_different_allocations_main(self, data_df, allocations_df=None):
         ate_dic = mcf_est.aggregate_pots(
             self, y_pot_f, y_pot_var_f, txt_w_f, ate_dic, fold,
             title='All in one treatment')
-        if self.int_dict['del_forest']:
+        if self.int_cfg.del_forest:
             del forest_dic['forest']
         time_delta_ate += time() - time_a_start
 
@@ -163,16 +173,16 @@ def predict_different_allocations_main(self, data_df, allocations_df=None):
 
     if allocations_df is not None:
         time_i_start = time()
-        w_alloc_np /= self.cf_dict['folds']
-        w_alloc_var_np /= (self.cf_dict['folds'] ** 2)
+        w_alloc_np /= self.cf_cfg.folds
+        w_alloc_var_np /= (self.cf_cfg.folds ** 2)
         time_delta_alloc += time() - time_i_start
 
-    if not only_one_fold_one_round and self.int_dict['del_forest']:
+    if not only_one_fold_one_round and self.int_cfg.del_forest:
         self.forest[fold] = None
         # Without this and the following delete, it becomes impossible
         # to reuse the same forest for several data sets, which is bad.
 
-    if self.int_dict['del_forest']:
+    if self.int_cfg.del_forest:
         self.forest = None
 
     del weights_dic
@@ -188,7 +198,7 @@ def predict_different_allocations_main(self, data_df, allocations_df=None):
         time_i_start = time()
         alloc_df, txt_alloc = alloc_effects_print(self,
                                                   w_alloc_np, w_alloc_var_np,
-                                                  y_pred_x_df,
+                                                  y_pred_x_df, len(data_df),
                                                   alloc_names=alloc_all_names,
                                                   alloc_single_names=alloc_names
                                                   )
@@ -201,13 +211,13 @@ def predict_different_allocations_main(self, data_df, allocations_df=None):
         'ate': ate, 'ate_se': ate_se, 'ate_effect_list': ate_effect_list,
         'alloc_df': alloc_df,
         }
-    if self.int_dict['with_output']:
+    if self.gen_cfg.with_output:
         report['alloc_mcf_pred_results'] = results
         self.report['predict_list'].append(report.copy())
         self.report['alloc_welfare_allocations'] = txt_alloc
 
     time_end = time()
-    if self.int_dict['with_output']:
+    if self.gen_cfg.with_output:
         time_string = [
             'Data preparation and stats II:                  ',
             'Common support:                                 ',
@@ -220,16 +230,20 @@ def predict_different_allocations_main(self, data_df, allocations_df=None):
             time_1 - time_start, time_2 - time_1, time_3 - time_2,
             time_delta_weight, time_delta_ate, time_delta_alloc,
             time_end - time_start]
-        mcf_ps.print_mcf(self.gen_dict, self.time_strings['time_train'])
+        mcf_ps.print_mcf(self.gen_cfg, self.time_strings['time_train'])
         time_pred = mcf_ps.print_timing(
-            self.gen_dict, 'Predictions for allocations', time_string,
+            self.gen_cfg, 'Predictions for allocations', time_string,
             time_difference, summary=True)
         self.time_strings['time_pred'] = time_pred
 
-    return results, self.gen_dict['outpath']
+    return results, self.gen_cfg.outpath
 
 
-def alloc_est(mcf_, data_df, weights_dic, alloc_names=None):
+def alloc_est(mcf_: 'ModifiedCausalForest',
+              data_df: DataFrame,
+              weights_dic: dict,
+              alloc_names: list[str] | None = None
+              ) -> tuple[NDArray[Any], NDArray[Any], list[str], str]:
     """Estimate values of allocations & their SE using scores & IATEs.
 
     Parameters
@@ -250,46 +264,47 @@ def alloc_est(mcf_, data_df, weights_dic, alloc_names=None):
 
     """
     txt = ''
-
+    int_cfg = mcf_.int_cfg
+    p_ba_yes = mcf_.p_ba_cfg
     # Training data
     y_dat = weights_dic['y_dat_np']
-    w_dat = weights_dic['w_dat_np'] if mcf_.gen_dict['weighted'] else None
+    w_dat = weights_dic['w_dat_np'] if mcf_.gen_cfg.weighted else None
 
-    if mcf_.gen_dict['d_type'] == 'continuous':
+    if mcf_.gen_cfg.d_type == 'continuous':
         raise NotImplementedError('Evaluation of allocations is only available'
                                   'for discrete treatments.')
-    if mcf_.p_dict['choice_based_sampling']:
+    if mcf_.p_cfg.choice_based_sampling:
         raise NotImplementedError('Evaluation of allocations is NOT available'
                                   'for choice based sampling.')
-    if mcf_.gen_dict['weighted']:
+    if mcf_.gen_cfg.weighted:
         raise NotImplementedError('Evaluation of allocations is NOT available'
                                   'for weighted sampling.')
 
     d_alloc_np = np.int32(np.round(data_df[alloc_names].to_numpy()))
     no_of_alloc = len(alloc_names)
 
-    n_p, n_y, no_of_out = len(data_df), len(y_dat), len(mcf_.var_dict['y_name'])
+    n_p, n_y, no_of_out = len(data_df), len(y_dat), len(mcf_.var_cfg.y_name)
 
     # Step 1: Aggregate weights
-    if mcf_.int_dict['with_output'] and mcf_.int_dict['verbose']:
+    if mcf_.gen_cfg.with_output and mcf_.gen_cfg.verbose:
         print('\n\nComputing values of allocations')
 
     # Compute weights for each alloc
     w_alloc = np.zeros((no_of_alloc, n_y))
     weights = weights_dic['weights']
-    if mcf_.int_dict['weight_as_sparse']:
+    if int_cfg.weight_as_sparse:
         for j in range(n_p):
             w_add = np.zeros((no_of_alloc, n_y))
             d_values_j = np.unique(d_alloc_np[j, :])  # Should be fast
-            for t_ind, _ in enumerate(mcf_.gen_dict['d_values']):
+            for t_ind, _ in enumerate(mcf_.gen_cfg.d_values):
                 if t_ind in d_values_j:
                     w_i_csr = weights[t_ind][j, :]   # copy, but still sparse
                     sum_wi = w_i_csr.sum()
-                    if sum_wi <= 1e-15:
+                    if sum_wi <= int_cfg.zero_tol:
                         txt = f'\nEmpty leaf. Observation: {j}'
-                        mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+                        mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=True)
                         raise RuntimeError(txt)
-                    if not (1-1e-10) < sum_wi < (1+1e-10):
+                    if not (1-int_cfg.sum_tol) < sum_wi < (1+int_cfg.sum_tol):
                         w_i_csr = w_i_csr.multiply(1 / sum_wi)
                     w_i_dense = w_i_csr.todense()
                     for jdx, d_j in enumerate(d_alloc_np[j, :]):
@@ -302,16 +317,16 @@ def alloc_est(mcf_, data_df, weights_dic, alloc_names=None):
         for j, weight_i in enumerate(weights):
             w_add = np.zeros((no_of_alloc, n_y))
             d_values_j = np.unique(d_alloc_np[j, :])  # Should be fast
-            for t_ind, _ in enumerate(mcf_.gen_dict['d_values']):
+            for t_ind, _ in enumerate(mcf_.gen_cfg.d_values):
                 w_i = weight_i[t_ind][1].copy()
                 if t_ind in d_values_j:
                     sum_wi = np.sum(w_i)
-                    if sum_wi <= 1e-15:
+                    if sum_wi <= int_cfg.zero_tol:
                         txt = (f'\nZero weight. Index: {weight_i[t_ind][0]}'
                                f'd_value: {t_ind}\nWeights: {w_i}')
-                        mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+                        mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=True)
                         raise RuntimeError(txt)
-                    if not (1-1e-10) < sum_wi < (1+1e-10):
+                    if not (1-int_cfg.sum_tol) < sum_wi < (1+int_cfg.sum_tol):
                         w_i = w_i / sum_wi
                     for jdx, d_j in enumerate(d_alloc_np[j, :]):
                         if d_j == t_ind:
@@ -323,8 +338,8 @@ def alloc_est(mcf_, data_df, weights_dic, alloc_names=None):
     sumw = np.sum(w_alloc, axis=1)
     w_alloc /= n_p
     for alloc_idx in range(no_of_alloc):
-        if -1e-15 < sumw[alloc_idx] < 1e-15:
-            if mcf_.int_dict['with_output']:
+        if -int_cfg.sum_tol < sumw[alloc_idx] < int_cfg.sum_tol:
+            if mcf_.gen_cfg.with_output:
                 txt += (f'\nAloc name: {alloc_names[alloc_idx]}) '
                         '\nAllocation weights: '
                         f'{w_alloc[alloc_idx, :]}'
@@ -333,35 +348,41 @@ def alloc_est(mcf_, data_df, weights_dic, alloc_names=None):
                         ' \nOr try to use more bootstraps.'
                         ' \nOr Sample may be too small.'
                         )
-                mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+                mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=True)
                 raise RuntimeError(txt)
 
-        if mcf_.p_dict['max_weight_share'] < 1:
+        if mcf_.p_cfg.max_weight_share < 1:
             w_alloc[alloc_idx, :], _, share = mcf_gp.bound_norm_weights(
                  w_alloc[alloc_idx, :],
-                 mcf_.p_dict['max_weight_share']
+                 mcf_.p_cfg.max_weight_share,
+                 zero_tol=int_cfg.zero_tol, sum_tol=int_cfg.sum_tol,
+                 negative_weights_possible=p_ba_yes,
                  )
-            if mcf_.int_dict['with_output']:
+            if mcf_.gen_cfg.with_output:
                 txt += ('\nShare of weights censored at'
-                        f'{mcf_.p_dict["max_weight_share"]*100:8.3f}%: '
+                        f'{mcf_.p_cfg.max_weight_share*100:8.3f}%: '
                         f'{share*100:8.3f}%  Alloc type: {alloc_idx:2} '
                         )
 
-    cl_dat = weights_dic['cl_dat_np'] if mcf_.p_dict['cluster_std'] else None
+    cl_dat = weights_dic['cl_dat_np'] if mcf_.p_cfg.cluster_std else None
 
     # Step 2.2 Compute welfares and their variance for the allocations
     welfare_level = np.zeros((no_of_alloc, no_of_out))
     welfare_level_var = np.empty_like(welfare_level)
     for alloc_idx in range(no_of_alloc):
         for out_idx in range(no_of_out):
+            # TODO: hier bias adjustment, oder vorher?
             ret = mcf_est.weight_var(
                 w_alloc[alloc_idx, :], y_dat[:, out_idx],
-                cl_dat, mcf_.gen_dict, mcf_.p_dict,
+                cl_dat, mcf_.gen_cfg, mcf_.p_cfg,
                 weights=w_dat,
-                bootstrap=mcf_.p_dict['se_boot_ate'],
-                keep_all=mcf_.int_dict['keep_w0'],
+                bootstrap=mcf_.p_cfg.se_boot_ate,
+                keep_all=int_cfg.keep_w0,
                 se_yes=True,
-                normalize=True)
+                normalize=True,
+                zero_tol=int_cfg.zero_tol,
+                sum_tol = int_cfg.sum_tol,
+                )
             welfare_level[alloc_idx, out_idx] = ret[0]
             welfare_level_var[alloc_idx, out_idx] = ret[1]
 
@@ -382,12 +403,15 @@ def alloc_est(mcf_, data_df, weights_dic, alloc_names=None):
                 ret = mcf_est.weight_var(
                     w_alloc[alloc1_idx, :] - w_alloc[alloc2_idx, :],
                     y_dat[:, out_idx],
-                    cl_dat, mcf_.gen_dict, mcf_.p_dict,
+                    cl_dat, mcf_.gen_cfg, mcf_.p_cfg,
                     weights=w_dat,
-                    bootstrap=mcf_.p_dict['se_boot_ate'],
-                    keep_all=mcf_.int_dict['keep_w0'],
+                    bootstrap=mcf_.p_cfg.se_boot_ate,
+                    keep_all=int_cfg.keep_w0,
                     se_yes=True,
-                    normalize=False)
+                    normalize=False,
+                    zero_tol=int_cfg.zero_tol,
+                    sum_tol = int_cfg.sum_tol,
+                    )
                 welfare_diff[alloc_diff_idx, out_idx] = ret[0]
                 welfare_diff_var[alloc_diff_idx, out_idx] = ret[1]
                 alloc_diff_idx += 1
@@ -399,8 +423,14 @@ def alloc_est(mcf_, data_df, weights_dic, alloc_names=None):
     return welfare, welfare_var, all_names, txt
 
 
-def alloc_effects_print(mcf_,  w_alloc_np, w_alloc_var_np, y_pred_lc,
-                        alloc_names=None, alloc_single_names=None):
+def alloc_effects_print(mcf_: 'ModifiedCausalForest',
+                        w_alloc_np: NDArray[Any],
+                        w_alloc_var_np: NDArray[Any],
+                        y_pred_lc: NDArray[Any],
+                        obs: int,
+                        alloc_names: list[str] | None = None,
+                        alloc_single_names: list[str] | None = None
+                        ) -> tuple[DataFrame, str]:
     """Compute ate's from potential outcomes and print them."""
     txt = ''
     if isinstance(y_pred_lc, (pd.Series, pd.DataFrame)):
@@ -408,15 +438,15 @@ def alloc_effects_print(mcf_,  w_alloc_np, w_alloc_var_np, y_pred_lc,
     else:
         lc_yes, y_pred_lc_avg = False, 0
 
-    if mcf_.gen_dict['with_output']:
+    if mcf_.gen_cfg.with_output:
         txt += '\n' * 2 + '=' * 100
         txt += '\nEffects of Allocations Estimation \n' + '-' * 100 + '\n'
         txt += 'Average Outcomes'
         txt += '\n' + '-' * 100
-        if mcf_.p_dict['se_boot_ate'] > 1:
+        if mcf_.p_cfg.se_boot_ate > 1:
             txt += ('\nBootstrap standard errors with '
-                    '{mcf_.p_dict["se_boot_ate"]:<6} replications')
-        for out_idx, out_name in enumerate(mcf_.var_dict['y_name']):
+                    '{mcf_.p_cfg.se_boot_ate:<6} replications')
+        for out_idx, out_name in enumerate(mcf_.var_cfg.y_name):
             out_name_txt = out_name[:-3] if lc_yes else out_name
             txt += '\nOutcome variable: ' + out_name_txt
 
@@ -424,12 +454,12 @@ def alloc_effects_print(mcf_,  w_alloc_np, w_alloc_var_np, y_pred_lc,
                 (w_alloc_np[:len(alloc_single_names), out_idx]
                  ) += y_pred_lc_avg.iloc[out_idx]
             txt += '\n' + '- ' * 50
-            txt += '\n    Outcomes of allocations'
+            txt += '\n    Outcomes of different allocations'
 
             stderr, t_val, p_val = mcf_est.compute_inference(
                 w_alloc_np[:, out_idx],
                 w_alloc_var_np[:, out_idx])
-            txt += mcf_ps.print_effect(w_alloc_np[:, out_idx],
+            txt += mcf_ps.print_effect(w_alloc_np[:, out_idx],  # Effect
                                        stderr,
                                        t_val,
                                        p_val,
@@ -437,26 +467,29 @@ def alloc_effects_print(mcf_,  w_alloc_np, w_alloc_var_np, y_pred_lc,
                                        no_comparison=True
                                        )
 
-            add_txt = ('There could be small differences in standard '
+            add_txt = ('\nNumber of observations used for these calculations: '
+                       f'{obs}.'
+                       '\nThere could be small differences in standard '
                        'errors compared to all-in-1-allocations, \ndue to '
                        'differences in computation.'
+                       '\nNote that cross-fitting and efficient estimation of '
+                       'IATEs (if used) is not accounted for.'
                        )
-            txt += mcf_ps.print_se_info(mcf_.p_dict['cluster_std'],
-                                        mcf_.p_dict['se_boot_ate'],
+            txt += mcf_ps.print_se_info(mcf_.p_cfg.cluster_std,
+                                        mcf_.p_cfg.se_boot_ate,
                                         additional_info=add_txt
                                         )
-
         txt += '\n' + '-' * 100
-        mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True, non_summary=True)
+        mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=True, non_summary=True)
 
     # Fill dataframe to return information about estimation
     row_names = ('est', 'var',)
-    cols = len(mcf_.var_dict['y_name']) * len(alloc_names)
+    cols = len(mcf_.var_cfg.y_name) * len(alloc_names)
     rows = len(row_names)
     alloc_np = np.zeros((rows, cols))
     idx = 0
     col_names = []
-    for out_idx, out_name in enumerate(mcf_.var_dict['y_name']):
+    for out_idx, out_name in enumerate(mcf_.var_cfg.y_name):
         for alloc_idx, alloc in enumerate(alloc_names):
             col_names.append(out_name + '_' + alloc)
             alloc_np[0, idx] = w_alloc_np[alloc_idx, out_idx]
@@ -467,7 +500,10 @@ def alloc_effects_print(mcf_,  w_alloc_np, w_alloc_var_np, y_pred_lc,
     return alloc_df, txt
 
 
-def basic_data_compability_diff_allocations(self, data_df, allocations_df):
+def basic_data_compability_diff_allocations(self,
+                                            data_df: DataFrame,
+                                            allocations_df: DataFrame
+                                            ) -> DataFrame:
     """Perform basic data consistency checks and merge dataframes."""
     if allocations_df is None:
         return data_df

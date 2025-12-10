@@ -6,10 +6,12 @@ Contains the functions needed for the sensitivity analysis.
 -*- coding: utf-8 -*-
 """
 from copy import deepcopy
+from pathlib import Path
 from time import time
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
+from numpy.typing import NDArray
 import matplotlib.pyplot as plt
 import pandas as pd
 from scipy.stats import t
@@ -21,10 +23,10 @@ from mcf import mcf_ate_functions as mcf_ate
 from mcf import mcf_data_functions as mcf_data
 from mcf.mcf_estimation_generic_functions import moving_avg_mean_var
 from mcf import mcf_general as mcf_gp
-from mcf import mcf_init_functions as mcf_init
+from mcf import mcf_general_sys as mcf_sys
+from mcf.mcf_init_predict_sens_functions import SensCfg
 from mcf import mcf_init_update_helper_functions as mcf_init_update
 from mcf import mcf_print_stats_functions as mcf_ps
-from mcf import mcf_general_sys as mcf_sys
 
 if TYPE_CHECKING:
     from mcf.mcf_main import ModifiedCausalForest
@@ -123,36 +125,46 @@ def sensitivity_main(mcf_: 'ModifiedCausalForest',
         iate_df = None
     if not isinstance(predict_df, pd.DataFrame):
         predict_df = train_df.copy()
-    mcf_.sens_dict = mcf_init.sens_init(
-        mcf_.p_dict, cbgate=sens_cbgate, bgate=sens_bgate, gate=sens_gate,
-        iate=sens_iate, iate_se=sens_iate_se, scenarios=sens_scenarios,
-        cv_k=sens_cv_k, replications=sens_replications,
-        reference_population=sens_reference_population, iate_df=iate_df)
-    if mcf_.int_dict['with_output']:
+    mcf_.sens_cfg = SensCfg.from_args(
+        mcf_.p_cfg,
+        cbgate=sens_cbgate, bgate=sens_bgate, gate=sens_gate,
+        iate=sens_iate, iate_se=sens_iate_se,
+        scenarios=sens_scenarios,
+        cv_k=sens_cv_k,
+        replications=sens_replications,
+        reference_population=sens_reference_population,
+        iate_df=iate_df
+        )
+    if mcf_.gen_cfg.with_output:
         time_start = time()
     results_avg, plots_iate, txt_ate = sensitivity_analysis(
-        mcf_, train_df, predict_df, mcf_.int_dict['with_output'], iate_df,
+        mcf_, train_df, predict_df, mcf_.gen_cfg.with_output, iate_df,
         seed=9345467)
     mcf_.report['sens_plots_iate'] = plots_iate
     mcf_.report['sens_txt_ate'] = txt_ate
-    if mcf_.int_dict['with_output']:
+    if mcf_.gen_cfg.with_output:
         time_difference = [time() - time_start]
         time_string = ['Total time for sensitivity analysis:            ']
-        mcf_ps.print_timing(mcf_.gen_dict, 'Sensitiviy analysis', time_string,
+        mcf_ps.print_timing(mcf_.gen_cfg, 'Sensitiviy analysis', time_string,
                             time_difference, summary=True)
 
     return results_avg
 
 
-def sensitivity_analysis(mcf_, train_df, predict_df, with_output, iate_df=None,
-                         seed=12345):
+def sensitivity_analysis(mcf_: 'ModifiedCausalForest',
+                         train_df: pd.DataFrame,
+                         predict_df: pd.DataFrame,
+                         with_output: bool,
+                         iate_df: pd.DataFrame | None = None,
+                         seed: int = 12345,
+                         ) -> tuple[dict, list[Path], str]:
     """Check sensitivity with respect to possible violations."""
-    mcf_.p_dict['bt_yes'] = False
+    mcf_.p_cfg.bt_yes = False
     if with_output:
-        mcf_ps.print_mcf(mcf_.gen_dict,
+        mcf_ps.print_mcf(mcf_.gen_cfg,
                          '\n' + '=' * 100 + '\nSensitivity analysis',
                          summary=True)
-    if mcf_.gen_dict['d_type'] == 'continuous':
+    if mcf_.gen_cfg.d_type == 'continuous':
         raise NotImplementedError('Sensitivity tests not (yet) implemented'
                                   'for continuous treatments.')
 
@@ -163,42 +175,40 @@ def sensitivity_analysis(mcf_, train_df, predict_df, with_output, iate_df=None,
     rng = np.random.default_rng(seed=seed)
     results_all_dict = {}
     placebo_iate_plot = txt_ate = None
-    for scenario in mcf_.sens_dict['scenarios']:
+    for scenario in mcf_.sens_cfg.scenarios:
         if with_output:
             if with_output:
-                mcf_ps.print_mcf(mcf_.gen_dict, '\n' + 'x' * 100
+                mcf_ps.print_mcf(mcf_.gen_cfg, '\n' + 'x' * 100
                                  + '\nSensitivity: Scenario: 'f'{scenario}',
                                  summary=True)
         results_repl = []
-        for repl in range(mcf_.sens_dict['replications']):
+        for repl in range(mcf_.sens_cfg.replications):
             # simulate pseudo.treated
             train_placebo_df, d_probs = simulate_placebo(
                 scenario, treat_probs_np, train_reduced_df, treat_name,
                 treat_values, rng)
             if with_output:
                 d_probs_str = [str(round(p * 100, 2)) + '%' for p in d_probs]
-                mcf_ps.print_mcf(mcf_.gen_dict,
+                mcf_ps.print_mcf(mcf_.gen_cfg,
                                  f'\nSensitivity - Scenario: {scenario}, '
                                  f'Replication: {repl+1}, '
                                  'Simulated treatment shares: '
                                  f'{", ".join(d_probs_str)}',
                                  summary=True)
             mcf_repl = deepcopy(mcf_)
-            if not mcf_.sens_dict['gate']:
-                mcf_repl.var_dict['z_name_cont'] = []
-                mcf_repl.var_dict['z_name_ord'] = []
-                mcf_repl.var_dict['z_name_unord'] = []
-            mcf_repl.p_dict['bgate'] = mcf_.sens_dict['bgate']
-            mcf_repl.p_dict['cbgate'] = mcf_.sens_dict['cbgate']
-            mcf_repl.p_dict['iate'] = mcf_.sens_dict['iate']
-            mcf_repl.p_dict['iate_se'] = mcf_.sens_dict['iate_se']
+            if not mcf_.sens_cfg.gate:
+                mcf_repl.var_cfg.z_name_cont = []
+                mcf_repl.var_cfg.z_name_ord = []
+                mcf_repl.var_cfg.z_name_unord = []
+            mcf_repl.p_cfg.bgate = mcf_.sens_cfg.bgate
+            mcf_repl.p_cfg.cbgate = mcf_.sens_cfg.cbgate
+            mcf_repl.p_cfg.iate = mcf_.sens_cfg.iate
+            mcf_repl.p_cfg.iate_se = mcf_.sens_cfg.iate_se
             if iate_df is not None:
-                mcf_repl.cs_dict['type'] = 0
+                mcf_repl.cs_cfg.type_ = 0
                 # No common support check if iate from main estimation available
-            mcf_repl.gen_dict['with_output'] = False
-            mcf_repl.int_dict['with_output'] = False
-            mcf_repl.gen_dict['verbose'] = False
-            mcf_repl.int_dict['verbose'] = False
+            mcf_repl.gen_cfg.with_output = False
+            mcf_repl.gen_cfg.verbose = False
 
             # Estimate and predict
             mcf_repl.train(train_placebo_df)
@@ -207,23 +217,28 @@ def sensitivity_analysis(mcf_, train_df, predict_df, with_output, iate_df=None,
         results_all_dict[scenario] = deepcopy(results_repl)
     results_avg_dict = average_sens_results(mcf_repl, results_all_dict)
     if with_output:
-        for scenario in mcf_.sens_dict['scenarios']:
-            mcf_ps.print_mcf(mcf_.gen_dict, '\n' + '-' * 100 +
+        for scenario in mcf_.sens_cfg.scenarios:
+            mcf_ps.print_mcf(mcf_.gen_cfg, '\n' + '-' * 100 +
                              f'\nSensitivity - Result scenario: {scenario}',
                              summary=True)
             txt_ate = print_output_ate(mcf_repl, results_avg_dict, scenario)
-            if (mcf_.sens_dict['gate'] or mcf_.sens_dict['bgate']
-                    or mcf_.sens_dict['cbgate']):
+            if (mcf_.sens_cfg.gate or mcf_.sens_cfg.bgate
+                    or mcf_.sens_cfg.cbgate):
                 print_output_gate(mcf_repl, results_avg_dict, scenario)
-            if mcf_.sens_dict['iate']:
+            if mcf_.sens_cfg.iate:
                 placebo_iate_plot = print_iate(
-                    mcf_repl, results_avg_dict, iate_df, scenario)
+                    mcf_repl, results_avg_dict, iate_df, scenario,
+                    )
     return results_avg_dict, placebo_iate_plot, txt_ate
 
 
-def print_iate(mcf_, results_avg_dict, iate_df, scenario):
+def print_iate(mcf_: 'ModifiedCausalForest',
+               results_avg_dict: dict,
+               iate_df: pd.DataFrame,
+               scenario: str,
+               ) -> list[Path]:
     """Print output of sensitivity analysis for IATE."""
-    post_dic = mcf_.post_dict
+    post_cfg = mcf_.post_cfg
     results_scen_dict = results_avg_dict[scenario]
     data_df = results_scen_dict['iate_data_df']
     names_iate = results_scen_dict['iate_names_dic'][0]['names_iate']
@@ -238,22 +253,22 @@ def print_iate(mcf_, results_avg_dict, iate_df, scenario):
         if do_plots:
             file_name_jpeg = plot_iate(mcf_, data_df, iate_df, name_iate)
             files_jpeg.append(file_name_jpeg)
-    mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+    mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=True)
     names_iate_se = results_scen_dict['iate_names_dic'][0]['names_iate_se']
     cluster_lab_np = None
     if names_iate_se is not None:
         t_values_np, t_values_df = cluster_var_t_value(
             data_df, names_iate, names_iate_se,
-            mcf_.int_dict['obs_bigdata']
+            mcf_.int_cfg.obs_bigdata
             )
         silhouette_avg_prev = -1
         txt = '\n' + '- ' * 50 + '\nScenario: {scenario} K-Means++ clustering'
         txt += ' of t-values of IATE \n' + '- ' * 50
-        for cluster_no in post_dic['kmeans_no_of_groups']:
+        for cluster_no in post_cfg.kmeans_no_of_groups:
             cluster_lab_tmp = KMeans(
                 n_clusters=cluster_no,
-                n_init=post_dic['kmeans_replications'], init='k-means++',
-                max_iter=post_dic['kmeans_max_tries'], algorithm='lloyd',
+                n_init=post_cfg.kmeans_replications, init='k-means++',
+                max_iter=post_cfg.kmeans_max_tries, algorithm='lloyd',
                 random_state=42, tol=1e-5, verbose=0, copy_x=True
                 ).fit_predict(t_values_np)
             silhouette_avg = silhouette_score(t_values_np, cluster_lab_tmp)
@@ -283,22 +298,29 @@ def print_iate(mcf_, results_avg_dict, iate_df, scenario):
         txt += '\n' + '-' * 100 + '\nt-values\n' + '- ' * 50
         cl_means = t_values_df.groupby(by=cl_group).mean(numeric_only=True)
         txt += '\n' + cl_means.transpose().to_string()
-        mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+        mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=True)
         txt += '\n' + '-' * 100 + '\nAll other variables\n' + '- ' * 50
         cl_means = data_df.groupby(by=cl_group).mean(numeric_only=True)
         txt = cl_means.transpose().to_string() + '\n' + '-' * 100
         pd.set_option('display.max_rows', 1000, 'display.max_columns', 100)
-        mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+        mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=True)
         pd.set_option('display.max_rows', None, 'display.max_columns', None)
+
     return files_jpeg
 
 
-def plot_iate(mcf_, data_df, iate_df, name_iate):
+def plot_iate(mcf_: 'ModifiedCausalForest',
+              data_df: pd.DataFrame,
+              iate_df: pd.DataFrame,
+              name_iate: list[str] | tuple[str, ...],
+              ) -> Path:
     """Plot IATE under no effects against IATE from main estimation."""
     iate_sim = mcf_gp.to_numpy_big_data(data_df[name_iate],
-                                        mcf_.int_dict['obs_bigdata'])
+                                        mcf_.int_cfg.obs_bigdata
+                                        )
     iate_est = mcf_gp.to_numpy_big_data(iate_df[name_iate],
-                                        mcf_.int_dict['obs_bigdata'])
+                                        mcf_.int_cfg.obs_bigdata
+                                        )
     if len(iate_sim) != len(iate_est):
         raise RuntimeError(
             f'Number of observations in simulated IATEs ({len(iate_sim)}) are '
@@ -310,12 +332,12 @@ def plot_iate(mcf_, data_df, iate_df, name_iate):
     sorted_ind = np.argsort(iate_est)
     iate_sim = iate_sim[sorted_ind]
     iate_est = iate_est[sorted_ind]
-    k = np.round(mcf_.p_dict['knn_const'] * np.sqrt(len(iate_sim)) * 2)
+    k = np.round(mcf_.p_cfg.knn_const * np.sqrt(len(iate_sim)) * 2)
     iate_sim = moving_avg_mean_var(iate_sim, k, False)[0]
 
-    file_name_jpeg = mcf_.gen_dict['outpath'] / f'{name_iate}plac_est.jpeg'
-    file_name_pdf = mcf_.gen_dict['outpath'] / f'{name_iate}plac_est.pdf'
-    file_name_csv = mcf_.gen_dict['outpath'] / f'{name_iate}plac_est.csv'
+    file_name_jpeg = mcf_.gen_cfg.outpath / f'{name_iate}plac_est.jpeg'
+    file_name_pdf = mcf_.gen_cfg.outpath / f'{name_iate}plac_est.pdf'
+    file_name_csv = mcf_.gen_cfg.outpath / f'{name_iate}plac_est.csv'
 
     fig, axe = plt.subplots()
     axe.plot(iate_est, iate_est, 'blue', label='Estimated IATE')
@@ -325,12 +347,12 @@ def plot_iate(mcf_, data_df, iate_df, name_iate):
     axe.set_ylabel('Value of IATEs')
     axe.set_xlabel('Estimated IATEs (sorted)')
     axe.set_title(f'Placebo vs estimated IATEs: {name_iate}')
-    axe.legend(loc=mcf_.int_dict['legend_loc'], shadow=True,
-               fontsize=mcf_.int_dict['fontsize'])
+    axe.legend(loc=mcf_.int_cfg.legend_loc, shadow=True,
+               fontsize=mcf_.int_cfg.fontsize)
     mcf_sys.delete_file_if_exists(file_name_jpeg)
     mcf_sys.delete_file_if_exists(file_name_pdf)
-    fig.savefig(file_name_jpeg, dpi=mcf_.int_dict['dpi'])
-    fig.savefig(file_name_pdf, dpi=mcf_.int_dict['dpi'])
+    fig.savefig(file_name_jpeg, dpi=mcf_.int_cfg.dpi)
+    fig.savefig(file_name_pdf, dpi=mcf_.int_cfg.dpi)
     plt.show()
     plt.close()
     data_to_save = np.concatenate((iate_sim.reshape(-1, 1),
@@ -339,34 +361,44 @@ def plot_iate(mcf_, data_df, iate_df, name_iate):
                             columns=(name_iate+'_sim', name_iate+'_est'))
     mcf_sys.delete_file_if_exists(file_name_csv)
     datasave.to_csv(file_name_csv, index=False)
+
     return file_name_jpeg
 
 
-def cluster_var_t_value(data_df, names_iate, names_iate_se, obs_bigdata):
+def cluster_var_t_value(data_df: pd.DataFrame,
+                        names_iate: list[str] | tuple[str, ...],
+                        names_iate_se: list[str] | tuple[str, ...],
+                        obs_bigdata: bool,
+                        ) -> tuple[NDArray, pd.DataFrame]:
     """Compute t-values to cluster on."""
     est_np = mcf_gp.to_numpy_big_data(data_df[names_iate], obs_bigdata)
     se_np = mcf_gp.to_numpy_big_data(data_df[names_iate_se], obs_bigdata)
     t_val_np = est_np / se_np
     t_val_names = [name + '_t_val' for name in names_iate]
     t_val_df = pd.DataFrame(data=t_val_np, columns=t_val_names)
+
     return t_val_np, t_val_df
 
 
-def iate_stats_str(iate_np):
+def iate_stats_str(iate_np: NDArray) -> str:
     """Compute mean, median, std., and return string ready to print."""
     mean = np.mean(iate_np)
     median = np.median(iate_np)
     std = np.std(iate_np)
     txt = f' Mean: {mean:10.4f}   Median: {median:10.4f}   Std.: {std:10.4f}'
+
     return txt
 
 
-def print_output_gate(mcf_, results_avg_dict, scenario):
+def print_output_gate(mcf_: 'ModifiedCausalForest',
+                      results_avg_dict: dict,
+                      scenario: str,
+                      ) -> None:
     """Print output of sensitivity analysis for gate and bgate."""
     results_scen_dict = results_avg_dict[scenario]
-    continuous = mcf_.gen_dict['d_type'] == 'continuous'
-    d_values = (mcf_.ct_dict['d_values_dr_np']
-                if continuous else mcf_.gen_dict['d_values'])
+    continuous = mcf_.gen_cfg.d_type == 'continuous'
+    d_values = (mcf_.ct_cfg.d_values_dr_np
+                if continuous else mcf_.gen_cfg.d_values)
     effect_list = results_scen_dict['ate_effect_list']
     gates = ('gate', 'bgate', 'cbgate')
     gates_se = ('gate_se', 'bgate_se', 'cbgate_se')
@@ -386,10 +418,10 @@ def print_output_gate(mcf_, results_avg_dict, scenario):
                     z_value = z_values_dic[z_name][idx]
                     gate_z = gate_np[idx, :, :, :]
                     gate_se_z = gate_se_np[idx, :, :, :]
-                    for o_idx, out_name in enumerate(mcf_.var_dict['y_name']):
+                    for o_idx, out_name in enumerate(mcf_.var_cfg.y_name):
                         if idx == 0:
                             txt += '\n' + '- ' * 50
-                        if len(mcf_.var_dict['y_name']) > 1 or idx == 0:
+                        if len(mcf_.var_cfg.y_name) > 1 or idx == 0:
                             txt += f'\nScenario: {scenario} {gate.casefold()} '
                             txt += '(sensitivity) Outcome variable: '
                             txt += f'{out_name}'
@@ -417,22 +449,27 @@ def print_output_gate(mcf_, results_avg_dict, scenario):
                             #     txt += '\n'
                             if continuous and a_idx == 0:
                                 mcf_ate.dose_response_figure(
-                                    out_name, mcf_.var_dict['d_name'][0], est,
-                                    stderr, d_values[1:], mcf_.int_dict,
-                                    mcf_.p_dict)
-            mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+                                    out_name, mcf_.var_cfg.d_name[0], est,
+                                    stderr, d_values[1:], mcf_.int_cfg,
+                                    mcf_.p_cfg,
+                                    with_output=mcf_.gen_cfg.with_output,
+                                    )
+            mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=True)
 
 
-def print_output_ate(mcf_, results_avg_dict, scenario):
+def print_output_ate(mcf_: 'ModifiedCausalForest',
+                     results_avg_dict: dict,
+                     scenario: str,
+                     ) -> str:
     """Print output of sensitivity analysis for ate."""
     results_scen_dict = results_avg_dict[scenario]
     txt = '\n' + '- ' * 50 + '\nATEs (only if p-value < 10%)'
-    continuous = mcf_.gen_dict['d_type'] == 'continuous'
+    continuous = mcf_.gen_cfg.d_type == 'continuous'
     ate, ate_se = results_scen_dict['ate'], results_scen_dict['ate_se']
     effect_list = results_scen_dict['ate_effect_list']
-    d_values = (mcf_.ct_dict['d_values_dr_np']
-                if continuous else mcf_.gen_dict['d_values'])
-    for o_idx, out_name in enumerate(mcf_.var_dict['y_name']):
+    d_values = (mcf_.ct_cfg.d_values_dr_np
+                if continuous else mcf_.gen_cfg.d_values)
+    for o_idx, out_name in enumerate(mcf_.var_cfg.y_name):
         txt += '\n' + '- ' * 50 + f'\nScenario: {scenario} ATE (sensitivity) '
         txt += f'Outcome variable: {out_name}'
         for a_idx in range(ate.shape[1]):
@@ -449,23 +486,31 @@ def print_output_ate(mcf_, results_avg_dict, scenario):
                                        small_p_val_only=True)
             if continuous and a_idx == 0:
                 mcf_ate.dose_response_figure(
-                    out_name, mcf_.var_dict['d_name'][0], est, stderr,
-                    d_values[1:], mcf_.int_dict, mcf_.p_dict)
-    mcf_ps.print_mcf(mcf_.gen_dict, txt, summary=True)
+                    out_name, mcf_.var_cfg.d_name[0], est, stderr,
+                    d_values[1:], mcf_.int_cfg, mcf_.p_cfg,
+                    with_output=mcf_.gen_cfg.with_output
+                    )
+    mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=True)
+
     return txt
 
 
-def get_t_val_pal(est, stderr):
+def get_t_val_pal(est: NDArray[Any],
+                  stderr: NDArray[Any],
+                  ) -> tuple[NDArray[Any], NDArray[Any]]:
     """Get t-value and p-value from estimate and standard error."""
     t_val = np.abs(est / stderr)
     p_val = t.sf(t_val, 1000000) * 2
+
     return t_val, p_val
 
 
-def average_sens_results(mcf_, results_all_dict):
+def average_sens_results(mcf_: 'ModifiedCausalForest',
+                         results_all_dict: dict,
+                         ) -> dict:
     """Average results over replications."""
-    id_name = mcf_.var_dict['id_name'][0]
-    iate = mcf_.p_dict['iate']
+    id_name = mcf_.var_cfg.id_name[0]
+    iate = mcf_.p_cfg.iate
     results_dict_avg = {}
     avg_inside_list = ('cbgate', 'cbgate_diff', 'cbgate_se', 'cbgate_diff_se',
                        'bgate', 'bgate_diff', 'bgate_se', 'bgate_diff_se',
@@ -504,11 +549,14 @@ def average_sens_results(mcf_, results_all_dict):
                                 statistic] /= no_of_replications
         if iate:
             results_dict_avg[scenario][iate_df] = average_iate(iate_df_list,
-                                                               id_name)
+                                                               id_name
+                                                               )
     return results_dict_avg
 
 
-def average_iate(iate_df_list, id_name):
+def average_iate(iate_df_list: list[pd.DataFrame],
+                 id_name: str,
+                 ) -> pd.DataFrame:
     """Average IATE in the subset of those in the same common support."""
     id_list = []
     # Extract iates & reduce to id_values that are contained in id_list
@@ -526,11 +574,18 @@ def average_iate(iate_df_list, id_name):
     for iate in iate_df_list[1:]:
         all_iates = all_iates + pd.merge(id_df, iate, on=id_name, how='inner')
     all_iates = all_iates / len(iate_df_list)
+
     return all_iates
 
 
-def simulate_placebo(scenario, treatment_probs_np, train_df, treat_name,
-                     treat_values, rng):
+def simulate_placebo(
+        scenario: str,
+        treatment_probs_np: NDArray[Any],
+        train_df: pd.DataFrame,
+        treat_name: str,
+        treat_values: list[int | float] | NDArray[np.floating | np.integer],
+        rng: np.random.Generator
+        ) -> tuple[pd.DataFrame, NDArray[Any]]:
     """Simulate placebo outcomes and return data."""
     d_placebo = np.empty((len(train_df), 1))
     if scenario == 'basic':
@@ -544,13 +599,18 @@ def simulate_placebo(scenario, treatment_probs_np, train_df, treat_name,
         raise ValueError('Sensitivity: Attempted scenario does not exist.')
     train_placebo_df = train_df.copy()
     train_placebo_df[treat_name] = d_placebo
+
     return train_placebo_df, d_prob
 
 
-def get_treat_probs_del_treat(mcf_, data_df, with_output):
+def get_treat_probs_del_treat(
+        mcf_: 'ModifiedCausalForest',
+        data_df: pd.DataFrame,
+        with_output: bool
+        ) -> tuple[NDArray[Any], NDArray[Any], str, NDArray[Any]]:
     """Estimate treatment probabilities in training data."""
     mcf_copy = deepcopy(mcf_)
-    mcf_copy.gen_dict['with_output'] = False
+    mcf_copy.gen_cfg.with_output = False
     data_df, _ = mcf_data.data_frame_vars_lower(data_df)
     data_df = mcf_data.check_recode_treat_variable(mcf_copy, data_df)
 
@@ -567,45 +627,45 @@ def get_treat_probs_del_treat(mcf_, data_df, with_output):
     data_df = mcf_data.create_xz_variables(mcf_copy, data_df, train=True)
 
     # Clean data and remove missings and unncessary variables
-    if mcf_copy.dc_dict['clean_data']:
+    if mcf_copy.dc_cfg.clean_data:
         data_df, _ = mcf_data.clean_data(mcf_copy, data_df, train=True)
-    if mcf_copy.dc_dict['screen_covariates']:   # Only training
-        (mcf_copy.gen_dict, mcf_copy.var_dict, mcf_copy.var_x_type,
+    if mcf_copy.dc_cfg.screen_covariates:   # Only training
+        (mcf_copy.gen_cfg, mcf_copy.var_cfg, mcf_copy.var_x_type,
          mcf_copy.var_x_values, _
          ) = mcf_data.screen_adjust_variables(mcf_copy, data_df)
-    gen_dic, var_x_type = mcf_copy.gen_dict, mcf_copy.var_x_type
-    int_dic = mcf_copy.int_dict
-    data_train_dic, sens_dic = mcf_copy.data_train_dict, mcf_copy.sens_dict
+    gen_cfg, var_x_type = mcf_copy.gen_cfg, mcf_copy.var_x_type
+    int_cfg = mcf_copy.int_cfg
+    data_train_dic, sens_cfg = mcf_copy.data_train_dict, mcf_copy.sens_cfg
 
     # Estimate out-of-sample probabilities by k-fold cross-validation
     if with_output:
         mcf_ps.print_mcf(
-            gen_dic, '\n' + '-' * 100 + '\nSensitivity: Computing '
-                     f'treatment probabilities (by {sens_dic["cv_k"]}'
+            gen_cfg, '\n' + '-' * 100 + '\nSensitivity: Computing '
+                     f'treatment probabilities (by {sens_cfg.cv_k}'
                      '-fold cross-validation)', summary=True)
     d_name, _, no_of_treat = mcf_data.get_treat_info(mcf_copy)
     x_name, x_type = mcf_gp.get_key_values_in_list(var_x_type)
     names_unordered = [x_name[j] for j, val in enumerate(x_type) if val > 0]
     x_df, obs = mcf_data.get_x_data(data_df, x_name)
-    x_np = mcf_gp.to_numpy_big_data(x_df, int_dic['obs_bigdata'])
+    x_np = mcf_gp.to_numpy_big_data(x_df, int_cfg.obs_bigdata)
     d_np = mcf_gp.to_numpy_big_data(data_df[d_name],
-                                    int_dic['obs_bigdata']
+                                    int_cfg.obs_bigdata
                                     ).ravel()
     if names_unordered:  # List is not empty
         x_df, dummy_names = mcf_data.dummies_for_unord(
             x_df, names_unordered, data_train_dict=data_train_dic)
-    max_workers = 1 if int_dic['replication'] else gen_dic['mp_parallel']
+    max_workers = 1 if int_cfg.replication else gen_cfg.mp_parallel
     classif = RandomForestClassifier(
-        n_estimators=mcf_copy.cf_dict['boot'], max_features='sqrt',
+        n_estimators=mcf_copy.cf_cfg.boot, max_features='sqrt',
         bootstrap=True, oob_score=False, n_jobs=max_workers,
         random_state=42, verbose=False, min_samples_split=5)
     index = np.arange(obs)       # indices
     rng = np.random.default_rng(seed=9324561)
     rng.shuffle(index)
-    index_folds = np.array_split(index, sens_dic['cv_k'])
+    index_folds = np.array_split(index, sens_cfg.cv_k)
     pred_prob_np = np.empty((len(index), no_of_treat))
     forests = []
-    for fold_pred in range(sens_dic['cv_k']):
+    for fold_pred in range(sens_cfg.cv_k):
         fold_train = [x for idx, x in enumerate(index_folds)
                       if idx != fold_pred]
         index_train = np.hstack(fold_train)
@@ -617,11 +677,11 @@ def get_treat_probs_del_treat(mcf_, data_df, with_output):
         pred_prob_np[index_pred, :] = classif.predict_proba(x_pred)
 
     # Keep only observations from largest treatment group
-    if mcf_copy.sens_dict['reference_population'] is None:
+    if mcf_copy.sens_cfg.reference_population is None:
         value_counts = data_df[d_name].value_counts()
         group_value = value_counts.idxmax()[0]
     else:
-        group_value = mcf_copy.sens_dict['reference_population']
+        group_value = mcf_copy.sens_cfg.reference_population
     keep = (d_np == group_value).ravel()
     data_reduced_df = data_df[keep]
     treatment_prob_np = pred_prob_np[keep, :]
@@ -630,7 +690,7 @@ def get_treat_probs_del_treat(mcf_, data_df, with_output):
     if with_output:
         obs_keep = np.sum(keep)
         txt = '\n' + '-' * 100
-        if mcf_copy.sens_dict['reference_population'] is None:
+        if mcf_copy.sens_cfg.reference_population is None:
             txt += '\nLargest treatment group (training data): '
         else:
             txt += '\nSelected treatment group (training data): '
@@ -638,5 +698,6 @@ def get_treat_probs_del_treat(mcf_, data_df, with_output):
                 '\n' + f'Share of observations kept: {obs_keep/obs:4.2%}'
                 '\n' + 'Sensivity analysis continues with observations kept'
                 ' only' + '\n' + '-' * 100)
-        mcf_ps.print_mcf(gen_dic, txt, summary=True)
+        mcf_ps.print_mcf(gen_cfg, txt, summary=True)
+
     return treatment_prob_np, data_reduced_df, d_name, np.unique(d_np)

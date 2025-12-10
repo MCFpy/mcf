@@ -13,7 +13,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.8.0
+Version: 0.9.0
 
 This is an example to show how the fairness adjustments can be implemented.
 For more details on theory and methods, see Bearth, Lechner, Mareckova, and
@@ -192,7 +192,7 @@ if VAR_VI_TO_DUMMY_NAME is None:
     VAR_VI_TO_DUMMY_NAME = []
     if VAR_PROTECTED_NAME_UNORD:
         list(VAR_VI_TO_DUMMY_NAME).extend(VAR_PROTECTED_NAME_UNORD)
-    elif VAR_MATERIAL_NAME_UNORD:
+    if VAR_MATERIAL_NAME_UNORD:
         list(VAR_VI_TO_DUMMY_NAME).extend(VAR_MATERIAL_NAME_UNORD)
 
 #  -----------------------------------------------------------------------------
@@ -365,7 +365,7 @@ myoptp_fair.evaluate(alloc_train_fair_dict['allocation_df'],
 
 # Analyse the results for data not used for training (not implemented for
 # 'best_policy_score')
-if myoptp_fair.gen_dict['method'] != 'best_policy_score':
+if myoptp_fair.gen_cfg.method != 'best_policy_score':
     # Compute the new allocation
     alloc_pred_fair_dict = myoptp_fair.allocate(
         prediction_df.copy(), data_title='prediction'
@@ -389,7 +389,7 @@ del my_report
 
 # ------------------------------------------------------------------------------
 # Part 2: Compare fairness adjusted allocation to unadjusted allocation
-if myoptp_fair.gen_dict['method'] == 'best_policy_score':
+if myoptp_fair.gen_cfg.method == 'best_policy_score':
     raise ValueError('Comparisons of allocations only for methods that learn '
                      'explicit variable-based rule in training data.'
                      )
@@ -404,18 +404,17 @@ myoptp.evaluate(alloc_pred_dict['allocation_df'],
                 prediction_df.copy(),
                 data_title='prediction'
                 )
-if myoptp_fair.gen_dict['method'] != myoptp.gen_dict['method']:
+if myoptp_fair.gen_cfg.method != myoptp.gen_cfg.method:
     raise ValueError('Different allocation methods used in both allocations.')
 
 # 2.1.2 Chose specific allocations to investigate (names depend on method used)
-if myoptp.gen_dict['method'] == 'bps_classifier':
-    ALLOC_NAME = 'bps_classif_bb'
-elif myoptp.gen_dict['method'] == 'policy_tree':
-    ALLOC_NAME = 'Policy Tree'
-else:
-    raise ValueError('Winner-looser comparison not available for '
-                     f"{myoptp.gen_dict['method']}"
-                     )
+
+match myoptp.gen_cfg.method:
+    case "bps_classifier": ALLOC_NAME = 'bps_classif_bb'
+    case "policy_tree":    ALLOC_NAME = 'Policy Tree'
+    case m: raise ValueError(f'Winner-looser comparison not available for {m}')
+
+
 # 2.1.3 Choose training or predictiond data for comparison
 if TRAIN_DATA_WELFARE:  # Use training data for comparison
     alloc_train_dict = myoptp.allocate(training_df.copy(),
@@ -440,7 +439,7 @@ else:                  # Use data not used for training for comparison
 
 # 2.1.4 Find winners and losers
 # Comparison is based on (unadjusted) policy scores
-valuations_np = data_eval_df[myoptp.var_dict['polscore_name']].to_numpy()
+valuations_np = data_eval_df[myoptp.var_cfg.polscore_name].to_numpy()
 row_indices = np.arange(valuations_np.shape[0])
 # Pick chosen treatment
 welfare_np = valuations_np[row_indices, alloc_np]
@@ -450,8 +449,8 @@ welfare_fair_df = pd.DataFrame(welfare_fair_np.reshape(-1, 1),
                                columns=('Welfare_fair_alloc',)
                                )
 # Collect protected variables
-protected_var = myoptp_fair.var_dict['protected_ord_name']
-protected_var.extend(myoptp_fair.var_dict['protected_unord_name'])
+protected_var = myoptp_fair.var_cfg.protected_ord_name
+protected_var.extend(myoptp_fair.var_cfg.protected_unord_name)
 
 # Check the dependence of fair and 'un'fair allocation on protected variables
 dependence_nonfair = dependence_allocation_variables(alloc_np,
@@ -539,7 +538,7 @@ for grid_idx, fair_weight in enumerate(grid):
     alloc_dict = myoptp_loop.allocate(data_eval_df.copy())
 
     # Evaluations are based on (unmodified) policy scores
-    valuations_np = data_eval_df[myoptp.var_dict['polscore_name']
+    valuations_np = data_eval_df[myoptp.var_cfg.polscore_name
                                  ].to_numpy()
     row_indices = np.arange(valuations_np.shape[0])
     values = valuations_np[row_indices, alloc_dict['allocation_df'].to_numpy(
@@ -557,13 +556,13 @@ for grid_idx, fair_weight in enumerate(grid):
 
 #    Preparations for plots
 liste = ['Fair',
-         myoptp_fair.fair_dict['adjust_target'],
-         myoptp_fair.fair_dict['adj_type'],
+         myoptp_fair.fair_cfg.adjust_target,
+         myoptp_fair.fair_cfg.adj_type,
          ]
-if myoptp_fair.fair_dict['adj_type'] == 'Quantiled':
-    liste.extend(['Mat', myoptp_fair.fair_dict['material_disc_method'],
-                  'Prot', myoptp_fair.fair_dict['protected_disc_method']]
-                 )
+if myoptp_fair.fair_cfg.adj_type == 'Quantiled':
+    liste.extend(['Mat', myoptp_fair.fair_cfg.material_disc_method,
+                  'Prot', myoptp_fair.fair_cfg.protected_disc_method,
+                  ])
 titel = '_'.join(liste)
 TITEL_PLOT = 'Welfare for different degrees of fairness'
 fig, ax = plt.subplots()
@@ -583,7 +582,7 @@ plt.close()
 txt = ('\nWelfare and correlation with protected attribute for different '
        'fairness levels.'
        '\nWelfare is measured by '
-       f'{" ".join(myoptp.var_dict["polscore_name"])}.'
+       f'{" ".join(myoptp.var_cfg.polscore_name)}.'
        '\nWelfare for different levels of fairness: '
        f'{' '.join([str(round(w, 3)) for w in welfare])}'
        )

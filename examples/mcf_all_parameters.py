@@ -10,12 +10,13 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economic Research
 University of St. Gallen, Switzerland
 
-Version: 0.8.0
+Version: 0.9.0
 
 This is an example to show how to use the mcf with full specification of all
 its keywords. It may be seen as an add-on to the published mcf documentation.
 
 """
+from copy import deepcopy
 from pathlib import Path
 import warnings
 
@@ -75,7 +76,7 @@ GEN_OUTPATH = Path.cwd() / 'example/output'    # Path object, String, or None
 #   If specified directory does not exist, it will be created.
 #   OUTPATH is passed to ModifiedCausalForest.
 
-GEN_OUTFILETEXT = 'mcf.py.0.8.0'
+GEN_OUTFILETEXT = 'mcf.py.0.9.0'
 #   File for text output. If gen_outfiletext is None, 'txtFileWithOutput' is
 #   used. *.txt file extension will be added by the programme.
 
@@ -143,6 +144,10 @@ VAR_Z_NAME_UNORD = name_dict['x_name_unord'][:2]
 # are any for balancing.
 VAR_X_NAME_BALANCE_BGATE = name_dict['x_name_ord'][3:5]
 
+# Variables to be used for bias adjustment. They must be included among the
+# ordered and / or unordered variables specified above.  Default is None.
+VAR_X_NAME_BA = (name_dict['x_name_ord'][0], *name_dict['x_name_unord'][:1],)
+
 #   Variables that cannot be removed by feature selection. Default is no
 #   variable.
 VAR_X_NAME_REMAIN_ORD = []
@@ -162,7 +167,7 @@ GEN_OUTPUT_TYPE = None      # 0: Output goes to terminal
 #                             2: Output goes to file and terminal (default)
 
 #   ------------- Multiprocessing ----------------------------------------------
-GEN_MP_PARALLEL = None      # Number of parallel processes  (>0)
+GEN_MP_PARALLEL = None    # Number of parallel processes  (>0)
 #   Default is to use 80% of logical cores (reduce if memory problems!)
 #   If _int_obs_bigdata, it is reduced to 75% of specified value.
 #   0, 1: no parallel computations
@@ -319,7 +324,7 @@ CF_CHUNKS_MAXSIZE = None  # Maximum number of observations allowed per chunk.
 #   If CF_CHUNKS_MAXSIZE is larger than sample size: No random splitting.
 #   Default: If less than 90000 training observations: No splitting. Otherwise,
 #   the maximal size of each chunksize is obtained as
-#   100000 + (number of observations - 100000)**0.8 / (# of treatments-1)
+#   90000 + (number of observations - 100000)**0.8 / (# of treatments-1)
 
 #   Variable importance for causal forest
 CF_VI_OOB_YES = None
@@ -352,14 +357,14 @@ LC_CS_CV_K = None   # if LC_CS_CV: # of folds used in crossvalidation. Default
 
 #   ------------- Local centering ----------------------------------------------
 LC_YES = None              # Local centering. Default is True.
-LC_ESTIMATOR = None         # The estimator used for local centering.
-
+LC_ESTIMATOR = None        # The estimator used for local centering.
 #   Possible choices are scikit-learn's regression methods
 #  'RandomForest', 'RandomForestNminl5', 'RandomForestNminls5'
 #  'SupportVectorMachine', 'SupportVectorMachineC2', 'SupportVectorMachineC4',
 #  'AdaBoost', 'AdaBoost100', 'AdaBoost200',
 #  'GradBoost', 'GradBoostDepth6',  'GradBoostDepth12',
-#  'LASSO', 'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger',
+#  'LASSO', (if more than 1000 observations)
+#  'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger',
 #  'Mean'. (Mean is included if other estimators are not useful.)
 #  If set to 'automatic', the estimator with the lowest out-of-sample
 #  mean squared error (MSE) is selected. Whether this selection is based on
@@ -404,11 +409,21 @@ CS_DETECT_CONST_VARS_STOP = None
 #   problem) or delete this variable. Default is True.
 
 #   --- Switch role of forest and y-sample and average prediction
-#                    -- inference is not possible --
-GEN_IATE_EFF = None      # True: Second round of IATEs are estimated
-#   based on switching training and estimation subsamples. This increase their
-#   efficiency, but does not allow inference on these more efficient estimates.
-#   If False, execution time is faster. Default is False.
+#                    -- inference is conservative  --
+#   Second round effects are estimated based on switching training and
+#   estimation subsamples. As the final estimate is the average of the two
+#   point estimates, this increase their efficiency (and stability) but does not
+#    allow for weight-based inference on these more efficient estimates.
+#   Therefore, inference is based on the average variance and is therefore
+#   conservative. Note that turning efficient estimation on roughly doubles
+#   computation time. Default is False.
+GEN_ATE_EFF = None       # Default is False.
+GEN_GATE_EFF = None      # This includes the BGATEs and CBGATES.
+#                          Default is False.
+GEN_IATE_EFF = None      # Default is False.
+GEN_QIATE_EFF = None      # Default is False.
+#   if GEN_GATE_EFF is True or GEN_IATE_EFF is True or GEN_QIATE_EFF is True,
+#   GEN_ATE_EFF will be automatically set to True.
 
 #   ------------- Clustering and panel data ------------------------------------
 GEN_PANEL_DATA = None    # True if panel data; None or False: no panel data.
@@ -418,6 +433,7 @@ GEN_PANEL_IN_RF = None   # Uses the panel structure also when building the
 #   random samples within the forest procedure. Default is True.
 P_CLUSTER_STD = None    # True: Clustered standard error. Default is False.
 #   Will be automatically set to True if panel data option is activated.
+# The clustering and panel options are experimental.
 
 #   ------------- Parameters for continuous treatment --------------------------
 #   Number of grid point for discretization of continuous treatment (with 0
@@ -426,6 +442,7 @@ P_CLUSTER_STD = None    # True: Clustered standard error. Default is False.
 CT_GRID_NN = None  # Used to aproximate the neighbourhood matching (def. is 10)
 CT_GRID_W = None   # Used to aproximate the weights (def. is 10)
 CT_GRID_DR = None  # Used to aproximate the dose response function (def.: 100)
+# The continuous treatment part is experimental.
 
 #   ------------- Balancing test (beta) ----------------------------------------
 P_BT_YES = None  # True: ATE based balancing test based on weights.
@@ -438,11 +455,13 @@ P_CHOICE_BASED_SAMPLING = None  # True: Choice based sampling.Default is False.
 P_CHOICE_BASED_PROBS = None     # Sampling probabilities to be
 #   specified. These weights are used for (g,b)ates only. Treatment information
 #   must therefore be available in the prediction data.
+#   Choice-based sampling is experimental.
 
 #   ------------- Sample weights -----------------------------------------------
 GEN_WEIGHTED = None          # True: use sampling weights. Default is False.
 #   Sampling weights specified in var_w_name will be used;
-#   slows down programme. Experimental.
+#   slows down programme.
+#   Using sampling weights is experimental.
 
 #   ------------- Predicting effects -------------------------------------------
 #   Truncation of extreme weights
@@ -530,7 +549,7 @@ P_IATE_M_ATE = None      # True: IATE(x) - ATE is estimated,
 #   including inference if p_iate_se == True. Increaes computation time.
 #   Default is False.
 
-#   Estimation of QIATEs and their standard errors
+#   Estimation of QIATEs and their standard errors (see Kutz, Lechner, 2025)
 P_QIATE = None         # True: QIATEs will be estimated. If True, p_iate will
 #   always be set to True. Default is False.
 P_QIATE_SE = None      # True: SE(QIATE) will be estimated. Default is False.
@@ -538,7 +557,7 @@ P_QIATE_SE = None      # True: SE(QIATE) will be estimated. Default is False.
 P_QIATE_M_MQIATE = None      # True: QIATE(x) - median(IATE(x)) is estimated,
 #   including inference if p_qiate_se == True. Increaes computation time.
 #   Default is False.
-P_QIATE_M_OPP = True      # True: QIATE(x, q) - QIATE(x, 1-q) is estimated,
+P_QIATE_M_OPP = None      # True: QIATE(x, q) - QIATE(x, 1-q) is estimated,
 #   including inference if p_qiate_se == True. Increaes computation time.
 #   Default is False.
 P_QIATE_NO_OF_QUANTILES = None   # Number of quantiles for which QIATEs are
@@ -548,8 +567,53 @@ P_QIATE_SMOOTH = None            # Smooth estimated QIATEs using kernel
 P_QIATE_SMOOTH_BANDWIDTH = None  # Multiplier applied to default bandwidth
 #   used for kernel smoothing of QIATE. Default is 1.
 P_QIATE_BIAS_ADJUST = None       # Bias correction procedure for QIATEs based on
-#   simulations. Default is True.
+#   simulations. Default is False.
 #   If P_QIATE_BIAS_ADJUST is True, P_IATE_SE is set to True as well.
+
+#   Bias adjustments using internal mcf weights (experimental!)
+P_BA = None                # If True, bias adjustment is used. Default is False.
+
+P_BA_USE_PROP_SCORE = None  # If True, propensity score is used as a regressor.
+#                             Default is True.
+P_BA_USE_PROG_SCORE = None  # If True, prognostic scores are used as regressors.
+#                             Default is True.
+P_BA_USE_X = None           # If True, use variables specified in
+#                             VAR_X_BA_NAME as regressors. Default is False.
+P_BA_ADJ_METHOD = None      # Type of adjustment used.
+#                              Possible methods are
+#                             'zeros', 'observables', 'weighted_observables'
+#                             Default is 'weighted_observables'.
+# This defines how to evaluate the estimated regressions in the adjustment
+# procedures:
+# 'zeros': The values of the (centered) covariates are set to zero.
+# 'observables': They are set to their empirical distribution for the
+# training data (unconditional on treatment).
+# 'weighted_observables': As observables, but observations are weighted
+# given the weights from the forests (across treatments). This imposes some
+# localness on the X-distribution and still removes the impact of treatment
+# control differences of X-values in the leaves.
+P_BA_POS_WEIGHTS_ONLY = None  # If True all adjusted weights will be forced to
+#                               be positive. Default is False.
+# Parameters deterimining how to compute the prognostic score
+# (only relevantif P_BA_USE_PROP_SCORE == True)
+P_BA_ESTIMATOR = 'automatic'       # Estimator used for computing the prognostic score.
+#   Possible choices are scikit-learn's regression methods
+#  'RandomForest', 'RandomForestNminl5', 'RandomForestNminls5'
+#  'SupportVectorMachine', 'SupportVectorMachineC2', 'SupportVectorMachineC4',
+#  'AdaBoost', 'AdaBoost100', 'AdaBoost200',
+#  'GradBoost', 'GradBoostDepth6',  'GradBoostDepth12',
+#  'LASSO', (if more than 1000 observations)
+#  'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger',
+#  'Mean'. (Mean is included if other estimators are not useful.)
+#  If set to 'automatic', the estimator with the lowest out-of-sample
+#  mean squared error (MSE) is selected. Whether this selection is based on
+#  cross-validation or a test sample is governed by LC_CS_CV.
+#  The default (or None) is 'RandomForest'.
+P_BA_CV_K = None   # if LC_CS_CV: # of folds used in crossvalidation. Default
+#   depends on the size of the training sample (N): N < 100'000: 5.
+#                                                   100'000 <= N < 250'000: 4
+#                                                   250'000 <= N < 500'000: 3
+#                                                   500'000 <= N: 2
 
 #   ------------- Analysis of effects ------------------------------------------
 POST_EST_STATS = None   # Analyses the predictions by binary correlations
@@ -756,8 +820,11 @@ params = {
     'dc_screen_covariates': DC_SCREEN_COVARIATES,
     'fs_rf_threshold': FS_RF_THRESHOLD, 'fs_other_sample': FS_OTHER_SAMPLE,
     'fs_other_sample_share': FS_OTHER_SAMPLE_SHARE, 'fs_yes': FS_YES,
-    'gen_d_type': GEN_D_TYPE,  'gen_iate_eff': GEN_IATE_EFF,
+    'gen_ate_eff': GEN_ATE_EFF,
+    'gen_d_type': GEN_D_TYPE,
+    'gen_gate_eff': GEN_GATE_EFF, 'gen_iate_eff': GEN_IATE_EFF,
     'gen_panel_data': GEN_PANEL_DATA, 'gen_panel_in_rf': GEN_PANEL_IN_RF,
+    'gen_qiate_eff': GEN_QIATE_EFF,
     'gen_weighted': GEN_WEIGHTED, 'gen_mp_parallel': GEN_MP_PARALLEL,
     'gen_outfiletext': GEN_OUTFILETEXT, 'gen_outpath': GEN_OUTPATH,
     'gen_output_type': GEN_OUTPUT_TYPE,
@@ -799,14 +866,23 @@ params = {
     'p_qiate_smooth_bandwidth': P_QIATE_SMOOTH_BANDWIDTH,
     'p_qiate_bias_adjust': P_QIATE_BIAS_ADJUST,
     'p_se_boot_ate': P_SE_BOOT_ATE, 'p_se_boot_gate': P_SE_BOOT_GATE,
-    'p_se_boot_iate': P_SE_BOOT_IATE,
-    'var_x_name_balance_bgate': VAR_X_NAME_BALANCE_BGATE,
+    'p_se_boot_iate': P_SE_BOOT_IATE,  
     'p_se_boot_qiate': P_SE_BOOT_QIATE,
+    'p_ba': P_BA,
+    'p_ba_adj_method': P_BA_ADJ_METHOD,
+    'p_ba_pos_weights_only': P_BA_POS_WEIGHTS_ONLY,
+    'p_ba_use_prop_score': P_BA_USE_PROP_SCORE,
+    'p_ba_use_prog_score': P_BA_USE_PROG_SCORE,
+    'p_ba_use_x': P_BA_USE_X,
+    'p_ba_estimator': P_BA_ESTIMATOR,
+    'p_ba_cv_k': P_BA_CV_K,
     'var_cluster_name': VAR_CLUSTER_NAME, 'var_d_name': VAR_D_NAME,
     'var_id_name': VAR_ID_NAME,
     'var_w_name': VAR_W_NAME,
     'var_x_name_balance_test_ord': VAR_X_NAME_BALANCE_TEST_ORD,
     'var_x_name_balance_test_unord': VAR_X_NAME_BALANCE_TEST_UNORD,
+    'var_x_name_balance_bgate': VAR_X_NAME_BALANCE_BGATE,
+    'var_x_name_ba': VAR_X_NAME_BA,
     'var_x_name_always_in_ord': VAR_X_NAME_ALWAYS_IN_ORD,
     'var_x_name_always_in_unord': VAR_X_NAME_ALWAYS_IN_UNORD,
     'var_x_name_remain_ord': VAR_X_NAME_REMAIN_ORD,
@@ -846,7 +922,7 @@ params = {
     '_int_weight_as_sparse_splits': _INT_WEIGHT_AS_SPARSE_SPLITS,
     '_int_with_output': _INT_WITH_OUTPUT
     }
-
+# These are additional parameters used in the sensitivity analysis
 params_sensitivity = {
     'sens_cbgate': SENS_CBGATE, 'sens_bgate': SENS_BGATE,
     'sens_gate': SENS_GATE, 'sens_iate': SENS_IATE,
@@ -854,9 +930,83 @@ params_sensitivity = {
     'sens_cv_k': SENS_CV_K, 'sens_replications': SENS_REPLICATIONS,
     'sens_reference_population': SENS_REFERENCE_POPULATION
      }
+# These parameters can be changed in the prediction and analysis module
+# (it enough to change them only in the predict). Here, as a demonstration,
+# parameters are set to arbitrary values, including their defaults.
+# Note that 'None' is not a valid value for any for these parameters.
+
+params_predict_analysis_2nd_round = {
+    'var_x_name_balance_test_ord': name_dict['x_name_ord'][:1],
+    'var_x_name_balance_test_unord': name_dict['x_name_unord'][:1],
+    'var_x_name_balance_bgate': name_dict['x_name_ord'][3:6],
+    'var_x_name_ba': (name_dict['x_name_ord'][0],
+                      *name_dict['x_name_unord'][:2],
+                      ),
+    'var_z_name_ord': name_dict['x_name_ord'][-3:],
+    'var_z_name_unord': name_dict['x_name_unord'][:1],
+    'p_ba': False,
+    'p_ba_adj_method': 'zeros',
+    'p_ba_pos_weights_only': False,
+    'p_ba_use_x': False,
+    'p_ba_use_prop_score': False,
+    'p_ba_use_prog_score': False,
+    'p_ate_no_se_only': False,
+    'p_atet': True,
+    'p_gatet': False,
+    'p_bgate': True,
+    'p_cbgate': True,
+    'p_iate': True,
+    'p_iate_se': True,
+    'p_iate_m_ate': False,
+    'p_bgate_sample_share': 0.5,
+    'p_gates_minus_previous': False,
+    'p_gates_smooth_bandwidth': 1,
+    'p_gates_smooth': True,
+    'p_gates_smooth_no_evalu_points': 50,
+    'p_gates_no_evalu_points': 50,
+    'p_qiate': False,
+    'p_qiate_se': False,
+    'p_qiate_m_mqiate': False,
+    'p_qiate_m_opp': False,
+    'p_qiate_no_of_quantiles': 50,
+    'p_qiate_smooth': True,
+    'p_qiate_smooth_bandwidth': 1,
+    'p_qiate_bias_adjust': False,
+    'p_bt_yes': False, 
+    'p_choice_based_sampling': False,
+    'p_choice_based_probs': (0.1, 0.2, 0.7),
+    'p_cond_var': True,
+    'p_knn': True,
+    'p_knn_const': 1,
+    'p_knn_min_k': 5,
+    'p_nw_bandw': 1,
+    'p_nw_kern': 1,
+    'p_ci_level': 0.90,
+    # 'p_iv_aggregation_method':  IV only
+    'p_se_boot_ate': False,
+    'p_se_boot_gate': False,
+    'p_se_boot_iate': False,
+    'p_se_boot_qiate': False,
+    'gen_output_type': 2,
+
+    'post_bin_corr_threshold': 0.1,
+    'post_bin_corr_yes': True,
+    'post_est_stats': True,
+    'post_kmeans_yes': False,
+    'post_kmeans_no_of_groups': 5,
+    'post_kmeans_max_tries': 10,
+    'post_kmeans_min_size_share': 0.1,
+    'post_kmeans_replications': 100,
+    'post_kmeans_single': False,
+    'post_random_forest_vi': False,
+    'post_relative_to_first_group_only': True,
+    'post_plots': False,
+    'post_tree': False, 
+    }
+
 
 # ------------------------------------------------------------------------------
-# Modules may sent many irrelevant warnings: Globally ignore them
+# Modules may send many irrelevant warnings: Globally ignore them
 warnings.filterwarnings('ignore')
 
 # Some data to be used by the method
@@ -876,19 +1026,38 @@ test_alloc_df.rename(columns={'treat': 'observed'}, inplace=True)
 mymcf = ModifiedCausalForest(**params)
 
 mymcf.train(training_df)
+
+# Copy mymcf for later use with changed keyword values (later) as mymcf
+# will be modified by the predict method
+# (see the BGATE example for an alternative way to do this)
+mymcf_2 = deepcopy(mymcf)
+
+# Continue using the keyword values as specified when initializing the instance
 results = mymcf.predict(prediction_df)
 
 results_with_cluster_id_df = mymcf.analyse(results)
 
 mymcf.predict_different_allocations(prediction_df, test_alloc_df)
 
+# Sensitivity (experimental)
 params['gen_outpath'] = GEN_OUTPATH / 'sensitivity'
 mymcf_sens = ModifiedCausalForest(**params)
 params_sensitivity['results'] = results
-mymcf_sens.sensitivity(training_df, **params_sensitivity)
+mymcf_sens.sensitivity(training_df, prediction_df, **params_sensitivity)
 
+# Write report in pdf file
 my_report = McfOptPolReport(mcf=mymcf, mcf_sense=mymcf_sens)
 my_report.report()
+
+# Use new values of some keywords as specified in dictionary with 
+# copied instance
+results_2 = mymcf_2.predict(prediction_df,
+                            new_keywords=params_predict_analysis_2nd_round
+                            )
+results_with_cluster_id_df_2 = mymcf_2.analyse(results_2)
+
+my_report2 = McfOptPolReport(mcf=mymcf_2)
+my_report2.report()
 
 print('End of computations.\n\nThanks for using the ModifiedCausalForest.'
       ' \n\nYours sincerely\nMCF \U0001F600')

@@ -4,6 +4,7 @@ setup.py
 mcf/__init__.py
 mcf/example_data_functions.py
 mcf/mcf_ate_functions.py
+mcf/mcf_bias_adjustment_functions.py
 mcf/mcf_common_support_functions.py
 mcf/mcf_cuda_functions.py
 mcf/mcf_data_functions.py
@@ -24,8 +25,12 @@ mcf/mcf_general_sys.py
 mcf/mcf_iate_cuda_functions.py
 mcf/mcf_iate_functions.py
 mcf/mcf_inf_for_alloc_functions.py
+mcf/mcf_init_change_keywords_functions.py
 mcf/mcf_init_functions.py
+mcf/mcf_init_predict_sens_functions.py
+mcf/mcf_init_train_functions.py
 mcf/mcf_init_update_helper_functions.py
+mcf/mcf_init_values_cfg_functions.py
 mcf/mcf_iv_functions.py
 mcf/mcf_iv_functions_add.py
 mcf/mcf_local_centering_functions.py

@@ -295,23 +295,21 @@ To find the Optimal Policy Tree, we use the :py:meth:`~optpolicy_main.OptimalPol
 .. code-block:: python
 
     train_pt_df = results["iate_data_df"]
-    out_train = my_optimal_policy.solve(training_df, data_title='training')
-    alloc_train_df = out_train['allocation_df']
+    solve_dict = my_optimal_policy.solve(training_df, data_title='training')
 
 The returned DataFrame contains the optimal allocation rule for the training data.
 
 .. code-block:: python
 
-    print(alloc_train_df)
+    print(solve_dict)
 
 Next, we can use the :py:meth:`~optpolicy_main.OptimalPolicy.evaluate` method to evaluate this allocation rule. This will return a dictionary holding the results of the evaluation. As a side-effect, the DataFrame with the optimal allocation is augmented with columns that contain the observed treatment and a random allocation of treatments.
 
 .. code-block:: python
 
-    results_eva_train, _ = my_optimal_policy.evaluate(alloc_train_df, training_df,
+    my_optimal_policy.evaluate(solve_dict['allocation_df'], training_df,
                                            data_title='training')
 
-    print(results_eva_train)
 
 Overview of results
 ~~~~~~~~~~~~~~~~~~~~~
@@ -341,17 +339,16 @@ to the DataFrame holding the potential outcomes, treatment variable and the feat
 
 .. code-block:: python
 
-    out_pred = my_optimal_policy.allocate(prediction_df, data_title='prediction')
-    alloc_pred_df = out_pred['allocation_df']
+    alloc_pred_dict = my_optimal_policy.allocate(prediction_df, data_title='prediction')
 
 To evaluate this allocation rule, again apply the :py:meth:`~optpolicy_main.OptimalPolicy.allocate` method similar to above.
 
 .. code-block:: python
 
-    results_eva_pred, _ = my_optimal_policy.evaluate(alloc_pred_df, prediction_df,
-                                      data_title='prediction')
-
-    print(results_eva_pred)
+    my_optimal_policy.evaluate(alloc_pred_dict['allocation_df'],
+                    prediction_df,
+                    data_title='prediction'
+                    )
 
 Next steps
 ----------

@@ -24,7 +24,7 @@ The code below creates artificial example data for training and prediction.
     from mcf.reporting import McfOptPolReport
 
     # Generate the data.
-    training_df, prediction_df, name_dict = example_data(
+    training_df, prediction_df, name_dict=example_data(
         obs_y_d_x_iate=1000, obs_x_iate=1000, no_treatments=3)
 
 Estimating an optimal policy tree
@@ -35,7 +35,7 @@ Next, we initialize an instance by calling the :py:class:`~optpolicy_main.Optima
 .. code-block:: python
 
     # Initializing a class instance.
-    myoptp = OptimalPolicy(gen_method='policy_tree',
+    myoptp=OptimalPolicy(gen_method='policy_tree',
                            var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
                            var_x_name_ord=('x_cont0', 'x_ord0'),
                            pt_depth_tree_1=2,
@@ -50,7 +50,7 @@ Alternatively, we can create an instance to estimate sequentially optimal policy
 .. code-block:: python
 
     # Initializing a class instance.
-    myoptp = OptimalPolicy(gen_method='policy_tree',
+    myoptp=OptimalPolicy(gen_method='policy_tree',
                            var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
                            var_x_name_ord=('x_cont0', 'x_ord0'),
                            pt_depth_tree_1=2,
@@ -65,7 +65,7 @@ The following code block creates a constrained optimal policy tree, considering 
 .. code-block:: python
 
     # Initializing a class instance.
-    myoptp = OptimalPolicy(gen_method='policy_tree',
+    myoptp=OptimalPolicy(gen_method='policy_tree',
                            var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
                            var_x_name_ord=('x_cont0', 'x_ord0'),
                            pt_depth_tree_1=2,
@@ -81,22 +81,22 @@ After initializing a class instance, we use it to solve for an optimal allocatio
 .. code-block:: python
 
     # Solve, allocate, and evaluate methods.
-    alloc_train_df = myoptp.solve(
+    alloc_train_df=myoptp.solve(
         training_df, 
         data_title='training')
     
-    results_eva_train = myoptp.evaluate(
+    results_eva_train=myoptp.evaluate(
         alloc_train_df['allocation_df'] ,
         training_df,
         data_title='training'
         )
     
-    alloc_pred_df = myoptp.allocate(
+    alloc_pred_df=myoptp.allocate(
         prediction_df,
         data_title='prediction'
         )
     
-    results_eva_pred = myoptp.evaluate(
+    results_eva_pred=myoptp.evaluate(
         alloc_pred_df['allocation_df'], 
         prediction_df,
         data_title='prediction')
@@ -125,7 +125,7 @@ method to build the decision rule.
 .. code-block:: python
 
     # Initializing a class instance.
-    myoptp_fair = OptimalPolicy(
+    myoptp_fair=OptimalPolicy(
         gen_method='policy_tree',
         var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
         var_protected_name_ord=('x_ord0'),
@@ -136,23 +136,23 @@ method to build the decision rule.
     )
     
     # Solve, allocate, and evaluate methods.
-    alloc_train_fair_dict = myoptp_fair.solvefair(
+    alloc_train_fair_dict=myoptp_fair.solvefair(
         training_df.copy(),
         data_title='training'
         )
     
-    results_eva_train = myoptp_fair.evaluate(
+    results_eva_train=myoptp_fair.evaluate(
         alloc_train_fair_dict['allocation_df'],
         training_df.copy(),
         data_title='training'
         )
     
-    alloc_pred_fair_dict = myoptp_fair.allocate(
+    alloc_pred_fair_dict=myoptp_fair.allocate(
         prediction_df.copy(),
         data_title='prediction'
         )
     
-    results_eva_pred = myoptp_fair.evaluate(
+    results_eva_pred=myoptp_fair.evaluate(
         alloc_pred_fair_dict['allocation_df'],
         prediction_df.copy(),
         data_title='prediction'
@@ -170,8 +170,9 @@ Finally, the code creates a PDF report. Please note that the program saves by de
 .. code-block:: python
 
     # Generate the PDF report.
-    my_report = McfOptPolReport(
-        optpol=myoptp, outputfile='Report_OptP_' + 'policy_tree')
+    my_report=McfOptPolReport(
+        optpol=myoptp, 
+        outputfile='Report_OptP_' + 'policy_tree')
     my_report.report()
 
 Best Policy Scores
@@ -191,36 +192,42 @@ Estimating a policy rule using the best-score method
 .. code-block:: python
 
     # Creating data.
-      training_df, prediction_df, name_dict = example_data(
-          obs_y_d_x_iate=1000, obs_x_iate=1000, no_treatments=3)
+    training_df, prediction_df, name_dict=example_data(
+        obs_y_d_x_iate=1000, 
+        obs_x_iate=1000,
+        no_treatments=3
+        )
 
 .. code-block:: python
 
     # Initializing a class instance.
-    myoptp = OptimalPolicy(gen_method='best_policy_score',
+    myoptp=OptimalPolicy(
+                          gen_method='best_policy_score',
                           var_polscore_name=('y_pot0', 'y_pot1', 'y_pot2'),
                           var_x_name_ord=('x_cont0', 'x_ord0'),
-                          gen_outpath=os.getcwd() + '/out')
+                          gen_outpath=os.getcwd() + '/out'
+                          )
 
 .. code-block:: python
 
     # Solve, allocate, and evaluate methods.
-    alloc_train_df = myoptp.solve(
+    alloc_train_df=myoptp.solve(
         training_df,
-        data_title='training')
+        data_title='training'
+        )
     
-    results_eva_train = myoptp.evaluate(
+    results_eva_train=myoptp.evaluate(
         alloc_train_df['allocation_df'] ,
         training_df,
         data_title='training'
         )
     
-    alloc_pred_df = myoptp.allocate(
+    alloc_pred_df=myoptp.allocate(
         prediction_df,
         data_title='prediction'
         )
     
-    results_eva_pred = myoptp.evaluate(
+    results_eva_pred=myoptp.evaluate(
         alloc_pred_df['allocation_df'],
         prediction_df,
         data_title='prediction')
@@ -228,6 +235,6 @@ Estimating a policy rule using the best-score method
 .. code-block:: python
 
     # Generate a PDF report.
-    my_report = McfOptPolReport(
+    my_report=McfOptPolReport(
         optpol=myoptp, outputfile='Report_OptP_' + 'best_policy_score')
     my_report.report()

@@ -248,5 +248,7 @@ Estimating a policy rule using the best-score method
 
     # Generate a PDF report.
     my_report=McfOptPolReport(
-        optpol=myoptp, outputfile='Report_OptP_' + 'best_policy_score')
+        optpol=myoptp,
+        outputfile='Report_OptP_' + 'best_policy_score'
+        )
     my_report.report()

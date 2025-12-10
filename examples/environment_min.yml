@@ -1,0 +1,7 @@
+name: mcf090
+channels:
+  - defaults
+dependencies:
+  - python=3.12
+  - spyder
+prefix: C:\ProgramData\Anaconda3\envs\mcf090

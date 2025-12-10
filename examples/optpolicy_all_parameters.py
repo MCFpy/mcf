@@ -13,7 +13,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.8.0
+Version: 0.9.0
 
 This is an example to show how to use the OptimalPolicy class of the mcf
 module with full specification of all of its keywords. It may be seen as an
@@ -96,7 +96,7 @@ GEN_OUTPATH = Path.cwd() / 'example/outputOPT'
 #   If it does not exist, it will be created. Default is an *.out directory
 #   just below to the directory where the programme is run.
 
-GEN_OUTFILETEXT = "OptPolicy.0.8.0"  # File for text output
+GEN_OUTFILETEXT = "OptPolicy.0.9.0"  # File for text output
 #   Default is 'txtFileWithOutput'.
 #   *.txt file extension will be added by the programme
 
@@ -256,8 +256,9 @@ PT_SELECT_VALUES_CAT = None   # Approximation method for larger categorical
 PT_MIN_LEAF_SIZE = None    # Minimum leaf size. Leaves that are smaller than
 #   PT_MIN_LEAF_SIZE in the training data will not be considered. A larger
 #   number reduces computation time and avoids some overfitting. Default is
-#   0.1 x # of training observations / # of leaves (if treatment shares are
-#   restricted this is multiplied by the smallest share allowed).
+#   min(0.1 x # of training observations / # of leaves), 100)
+#   If treatment shares are restricted this is multiplied by the smallest share
+#   allowed).
 
 PT_ENFORCE_RESTRICTION = None
 #   Enforces the imposed restriction (to some extent) during the
@@ -560,9 +561,10 @@ for method in METHODS:
 
     # --- Adjust scores for estimation uncertainty
     if ESTRISK_CORRECTION:
-        estrisk_dict = myoptp.estrisk_adjust(training_all_df,
-                                             data_title='training')
-        training_df = estrisk_dict['data_estrisk_df']
+        estrisk_cfg = myoptp.estrisk_adjust(training_all_df,
+                                            data_title='training'
+                                            )
+        training_df = estrisk_cfg.data_estrisk_df
     else:
         training_df = training_all_df
 

@@ -12,26 +12,36 @@ from math import ceil, floor
 from pathlib import Path
 from pickle import dump, load
 from sys import getsizeof, stderr
+from typing import Any
 
+from scipy.sparse import csr_matrix
 from psutil import virtual_memory
 import ray
+
+from numpy.typing import NDArray
 
 from mcf import mcf_print_stats_functions as mcf_ps
 
 
-def delete_file_if_exists(file_name):
+def delete_file_if_exists(file_name: Path) -> None:
     """Delete existing file."""
     if file_name.exists():
         Path.unlink(file_name)
 
 
-def define_outpath(outpath, new_outpath=True):
+def define_outpath(outpath: Path | str | None,
+                   new_outpath: bool = True,
+                   ) -> Path:
     """Verify outpath and create new one if needed."""
     path_programme_run = Path.cwd()
-    if outpath in (None, [], '') or not isinstance(outpath, (Path, str)):
-        outpath = path_programme_run / 'output'
-    elif isinstance(outpath, str):
-        outpath = Path(outpath)
+    match outpath:
+        case str() as s if s:        # non-empty string → Path
+            outpath = Path(s)
+        case Path():                 # already a Path → keep
+            pass
+        case _:                      # None, '', [], or any other type → default
+            outpath = path_programme_run / 'output'
+
     if new_outpath:
         out_temp = outpath
         for i in range(1000):
@@ -56,6 +66,7 @@ def define_outpath(outpath, new_outpath=True):
             except OSError as oserr:
                 raise OSError(
                     f'Creation of the directory {outpath} failed') from oserr
+
     return outpath
 
 
@@ -64,7 +75,7 @@ def get_fig_path(dic_to_update: dict,
                  add_name: str,
                  create_dir: bool,
                  no_csv: bool = False
-                 ):
+                 ) -> dict:
     """Define and create directories to store figures."""
     fig_pfad = outpath / ('plots_' + add_name)
     fig_pfad_jpeg = fig_pfad / 'jpeg'
@@ -86,9 +97,14 @@ def get_fig_path(dic_to_update: dict,
     return dic_to_update
 
 
-def check_ray_shutdown(gen_dic, reference_duration, duration, no_of_workers,
-                       max_multiplier=3, with_output=True, err_txt=''
-                       ):
+def check_ray_shutdown(gen_cfg: Any,
+                       reference_duration: float,
+                       duration: float,
+                       no_of_workers: int,
+                       max_multiplier: float | int = 3,
+                       with_output: bool = True,
+                       err_txt: str = ''
+                       ) -> tuple[float, str]:
     """Shutdown ray with there is substantial increase in computation time."""
     if (no_of_workers == 1 or not ray.is_initialized()
             or duration < reference_duration * max_multiplier):
@@ -102,25 +118,26 @@ def check_ray_shutdown(gen_dic, reference_duration, duration, no_of_workers,
            'Ray will be restarted if needed.'
            )
     if with_output:
-        mcf_ps.print_mcf(gen_dic, txt, summary=False)
+        mcf_ps.print_mcf(gen_cfg, txt, summary=False)
 
     return reference_duration, txt
 
 
-def find_no_of_workers(maxworkers, sys_share=0):
+def find_no_of_workers(maxworkers: int,
+                       sys_share: float = 0,
+                       zero_tol: float = 1e-15
+                       ) -> int:
     """
     Find the optimal number of workers for MP such that system does not crash.
 
     Parameters
     ----------
     maxworkers : Int. Maximum number of workers allowed.
+    sys_share: Float. System share. Default is 0.
 
     Returns
     -------
     workers : Int. Workers used.
-    sys_share: Float. System share.
-    max_cores: Bool. Limit to number of physical(not logical cores)
-
     """
     # Currently this procedure does not make much sense as it only leaves the
     # numbers unchanges or sets them to 1.
@@ -133,14 +150,19 @@ def find_no_of_workers(maxworkers, sys_share=0):
         workers = maxworkers
     elif workers < 1.9:
         workers = 1
-    else:  # TODO This seems to be a bug. 25.3.2025
+    else:
         workers = maxworkers
-    workers = floor(workers + 1e-15)
+    workers = floor(workers + zero_tol)
+
     return workers
 
 
-def init_ray_with_fallback(maxworkers, int_dic, gen_dic, mem_object_store=None,
-                           ray_err_txt=''):
+def init_ray_with_fallback(maxworkers: int,
+                           int_cfg: Any,
+                           gen_cfg: Any,
+                           mem_object_store: None | float = None,
+                           ray_err_txt: str = ''
+                           ) -> tuple[bool, int]:
     """Start ray in cases when this can be problematic."""
     while maxworkers >= 2:
         try:
@@ -156,7 +178,7 @@ def init_ray_with_fallback(maxworkers, int_dic, gen_dic, mem_object_store=None,
                     ignore_reinit_error=False,
                     object_store_memory=mem_object_store,
                     )
-            mcf_ps.print_mcf(gen_dic,
+            mcf_ps.print_mcf(gen_cfg,
                              '\n'
                              + f'Ray started with {maxworkers} workers',
                              summary=False)
@@ -164,11 +186,11 @@ def init_ray_with_fallback(maxworkers, int_dic, gen_dic, mem_object_store=None,
             return True, maxworkers
 
         except OSError:
-            if int_dic['mem_object_store_2'] is not None:  # Check memory needed
+            if int_cfg.mem_object_store_2 is not None:  # Check memory needed
                 memory = virtual_memory()
                 memory_needed = mem_object_store * 1.1
                 if memory.free < memory_needed:
-                    if int_dic['with_output'] and int_dic['verbose']:
+                    if gen_cfg.with_output and gen_cfg.verbose:
                         _, _, _, _, txt_memory = memory_statistics()
                         txt = ('\n' + ray_err_txt
                                + ' Potential lack of memory for object store.'
@@ -176,7 +198,7 @@ def init_ray_with_fallback(maxworkers, int_dic, gen_dic, mem_object_store=None,
                                + f'{round(memory_needed / (1024 * 1024), 2)} MB'
                                + '\n' + txt_memory
                                )
-                        mcf_ps.print_mcf(gen_dic, txt, summary=False)
+                        mcf_ps.print_mcf(gen_cfg, txt, summary=False)
 
             ray.shutdown()
             if maxworkers > 50:
@@ -187,21 +209,21 @@ def init_ray_with_fallback(maxworkers, int_dic, gen_dic, mem_object_store=None,
                 maxworkers -= 2
             else:
                 maxworkers -= 1
-            if int_dic['with_output'] and int_dic['verbose']:
+            if gen_cfg.with_output and gen_cfg.verbose:
                 txt = ('\n' + ray_err_txt +
                        f' Number of workers reduced to {maxworkers}')
-                mcf_ps.print_mcf(gen_dic, txt, summary=False)
+                mcf_ps.print_mcf(gen_cfg, txt, summary=False)
 
-    if int_dic['with_output'] and int_dic['verbose']:
+    if gen_cfg.with_output and gen_cfg.verbose:
         txt = ('\n' + ray_err_txt +
                'RAY NOT USED. No multiprocessing. This will slow down execution'
                )
-        mcf_ps.print_mcf(gen_dic, txt, summary=False)
+        mcf_ps.print_mcf(gen_cfg, txt, summary=False)
 
     return False, maxworkers
 
 
-def no_of_boot_splits_fct(size_of_object_mb, workers):
+def no_of_boot_splits_fct(size_of_object_mb: int | float, workers: int) -> int:
     """
     Compute size of chunks for MP.
 
@@ -240,7 +262,10 @@ def no_of_boot_splits_fct(size_of_object_mb, workers):
     return no_of_splits, txt
 
 
-def total_size(ooo, handlers=None, verbose=False):
+def total_size(ooo: Any,
+               handlers: Any = None,
+               verbose: bool = False
+               ) -> float | int:
     """Return the approximate memory footprint an object & all of its contents.
 
     Automatically finds the contents of the following builtin containers and
@@ -288,7 +313,7 @@ def total_size(ooo, handlers=None, verbose=False):
     return sizeof(ooo)
 
 
-def memory_statistics():
+def memory_statistics() -> tuple[int, int, int, int, str]:
     """
     Give memory statistics.
 
@@ -311,20 +336,21 @@ def memory_statistics():
     free = round(memory.free / (1024 * 1024), 2)
     txt = (f'\nRAM total: {total:6} MB,  used: {used:6} MB, '
            f'available: {available:6} MB, free: {free:6} MB')
+
     return total, available, used, free, txt
 
 
-def print_mememory_statistics(gen_dic, location_txt):
+def print_mememory_statistics(gen_cfg: Any, location_txt: str) -> None:
     """Print memory statistics."""
-    if gen_dic['with_output'] and gen_dic['verbose']:
-        mcf_ps.print_mcf(gen_dic, '\n' + '-' * 100 + '\n'
-                         + location_txt
-                         + memory_statistics()[4]
-                         + '\n',
-                         summary=False)
+    mcf_ps.print_mcf(gen_cfg, '\n'
+                              + location_txt
+                              + memory_statistics()[4]
+                              + '\n',
+                     summary=False
+                     )
 
 
-def auto_garbage_collect(pct=80.0):
+def auto_garbage_collect(pct: float | int = 80.0) -> None:
     """
     Call garbage collector if memory used > pct% of total available memory.
 
@@ -336,8 +362,11 @@ def auto_garbage_collect(pct=80.0):
         collect()
 
 
-def print_size_weight_matrix(weights, weight_as_sparse, no_of_treat,
-                             no_text=False):
+def print_size_weight_matrix(weights: csr_matrix | NDArray[Any],
+                             weight_as_sparse: bool,
+                             no_of_treat: int,
+                             no_text: bool = False
+                             ) -> None:
     """
     Print size of weight matrix in MB.
 
@@ -363,7 +392,10 @@ def print_size_weight_matrix(weights, weight_as_sparse, no_of_treat,
     return f'Size of weight matrix: {total_bytes / (1024 * 1024): .2f} MB'
 
 
-def save_load(file_name, object_to_save=None, save=True, output=True):
+def save_load(file_name: Path | str,
+              object_to_save: Any = None,
+              save: bool = True,
+              output: bool = True) -> Any:
     """
     Save and load objects via pickle.
 
@@ -389,5 +421,6 @@ def save_load(file_name, object_to_save=None, save=True, output=True):
             object_to_load = load(file)
         text = '\nObject loaded from '
     if output:
-        print(text + file_name)
+        print(text + str(file_name))
+
     return object_to_load

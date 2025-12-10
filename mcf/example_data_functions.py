@@ -4,7 +4,6 @@ Created on Wed Dec 21 15:37:16 2022.
 # -*- coding: utf-8 -*-
 @author: MLechner
 """
-
 from typing import Any
 
 import numpy as np

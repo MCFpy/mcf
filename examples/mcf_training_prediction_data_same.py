@@ -10,7 +10,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.8.0
+Version: 0.9.0
 
 This is an example to show how a minimal specification of the mcf can be
 implemented that uses the same data from training and prediction.
@@ -42,7 +42,7 @@ VAR_X_NAME_UNORD = ('x_unord0',)
 if not Path.exists(APPLIC_PATH):
     APPLIC_PATH.mkdir(parents=True)
 
-# Modules may sent many irrelevant warnings: Globally ignore them
+# Modules may send many irrelevant warnings: Globally ignore them
 warnings.filterwarnings('ignore')
 # -----------------------------------------------------------------------------
 mymcf = ModifiedCausalForest(var_d_name=VAR_D_NAME,

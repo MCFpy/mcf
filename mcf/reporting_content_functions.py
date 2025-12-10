@@ -6,32 +6,32 @@ Contains classes and methods needed for mcf and optimal policy reporting.
 
 @author: MLechner
 """
-from typing import TYPE_CHECKING
+from bisect import bisect
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 from scipy.stats import t
 
 if TYPE_CHECKING:
-    from mcf.mcf_main import ModifiedCausalForest
-    # from mcf.optpolicy_main import OptimalPolicy
+    from mcf.reporting import McfOptPolReport
 
 
-def general(rep_o):
+def general(rep_o: 'McfOptPolReport') -> str:
     """Provide basic information."""
     def basic_helper(obj_inst, titel, mcf=False):
         """Create method-specific output string."""
         help_txt = (
             '\n\n' + titel +
-            f'\nAll outputs: {obj_inst.gen_dict["outpath"]}')
+            f'\nAll outputs: {obj_inst.gen_cfg.outpath}')
         if mcf:
             help_txt += (
                 '\nSubdirectories with figures and data are named '
                 '"ate_iate", "gate", "bgate", and "common support" and contain '
                 'the content indicated by their name.')
         help_txt += (
-            f'\nDetailed text output: {obj_inst.gen_dict["outfiletext"]}'
-            f'\nSummary text output: {obj_inst.gen_dict["outfilesummary"]}'
+            f'\nDetailed text output: {obj_inst.gen_cfg.outfiletext}'
+            f'\nSummary text output: {obj_inst.gen_cfg.outfilesummary}'
             )
         return help_txt
 
@@ -153,6 +153,28 @@ def general(rep_o):
                 'Journal of the American Statistical Association, 113:523, '
                 '1228-1242.'
                 )
+        if rep_o.mcf_o.gen_cfg.any_eff:
+            estimators_list = []
+            if rep_o.mcf_o.gen_cfg.ate_eff:
+                estimators_list.append('ATE')
+            if rep_o.mcf_o.gen_cfg.gate_eff:
+                estimators_list.append('GATEs')
+            if rep_o.mcf_o.gen_cfg.iate_eff:
+                estimators_list.append('IATEs')
+            if rep_o.mcf_o.gen_cfg.qiate_eff:
+                estimators_list.append('QIATEs')
+            txt += ('\n' * 2 + 'INCREASED EFFICIENCY'
+                    '\nIn order to increase the efficiency of the effect '
+                    f'estimation of the {", ".join(estimators_list)}, '
+                    'a second set of effects is computed by reversing the '
+                    'role of the two samples used to build the forest and to '
+                    'populate it with the outcome information. The resulting '
+                    'two effects are averaged to obtain a more precise '
+                    'estimator. '
+                    '\nInference in this case is conservative as standard '
+                    'errors are obtained from the average variances of the '
+                    'two estimation runs.'
+                    )
     if rep_o.sens_o is not None:
         txt += ('\n\nSENSITIVITY' + '\nSensitivity analysis is currently '
                 'experimental and not (yet) documented here.')
@@ -225,21 +247,22 @@ def general(rep_o):
         txt += ('\n' * 2 + 'References'
                 '\n-Zhou, Z., S. Athey, S. Wager (2023): Offline '
                 'Multi-Action Policy Learning: Generalization and '
-                'Optimization, Operations Research, INFORMS, 71(1), 148-183.')
+                'Optimization, Operations Research, INFORMS, 71(1), 148-183.'
+                )
     return txt
 
 
-def sensitivity(sens_o, empty_lines_end):
+def sensitivity(sens_o: dict, empty_lines_end: int) -> str:
     """Sensitivity part of description."""
-    if sens_o.sens_dict["reference_population"] is None:
+    if sens_o.sens_cfg.reference_population is None:
         ref_pop = 'the largest treatment'
     else:
-        ref_pop = f'treatment {sens_o.sens_dict["reference_population"]}'
+        ref_pop = f'treatment {sens_o.sens_cfg.reference_population}'
     txt = ('\nMETHOD'
            '\nThis sensitivity analysis is based on a placebo-like experiment: '
            '\n(1) Using a random forest classifier, probabilities into the '
            'different treatments are estimated. Predictions are based on '
-           f'{sens_o.sens_dict["cv_k"]}-fold cross-fitting.'
+           f'{sens_o.sens_cfg.cv_k}-fold cross-fitting.'
            '\n(2) All observations that do not belong to '
            f'{ref_pop} are deleted.'
            '\n(3) The conditional treatment probabilities are used to '
@@ -256,25 +279,25 @@ def sensitivity(sens_o, empty_lines_end):
            'indicates in which regions of the IATEs violations may take place.')
     txt += '\n' * 2 + 'APPLICATION'
     txt += ('\nThe following scenarions are investigated: '
-            f'{", ".join(sens_o.sens_dict["scenarios"])}')
-    if sens_o.sens_dict['replications'] > 1:
+            f'{", ".join(sens_o.sens_cfg.scenarios)}')
+    if sens_o.sens_cfg.replications > 1:
         txt += ('\nSimulations are repeated '
-                f'{sens_o.sens_dict["replications"]} times and results '
+                f'{sens_o.sens_cfg.replications} times and results '
                 'are averaged to reduce simulation noise.')
-    txt += f'\nPath for all output files: \n   {sens_o.gen_dict["outpath"]}\n'
+    txt += f'\nPath for all output files: \n   {sens_o.gen_cfg.outpath}\n'
 
-    if sens_o.sens_dict['cbgate']:
+    if sens_o.sens_cfg.cbgate:
         txt += '\nCBGATE is investigated. '
         txt += 'Output is contained in the output files.'
-    if sens_o.sens_dict['bgate']:
+    if sens_o.sens_cfg.bgate:
         txt += '\nBGATE is investigated. '
         txt += 'Output is contained in the output files.'
-    if sens_o.sens_dict['iate']:
+    if sens_o.sens_cfg.iate:
         txt += ('\nIATEs are investigated. If estimated IATEs are available, '
                 'then plots comparing placebo IATEs with estimated IATEs are '
                 'presented below. ')
         txt += 'Further statistics are contained in the output files.'
-    if sens_o.sens_dict['iate_se']:
+    if sens_o.sens_cfg.iate_se:
         txt += '\nStandard errors for IATEs are available. '
         txt += 'Output is contained in the output files.'
 
@@ -286,13 +309,14 @@ def sensitivity(sens_o, empty_lines_end):
         txt += '\n\nRESULTS: ATE\n' + sens_o.report['sens_txt_ate']
     if sens_o.report['sens_plots_iate'] is not None:
         txt += '\n\nRESULTS: Plots of estimated and placebo IATEs\n'
+
     return txt + '\n' * empty_lines_end
 
 
-def mcf_general(mcf_o, empty_lines_end, iv):
+def mcf_general(mcf_o: dict, empty_lines_end: int, iv: bool) -> str:
     """Collect general mcf information."""
-    mtot = mcf_o.cf_dict['mtot']  # 1 standard
-    prog_score = mcf_o.cf_dict['match_nn_prog_score']
+    mtot = mcf_o.cf_cfg.mtot  # 1 standard
+    prog_score = mcf_o.cf_cfg.match_nn_prog_score
     matching = 'Prognostic Score' if prog_score else 'Mahalanobis Distance'
     txt = '\nMETHOD\n'
     if iv:
@@ -309,64 +333,65 @@ def mcf_general(mcf_o, empty_lines_end, iv):
                 'ARE YOU SURE THIS WAS ON PURPOSE?'
                 )
     txt += ('\nFeature selection is '
-            f'{"" if mcf_o.fs_dict["yes"] else "not "}used.'
+            f'{"" if mcf_o.fs_cfg.yes else "not "}used.'
             )
-    txt += (f'\nLocal centering is {"" if mcf_o.lc_dict["yes"] else "not "} '
+    txt += (f'\nLocal centering is {"" if mcf_o.lc_cfg.yes else "not "} '
             'used.')
     txt += ('\nCommon support is '
-            f'{"" if mcf_o.cs_dict["type"] > 0 else "not "}enforced.'
+            f'{"" if mcf_o.cs_cfg.type_ > 0 else "not "}enforced.'
             )
 
     txt += '\n\nVARIABLES'
     y_name = [y[:-3] if y[-3:] == '_lc' else y
-              for y in mcf_o.var_dict["y_name"]]
+              for y in mcf_o.var_cfg.y_name]
     out = 'Outcome' if len(y_name) == 1 else 'Outcomes'
     txt += f'\n{out}: {", ".join(y_name)}'
-    d_values = [str(val) for val in mcf_o.gen_dict["d_values"]]
-    txt += (f'\nTreatment: {mcf_o.var_dict["d_name"][0]} (with values '
+    d_values = [str(val) for val in mcf_o.gen_cfg.d_values]
+    txt += (f'\nTreatment: {mcf_o.var_cfg.d_name[0]} (with values '
             f'{" ".join(d_values)})')
     if iv:
-        txt += f'\nInstrument: {mcf_o.var_dict["iv_name"][0]}'
+        txt += f'\nInstrument: {mcf_o.var_cfg.iv_name[0]}'
     conf = 'instrument confounders' if iv else 'confounders'
-    if mcf_o.var_dict["x_name_ord"]:
+    if mcf_o.var_cfg.x_name_ord:
         txt += (f'\nOrdered {conf}: '
-                f' {", ".join(mcf_o.var_dict["x_name_ord"])}')
-    if mcf_o.var_dict["x_name_unord"]:
+                f' {", ".join(mcf_o.var_cfg.x_name_ord)}')
+    if mcf_o.var_cfg.x_name_unord:
         var = [y[:-6] if y.endswith('_prime') else y
-               for y in mcf_o.var_dict["x_name_unord"]]
+               for y in mcf_o.var_cfg.x_name_unord]
         txt += (f'\nUnordered (categorical) {conf}: {", ".join(var)}')
-    if mcf_o.var_dict["z_name_cont"]:
+    if mcf_o.var_cfg.z_name_cont:
         txt += ('\nContinuous heterogeneity variables: '
-                f' {", ".join(mcf_o.var_dict["z_name_cont"])}')
-    if mcf_o.var_dict["z_name_ord"]:
+                f' {", ".join(mcf_o.var_cfg.z_name_cont)}')
+    if mcf_o.var_cfg.z_name_ord:
         txt += ('\nOrdered heterogeneity variables (few values, continuous '
                 'variables are discretized): '
-                f' {", ".join(mcf_o.var_dict["z_name_ord"])}')
-    if mcf_o.var_dict["z_name_unord"]:
+                f' {", ".join(mcf_o.var_cfg.z_name_ord)}')
+    if mcf_o.var_cfg.z_name_unord:
         var = [y[:-6] if y.endswith('_prime') else y
-               for y in mcf_o.var_dict["z_name_unord"]]
+               for y in mcf_o.var_cfg.z_name_unord
+               ]
         txt += ('\nUnordered heterogeneity variables: '
                 f' {", ".join(var)}')
-    if mcf_o.var_dict["x_name_balance_test"] and mcf_o.p_dict['bt_yes']:
+    if mcf_o.var_cfg.x_name_balance_test and mcf_o.p_cfg.bt_yes:
         var = [y[:-6] if y.endswith('_prime') else y
-               for y in mcf_o.var_dict["x_name_balance_test"]]
+               for y in mcf_o.var_cfg.x_name_balance_test]
         txt += f'\nVariables to check balancing: {", ".join(var)}'
-    if mcf_o.var_dict["x_name_balance_bgate"]:
+    if mcf_o.var_cfg.x_name_balance_bgate:
         txt += ('\nVariables to balance the distribution for the BGATE: '
-                f' {", ".join(mcf_o.var_dict["x_name_balance_bgate"])}')
-    if mcf_o.gen_dict["weighted"]:
+                f' {", ".join(mcf_o.var_cfg.x_name_balance_bgate)}')
+    if mcf_o.gen_cfg.weighted:
         txt += ('\n\nWeighting used. Weights are contained in'
-                f' {mcf_o.var_dict["w_name"][0]}')
-    if mcf_o.p_dict["cluster_std"]:
+                f' {mcf_o.var_cfg.w_name[0]}')
+    if mcf_o.p_cfg.cluster_std:
         txt += ('\n\nClustered standard errors used. Clusters are contained in'
-                f' {mcf_o.var_dict["cluster_name"][0]}')
-    if mcf_o.gen_dict["panel_data"]:
+                f' {mcf_o.var_cfg.cluster_name[0]}')
+    if mcf_o.gen_cfg.panel_data:
         txt += '\n\nPanel data used.'
 
-    effects = add_effects(mcf_o.p_dict, mcf_o.gen_dict)
+    effects = add_effects(mcf_o.p_cfg, mcf_o.gen_cfg)
     txt += f'\n\nEFFECTS ESTIMATED\n{", ".join(effects)}'
 
-    if mcf_o.var_dict["z_name_ord"] or mcf_o.var_dict["x_name_unord"]:
+    if mcf_o.var_cfg.z_name_ord or mcf_o.var_cfg.x_name_unord:
         txt += '\n' * 2 + 'NOTE on unordered variables: '
         txt += ('\nOne-hot-encoding (dummy variables) is not used as it '
                 'is expected to perform poorly with trees: It may lead '
@@ -378,7 +403,7 @@ def mcf_general(mcf_o, empty_lines_end, iv):
     return txt + '\n' * empty_lines_end
 
 
-def mcf_iate_analyse(mcf_o: 'ModifiedCausalForest',
+def mcf_iate_analyse(mcf_o: dict,
                      empty_lines_end: int,
                      iv: bool = False
                      ) -> tuple[str,
@@ -420,7 +445,7 @@ def mcf_iate_analyse(mcf_o: 'ModifiedCausalForest',
         knn_text += (', potential outcomes, and the features in these '
                      'clusters, respectively.'
                      )
-        if mcf_o.post_dict['kmeans_single']:
+        if mcf_o.post_cfg.kmeans_single:
             knn_text += ('There are also results for clustering according to '
                          'single effects only. These results are contained in '
                          'the respective .txt-files.')
@@ -436,7 +461,7 @@ def mcf_iate_analyse(mcf_o: 'ModifiedCausalForest',
     return txt, fig_iate, figure_note, knn_text, knn_table
 
 
-def mcf_iate_part1(mcf_o: 'ModifiedCausalForest',
+def mcf_iate_part1(mcf_o: dict,
                    empty_lines_end: int,
                    iv: bool = False
                    ) -> str:
@@ -452,18 +477,8 @@ def mcf_iate_part1(mcf_o: 'ModifiedCausalForest',
     txt += 'LIATEs, ' if iv else 'IATEs, '
     txt += 'like their distribution, and their relations to the features.'
 
-    if mcf_o.gen_dict['iate_eff']:
-        txt += ('\n' * 2 + 'METHODOLOGICAL NOTE'
-                '\nIn order to increase the efficiency of the IATE estimation, '
-                'a second set of IATEs is computed by reversing the role of '
-                'the two samples used to build the forest and to populate it '
-                'with the outcome information. The two IATEs are averaged '
-                'to obtain a more precise estimator (which may be particulary '
-                'useful when the IATEs, or the corresponding potential '
-                'outcomes, are used as inputs for decision models). '
-                '\nThe following descriptive analysis is based on the first '
-                'round IATEs only.')
     txt += '\n' * 2 + 'RESULTS' + '\n' + mcf_o.report['iate_text']
+
     return txt + '\n' * empty_lines_end
 
 
@@ -473,19 +488,19 @@ def mcf_balance(empty_lines_end: int, iv: bool = False) -> str:
            'See the output files for the results.')
     if iv:
         txt += 'Balancing tests are for 1st stage and reduced form only.'
+
     return txt + '\n' * empty_lines_end
 
 
-def mcf_gate(mcf_o: 'ModifiedCausalForest',
+def mcf_gate(mcf_o: dict,
              empty_lines_end: int,
              gate_type: str = 'gate',
              iv: bool = False
              ) -> tuple[list, str, str]:
     """Create text, table, and figures for gate estimation."""
-    dic = mcf_o.p_dict
     txt = ('Note: Detailed tables and figures for additional effects are '
            'contained in the output files and output directories. ')
-    if gate_type == 'gate' and dic['gatet']:
+    if gate_type == 'gate' and mcf_o.p_cfg.gatet:
         txt += ('Similarly, figures and tables of the effects for the '
                 'different treatment groups are contained in the output files '
                 'and directories.')
@@ -497,24 +512,25 @@ def mcf_gate(mcf_o: 'ModifiedCausalForest',
 
     if gate_type == 'bgate':
         txt_bgate = ('\nVariables to balance the distribution for the BGATE: '
-                     f' {", ".join(mcf_o.var_dict["x_name_balance_bgate"])}')
+                     f' {", ".join(mcf_o.var_cfg.x_name_balance_bgate)}')
         return_tuple = (figure_list, txt + '\n' * empty_lines_end, txt_bgate)
     else:
         return_tuple = (figure_list, txt + '\n' * empty_lines_end)
     return return_tuple
 
 
-def mcf_ate_proc(mcf_o: 'ModifiedCausalForest',
+def mcf_ate_proc(mcf_o: dict,
                  empty_lines_end: int,
                  iv: bool = False,
                  alloc: bool = False
                  ) -> tuple[str, list | tuple, list | tuple | None, int]:
     """Create text and table for ate estimation."""
-    dic = mcf_o.p_dict
-    if dic['se_boot_ate'] or dic['cluster_std']:
+    p_cfg = mcf_o.p_cfg
+    if p_cfg.se_boot_ate or p_cfg.cluster_std:
         txt = '\n' * 2 + 'METHOD'
-        txt += (f'\nBootstrap standard error with {dic["se_boot_ate"]} '
-                'replications. ')
+        txt = (f'\nBootstrap standard error with {p_cfg.se_boot_ate} '
+               'replications. '
+               )
     txt = '\n' * 2 + 'RESULT '
     tables_results_extra = None
     if iv:
@@ -552,19 +568,19 @@ def mcf_ate_proc(mcf_o: 'ModifiedCausalForest',
                                          iv_local=False,
                                          iv_global=False
                                          )  # List:One Table per outcome
-    table_note = results_table_note(dic['atet'], alloc)
+    table_note = results_table_note(p_cfg.atet, alloc)
 
     return (txt, tables_results, tables_results_extra,
             table_note + '\n' * empty_lines_end
             )
 
 
-def mcf_welfare_alloc(mcf_o, empty_lines_end):
+def mcf_welfare_alloc(mcf_o: dict, empty_lines_end: int) -> str:
     """Create text and table for welfare estimation of different allocations."""
     return mcf_o.report['alloc_welfare_allocations'] + '\n' * empty_lines_end
 
 
-def results_table_note(treatment_specific, alloc=False):
+def results_table_note(treatment_specific: bool, alloc: bool = False) -> str:
     """Create Note for results tables."""
     table_note = (' *, **, ***, **** denote significance at the 10%, '
                   '5%, 1%, 0.1% level. The results for the ')
@@ -576,10 +592,11 @@ def results_table_note(treatment_specific, alloc=False):
     if treatment_specific and not alloc:
         table_note += 'and the treatment specific effects'
     table_note += 'can be found in the output files.'
+
     return table_note
 
 
-def build_ate_table(mcf_o: 'ModifiedCausalForest',
+def build_ate_table(mcf_o: dict,
                     alloc: bool = False,
                     iv_local: bool = False,
                     iv_global: bool = False
@@ -614,28 +631,25 @@ def build_ate_table(mcf_o: 'ModifiedCausalForest',
                                  columns=('Sig.', ))
         table_df = pd.concat((table1_df, table2_df,), axis=1)
         table_list.append(table_df)
+
     return table_list
 
 
-def p_star_string(p_val):
+def p_star_string(p_val: float) -> str:
     """Create stars for p values."""
-    if p_val < 0.001:
-        print_str = '****'
-    elif p_val < 0.01:
-        print_str = ' ***'
-    elif p_val < 0.05:
-        print_str = '  **'
-    elif p_val < 0.1:
-        print_str = '   *'
-    else:
-        print_str = '    '
-    return print_str
+    cuts = [0.001, 0.01, 0.05, 0.1]
+    stars = ['****', ' ***', '  **', '   *', '    ']
+
+    return stars[bisect(cuts, p_val)]
 
 
-def mcf_results(mcf_o: 'ModifiedCausalForest',
-                empty_lines_end, iv=False, alloc=False):
+def mcf_results(mcf_o: dict,
+                empty_lines_end: int,
+                iv: bool = False,
+                alloc: bool = False
+                ) -> str:
     """Text some general remarks about the estimation process."""
-    dic = mcf_o.p_dict
+    p_cfg = mcf_o.p_cfg
     txt = '\n' * 2 + 'GENERAL REMARKS'
     if alloc:
         txt += ('\n'
@@ -668,10 +682,10 @@ def mcf_results(mcf_o: 'ModifiedCausalForest',
                     'the sense that IATEs will aggregate to GATEs, which in '
                     'turn will aggregate to ATEs.')
 
-    if dic["max_weight_share"] > 0:
+    if p_cfg.max_weight_share > 0:
         txt += '\n' * 2 + 'ESTIMATION'
         txt += ('\nWeights of individual training observations are truncated '
-                f'at {dic["max_weight_share"]:4.2%}. ')
+                f'at {p_cfg.max_weight_share:4.2%}. ')
         if alloc:
             txt += ('No truncation of weights for value differences.')
         else:
@@ -679,24 +693,24 @@ def mcf_results(mcf_o: 'ModifiedCausalForest',
             txt += ('LIATEs to LATE and GATEs' if iv
                     else 'IATEs to ATE and GATEs')
             txt += ' may not be exact due to weight truncation.'
-        if dic['choice_based_sampling']:
+        if p_cfg.choice_based_sampling:
             txt += ('\nTreatment based choice based sampling is used with '
-                    f'probabilities {", ".join(dic["choice_based_probs"])}.'
+                    f'probabilities {", ".join(p_cfg.choice_based_probs)}.'
                     )
 
     txt += '\n' * 2 + 'INFERENCE'
     txt += '\nInference is based on using the weight matrix. '
-    if not dic['cond_var']:
+    if not p_cfg.cond_var:
         txt += 'The unconditional variance of weight x outcome is used.'
     else:
         txt += 'Nonparametric regressions are based on '
-        if dic['knn']:
+        if p_cfg.knn:
             txt += 'k-nearest neighbours. '
         else:
             txt += 'Nadaraya-Watson kernel regression.'
-    if dic['cluster_std']:
+    if p_cfg.cluster_std:
         txt += ('\nStandard errors are clustered. '
-                f'{mcf_o.var_dict["cluster_name"]} is the cluster variable.'
+                f'{mcf_o.var_cfg.cluster_name} is the cluster variable.'
                 'Clustering is implemented by the block-bootstrap.')
     if not (iv or alloc):
         txt += '\n' * 2 + 'NOTE'
@@ -706,42 +720,42 @@ def mcf_results(mcf_o: 'ModifiedCausalForest',
                 'treatment variable (which is not required for the other '
                 'effects).'
                 )
-
     return txt + '\n' * empty_lines_end
 
 
-def mcf_prediction(mcf_o, empty_lines_end):
+def mcf_prediction(mcf_o: dict, empty_lines_end: int) -> str:
     """Create the general text for predictions."""
-    txt = (f'Training uses {mcf_o.gen_dict["mp_parallel"]} CPU '
-           f'{"cores" if mcf_o.gen_dict["mp_parallel"] > 1 else "core"}. ')
-    if mcf_o.int_dict["cuda"] and mcf_o.gen_dict['iate_eff']:
+    txt = (f'Training uses {mcf_o.gen_cfg.mp_parallel} CPU '
+           f'{"cores" if mcf_o.gen_cfg.mp_parallel > 1 else "core"}. ')
+    if mcf_o.int_cfg.cuda and mcf_o.gen_cfg.iate_eff:
         txt += '\nGPU may be used for predicting IATEs.'
+
     return txt + '\n' * empty_lines_end
 
 
-def mcf_forest(mcf_o, empty_lines_end, iv=False):
+def mcf_forest(mcf_o: dict, empty_lines_end: int, iv: bool = False) -> str:
     """Text the forest method."""
     if iv:
-        dic_1st, rep_1st = mcf_o.cf_dict, mcf_o.report['cf_1st']
-        dic_redf, rep_redf = mcf_o.cf_dict, mcf_o.report['cf_redf']
-        dic, rep = dic_redf, rep_redf
+        dc_1st, rep_1st = mcf_o.cf_cfg, mcf_o.report['cf_1st']
+        dc_redf, rep_redf = mcf_o.cf_cfg, mcf_o.report['cf_redf']
+        dc, rep = dc_redf, rep_redf
     else:
-        dic, rep = mcf_o.cf_dict, mcf_o.report['cf']
+        dc, rep = mcf_o.cf_cfg, mcf_o.report['cf']
 
     txt = '\n' * 2 + 'METHOD and tuning parameters'
     if iv:
         txt += ('\nThe method used for forest building for the 1st stage is '
-                f'{dic_1st["estimator_str"]}. {dic_redf["estimator_str"]} '
+                f'{dc_1st.estimator_str}. {dc_redf.estimator_str} '
                 'is used for the reduced form. ')
     else:
-        txt += f'\n{dic["estimator_str"]} is used for forest building.'
+        txt += f'\n{dc.estimator_str} is used for forest building.'
 
-    if dic['compare_only_to_zero']:
+    if dc.compare_only_to_zero:
         txt += ('MSE is only computed for IATEs comparing all treatments to '
                 'the first (control) treatment.')
     if iv:
-        txt += (f'\nThe causal forest consists of {dic_1st["boot"]}, '
-                f'{dic_redf["boot"]} (1st stage, reduced form) trees.'
+        txt += (f'\nThe causal forest consists of {dc_1st.boot}, '
+                f'{dc_redf.boot} (1st stage, reduced form) trees.'
                 f'\nThe minimum leaf size is {rep_1st["n_min"]}, '
                 f'{rep_redf["n_min"]}.'
                 '\nThe number of variables considered for each split is '
@@ -757,7 +771,7 @@ def mcf_forest(mcf_o, empty_lines_end, iv=False):
                 f'{rep_redf["y_name_tree"]} are the outcome variable used for '
                 'splitting ')
     else:
-        txt += (f'\nThe causal forest consists of {dic["boot"]} trees.'
+        txt += (f'\nThe causal forest consists of {dc.boot} trees.'
                 f'\nThe minimum leaf size is {rep["n_min"]}.'
                 '\nThe number of variables considered for each split is '
                 f'{rep["m_split"]}.'
@@ -768,7 +782,7 @@ def mcf_forest(mcf_o, empty_lines_end, iv=False):
                 f'\nAlpha regularity is set to {rep["alpha"]:3.0%}.'
                 f'\n\n{rep["y_name_tree"]} is the outcome variable used for '
                 'splitting ')
-    if mcf_o.lc_dict["yes"]:
+    if mcf_o.lc_cfg.yes:
         txt += '(locally centered).'
     var = rep["Features"].replace('_prime', '')
     txt += f'\nThe features used for splitting are {var}.'
@@ -811,24 +825,28 @@ def mcf_forest(mcf_o, empty_lines_end, iv=False):
                 'sample.'
                 )
 
-    if dic['folds'] > 1 or mcf_o.gen_dict['iate_eff']:
+    if dc.folds > 1 or mcf_o.gen_cfg.iate_eff:
         txt += '\n' * 2 + 'NOTE'
-        if dic['folds'] > 1 and mcf_o.gen_dict['iate_eff']:
+        if dc.folds > 1 and mcf_o.gen_cfg.iate_eff:
             txt += 'S'
-        if dic['folds'] > 1:
+        if dc.folds > 1:
             txt += ('\nTo reduce computational demands, data is randomly '
-                    f'splitted in {dic["folds"]} folds. In each fold, forests '
+                    f'splitted in {dc.folds} folds. In each fold, forests '
                     'and effects are estimated. Subsequently, effects are '
-                    'averaged over the {dic["folds"]} folds.')
-        if mcf_o.gen_dict['iate_eff']:
+                    'averaged over the {dc.folds} folds.')
+        if mcf_o.gen_cfg.iate_eff:
             txt += ('\nFor the estimation of the "efficient" IATEs, the role '
                     'of the samples used for building the forest and '
                     'populating it are reversed. Subsequently, the two sets of '
                     'estimates for the IATEs are averaged.')
+
     return txt + '\n' * empty_lines_end
 
 
-def mcf_local_center(mcf_o, empty_lines_end, iv=False):
+def mcf_local_center(mcf_o: dict,
+                     empty_lines_end: int,
+                     iv: bool = False
+                     ) -> str:
     """Text the local centering results."""
     txt = '\nMETHOD'
     txt += ('\nLocal centering is based on training a regression to predict '
@@ -837,35 +855,43 @@ def mcf_local_center(mcf_o, empty_lines_end, iv=False):
             'versions of Random Forests, Support Vector Machines, Boosting '
             'methods, and Neural Networks of scikit-learn. The best method is '
             'selected by minimizing their out-of-sample Mean Squared Error ')
-    if mcf_o.lc_dict["cs_cv"]:
-        txt += f'using {mcf_o.lc_dict["cs_cv_k"]}-fold cross-validation. '
+    if mcf_o.lc_cfg.cs_cv:
+        txt += f'using {mcf_o.lc_cfg.cs_cv_k}-fold cross-validation. '
     else:
-        txt += (f'using a test sample ({mcf_o.lc_dict["cs_share"]:5.2%} of the '
+        txt += (f'using a test sample ({mcf_o.lc_cfg.cs_share:5.2%} of the '
                 'training data). ')
     txt += ('The full set of results of the method selection step are '
-            f'contained in {mcf_o.gen_dict["outfiletext"]}. '
+            f'contained in {mcf_o.gen_cfg.outfiletext}. '
             '\nThe respective out-of-sample predictions are '
             'subtracted from the observed outcome in the training data used to '
             'build the forest. ')
-    if mcf_o.lc_dict["cs_cv"]:
+    if mcf_o.lc_cfg.cs_cv:
         txt += ('These out-of-sample predictions are generated by '
-                f'{mcf_o.lc_dict["cs_cv_k"]}-fold cross-validation.')
+                f'{mcf_o.lc_cfg.cs_cv_k}-fold cross-validation.')
     else:
-        txt += (f'\n{mcf_o.lc_dict["cs_share"]:5.2%} of the training data is '
-                ' used for local centering only.')
+        txt += (f'\n{mcf_o.lc_cfg.cs_share:5.2%} of the training data is '
+                ' used for local centering only.'
+                )
     txt += '\n\nRESULTS'
     if iv:
         txt += ('\nOut-of-sample fit (1st stage)'
-                f' for {mcf_o.report["lc_r2_1st"]} ')
+                f' for {mcf_o.report["lc_r2_1st"]} '
+                )
         txt += ('\nOut-of-sample fit (reduced form)'
-                f' for {mcf_o.report["lc_r2_redform"]} ')
+                f' for {mcf_o.report["lc_r2_redform"]} '
+                )
     else:
         txt += f'\nOut-of-sample fit for {mcf_o.report["lc_r2"]} '
+
     return txt + '\n' * empty_lines_end
 
 
-def mcf_common_support(mcf_o, empty_lines_end, train=True, iv=False,
-                       alloc=False):
+def mcf_common_support(mcf_o: dict,
+                       empty_lines_end: int,
+                       train: bool = True,
+                       iv: bool = False,
+                       alloc: bool = False
+                       ) -> str:
     """Text the common support results."""
     txt = ''
     if train:
@@ -886,24 +912,28 @@ def mcf_common_support(mcf_o, empty_lines_end, train=True, iv=False,
         txt += 'instrument values' if iv else 'treatment arms'
         txt += ('). These cut-offs are subsequently also applied to the data '
                 'used for predicting the effects.')
-        if mcf_o.cs_dict['type'] == 1:
-            quant = mcf_o.cs_dict["quantil"]
+        if mcf_o.cs_cfg.type_ == 1:
+            quant = mcf_o.cs_cfg.quantil
             string = "min / max" if quant == 1 else (str(quant*100)
                                                      + "% quantile")
             txt += f'\nOverlap is determined by the {string} rule.'
         else:
-            min_p = mcf_o.cs_dict['min_p']
+            min_p = mcf_o.cs_cfg.min_p
             txt += (f'\nYou set the upper bound of the PS to {1-min_p} and the'
-                    f' lower bound to {min_p}')
-        if mcf_o.cs_dict["adjust_limits"] > 0 and mcf_o.cs_dict['type'] == 1:
+                    f' lower bound to {min_p}'
+                    )
+        if mcf_o.cs_cfg.adjust_limits > 0 and mcf_o.cs_cfg.type_ == 1:
             txt += ('\nCut-offs for PS are widened by'
-                    f' {mcf_o.cs_dict["adjust_limits"]}.')
-        if mcf_o.lc_dict['cs_cv']:
+                    f' {mcf_o.cs_cfg.adjust_limits}.'
+                    )
+        if mcf_o.lc_cfg.cs_cv:
             txt += ('\nOut-of-sample predictions are generated by '
-                    f'{mcf_o.lc_dict["cs_cv_k"]}-fold cross-validation.')
+                    f'{mcf_o.lc_cfg.cs_cv_k}-fold cross-validation.'
+                    )
         else:
-            txt += (f'\n{mcf_o.lc_dict["cs_share"]:5.2%} of the training data '
-                    ' is used for common support estimation only.')
+            txt += (f'\n{mcf_o.lc_cfg.cs_share:5.2%} of the training data '
+                    ' is used for common support estimation only.'
+                    )
         share_del = mcf_o.report['cs_t_share_deleted']
         obs_keep = mcf_o.report['cs_t_obs_remain']
         txt += '\n' * 2 + 'RESULTS'
@@ -919,10 +949,14 @@ def mcf_common_support(mcf_o, empty_lines_end, train=True, iv=False,
     if share_del > 0.1:
         txt += ('\nWARNING: Check output files whether the distribution of the '
                 'features changed due to the deletion of part of the data.')
+
     return txt + '\n' * empty_lines_end
 
 
-def mcf_feature_selection(mcf_o, empty_lines_end, iv=False):
+def mcf_feature_selection(mcf_o: dict,
+                          empty_lines_end: int,
+                          iv: bool = False
+                          ) -> str:
     """Text the feature selection result."""
     txt = '\nMETHOD'
     txt += ('\nA Random Forest is estimated for the propensity score '
@@ -930,18 +964,18 @@ def mcf_feature_selection(mcf_o, empty_lines_end, iv=False):
             'specification is without the treatment). If by deleting a '
             'specific variable the values of BOTH objective functions '
             ' (evaluated with out-of-bag data) are reduced by '
-            f'less than {mcf_o.fs_dict["rf_threshold"]:5.2%}, '
+            f'less than {mcf_o.fs_cfg.rf_threshold:5.2%}, '
             'then the variable is removed. Care is taken for variables that '
             'are highly correlated with other variables, or dummies, or '
             'variables that should not be removed for other reasons '
             '(computing heterogeneity or checking balancing).')
     if iv:
         txt += '\nFeature selection is based on the 1st stage only.'
-    other = mcf_o.fs_dict['other_sample']
+    other = mcf_o.fs.other_sample
     txt += '\nFeature selection is performed '
     if other:
         txt += ('on an independent random sample '
-                f'({mcf_o.fs_dict["other_sample_share"]:5.2%} of the training '
+                f'({mcf_o.fs_cfg.other_sample_share:5.2%} of the training '
                 'data). The training data is reduced accordingly.')
     else:
         txt += 'on the same data as the other parts of training.'
@@ -951,15 +985,16 @@ def mcf_feature_selection(mcf_o, empty_lines_end, iv=False):
                 f'{" ".join(mcf_o.report["fs_vars_deleted"])}')
     else:
         txt += 'Feature selection did not delete any variables.'
+
     return txt + '\n' * empty_lines_end
 
 
-def mcf_descriptives(mcf_o, empty_lines_end):
+def mcf_descriptives(mcf_o: dict, empty_lines_end: int) -> str:
     """Provide basic descriptive information about training data."""
-    screen = mcf_o.dc_dict['screen_covariates']
-    percorr = mcf_o.dc_dict['check_perfectcorr']
-    clean = mcf_o.dc_dict['clean_data']
-    dummy = mcf_o.dc_dict['min_dummy_obs']
+    screen = mcf_o.dc_cfg.screen_covariates
+    percorr = mcf_o.dc_cfg.check_perfectcorr
+    clean = mcf_o.dc_cfg.clean_data
+    dummy = mcf_o.dc_cfg.min_dummy_obs
     txt = ''
     if screen or percorr or clean or dummy:
         txt += '\nMETHOD'
@@ -970,7 +1005,7 @@ def mcf_descriptives(mcf_o, empty_lines_end):
                     'variables are removed.')
         if dummy:
             txt += ('\nDummy variables with less than '
-                    f'{mcf_o.dc_dict["min_dummy_obs"]} observations in the '
+                    f'{mcf_o.dc_cfg.min_dummy_obs} observations in the '
                     'smaller group are removed.')
         if clean:
             txt += ('\nRows with any missing values for variables needed for'
@@ -990,33 +1025,42 @@ def mcf_descriptives(mcf_o, empty_lines_end):
         txt += f'\nRemaining number of observations: {remain_obs}'
     else:
         txt += '   (no observations removed).'
+
     return txt + '\n' * empty_lines_end
 
 
-def mcf_training(mcf_o, empty_lines_end):
+def mcf_training(mcf_o: dict, empty_lines_end: int) -> str:
     """Text basic training information."""
-    txt = (f'Training uses {mcf_o.gen_dict["mp_parallel"]} CPU '
-           f'{"cores" if mcf_o.gen_dict["mp_parallel"] > 1 else "core"}.')
-    if mcf_o.int_dict["cuda"] and mcf_o.cf_dict['match_nn_prog_score']:
+    txt = (f'Training uses {mcf_o.gen_cfg.mp_parallel} CPU '
+           f'{"cores" if mcf_o.gen_cfg.mp_parallel > 1 else "core"}.')
+    if mcf_o.int_cfg.cuda and mcf_o.cf_cfg.match_nn_prog_score:
         txt += '\nGPU is likely to be used for Mahalanobis matching.'
+
     return txt + '\n' * empty_lines_end
 
 
-def add_effects(p_dict, gen_dict):
+def add_effects(p_cfg: dict, gen_cfg: Any) -> list[str]:
     """Build list with effects to be shown."""
     effects = ['Average Treatment Effect (ATE)']
-    if p_dict['atet']:
+    if p_cfg.atet:
         effects.append('ATE for the treatment groups (ATET)')
-    if p_dict['gate']:
+    if p_cfg.gate:
         effects.append('Group Average Treatment Effect (GATE)')
-    if p_dict['gatet']:
+    if p_cfg.gatet:
         effects.append('GATE for the treatment groups (GATET)')
-    if p_dict['bgate']:
+    if p_cfg.bgate:
         effects.append('Balanced GATE (BGATE)')
-    if p_dict['cbgate']:
+    if p_cfg.cbgate:
         effects.append('Fully Balanced (CAUSAL) GATE (CBGATE)')
-    if p_dict['iate']:
+    if p_cfg.iate:
         effects.append('Individualized Average Treatment Effect (IATE)')
-    if gen_dict['iate_eff']:
+    if gen_cfg.ate_eff:
+        effects.append('Efficient ATE')
+    if gen_cfg.gate_eff:
+        effects.append('Efficient GATE')
+    if gen_cfg.qiate_eff:
+        effects.append('Efficient QIATE')
+    if gen_cfg.iate_eff:
         effects.append('Efficient IATE')
+
     return effects

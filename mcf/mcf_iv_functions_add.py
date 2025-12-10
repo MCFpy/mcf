@@ -6,9 +6,10 @@ Contains IV specific functions.
 # -*- coding: utf-8 -*-
 """
 from copy import deepcopy
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
+from numpy.typing import NDArray
 from pandas import DataFrame
 
 from mcf import mcf_ate_functions as mcf_ate
@@ -54,7 +55,7 @@ def get_weights_iv_local(mcf_: 'ModifiedCausalForest',
         weights_local_dic = scale_weights_1st_stage(
             iate_d_z,
             weights_redf_dic,
-            mcf_.int_dict['weight_as_sparse'],
+            mcf_.int_cfg.weight_as_sparse,
             )
     else:
         weights_local_dic = {}
@@ -62,7 +63,7 @@ def get_weights_iv_local(mcf_: 'ModifiedCausalForest',
     return weights_1st_dic, weights_redf_dic, weights_local_dic
 
 
-def scale_weights_1st_stage(effect_1st: np.ndarray,
+def scale_weights_1st_stage(effect_1st: NDArray[Any],
                             weights_redf_dic: dict,
                             weight_as_sparse: bool
                             ) -> dict:
@@ -99,17 +100,17 @@ def iate_1st_stage_all_folds_rounds(mcf_: 'ModifiedCausalForest',
                                     ) -> tuple[dict, dict]:
     """Compute first stage IATEs across all folds and rounds."""
     iate_1st_dic = iate_eff_1st_dic = None
-    for fold in range(mcf_.cf_dict['folds']):
-        for round_ in mcf_.cf_dict['est_rounds']:
+    for fold in range(mcf_.cf_cfg.folds):
+        for round_ in mcf_.cf_cfg.est_rounds:
             # Get relevant forests
             if only_one_fold_one_round:
                 forest_1st_dic = mcf_1st.forest[fold][0]
             else:
                 forest_1st_dic = deepcopy(
                     mcf_1st.forest[fold][0 if round_ == 'regular' else 1])
-            if mcf_.int_dict['with_output'] and mcf_.int_dict['verbose']:
+            if mcf_.gen_cfg.with_output and mcf_.gen_cfg.verbose:
                 print(f'\n\nWeight maxtrix (1st stage) {fold+1} /',
-                      f'{mcf_.cf_dict["folds"]} forests, {round_}')
+                      f'{mcf_.cf_cfg.folds} forests, {round_}')
             weights_1st_dic = mcf_w.get_weights_mp(
                 mcf_1st, data_df, forest_1st_dic, round_ == 'regular')
 
@@ -136,20 +137,22 @@ def bala_1st_redf(instances: tuple['ModifiedCausalForest',
                   bala_1st_dic: dict,
                   bala_redf_dic: dict,
                   data_df: DataFrame,
-                  fold: int
+                  fold: int,
                   ) -> tuple[dict, dict]:
     """Perform balancing tests for 1st stage and reduced form."""
     _, mcf_1st, mcf_redf = instances
     _, weights_1st_dic, weights_redf_dic = weights
     (_, y_pot_f, y_pot_var_f, txt_w_f) = mcf_ate.ate_est(
-        mcf_1st, data_df, weights_1st_dic, balancing_test=True)
+        mcf_1st, data_df, weights_1st_dic, balancing_test=True,
+        )
     # Aggregate Balancing results over folds
     bala_1st_dic = mcf_est.aggregate_pots(
         mcf_1st, y_pot_f, y_pot_var_f, txt_w_f, bala_1st_dic,
         fold, title='Reduced form balancing check: ')
 
     (_, y_pot_f, y_pot_var_f, txt_w_f) = mcf_ate.ate_est(
-        mcf_redf, data_df, weights_redf_dic, balancing_test=True)
+        mcf_redf, data_df, weights_redf_dic, balancing_test=True,
+        )
     # Aggregate Balancing results over folds
     bala_redf_dic = mcf_est.aggregate_pots(
         mcf_redf, y_pot_f, y_pot_var_f, txt_w_f, bala_redf_dic,
@@ -168,10 +171,10 @@ def ate_iv(instances: tuple['ModifiedCausalForest', 'ModifiedCausalForest',
            data_df: DataFrame,
            fold: int,
            global_effects: bool = True,
-           local_effects: bool = True
-           ) -> tuple[np.ndarray, np.ndarray, dict, dict,
-                      np.ndarray, dict,
-                      np.ndarray, dict
+           local_effects: bool = True,
+           ) -> tuple[NDArray[Any], NDArray[Any], dict, dict,
+                      NDArray[Any], dict,
+                      NDArray[Any], dict
                       ]:
     """Compute LATE, reduced form and first stage."""
     # Unpack inputs
@@ -180,12 +183,12 @@ def ate_iv(instances: tuple['ModifiedCausalForest', 'ModifiedCausalForest',
 
     # 1st stage for current fold
     (w_ate_1st, y_pot_1st_f, y_pot_var_1st_f, txt_w_1st_f
-     ) = mcf_ate.ate_est(mcf_1st, data_df, weights_1st_dic, iv=False)
-
+     ) = mcf_ate.ate_est(mcf_1st, data_df, weights_1st_dic, iv=False,
+                         )
     # Reduced form for current fold
     (w_ate_redf, y_pot_redf_f, y_pot_var_redf_f, txt_w_redf_f
-     ) = mcf_ate.ate_est(mcf_redf, data_df, weights_redf_dic, iv=False)
-
+     ) = mcf_ate.ate_est(mcf_redf, data_df, weights_redf_dic, iv=False,
+                         )
     # Aggregate ATEs over folds
     ate_1st_dic = mcf_est.aggregate_pots(
         mcf_1st, y_pot_1st_f, y_pot_var_1st_f, txt_w_1st_f, ate_1st_dic, fold,
@@ -201,10 +204,11 @@ def ate_iv(instances: tuple['ModifiedCausalForest', 'ModifiedCausalForest',
         weights_global_dic = scale_weights_1st_stage(
             ate_1st,
             weights_redf_dic,
-            mcf_.int_dict['weight_as_sparse'],
+            mcf_.int_cfg.weight_as_sparse,
             )
         (w_late_global, y_pot_f_global, y_pot_var_f_global, txt_w_f_global
-         ) = mcf_ate.ate_est(mcf_, data_df, weights_global_dic, iv=True)
+         ) = mcf_ate.ate_est(mcf_, data_df, weights_global_dic, iv=True,
+                             )
         # Aggregate ATEs over folds
         late_global_dic = mcf_est.aggregate_pots(
             mcf_,
@@ -217,7 +221,8 @@ def ate_iv(instances: tuple['ModifiedCausalForest', 'ModifiedCausalForest',
 
     if local_effects:
         (w_late_local, y_pot_f_local, y_pot_var_f_local, txt_w_f_local
-         ) = mcf_ate.ate_est(mcf_, data_df, weights_local_dic, iv=True)
+         ) = mcf_ate.ate_est(mcf_, data_df, weights_local_dic, iv=True,
+                             )
         # Aggregate ATEs over folds
         late_local_dic = mcf_est.aggregate_pots(
             mcf_,
@@ -238,8 +243,8 @@ def ate_iv(instances: tuple['ModifiedCausalForest', 'ModifiedCausalForest',
 def bgate_iv(mcf_: 'ModifiedCausalForest',
              data_df: DataFrame,
              weights: tuple[dict, dict, dict],
-             # w_late_global: np.ndarray,
-             w_late_local: np.ndarray,
+             # w_late_global: npt.NDArray[Any],
+             w_late_local: NDArray[Any],
              lbgate_global_dic: dict,
              lbgate_local_dic: dict,
              lbgate_m_late_global_dic: dict,
@@ -248,7 +253,8 @@ def bgate_iv(mcf_: 'ModifiedCausalForest',
              iv_tuple: tuple = None,
              gate_type: str = 'BGATE',
              title: str = 'LBGATE',
-             global_effects: bool = False, local_effects: bool = True
+             global_effects: bool = False,
+             local_effects: bool = True,
              ) -> tuple[dict, dict, dict, dict, dict, dict, str]:
     """Compute BGATE with instrumental variables."""
     # weights_local_dic, weights_1st_dic, weights_redf_dic = weights
@@ -306,13 +312,16 @@ def bgate_iv(mcf_: 'ModifiedCausalForest',
 def gate_iv(mcf_: 'ModifiedCausalForest',
             data_df: DataFrame,
             weights: tuple[dict, dict, dict],
-            # w_late_global: np.ndarray,
-            w_late_local: np.ndarray,
-            lgate_global_dic: dict, lgate_local_dic: dict,
-            lgate_m_late_global_dic: dict, lgate_m_late_local_dic: dict,
+            # w_late_global: npt.NDArray[Any],
+            w_late_local: NDArray[Any],
+            lgate_global_dic: dict,
+            lgate_local_dic: dict,
+            lgate_m_late_global_dic: dict,
+            lgate_m_late_local_dic: dict,
             fold: int,
             title: str = 'LGATE',
-            global_effects: bool = False, local_effects: bool = True
+            global_effects: bool = False,
+            local_effects: bool = True,
             ) -> tuple[dict, dict, dict, dict, dict, dict,]:
     """Compute GATE with instrumental variables."""
     # weights_local_dic, weights_1st_dic, weights_redf_dic = weights
@@ -371,13 +380,13 @@ def iate_iv(mcf_: 'ModifiedCausalForest',
             iate_dic: dict,
             iate_m_ate_dic: dict,
             iate_eff_dic: dict,
-            w_ate: np.ndarray,
-            y_pot_iate_f: list | np.ndarray,
+            w_ate: NDArray[Any],
+            y_pot_iate_f: list | NDArray[Any],
             round_: bool,
             fold: int,
             iv: bool = True,
-            title: str = 'LIATE'
-            ) -> tuple[dict, dict, dict, list | np.ndarray]:
+            title: str = 'LIATE',
+            ) -> tuple[dict, dict, dict, list | NDArray[Any]]:
     """Compute IATEs."""
     (y_pot_f, y_pot_var_f, y_pot_m_ate_f, y_pot_m_ate_var_f,
      txt_w_f) = mcf_iate.iate_est_mp(
@@ -399,5 +408,4 @@ def iate_iv(mcf_: 'ModifiedCausalForest',
             mcf_, y_pot_eff, None, txt_w_f, iate_eff_dic, fold,
             title=title + ' eff'
             )
-
     return iate_dic, iate_m_ate_dic, iate_eff_dic, y_pot_iate_f

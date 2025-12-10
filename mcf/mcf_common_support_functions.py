@@ -7,9 +7,11 @@ Created on Thu May 11 16:30:11 2023
 # -*- coding: utf-8 -*-
 """
 from copy import deepcopy
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
+from numpy.typing import NDArray
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
@@ -19,16 +21,17 @@ from mcf import mcf_data_functions as mcf_data
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
 from mcf import mcf_print_stats_functions as mcf_ps
-from mcf import mcf_variable_importance_functions as mcf_vi
+from mcf.mcf_variable_importance_functions import print_variable_importance
 
 if TYPE_CHECKING:
     from mcf.mcf_main import ModifiedCausalForest
 
 
-def common_support(mcf_: 'ModifiedCausalForest',
+def common_support_p_score(mcf_: 'ModifiedCausalForest',
                    tree_df: pd.DataFrame,
                    fill_y_df: pd.DataFrame,
-                   train: bool = True
+                   train: bool = True,
+                   p_score_only: bool = False,
                    ) -> tuple[pd.DataFrame, pd.DataFrame,
                               float, int,
                               list[str],
@@ -36,42 +39,45 @@ def common_support(mcf_: 'ModifiedCausalForest',
                               pd.DataFrame | None
                               ]:
     """Remove observations from data files that are off-support."""
-    gen_dic, int_dic = mcf_.gen_dict, mcf_.int_dict
-    lc_dic, var_x_type, cs_dic = mcf_.lc_dict, mcf_.var_x_type, mcf_.cs_dict
+    gen_cfg, int_cfg = mcf_.gen_cfg, mcf_.int_cfg
+    lc_cfg, var_x_type, cs_cfg = mcf_.lc_cfg, mcf_.var_x_type, mcf_.cs_cfg
     data_train_dic = mcf_.data_train_dict
     cs_tree_prob_df = cs_fill_y_prob_df = predicted_probs_df = x_cs_np = None
-
+    probs_df = None
     d_name, _, no_of_treat = mcf_data.get_treat_info(mcf_)
     x_name, x_type = mcf_gp.get_key_values_in_list(var_x_type)
     len1 = 0 if tree_df is None else len(tree_df)
     len2 = 0 if fill_y_df is None else len(fill_y_df)
     obs = len1 + len2
     names_unordered = [x_name[j] for j, val in enumerate(x_type) if val > 0]
-    if gen_dic['with_output'] and gen_dic['verbose']:
-        mcf_ps.print_mcf(gen_dic,
-                         '\n' + '=' * 100 + '\nCommon support analysis',
-                         summary=True)
+    txt_cs = ('Propensity score estimation' if p_score_only
+              else 'Common support analysis'
+              )
+    if gen_cfg.with_output and gen_cfg.verbose:
+        mcf_ps.print_mcf(gen_cfg, '\n' + '=' * 100 + '\n' + txt_cs, summary=True
+                         )
     if train:
-        if cs_dic['detect_const_vars_stop']:
+        if cs_cfg.detect_const_vars_stop and not p_score_only:
             check_const_single_variable(list(var_x_type.keys()),
-                                        mcf_.var_dict['d_name'],
+                                        mcf_.var_cfg.d_name,
                                         (tree_df, fill_y_df,)
                                         )
-
-        if lc_dic['cs_cv']:   # Crossvalidate ... only tree data is used
+        if lc_cfg.cs_cv:   # Crossvalidate ... only tree data is used
             tree_mcf_df, fill_y_mcf_df = tree_df.copy(), fill_y_df.copy()
             d_tree_mcf_np = mcf_gp.to_numpy_big_data(
-                tree_mcf_df[d_name], int_dic['obs_bigdata']).ravel()
-        else:  # Use lc_dic['cs_share'] of data for common support estim. only
+                tree_mcf_df[d_name], int_cfg.obs_bigdata
+                ).ravel()
+        else:  # Use lc_cfg.cs_share of data for common support estim. only
             # Take the same share of obs. from both input samples
             tree_mcf_df, tree_cs_df = train_test_split(
-                tree_df, test_size=lc_dic['cs_share'], random_state=42)
+                tree_df, test_size=lc_cfg.cs_share, random_state=42)
             fill_y_mcf_df, fill_y_cs_df = train_test_split(
-                fill_y_df, test_size=lc_dic['cs_share'], random_state=42)
+                fill_y_df, test_size=lc_cfg.cs_share, random_state=42)
             data_cs_df = pd.concat([tree_cs_df, fill_y_cs_df], axis=0)
             x_cs_df, _ = mcf_data.get_x_data(data_cs_df, x_name)
             d_cs_np = mcf_gp.to_numpy_big_data(
-                data_cs_df[d_name], int_dic['obs_bigdata']).ravel()
+                data_cs_df[d_name], int_cfg.obs_bigdata
+                ).ravel()
         x_fy_df, _ = mcf_data.get_x_data(fill_y_mcf_df, x_name)
     else:
         tree_mcf_df, fill_y_mcf_df = tree_df, None
@@ -84,38 +90,42 @@ def common_support(mcf_: 'ModifiedCausalForest',
                 x_fy_df, names_unordered, data_train_dict=data_train_dic)
             x_mcf_df, dummy_names = mcf_data.dummies_for_unord(
                 x_mcf_df, names_unordered, data_train_dict=data_train_dic)
-            if not lc_dic['cs_cv']:
+            if not lc_cfg.cs_cv:
                 x_cs_df, _ = mcf_data.dummies_for_unord(
                     x_cs_df, names_unordered, data_train_dict=data_train_dic)
         else:
             dummy_names = None
-        if not lc_dic['cs_cv']:
-            x_cs_np = mcf_gp.to_numpy_big_data(x_cs_df, int_dic['obs_bigdata'])
-        x_fy_np = mcf_gp.to_numpy_big_data(x_fy_df,
-                                           int_dic['obs_bigdata'])
-        x_mcf_np = mcf_gp.to_numpy_big_data(x_mcf_df,
-                                            int_dic['obs_bigdata'])
-        if gen_dic['with_output'] and gen_dic['verbose']:
+        if not lc_cfg.cs_cv:
+            x_cs_np = mcf_gp.to_numpy_big_data(x_cs_df, int_cfg.obs_bigdata)
+        x_fy_np = mcf_gp.to_numpy_big_data(x_fy_df, int_cfg.obs_bigdata)
+        x_mcf_np = mcf_gp.to_numpy_big_data(x_mcf_df, int_cfg.obs_bigdata)
+        if gen_cfg.with_output and gen_cfg.verbose:
             txt += '\n' + '-' * 100 + '\n'
-            txt += 'Computing random forest based common support\n'
-            mcf_ps.print_mcf(gen_dic, txt, summary=False)
-        max_workers = 1 if int_dic['replication'] else gen_dic['mp_parallel']
+            if p_score_only:
+                txt += 'Computing random forest based propensity score\n'
+            else:
+                txt += 'Computing random forest based common support\n'
+            mcf_ps.print_mcf(gen_cfg, txt, summary=False)
+        max_workers = 1 if int_cfg.replication else gen_cfg.mp_parallel
         classif = RandomForestClassifier(
-            n_estimators=mcf_.cf_dict['boot'], max_features='sqrt',
+            n_estimators=mcf_.cf_cfg.boot, max_features='sqrt',
             bootstrap=True, oob_score=False, n_jobs=max_workers,
             random_state=42, verbose=False, min_samples_split=5)
-        mcf_sys.print_mememory_statistics(gen_dic,
-                                          'Training: Common support before CV')
-
-        if lc_dic['cs_cv']:   # Crossvalidate
+        if gen_cfg.with_output and gen_cfg.verbose:
+            mcf_sys.print_mememory_statistics(gen_cfg,
+                                              'Training: '
+                                              + txt_cs +
+                                              ' before CV'
+                                              )
+        if lc_cfg.cs_cv:   # Crossvalidate
             index = np.arange(obs_mcf)       # indices
             rng = np.random.default_rng(seed=9324561)
             rng.shuffle(index)
-            index_folds = np.array_split(index, lc_dic['cs_cv_k'])
+            index_folds = np.array_split(index, lc_cfg.cs_cv_k)
             pred_mcf_np = np.empty((len(index), no_of_treat))
             pred_fy_np_fold = np.zeros((len(x_fy_np), no_of_treat))
             forests = []
-            for fold_pred in range(lc_dic['cs_cv_k']):
+            for fold_pred in range(lc_cfg.cs_cv_k):
                 fold_train = [x for idx, x in enumerate(index_folds)
                               if idx != fold_pred]
                 index_train = np.hstack(fold_train)
@@ -126,10 +136,12 @@ def common_support(mcf_: 'ModifiedCausalForest',
                 forests.append(deepcopy(classif))
                 pred_mcf_np[index_pred, :] = classif.predict_proba(x_pred)
                 pred_fy_np_fold += classif.predict_proba(x_fy_np)
-                mcf_sys.print_mememory_statistics(
-                    gen_dic, 'Training: Common support during CV')
+                if gen_cfg.with_output and gen_cfg.verbose:
+                    mcf_sys.print_mememory_statistics(
+                        gen_cfg, 'Training: ' + txt_cs + ' during CV'
+                        )
             pred_cs_np, d_cs_np = pred_mcf_np, d_tree_mcf_np  # To get cut-offs
-            pred_fy_np = pred_fy_np_fold / lc_dic['cs_cv_k']
+            pred_fy_np = pred_fy_np_fold / lc_cfg.cs_cv_k
         else:
             x_train, x_test, d_train, d_test = train_test_split(
                 x_cs_np, d_cs_np, test_size=0.25, random_state=42)
@@ -139,76 +151,85 @@ def common_support(mcf_: 'ModifiedCausalForest',
             pred_mcf_np = classif.predict_proba(x_mcf_np)   # cut and return
             pred_fy_np = classif.predict_proba(x_fy_np)     # cut and return
             forests = [classif]
-            mcf_sys.print_mememory_statistics(
-                gen_dic, 'Prediction: Common support computation')
-        cs_dic['forests'] = forests
-        if gen_dic['with_output']:
+            if gen_cfg.with_output and gen_cfg.verbose:
+                mcf_sys.print_mememory_statistics(gen_cfg, 'Prediction: '
+                                                  + txt_cs
+                                                  )
+        cs_cfg.forests = forests
+        if gen_cfg.with_output:
             if names_unordered:
                 names_unordered_print = data_train_dic['prime_old_name_dict']
             else:
                 names_unordered_print = None
-            mcf_vi.print_variable_importance(
+
+            print_variable_importance(
                 deepcopy(classif), x_mcf_df, tree_mcf_df[d_name], x_name,
-                names_unordered, dummy_names, gen_dic, summary=False,
+                names_unordered, dummy_names, gen_cfg, summary=True,
                 name_label_dict=names_unordered_print,
-                obs_bigdata=int_dic['obs_bigdata'])
-
+                obs_bigdata=int_cfg.obs_bigdata,
+                classification=True,
+                scaler=None,
+                )
         # Normalize estimated probabilities to add up to 1
-        pred_cs_np_sum = pred_cs_np.sum(axis=1, keepdims=True)
-        pred_mcf_np_sum = pred_mcf_np.sum(axis=1, keepdims=True)
-        pred_fy_np_sum = pred_fy_np.sum(axis=1, keepdims=True)
-        pred_cs_np /= pred_cs_np_sum
-        pred_mcf_np /= pred_mcf_np_sum
-        pred_fy_np /= pred_fy_np_sum
+        if not p_score_only:
+            pred_cs_np_sum = pred_cs_np.sum(axis=1, keepdims=True)
+            pred_mcf_np_sum = pred_mcf_np.sum(axis=1, keepdims=True)
+            pred_fy_np_sum = pred_fy_np.sum(axis=1, keepdims=True)
+            pred_cs_np /= pred_cs_np_sum
+            pred_mcf_np /= pred_mcf_np_sum
+            pred_fy_np /= pred_fy_np_sum
 
-        # Determine cut-offs nased on pred_cs_np
-        cs_dic['cut_offs'] = get_cut_off_probs(mcf_, pred_cs_np, d_cs_np)
-        mcf_.cs_dict = cs_dic   # Update instance with cut-off prob's
-        # Descriptive stats
-        if gen_dic['with_output']:
-            titel_ = 'Training - fill mcf with y data'
-            file_list_jpeg, file_list_d_jpeg = plot_support(mcf_, pred_cs_np,
-                                                            d_cs_np, titel_)
-            descriptive_stats_on_off_support(mcf_, pred_fy_np, fill_y_mcf_df,
-                                             titel_)
-        # Reduce samples
-        fill_y_mcf_df, _, cs_fill_y_prob_df = on_off_support_df(
-            mcf_.cs_dict, mcf_.var_dict['id_name'],
-            pred_fy_np, fill_y_mcf_df,
-            return_predicted=gen_dic['with_output'],
-            )
+            # Determine cut-offs nased on pred_cs_np
+            cs_cfg.cut_offs = get_cut_off_probs(mcf_, pred_cs_np, d_cs_np)
+            mcf_.cs_cfg = cs_cfg   # Update instance with cut-off prob's
+            # Descriptive stats
+            if gen_cfg.with_output:
+                titel_ = 'Training - fill mcf with y data'
+                file_list_jpeg, file_list_d_jpeg = plot_support(mcf_, pred_cs_np,
+                                                                d_cs_np, titel_)
+                descriptive_stats_on_off_support(mcf_, pred_fy_np, fill_y_mcf_df,
+                                                 titel_)
+            # Reduce samples
+            fill_y_mcf_df, _, cs_fill_y_prob_df = on_off_support_df(
+                mcf_.cs_cfg, mcf_.var_cfg.id_name,
+                pred_fy_np, fill_y_mcf_df,
+                return_predicted=gen_cfg.with_output,
+                )
     else:  # Reduce prediction sample
         # Predict treatment probabilities
         if names_unordered:  # List is not empty
             x_mcf_df, _ = mcf_data.dummies_for_unord(
                 x_mcf_df, names_unordered, data_train_dict=data_train_dic)
-        if len(x_mcf_df) < int_dic['obs_bigdata']:
+        if len(x_mcf_df) < int_cfg.obs_bigdata:
             pred_mcf_np = np.zeros((len(x_mcf_df), no_of_treat))
         else:
             pred_mcf_np = np.zeros((len(x_mcf_df), no_of_treat),
-                                   dtype=np.float32)
+                                   dtype=np.float32
+                                   )
         # If cross-validation, take average of forests in folds
-        for forest in cs_dic['forests']:
+        for forest in cs_cfg.forests:
             pred_mcf_np += forest.predict_proba(
-                mcf_gp.to_numpy_big_data(x_mcf_df, int_dic['obs_bigdata'])
+                mcf_gp.to_numpy_big_data(x_mcf_df, int_cfg.obs_bigdata)
                 )
 
-        pred_mcf_np /= len(cs_dic['forests'])
+        pred_mcf_np /= len(cs_cfg.forests)
         # Normalize estimated probabilities to add up to 1
         pred_mcf_np_sum = pred_mcf_np.sum(axis=1, keepdims=True)
         pred_mcf_np /= pred_mcf_np_sum
 
     # Delete observation off support
-    if gen_dic['with_output']:
-        titel = 'Training - build mcf data' if train else 'Prediction data'
-        descriptive_stats_on_off_support(mcf_, pred_mcf_np, tree_mcf_df, titel)
-
-    tree_mcf_df, _, probs_df = on_off_support_df(
-        mcf_.cs_dict, mcf_.var_dict['id_name'],
-        pred_mcf_np, tree_mcf_df,
-        return_predicted=gen_dic['with_output'],
-        )
-    if train:
+    if not p_score_only:
+        if gen_cfg.with_output:
+            titel = 'Training - build mcf data' if train else 'Prediction data'
+            descriptive_stats_on_off_support(mcf_, pred_mcf_np, tree_mcf_df,
+                                             titel
+                                             )
+        tree_mcf_df, _, probs_df = on_off_support_df(
+            mcf_.cs_cfg, mcf_.var_cfg.id_name,
+            pred_mcf_np, tree_mcf_df,
+            return_predicted=gen_cfg.with_output,
+            )
+    if train and not p_score_only:
         cs_tree_prob_df = probs_df
     else:
         predicted_probs_df = probs_df
@@ -225,9 +246,12 @@ def common_support(mcf_: 'ModifiedCausalForest',
             )
 
 
-def check_if_too_many_deleted(mcf_, obs_keep, obs_del):
+def check_if_too_many_deleted(mcf_: 'ModifiedCausalForest',
+                              obs_keep: int,
+                              obs_del: int
+                              ) -> None:
     """Check if too many obs are deleted and raise Exception if so."""
-    max_del_train = mcf_.cs_dict['max_del_train']
+    max_del_train = mcf_.cs_cfg.max_del_train
     share_del = obs_del / (obs_keep + obs_del)
     if share_del > max_del_train:
         err_str = (
@@ -238,24 +262,28 @@ def check_if_too_many_deleted(mcf_, obs_keep, obs_del):
         raise ValueError(err_str)
 
 
-def descriptive_stats_on_off_support(mcf_, probs_np, data_df, titel=''):
+def descriptive_stats_on_off_support(mcf_: 'ModifiedCausalForest',
+                                     probs_np: NDArray[Any],
+                                     data_df: pd.DataFrame,
+                                     titel: str = ''
+                                     ) -> None:
     """Compute descriptive stats for deleted and retained observations."""
-    keep_df, delete_df, _ = on_off_support_df(mcf_.cs_dict,
-                                              mcf_.var_dict['id_name'],
+    keep_df, delete_df, _ = on_off_support_df(mcf_.cs_cfg,
+                                              mcf_.var_cfg.id_name,
                                               probs_np,
                                               data_df,
                                               return_predicted=False
                                               )
-    gen_dic, var_dic = mcf_.gen_dict, mcf_.var_dict
+    gen_cfg, var_cfg = mcf_.gen_cfg, mcf_.var_cfg
     titel = ('\n' + '-' * 100 + '\nData investigated for common support: '
              f'{titel}\n' + '-' * 100)
     if delete_df.empty:
-        mcf_ps.print_mcf(gen_dic,
+        mcf_ps.print_mcf(gen_cfg,
                          titel + '\nNo observations deleted in common support'
                          ' check', summary=True)
     else:
         d_name, _, _ = mcf_data.get_treat_info(mcf_)
-        x_name = var_dic['x_name'].copy()
+        x_name = var_cfg.x_name.copy()
         data_train_dic = mcf_.data_train_dict
         keep_df = mcf_ps.change_name_value_df(
             keep_df,
@@ -267,13 +295,13 @@ def descriptive_stats_on_off_support(mcf_, probs_np, data_df, titel=''):
             data_train_dic['prime_values_dict'],
             data_train_dic['unique_values_dict'])
         x_name = [data_train_dic['prime_old_name_dict'].get(
-            item, item) for item in var_dic['x_name'].copy()]
+            item, item) for item in var_cfg.x_name.copy()]
 
         obs_del, obs_keep = len(delete_df), len(keep_df)
         obs = obs_del + obs_keep
         txt = f'\nObservations deleted: {obs_del:4} ({obs_del/obs:.2%})'
         txt += '\n' + '-' * 100
-        mcf_ps.print_mcf(gen_dic, titel + txt, summary=True)
+        mcf_ps.print_mcf(gen_cfg, titel + txt, summary=True)
         txt = ''
         with pd.option_context(
                 'display.max_rows', 500, 'display.max_columns', 500,
@@ -293,17 +321,16 @@ def descriptive_stats_on_off_support(mcf_, probs_np, data_df, titel=''):
                      np.round(d_delete_count / obs_del * 100, 2)], axis=1)
                 d_keep_count.columns = ['Obs.', 'Share in %']
                 d_delete_count.columns = ['Obs.', 'Share in %']
-                if gen_dic['panel_data']:
-                    cluster_id = data_df[var_dic['cluster_name']].squeeze()
-                    cluster_keep = keep_df[var_dic['cluster_name']].squeeze()
-                    cluster_delete = delete_df[var_dic['cluster_name']
-                                               ].squeeze()
+                if gen_cfg.panel_data:
+                    cluster_id = data_df[var_cfg.cluster_name].squeeze()
+                    cluster_keep = keep_df[var_cfg.cluster_name].squeeze()
+                    cluster_delete = delete_df[var_cfg.cluster_name].squeeze()
                 k_str = '\nObservations kept, by treatment\n    '
                 d_str = '\nObservations deleted, by treatment\n '
                 k_str += d_keep_count.to_string()
                 d_str += d_delete_count.to_string()
                 txt += k_str + '\n' + '-   ' * 20 + d_str
-                if gen_dic['panel_data']:
+                if gen_cfg.panel_data:
                     txt += '-   ' * 20
                     txt += '\nTotal number of panel units:'
                     txt += f'{len(cluster_id.unique())}'
@@ -312,53 +339,58 @@ def descriptive_stats_on_off_support(mcf_, probs_np, data_df, titel=''):
                     txt += '  ON support\nObservations belonging to '
                     txt += f'{len(cluster_delete.unique())} panel units are'
                     txt += ' OFF support'
-                mcf_ps.print_mcf(gen_dic, txt, summary=True)
+                mcf_ps.print_mcf(gen_cfg, txt, summary=True)
             else:
                 txt = f'\nData investigated for common support: {titel}\n'
                 txt += '-' * 100 + '\nTreatment not in prediction data.\n'
                 txt += '-' * 100
-                mcf_ps.print_mcf(gen_dic, txt, summary=False)
+                mcf_ps.print_mcf(gen_cfg, txt, summary=False)
             txt = '\n' + '-' * 100
             txt += '\nFull sample (Data ON and OFF support)' + '\n' + '-' * 100
-            mcf_ps.print_mcf(gen_dic, txt, summary=False)
-            mcf_ps.print_mcf(gen_dic, data_df[x_name].describe().transpose(),
+            mcf_ps.print_mcf(gen_cfg, txt, summary=False)
+            mcf_ps.print_mcf(gen_cfg, data_df[x_name].describe().transpose(),
                              summary=False)
             if d_name[0].casefold() in all_var_names:
-                mean_by_treatment(data_df[d_name], data_df[x_name], gen_dic,
+                mean_by_treatment(data_df[d_name], data_df[x_name], gen_cfg,
                                   summary=False)
             txt = '\n' + '-' * 100 + '\nData ON support' + '\n' + '-' * 100
-            mcf_ps.print_mcf(gen_dic, txt, summary=False)
-            mcf_ps.print_mcf(gen_dic, keep_df[x_name].describe().transpose(),
+            mcf_ps.print_mcf(gen_cfg, txt, summary=False)
+            mcf_ps.print_mcf(gen_cfg, keep_df[x_name].describe().transpose(),
                              summary=False)
             if d_name[0].casefold() in all_var_names and len(keep_df) > 5:
-                mean_by_treatment(keep_df[d_name], keep_df[x_name], gen_dic,
+                mean_by_treatment(keep_df[d_name], keep_df[x_name], gen_cfg,
                                   summary=False)
             txt = '\n' + '-' * 100 + '\nData OFF support' + '\n' + '-' * 100
-            mcf_ps.print_mcf(gen_dic, txt, summary=False)
-            mcf_ps.print_mcf(gen_dic, delete_df[x_name].describe().transpose(),
+            mcf_ps.print_mcf(gen_cfg, txt, summary=False)
+            mcf_ps.print_mcf(gen_cfg, delete_df[x_name].describe().transpose(),
                              summary=False)
             if d_name[0].casefold() in all_var_names and len(delete_df) > 5:
                 mean_by_treatment(delete_df[d_name], delete_df[x_name],
-                                  gen_dic, summary=False)
+                                  gen_cfg, summary=False)
         check_if_too_many_deleted(mcf_, obs_keep, obs_del)
 
 
-def mean_by_treatment(treat_df, data_df, gen_dic, summary=False):
+def mean_by_treatment(treat_df: pd.DataFrame,
+                      data_df: pd.DataFrame,
+                      gen_cfg: Any,
+                      summary: str = False
+                      ) -> None:
     """Compute mean by treatment status."""
     treat_df = treat_df.squeeze()
     treat_vals = pd.unique(treat_df)
     txt = '\n------------------ Mean by treatment status ---------------------'
-    mcf_ps.print_mcf(gen_dic, txt, summary=summary)
+    mcf_ps.print_mcf(gen_cfg, txt, summary=summary)
     if len(treat_vals) > 0:
         mean = data_df.groupby(treat_df).mean(numeric_only=True)
-        mcf_ps.print_mcf(gen_dic, mean.transpose(), summary=summary)
+        mcf_ps.print_mcf(gen_cfg, mean.transpose(), summary=summary)
     else:
         txt = f'\nAll obs have same treatment: {treat_vals}'
-        mcf_ps.print_mcf(gen_dic, txt, summary=summary)
+        mcf_ps.print_mcf(gen_cfg, txt, summary=summary)
 
 
-def on_off_support_df(cs_dic: dict, id_name: str,
-                      probs_np: np.ndarray,
+def on_off_support_df(cs_cfg: Any,
+                      id_name: str,
+                      probs_np: NDArray[Any],
                       data_df: pd.DataFrame,
                       return_predicted: bool = False,
                       ) -> tuple[pd.DataFrame,
@@ -366,7 +398,7 @@ def on_off_support_df(cs_dic: dict, id_name: str,
                                  pd.DataFrame | None]:
     """Split DataFrame into retained and deleted part."""
     # _, _, no_of_treat = mcf_data.get_treat_info(mcf_)
-    lower, upper = cs_dic['cut_offs']['lower'], cs_dic['cut_offs']['upper']
+    lower, upper = cs_cfg.cut_offs['lower'], cs_cfg.cut_offs['upper']
     obs = len(probs_np)
     off_support = np.empty(obs, dtype=bool)
     for i in range(obs):
@@ -392,10 +424,14 @@ def on_off_support_df(cs_dic: dict, id_name: str,
     return data_on_df, data_off_df, predicted_df
 
 
-def plot_support(mcf_, probs_np, d_np, titel_data=None):
+def plot_support(mcf_: 'ModifiedCausalForest',
+                 probs_np: NDArray[Any],
+                 d_np: NDArray[Any],
+                 titel_data: str | None = None
+                 ) -> tuple[list[Path], list[Path]]:
     """Histogrammes for distribution of treatment probabilities for overlap."""
-    cs_dic, int_dic = mcf_.cs_dict, mcf_.int_dict
-    lower, upper = cs_dic['cut_offs']['lower'], cs_dic['cut_offs']['upper']
+    cs_cfg, int_cfg = mcf_.cs_cfg, mcf_.int_cfg
+    lower, upper = cs_cfg.cut_offs['lower'], cs_cfg.cut_offs['upper']
     _, d_values, _ = mcf_data.get_treat_info(mcf_)
     color_list = ['red', 'blue', 'green', 'violet', 'magenta', 'crimson',
                   'yellow', 'darkorange', 'khaki', 'skyblue', 'darkgreen',
@@ -410,20 +446,26 @@ def plot_support(mcf_, probs_np, d_np, titel_data=None):
         treat_prob = probs_np[:, idx_p]
         titel = f'Probability of treatment {ival_p} in different subsamples'
         f_titel = f'common_support_pr_treat{ival_p}'
-        file_name_csv = cs_dic['common_support_fig_pfad_csv'] / f'{f_titel}.csv'
-        file_name_jpeg = (cs_dic['common_support_fig_pfad_jpeg']
-                          / f'{f_titel}.jpeg')
+        file_name_csv = (cs_cfg.paths['common_support_fig_pfad_csv']
+                         / f'{f_titel}.csv'
+                         )
+        file_name_jpeg = (cs_cfg.paths['common_support_fig_pfad_jpeg']
+                          / f'{f_titel}.jpeg'
+                          )
         file_list_jpeg.append(file_name_jpeg)
-        file_name_pdf = cs_dic['common_support_fig_pfad_pdf'] / f'{f_titel}.pdf'
-        file_name_csv_d = (cs_dic['common_support_fig_pfad_csv']
+        file_name_pdf = (cs_cfg.paths['common_support_fig_pfad_pdf']
+                         / f'{f_titel}.pdf'
+                         )
+        file_name_csv_d = (cs_cfg.paths['common_support_fig_pfad_csv']
                            / f'{f_titel}_d.csv'
                            )
-        file_name_jpeg_d = (cs_dic['common_support_fig_pfad_jpeg']
+        file_name_jpeg_d = (cs_cfg.paths['common_support_fig_pfad_jpeg']
                             / f'{f_titel}_d.jpeg'
                             )
         file_list_d_jpeg.append(file_name_jpeg_d)
-        file_name_pdf_d = (cs_dic['common_support_fig_pfad_pdf']
-                           / f'{f_titel}_d.pdf')
+        file_name_pdf_d = (cs_cfg.paths['common_support_fig_pfad_pdf']
+                           / f'{f_titel}_d.pdf'
+                           )
         data_hist = [treat_prob[d_np == val] for val in d_values]
         fig, axs = plt.subplots()
         fig_d, axs_d = plt.subplots()
@@ -447,9 +489,11 @@ def plot_support(mcf_, probs_np, d_np, titel_data=None):
         axs.set_title(titel)
         if titel_data is not None:
             fig.text(0.02, 0.02, "Data: " + titel_data, ha='left',
-                     fontsize=int_dic['fontsize'])
+                     fontsize=int_cfg.fontsize
+                     )
             fig_d.text(0.02, 0.02, "Data: " + titel_data, ha='left',
-                       fontsize=int_dic['fontsize'])
+                       fontsize=int_cfg.fontsize
+                       )
         axs.set_xlabel('Treatment probability')
         axs.set_ylabel('Observations')
         axs.set_xlim([0, 1])
@@ -457,13 +501,14 @@ def plot_support(mcf_, probs_np, d_np, titel_data=None):
                     linestyle="--", label='min')
         axs.axvline(upper[idx_p], color='black', linewidth=0.7,
                     linestyle="--", label='max')
-        axs.legend(loc=int_dic['legend_loc'], shadow=True,
-                   fontsize=int_dic['fontsize'])
+        axs.legend(loc=int_cfg.legend_loc, shadow=True,
+                   fontsize=int_cfg.fontsize
+                   )
         mcf_sys.delete_file_if_exists(file_name_jpeg)
         mcf_sys.delete_file_if_exists(file_name_pdf)
         mcf_sys.delete_file_if_exists(file_name_csv)
-        fig.savefig(file_name_jpeg, dpi=int_dic['dpi'])
-        fig.savefig(file_name_pdf, dpi=int_dic['dpi'])
+        fig.savefig(file_name_jpeg, dpi=int_cfg.dpi)
+        fig.savefig(file_name_pdf, dpi=int_cfg.dpi)
         padded_arrays = padded_array_from_list(data_hist)
         save_df = pd.DataFrame(padded_arrays, columns=labels)
         save_df = save_df.fillna(value='NaN')
@@ -476,8 +521,9 @@ def plot_support(mcf_, probs_np, d_np, titel_data=None):
                       linestyle="--", label='min')
         axs_d.axvline(upper[idx_p], color='black', linewidth=0.7,
                       linestyle="--", label='max')
-        axs_d.legend(loc=int_dic['legend_loc'], shadow=True,
-                     fontsize=int_dic['fontsize'])
+        axs_d.legend(loc=int_cfg.legend_loc, shadow=True,
+                     fontsize=int_cfg.fontsize
+                     )
         mcf_sys.delete_file_if_exists(file_name_jpeg_d)
         mcf_sys.delete_file_if_exists(file_name_pdf_d)
         mcf_sys.delete_file_if_exists(file_name_csv_d)
@@ -490,31 +536,35 @@ def plot_support(mcf_, probs_np, d_np, titel_data=None):
         save_df = pd.DataFrame(padded_arrays, columns=label_list)
         save_df = save_df.fillna(value='NaN')
         save_df.to_csv(file_name_csv_d, index=False)
-        fig_d.savefig(file_name_jpeg_d, dpi=int_dic['dpi'])
-        fig_d.savefig(file_name_pdf_d, dpi=int_dic['dpi'])
-        if int_dic['show_plots']:
+        fig_d.savefig(file_name_jpeg_d, dpi=int_cfg.dpi)
+        fig_d.savefig(file_name_pdf_d, dpi=int_cfg.dpi)
+        if int_cfg.show_plots:
             plt.show()
         plt.close()
 
     return file_list_jpeg, file_list_d_jpeg
 
 
-def padded_array_from_list(list_of_arrays):
+def padded_array_from_list(list_of_arrays: list[NDArray[Any]]) -> NDArray[Any]:
     """Create arrays of equal length."""
     max_length = max(len(arr) for arr in list_of_arrays)
     padded_arrays = np.concatenate(
         [np.pad(arr, (0, max_length - len(arr)),
                 mode='constant', constant_values=np.nan).reshape(-1, 1)
          for arr in list_of_arrays], axis=1)
+
     return padded_arrays
 
 
-def get_cut_off_probs(mcf_, probs_np, d_np):
+def get_cut_off_probs(mcf_: 'ModifiedCausalForest',
+                      probs_np: NDArray[Any],
+                      d_np: NDArray[Any]
+                      ) -> dict:
     """Compute the cut-offs for common support for training only."""
-    cs_dic, gen_dic = mcf_.cs_dict, mcf_.gen_dict
+    cs_cfg, gen_cfg = mcf_.cs_cfg, mcf_.gen_cfg
     _, d_values, no_of_treat = mcf_data.get_treat_info(mcf_)
-    if cs_dic['type'] == 1:
-        q_s = cs_dic['quantil']
+    if cs_cfg.type_ == 1:
+        q_s = cs_cfg.quantil
         upper_limit = np.empty((no_of_treat, no_of_treat))
         lower_limit = np.empty_like(upper_limit)
         for idx, ival in enumerate(d_values):
@@ -528,15 +578,15 @@ def get_cut_off_probs(mcf_, probs_np, d_np):
             upper_limit[idx, 0] = 1
             lower_limit[idx, 0] = 0
         txt = ''
-        if cs_dic['adjust_limits'] != 0:
-            upper_limit *= 1 + cs_dic['adjust_limits']
-            lower_limit *= 1 - cs_dic['adjust_limits']
+        if cs_cfg.adjust_limits != 0:
+            upper_limit *= 1 + cs_cfg.adjust_limits
+            lower_limit *= 1 - cs_cfg.adjust_limits
             lower_limit = np.clip(lower_limit, a_min=0, a_max=1)
             upper_limit = np.clip(upper_limit, a_min=0, a_max=1)
-            if gen_dic['with_output']:
+            if gen_cfg.with_output:
                 txt += '\n' + '-' * 100 + '\nCommon support bounds adjusted by'
-                txt += f' {cs_dic["adjust_limits"]:5.2%}-points\n' + '-' * 100
-        if gen_dic['with_output']:
+                txt += f' {cs_cfg.adjust_limits:5.2%}-points\n' + '-' * 100
+        if gen_cfg.with_output:
             txt += '\nTreatment sample     Treatment probabilities in %'
             txt += '\n--------------------- Upper limits ----------------'
             for idx, ival in enumerate(d_values):
@@ -552,18 +602,20 @@ def get_cut_off_probs(mcf_, probs_np, d_np):
             txt += '\nFirst treatment is set to 1 and 0 (ignored) due to'
             txt += ' additivity.' + '\n' + 100 * '-'
         upper, lower = np.min(upper_limit, axis=0), np.max(lower_limit, axis=0)
-        if gen_dic['with_output']:
+        if gen_cfg.with_output:
             upper_str = [f'{x:>7.2%}' for x in upper]
             lower_str = [f'{x:>7.2%}' for x in lower]
             txt += '\nUpper limits used: ' + ' '.join(upper_str)
             txt += '\nLower limits used: ' + ' '.join(lower_str)
             txt += '\n' + 100 * '-'
-            mcf_ps.print_mcf(gen_dic, txt, summary=True)
+            mcf_ps.print_mcf(gen_cfg, txt, summary=True)
     else:
         # Normalize such that probabilities add up to 1
-        upper = np.ones(no_of_treat) * (1 - cs_dic['min_p'])
-        lower = np.ones(no_of_treat) * cs_dic['min_p']
-    cut_offs = {'upper': upper, 'lower': lower}
+        upper = np.ones(no_of_treat) * (1 - cs_cfg.min_p)
+        lower = np.ones(no_of_treat) * cs_cfg.min_p
+    cut_offs = {'upper': upper,
+                'lower': lower
+                }
     return cut_offs
 
 

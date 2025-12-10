@@ -10,7 +10,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.8.0
+Version: 0.9.0
 
 This is an example to show how to combine the ModifiedCausalForest class and
 the OptimalPolicy class for joint estimation. Please note that there could be
@@ -85,7 +85,7 @@ CROSSFITTING = True   # Boolean, determines if cross-fitting is used.
 if not APPLIC_PATH.exists():
     APPLIC_PATH.mkdir(parents=True)
 
-# Modules may sent many irrelevant warnings: Globally ignore them
+# Modules may send many irrelevant warnings: Globally ignore them
 warnings.filterwarnings('ignore')
 
 # Get data ready, if crossfitting:
@@ -120,6 +120,7 @@ mymcf1 = ModifiedCausalForest(var_d_name=VAR_D_NAME,
                               var_y_name=VAR_Y_NAME,
                               var_x_name_ord=VAR_X_NAME_ORD,
                               var_x_name_unord=VAR_X_NAME_UNORD,
+                              gen_ate_eff=True,
                               gen_iate_eff=True,
                               cf_compare_only_to_zero=True,
                               gen_outpath=APPLIC_PATH / 'mcf_train')
@@ -135,9 +136,11 @@ if CROSSFITTING:
                                   var_y_name=VAR_Y_NAME,
                                   var_x_name_ord=VAR_X_NAME_ORD,
                                   var_x_name_unord=VAR_X_NAME_UNORD,
+                                  gen_ate_eff=True,
                                   gen_iate_eff=True,
                                   cf_compare_only_to_zero=True,
-                                  gen_outpath=APPLIC_PATH / 'mcf_train_x_fit')
+                                  gen_outpath=APPLIC_PATH / 'mcf_train_x_fit'
+                                  )
     # Train the forest
     mymcf2.train(pred_mcf_train_pt_df)
 
@@ -192,11 +195,8 @@ oos_df = results_oos['iate_data_df']
 # scores (IATEs relative to the zero treatment also make sense, but require to
 # provide the IATEs for the comparison of treatment zero against itself,
 # i.e. a column of zero's.
-VAR_POLSCORE_NAME = [VAR_Y_NAME.casefold() + '_lc' + str(i) + '_un_lc_pot_eff'
+VAR_POLSCORE_NAME = [VAR_Y_NAME.casefold() + '_lc' + str(i) + '_un_lc_pot'
                      for i in range(3)]
-# VAR_POLSCORE_NAME = ('outcome_lc0_un_lc_pot_eff',
-#                      'outcome_lc1_un_lc_pot_eff',
-#                      'outcome_lc2_un_lc_pot_eff')
 
 # Names of policy score if outcomes are (automatically) centered in mcf if
 # efficient IATEs are computed. If not, change accordingly.
@@ -208,7 +208,8 @@ myoptp = OptimalPolicy(var_d_name=VAR_D_NAME,
                        pt_depth_tree_1=PT_DEPTH_TREE_1,
                        pt_depth_tree_2=PT_DEPTH_TREE_2,
                        gen_outpath=APPLIC_PATH / 'OptPolicy',
-                       gen_method=GEN_METHOD)
+                       gen_method=GEN_METHOD
+                       )
 
 # Learn the policy tree
 solve_dict = myoptp.solve(data_train_pt, data_title='Training PT data')

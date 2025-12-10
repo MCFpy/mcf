@@ -8,29 +8,37 @@ Created on Mon Jun 19 17:50:33 2023.
 """
 from copy import copy, deepcopy
 from math import sqrt, log2
+from typing import Any
 
 import numpy as np
+from numpy.typing import NDArray
 from numba import njit
 import matplotlib.pyplot as plt
 import pandas as pd
 from scipy.stats import norm, skew, mode, chi2_contingency
 from scipy.special import gammaln
-from sklearn.ensemble import AdaBoostRegressor, RandomForestRegressor
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.ensemble import AdaBoostClassifier, RandomForestClassifier
+from sklearn import tree
+from sklearn.ensemble import (
+    AdaBoostRegressor, RandomForestRegressor, GradientBoostingRegressor,
+    AdaBoostClassifier, RandomForestClassifier
+    )
 from sklearn.linear_model import LassoCV
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVR
-from sklearn import tree
 
 from mcf.mcf_print_stats_functions import del_added_chars
 
+type TreeEstimator = tree.DecisionTreeClassifier | tree.DecisionTreeRegressor
+
 
 # Since pad is not supported by numba, njit does not bring improvements
-def moving_avg_mean_var(data, k, mean_and_var=True):
+def moving_avg_mean_var(data: NDArray[Any],
+                        k: int,
+                        mean_and_var: bool = True
+                        ) -> tuple[NDArray[Any], NDArray[Any]]:
     """Compute moving average of mean and std deviation.
 
     Parameters
@@ -78,7 +86,10 @@ def moving_avg_mean_var(data, k, mean_and_var=True):
 
 
 # Kernel density estimation and kernel regression
-def bandwidth_nw_rule_of_thumb(data, kernel=1):
+def bandwidth_nw_rule_of_thumb(data: NDArray[Any],
+                               kernel: int = 1,
+                               zero_tol: float = 1e-15,
+                               ) -> float:
     """Compute rule of thumb for Nadaraya Watson Kernel regression.
 
     Li & Racine, 2004, Nonparametric Econometrics: Theory & Practice,
@@ -98,20 +109,25 @@ def bandwidth_nw_rule_of_thumb(data, kernel=1):
         raise ValueError(f'Only {obs} observations for bandwidth selection.')
     iqr = np.subtract(*np.percentile(data, [75, 25])) / 1.349
     std = np.std(data)
-    sss = min(std, iqr) if iqr > 1e-15 else std
+    sss = min(std, iqr) if iqr > zero_tol else std
     bandwidth = sss * (obs ** (-0.2))
     if kernel not in (1, 2):
         raise ValueError('Wrong type of kernel in Silverman bandwidth.')
+
     if kernel == 1:  # Epanechikov
         bandwidth *= 2.34
     elif kernel == 2:  # Normal distribution
         bandwidth *= 1.06
-    if bandwidth < 1e-15:
+    if bandwidth < zero_tol:
         bandwidth = 1
+
     return bandwidth
 
 
-def bandwidth_silverman(data, kernel=1):
+def bandwidth_silverman(data: NDArray[Any],
+                        kernel: int = 1,
+                        zero_tol: float = 1e-15,
+                        ) -> float:
     """Compute Silvermans rule of thumb for Epanechikov and normal kernels.
 
     Silvermans rule of thumb, Cameron, Trivedi, p. 304
@@ -132,7 +148,7 @@ def bandwidth_silverman(data, kernel=1):
                          'selection.')
     iqr = np.subtract(*np.percentile(data, [75, 25])) / 1.349
     std = np.std(data)
-    sss = min(std, iqr) if iqr > 1e-15 else std
+    sss = min(std, iqr) if iqr > zero_tol else std
     band = 1.3643 * (obs ** (-0.2)) * sss
     if kernel not in (1, 2):
         raise ValueError('Wrong type of kernel in Silverman bandwidth.')
@@ -140,12 +156,18 @@ def bandwidth_silverman(data, kernel=1):
         bandwidth = band * 1.7188
     elif kernel == 2:  # Normal distribution
         bandwidth = band * 0.7764
-    if bandwidth < 1e-15:
+    if bandwidth < zero_tol:
         bandwidth = 1
+
     return bandwidth
 
 
-def nadaraya_watson(y_dat, x_dat, grid, kernel, bandwidth):
+def nadaraya_watson(y_dat: NDArray[Any],
+                    x_dat: NDArray[Any],
+                    grid: NDArray[Any],
+                    kernel: int,
+                    bandwidth: float,
+                    ) -> NDArray[Any]:
     """Compute Nadaraya-Watson one dimensional nonparametric regression.
 
     Parameters
@@ -163,10 +185,15 @@ def nadaraya_watson(y_dat, x_dat, grid, kernel, bandwidth):
     """
     f_yx = kernel_density_y(y_dat, x_dat, grid, kernel, bandwidth)
     f_x = kernel_density(x_dat, grid, kernel, bandwidth)
+
     return f_yx / f_x
 
 
-def kernel_density(data, grid, kernel, bandwidth):
+def kernel_density(data: NDArray[Any],
+                   grid: NDArray[Any],
+                   kernel: int,
+                   bandwidth: float,
+                   ) -> NDArray[Any]:
     """Compute nonparametric estimate of density of data.
 
     Parameters
@@ -184,10 +211,16 @@ def kernel_density(data, grid, kernel, bandwidth):
     differ = np.subtract.outer(data, grid)  # This builds a matrix
     y_dach_i = kernel_proc(differ / bandwidth, kernel)
     f_grid = np.mean(y_dach_i, axis=0) / bandwidth
+
     return f_grid
 
 
-def kernel_density_y(y_dat, x_dat, grid, kernel, bandwidth):
+def kernel_density_y(y_dat: NDArray[Any],
+                     x_dat: NDArray[Any],
+                     grid: NDArray[Any],
+                     kernel: int,
+                     bandwidth: float
+                     ) -> NDArray[Any]:
     """Compute nonparametric estimate of density of data * y.
 
     Parameters
@@ -210,10 +243,11 @@ def kernel_density_y(y_dat, x_dat, grid, kernel, bandwidth):
     else:
         f_grid = np.mean(w_dach_i * np.reshape(y_dat, (len(grid), 1)),
                          axis=0) / bandwidth
+
     return f_grid
 
 
-def kernel_proc(data, kernel):
+def kernel_proc(data: NDArray[Any], kernel: int) -> NDArray[Any]:
     """Feed data through kernel for nonparametric estimation.
 
     This function works for matrices and vectors.
@@ -235,25 +269,66 @@ def kernel_proc(data, kernel):
         w_dat = norm.pdf(data)
     else:
         raise ValueError('Only Epanechikov and normal kernel supported.')
+
     return w_dat
 
 
-def gini_coeff_pos(x_dat):
+def gini_coeff_pos(x_dat: NDArray[Any], zero_tol: float = 1e-15) -> float | int:
     """Compute Gini coefficient of numpy array of values with values >= 0."""
     sss = x_dat.sum()
-    if sss > 1e-15:                        # Use 'mergesort' for stable sorting
+    if sss > zero_tol:
         rrr = np.argsort(-x_dat, kind='mergesort')
         ranks = np.arange(1, len(x_dat) + 1)
-        gini = 1 - 2 * (np.sum((ranks - 1) * x_dat[rrr]) + sss) / (len(x_dat)
-                                                                   * sss)
+        gini = 1 - (2 * (np.sum((ranks - 1) * x_dat[rrr]) + sss)
+                    / (len(x_dat) * sss)
+                    )
         return gini
 
     return 0
 
 
+def gini_coeff_all(x_dat: NDArray[Any]) -> float:
+    """Gini coefficient for arbitrary real values.
+
+    Uses the representation based on sorted values, equivalent to
+    sum_{i,j} |x_i - x_j| / (2 n^2 |mean(x)|).
+
+    Returns 0 if n == 0 or mean is (numerically) zero.
+    """
+    x = np.asarray(x_dat, dtype=np.float64)
+    n = x.size
+    if n == 0:
+        return 0.0
+
+    mean_x = x.mean()
+    if np.isclose(mean_x, 0.0):
+        # The normalized Gini is undefined if mean == 0.
+        return 0.0
+
+    # For negative mean, flip the sign: absolute mean in the normalization.
+    if mean_x < 0.0:
+        x = -x
+        mean_x = -mean_x
+
+    # Sort ascending (stable), as required by the closed-form formula
+    order = np.argsort(x, kind='mergesort')
+    x_sorted = x[order]
+
+    ranks = np.arange(1, n + 1, dtype=np.float64)
+
+    # This is algebraically equivalent to the pairwise |xi - xj| definition
+    # divided by 2 n^2 |mean|.
+    gini = ((2.0 * np.sum(ranks * x_sorted))
+            / (n * np.sum(x_sorted)) - (n + 1.0) / n
+            )
+
+    return float(gini)
+
+
+
 # New optimized function, 4.6.2024
 @njit
-def quadratic_form(vec, mat):
+def quadratic_form(vec: NDArray[Any], mat: NDArray[Any]) -> np.floating:
     """Quadratic form for Numpy: vec'mat*vec.
 
     Parameters
@@ -267,33 +342,39 @@ def quadratic_form(vec, mat):
     """
     return np.dot(vec, np.dot(mat, vec))
 
-# Old function that worked fine.
-# @njit
-# def quadratic_form(vec, mat):
-#     """Quadratic form for Numpy: vec'mat*vec.
-
-#     Parameters
-#     ----------
-#     vec : 1D Numpy Array.
-#     mat : 2D quadratic Numpy Array.
-
-#     Returns
-#     -------
-#     Numpy Float. The Quadratic form.
-
-#     """
-#     return vec @ (mat @ vec.T)
-
 
 def random_forest_scikit(
-        x_train, y_train, x_pred, x_name=None, y_name='y', boot=1000,
-        n_min=2, no_features='sqrt', workers=-1,  max_depth=None, alpha=0,
-        max_leaf_nodes=None, pred_p_flag=True, pred_t_flag=False,
-        pred_oob_flag=False, with_output=True, variable_importance=False,
-        var_im_groups=None, pred_uncertainty=False, pu_ci_level=0.95,
-        pu_skew_sym=0.5, var_im_with_output=True,
-        variable_importance_oob_flag=False, return_forest_object=False,
-        seed=42):
+        x_train: NDArray[Any],
+        y_train: NDArray[Any],
+        x_pred: NDArray[Any],
+        x_name: list[str] | None = None,
+        y_name: str = 'y',
+        boot: int = 1000,
+        n_min: int = 2,
+        no_features: str = 'sqrt',
+        workers: int = -1,
+        max_depth: int | float | None = None,
+        alpha: int | float = 0,
+        max_leaf_nodes: int | float | None = None,
+        pred_p_flag: bool = True,
+        pred_t_flag: bool = False,
+        pred_oob_flag: bool = False,
+        with_output: bool = True,
+        variable_importance: bool = False,
+        var_im_groups: list[list[str]] | None = None,
+        pred_uncertainty: bool = False,
+        pu_ci_level: float = 0.95,
+        pu_skew_sym: float = 0.5,
+        var_im_with_output: bool = True,
+        variable_importance_oob_flag: bool = False,
+        return_forest_object: bool = False,
+        seed: int = 42,
+        ) -> tuple[NDArray[Any], NDArray[Any],
+                   float,
+                   NDArray[Any], NDArray[Any],
+                   Any,
+                   str
+                   ]:
     """
     Compute Random Forest predictions with OOB-optimal parameters & var import.
 
@@ -360,17 +441,15 @@ def random_forest_scikit(
     no_of_vars = np.size(x_train, axis=1)
     if no_features is None:
         no_features = no_of_vars
-    if isinstance(no_features, str):
-        if no_features == 'sqrt':
-            no_features = round(sqrt(no_of_vars))
-        elif no_features == 'auto':
-            no_features = no_of_vars
-        elif no_features == 'log2':
-            no_features = round(log2(no_of_vars))
-        else:
-            no_features = round(no_of_vars/3)
-    elif isinstance(no_features, float):
-        no_features = round(no_features * no_of_vars)
+
+    match no_features:
+        case 'sqrt':       no_features = round(sqrt(no_of_vars))
+        case 'auto':       no_features = no_of_vars
+        case 'log2':       no_features = round(log2(no_of_vars))
+        case str():        no_features = round(no_of_vars / 3)
+        case float() as f: no_features = round(f * no_of_vars)
+        case _: pass  # unchanged for other types (e.g., int)
+
     if not isinstance(no_features, (list, tuple, np.ndarray)):
         no_features = [no_features]
     if not isinstance(alpha, (list, tuple, np.ndarray)):
@@ -470,10 +549,22 @@ def random_forest_scikit(
             forest, txt)
 
 
-def variable_importance_oob(x_name, var_im_groups, no_of_vars, y_1d, pred_oob,
-                            with_output, var_im_with_output, x_train, boot,
-                            n_opt, m_opt, workers, max_depth, a_opt,
-                            max_leaf_nodes):
+def variable_importance_oob(x_name: list[str],
+                            var_im_groups: list[list[str]] | None,
+                            no_of_vars: int,
+                            y_1d: NDArray[Any],
+                            pred_oob: NDArray[Any],
+                            with_output: bool,
+                            var_im_with_output: bool,
+                            x_train: NDArray,
+                            boot: int,
+                            n_opt: int,
+                            m_opt: str,
+                            workers: int,
+                            max_depth: int | float,
+                            a_opt: int | float,
+                            max_leaf_nodes: int,
+                            ) -> tuple[tuple[list[str], list[str], str], str]:
     """Compute variable importance with out-of-bag predictions."""
     if x_name is None:
         raise ValueError('Variable importance needs names of features.')
@@ -515,13 +606,26 @@ def variable_importance_oob(x_name, var_im_groups, no_of_vars, y_1d, pred_oob,
         var_im_with_output)
     vi_names_shares = (x_names_sorted, vim_sorted, txt,)
     txt += txt_vi
+
     return vi_names_shares, txt
 
 
 def variable_importance_testdata(
-        x_name, var_im_groups, y_all, with_output, var_im_with_output, x_all,
-        boot, n_opt, m_opt, workers, max_depth, a_opt, max_leaf_nodes,
-        share_test_data=0.2):
+        x_name: list[str],
+        var_im_groups: list[list[str]] | None,
+        y_all: NDArray[Any],
+        with_output: bool,
+        var_im_with_output: bool,
+        x_all: NDArray[Any],
+        boot: int,
+        n_opt: int,
+        m_opt: str,
+        workers: int,
+        max_depth: int | float,
+        a_opt: float,
+        max_leaf_nodes: int,
+        share_test_data: float = 0.2,
+        ) -> tuple[tuple[list[str], list[str], str], str]:
     """Compute variable importance without out-of-bag predictions."""
     if x_name is None:
         raise ValueError('Variable importance needs names of features.')
@@ -543,23 +647,29 @@ def variable_importance_testdata(
     r2_full = regr_vi.score(x_test, y_test)
     # Start with single variables (without dummies)
     loss_in_r2_single = np.empty(len(x_to_check))
-    rng = np.random.default_rng(12345)
+    rng = np.random.default_rng(seed=12345)
     txt = ''
     if with_output or var_im_with_output:
         print('Variable importance for ')
     for indx, name_to_randomize in enumerate(x_to_check):
         if with_output or var_im_with_output:
             print(name_to_randomize)
-        r2_vi = get_r2_test(x_test, y_test, name_to_randomize, x_name, regr_vi,
-                            rng)
+        r2_vi = get_r2_test(x_test, y_test,
+                            name_to_randomize, x_name,
+                            regr_vi,
+                            rng=rng,
+                            )
         loss_in_r2_single[indx] = r2_full - r2_vi
     loss_in_r2_dummy = np.empty(len(var_im_groups))
     if var_im_groups:
         for indx, name_to_randomize in enumerate(var_im_groups):
             if with_output or var_im_with_output:
                 print(name_to_randomize)
-            r2_vi = get_r2_test(x_test, y_test, name_to_randomize, x_name,
-                                regr_vi, rng)
+            r2_vi = get_r2_test(x_test, y_test,
+                                name_to_randomize, x_name,
+                                regr_vi,
+                                rng=rng
+                                )
             loss_in_r2_dummy[indx] = r2_full - r2_vi
     else:
         loss_in_r2_dummy = 0
@@ -568,12 +678,23 @@ def variable_importance_testdata(
         var_im_with_output)
     vi_names_shares = (x_names_sorted, vim_sorted, txt,)
     txt += txt_vi
+
     return vi_names_shares, txt
 
 
-def get_r2_for_vi_oob(indices_of_x, x_name, name_to_delete, x_train,  y_1d,
-                      boot=1000, n_opt=2, m_opt='sqrt', workers=-1,
-                      max_depth=None, a_opt=0, max_leaf_nodes=None):
+def get_r2_for_vi_oob(indices_of_x: range,
+                      x_name: list[str],
+                      name_to_delete: list[str],
+                      x_train: NDArray[Any],
+                      y_1d: NDArray[Any],
+                      boot: int = 1000,
+                      n_opt: int = 2,
+                      m_opt: str = 'sqrt',
+                      workers: int = -1,
+                      max_depth: int | float | None = None,
+                      a_opt: int | float = 0,
+                      max_leaf_nodes: int | None = None
+                      ) -> float:
     """
     Estimate r2 for reduced variable set.
 
@@ -607,11 +728,16 @@ def get_r2_for_vi_oob(indices_of_x, x_name, name_to_delete, x_train,  y_1d,
     regr_vi.fit(x_train[:, indices_to_remain], y_1d)
     pred_vi = regr_vi.oob_prediction_
     mse_ypred_vi = np.mean((y_1d - pred_vi)**2)
+
     return mse_ypred_vi
 
 
-def print_vi(x_to_check, var_im_groups, loss_in_r2_single, loss_in_r2_dummy,
-             with_output):
+def print_vi(x_to_check: list[str],
+             var_im_groups: list[list[str]],
+             loss_in_r2_single: list[Any],
+             loss_in_r2_dummy: list[Any],
+             with_output: bool
+             ) -> tuple[list[str], list[float], str]:
     """
     Print variable importance measure.
 
@@ -656,34 +782,54 @@ def print_vi(x_to_check, var_im_groups, loss_in_r2_single, loss_in_r2_dummy,
             name_ = del_added_chars(x_names_sorted[idx], prime=True)
             txt += f'\n{name_:<50}: {vim:>7.2%}'
         txt += '\n' + '-' * 100
+
     return x_names_sorted, vim_sorted, txt
 
 
-def get_r2_test(x_test, y_test, name_to_randomize, x_name, regr_vi, rng=None):
+def get_r2_test(x_test: NDArray[Any],
+                y_test: NDArray[Any],
+                name_to_randomize: str,
+                x_name: list[str],
+                regr_vi: Any,
+                rng: np.random.Generator | None = None,
+                ) -> float:
     """Get R2 for variable importance."""
     if rng is None:
         rng = np.random.default_rng()
+        print("Warning: unseeded random numbers used - impossible to replicate")
     x_vi = x_test.copy()
     indices_to_r = find_indices_vi(name_to_randomize, x_name)
     x_to_shuffle = x_vi[:, indices_to_r]
     rng.shuffle(x_to_shuffle)
     x_vi[:, indices_to_r] = x_to_shuffle
     r2_vi = regr_vi.score(x_vi, y_test)
+
     return r2_vi
 
 
-def find_indices_vi(names, x_names):
+def find_indices_vi(names: str | list[str],
+                    x_names: list[str] | tuple[str]
+                    ) -> list[int]:
     """Find indices that correspond to names and return list."""
     x_names = list(x_names)
     if isinstance(names, str):
         names = [names]
     indices = [x_names.index(name) for name in names]
+
     return indices
 
 
-def best_regression(x_np, y_np, estimator=None, boot=1000, seed=123,
-                    max_workers=None, test_share=0.25, cross_validation_k=0,
-                    absolute_values_pred=False, obs_bigdata=1000000):
+def best_regression(x_np: NDArray[Any],
+                    y_np: NDArray[Any],
+                    estimator: str | None = None,
+                    boot: int = 1000,
+                    seed: int = 123,
+                    max_workers: int = None,
+                    test_share: float = 0.25,
+                    cross_validation_k: int = 0,
+                    absolute_values_pred: bool = False,
+                    obs_bigdata: int | float = 1000000
+                    ) -> tuple[str, dict, str, np.floating, bool, str]:
     """Select regression estimator for local centring (no centering of X)."""
     # Reduce number of workers for very large data (because of memory demand)
     if (len(y_np) > obs_bigdata
@@ -692,9 +838,11 @@ def best_regression(x_np, y_np, estimator=None, boot=1000, seed=123,
         max_workers = max(1, int(max_workers))
 
     # Initialise estimators
+    #    Use lasso only if at least 1000 observations  -> unstable in MonteCarlo
+    # with_lasso = x_np.shape[0] > 1500
     regress_dic, estimator, key_list = init_scikit(boot, seed, max_workers,
-                                                   estimator)
-
+                                                   estimator, with_lasso=False
+                                                   )
     if estimator != 'automatic':
         return (regress_dic[estimator]['method'],
                 regress_dic[estimator]['params'],
@@ -772,27 +920,38 @@ def best_regression(x_np, y_np, estimator=None, boot=1000, seed=123,
     mse_string = print_performance_mse(labels, mse, r_2, best_lables)
 
     return (best_method, best_params, best_lables, best_mse,
-            best_transform_x, mse_string)
+            best_transform_x, mse_string
+            )
 
 
-def scale(x_train, x_test=None):
+def scale(x_train: NDArray[Any],
+          x_test: NDArray[Any] | None = None
+          ) -> tuple[StandardScaler, NDArray[Any], NDArray[Any]]:
     """Scale featuress."""
     scaler = StandardScaler()
     x_train_scaled = scaler.fit_transform(x_train)
     x_test_scaled = None if x_test is None else scaler.transform(x_test)
+
     return scaler, x_train_scaled, x_test_scaled
 
 
-def init_scikit(boot, seed, max_workers, estimator):
+def init_scikit(boot: int,
+                seed: int,
+                max_workers: int,
+                estimator: str | None,
+                with_lasso: bool = False,
+                ) -> tuple[dict, str, list[str]]:
     """Initialise estimation procedure."""
     regr_dic = {}
-    key_list = ('rf', 'rfl5', 'rfls5',
+    key_list = ['rf', 'rfl5', 'rfls5',
                 'svr', 'svr2', 'svr4',
                 'ada', 'ada100', 'ada200',
-                'gboost', 'gboost6',  'gboost12',
-                'lasso',
+                'gboost', 'gboost6',  'gboost12',        
                 'nnet', 'nnet_l1', 'nnet_l2',
-                'mean')
+                'mean']
+    if with_lasso:
+        key_list.append('lasso')
+
     for key in key_list:
         regr_dic[key] = {}
 
@@ -832,11 +991,11 @@ def init_scikit(boot, seed, max_workers, estimator):
     regr_dic['gboost6']['params']['max_depth'] = 6    # Deeper tree
     regr_dic['gboost12']['params'] = deepcopy(regr_dic['gboost']['params'])
     regr_dic['gboost12']['params']['max_depth'] = 12    # Deeper tree
-
-    regr_dic['lasso']['params'] = {
-        'max_iter': 1000, 'copy_X': True, 'cv': 5, 'n_jobs': max_workers,
-        'random_state': seed
-        }
+    if with_lasso:
+        regr_dic['lasso']['params'] = {
+            'max_iter': 1000, 'copy_X': True, 'cv': 5, 'n_jobs': max_workers,
+            'random_state': seed
+            }
     regr_dic['nnet']['params'] = {
         'alpha': 0.0001, 'max_iter': 2000, 'random_state': seed,
         'hidden_layer_sizes': (100,), 'solver': 'adam',
@@ -861,7 +1020,8 @@ def init_scikit(boot, seed, max_workers, estimator):
     regr_dic['gboost']['transform_x'] = False
     regr_dic['gboost6']['transform_x'] = False
     regr_dic['gboost12']['transform_x'] = False
-    regr_dic['lasso']['transform_x'] = True
+    if with_lasso:
+        regr_dic['lasso']['transform_x'] = True
     regr_dic['nnet']['transform_x'] = True
     regr_dic['nnet_l1']['transform_x'] = True
     regr_dic['nnet_l2']['transform_x'] = True
@@ -880,7 +1040,8 @@ def init_scikit(boot, seed, max_workers, estimator):
     regr_dic['gboost']['method'] = 'GradBoost'
     regr_dic['gboost6']['method'] = 'GradBoostDepth6'
     regr_dic['gboost12']['method'] = 'GradBoostDepth12'
-    regr_dic['lasso']['method'] = 'LASSO'
+    if with_lasso:
+        regr_dic['lasso']['method'] = 'LASSO'
     regr_dic['nnet']['method'] = 'NeuralNet'
     regr_dic['nnet_l1']['method'] = 'NeuralNetLarge'
     regr_dic['nnet_l2']['method'] = 'NeuralNetLarger'
@@ -899,7 +1060,8 @@ def init_scikit(boot, seed, max_workers, estimator):
     regr_dic['gboost']['label'] = 'Gradient Boosting'
     regr_dic['gboost6']['label'] = 'Gradient Boosting Depth 6'
     regr_dic['gboost12']['label'] = 'Gradient Boosting Depth 12'
-    regr_dic['lasso']['label'] = 'LASSO'
+    if with_lasso:
+        regr_dic['lasso']['label'] = 'LASSO'
     regr_dic['nnet']['label'] = 'Neural Network'
     regr_dic['nnet_l1']['label'] = 'Neural Network large'
     regr_dic['nnet_l2']['label'] = 'Neural Network larger'
@@ -918,10 +1080,15 @@ def init_scikit(boot, seed, max_workers, estimator):
                                                     regr_dic[key]['params'])
     if estimator == 'automatic':
         estimator_key = estimator
+
     return regr_dic, estimator_key, key_list
 
 
-def print_performance_mse(labels, mse, r_2, best_lables):
+def print_performance_mse(labels: list[str],
+                          mse: float | np.floating,
+                          r_2: float | np.floating,
+                          best_lables: str
+                          ) -> str:
     """Create string with mse for all methods."""
     mse_string = ('\nSelection of different methods and tuning parameters\n'
                   '\nOut-of-sample MSE / R2 of ')
@@ -929,26 +1096,34 @@ def print_performance_mse(labels, mse, r_2, best_lables):
         mse_string += (f'\n... {label}:' + ' ' * (40 - len(label))
                        + f'{mse[idx]:8.4f} / {r_2[idx]:5.2%}')
     mse_string += f'\n\nBest Method: {best_lables}'
+
     return mse_string
 
 
-def regress_instance(method, parameters_dict):
+def regress_instance(method: str, parameters_dict: dict) -> None:
     """Initialize regression instance."""
     if method in ('RandomForest', 'RandomForestNminl5', 'RandomForestNminls5'):
         return RandomForestRegressor(**parameters_dict)
+
     if method in ('SupportVectorMachine', 'SupportVectorMachineC2',
                   'SupportVectorMachineC4'):
         return SVR(**parameters_dict)
+
     if method in ('AdaBoost', 'AdaBoost100', 'AdaBoost200'):
         return AdaBoostRegressor(**parameters_dict)
+
     if method in ('GradBoost', 'GradBoostDepth6', 'GradBoostDepth12'):
         return GradientBoostingRegressor(**parameters_dict)
+
     if method == 'LASSO':
         return LassoCV(**parameters_dict)
+
     if method in ('NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger'):
         return MLPRegressor(**parameters_dict)
+
     if method == 'Mean':
         return None
+
     valid_methods = ('RandomForest', 'RandomForestNmin5',
                      'SupportVectorMachine', 'SupportVectorMachineC2',
                      'SupportVectorMachineC4',
@@ -961,8 +1136,13 @@ def regress_instance(method, parameters_dict):
                      f'{" ".join(valid_methods)} allowed.')
 
 
-def best_classifier(x_np, y_np, boot=1000, seed=123, max_workers=None,
-                    test_share=0.25):
+def best_classifier(x_np: NDArray[Any],
+                    y_np: NDArray[Any],
+                    boot: int = 1000,
+                    seed: int = 123,
+                    max_workers: int = None,
+                    test_share: float = 0.25
+                    ) -> tuple[str, dict, str, float | int]:
     """Find best classifiers for specific allocation and features."""
     # Find best algorithm (among a very limited choice so far; to be expanded)
     # Data should be scaled when entering algorithm
@@ -1020,7 +1200,7 @@ def best_classifier(x_np, y_np, boot=1000, seed=123, max_workers=None,
     return best_method, best_params, best_lables, best_score
 
 
-def classif_instance(method, parameters_dict):
+def classif_instance(method: str, parameters_dict: dict) -> None:
     """Initialize regressin instance."""
     if method in ('RandomForestClass5', 'RandomForestClass2'):
         return RandomForestClassifier(**parameters_dict)
@@ -1034,14 +1214,19 @@ def classif_instance(method, parameters_dict):
                      f'{" ".join(valid_methods)} allowed.')
 
 
-def printable_output(label, acc_score):
+def printable_output(label: str, acc_score: float | int) -> None:
     """Create string to be printed later on."""
     return f'Best method: {label}      Accuracy score: {acc_score:5.2%}'
 
 
-def honest_tree_explainable(x_dat, y_dat, tree_type='regression',
-                            depth_grid=(2, 3, 4, 5), feature_names=None,
-                            title='',  seed=12356):
+def honest_tree_explainable(x_dat: NDArray[Any],
+                            y_dat: NDArray[Any],
+                            tree_type: str = 'regression',
+                            depth_grid: list[int] = (2, 3, 4, 5),
+                            feature_names: list[str] | None = None,
+                            title: str = '',
+                            seed: int = 12356
+                            ) -> tuple[dict, str]:
     """Estimate an honest tree usable for explainability."""
     # Cast x_data in float32 format to avoid trouble later on in honesty part
     x_dat = x_dat.astype(np.float32)
@@ -1106,11 +1291,16 @@ def honest_tree_explainable(x_dat, y_dat, tree_type='regression',
     for idx, depth in enumerate(depth_grid):
         txt += f'\n{depth:5}' + ' ' * 5 + f'{results_dict["fit"][idx]:13.2%}'
         txt += ' ' * 9 + f'{results_dict["fit_h"][idx]:8.2%}'
+
     return results_dict, txt
 
 
-def tree_gets_honest(tree_inst, x_dat, y_dat, tree_type):
-    """Modify the tree instance w.r.t. leave predictins."""
+def tree_gets_honest(tree_inst: TreeEstimator,
+                     x_dat: NDArray[Any],
+                     y_dat: NDArray[Any],
+                     tree_type: str
+                     ) -> TreeEstimator:
+    """Modify the tree instance w.r.t. leave predictions."""
     # Apply the tree to the leaves data to get the indices of the leaf for
     # each observation
     tree_h = deepcopy(tree_inst)
@@ -1142,7 +1332,12 @@ def tree_gets_honest(tree_inst, x_dat, y_dat, tree_type):
     return tree_h
 
 
-def plot_tree_fct(tree_inst, feature_names, depth, honest=False, y_name=''):
+def plot_tree_fct(tree_inst: TreeEstimator,
+                  feature_names: list[str],
+                  depth: int,
+                  honest: bool = False,
+                  y_name: str = ''
+                  ):
     """Plot the decision tree and return plot instance."""
     # Set a large figure size to accommodate the full tree
     fig, ax = plt.subplots(figsize=(20, 12))
@@ -1155,6 +1350,7 @@ def plot_tree_fct(tree_inst, feature_names, depth, honest=False, y_name=''):
                  'Note: Only terminal leaves are updated with honest data.',
                  ha='center', va='bottom', fontsize=12, color='black')
     ax.set_title(title)
+
     return fig
 
 
@@ -1269,4 +1465,5 @@ def cramers_v(x: pd.Series, y: pd.Series) -> float:
 
     # Compute Cramér's V
     v = np.sqrt(chi2 / (n * min(k - 1, r - 1)))
+
     return v

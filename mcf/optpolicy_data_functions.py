@@ -6,9 +6,10 @@ Created on Sun Jul 16 13:10:45 2023
 @author: MLechner
 """
 from hashlib import sha256
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
+from numpy.typing import NDArray
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
@@ -20,11 +21,11 @@ if TYPE_CHECKING:
     from mcf.optpolicy_main import OptimalPolicy
 
 
-def check_data_estrisk(optp_, data_df):
+def check_data_estrisk(optp_: 'OptimalPolicy', data_df: pd.DataFrame) -> None:
     """Prepare data for estimation with risk adjustment."""
     # SE available?
     var_polscore_se_name = var_available(
-        optp_.var_dict['polscore_se_name'], list(data_df.columns),
+        optp_.var_cfg.polscore_se_name, list(data_df.columns),
         needed='must_have')
     if not var_polscore_se_name:
         raise ValueError('No information on Standard Errors of Policy Score. '
@@ -33,30 +34,32 @@ def check_data_estrisk(optp_, data_df):
                          'Programme is terminated.'
                          )
     # Score and SE has same length?
-    if ((len_ps := len(optp_.var_dict['polscore_name']))
-            != (len_ps_se := len(optp_.var_dict['polscore_se_name']))):
+    if ((len_ps := len(optp_.var_cfg.polscore_name))
+            != (len_ps_se := len(optp_.var_cfg.polscore_se_name))):
         raise ValueError('Number of names of policy_score and of their '
                          'standard errors must be of same length.'
                          f'{len_ps} policy scores, {len_ps_se} standard errors.'
                          )
     # Any missing values?
-    if data_df[optp_.var_dict['polscore_name']].isna().any().any():
+    if data_df[optp_.var_cfg.polscore_name].isna().any().any():
         raise ValueError('Missing values detected in policy score.')
 
-    if data_df[optp_.var_dict['polscore_se_name']].isna().any().any():
+    if data_df[optp_.var_cfg.polscore_se_name].isna().any().any():
         raise ValueError('Missing values detected in standard errors of policy '
                          'score.'
                          )
 
 
-def prepare_data_fair(optp_, data_df):
+def prepare_data_fair(optp_: 'OptimalPolicy',
+                      data_df: pd.DataFrame,
+                      ) -> pd.DataFrame:
     """Prepare data for fairness correction of policy scores.
 
     Prepare data for fairness correction of policy scores:
     1) Convert relevant variable names to lowercase.
     2) Check presence of protected and material features in data_df.
     3) Ensure no overlap between protected and material features.
-    4) Remove protected variables from x_ord/x_unord in optp_.var_dict.
+    4) Remove protected variables from x_ord/x_unord in optp_.var_cfg.
     5) Create dummy variables for unordered protected and material features.
     6) Print informational text if desired.
 
@@ -64,17 +67,17 @@ def prepare_data_fair(optp_, data_df):
     ----------
     optp_ : object
         An object (likely a parameter container) with attributes:
-        - var_dict : dict with keys like 'protected_ord_name',
+        - var_cfg : dict with keys like 'protected_ord_name',
                      'protected_unord_name', 'material_ord_name',
                      'material_unord_name', 'polscore_name',
                      'x_ord_name', 'x_unord_name', etc.
-        - gen_dict : dict controlling output (e.g., 'with_output').
-        - fair_dict : dict controlling fairness adjustment methods
+        - gen_cfg : dict controlling output (e.g., 'with_output').
+        - fair_cfg : FairCfg dataclass controlling fairness adjustment methods
                       (e.g., 'adj_type').
         - report   : dict to store diagnostic strings,
                      e.g. 'fairscores_delete_x_vars_txt'.
     data_df : pd.DataFrame
-        Input data containing the features specified in optp_.var_dict.
+        Input data containing the features specified in optp_.var_cfg.
 
     Returns
     -------
@@ -83,7 +86,7 @@ def prepare_data_fair(optp_, data_df):
         - Protected unordered features have been replaced by dummy variables.
         - Material unordered features have also been replaced by dummy
           variables.
-        - Protected features have been removed from x_ord/x_unord in var_dict.
+        - Protected features have been removed from x_ord/x_unord in var_cfg.
 
     Raises
     ------
@@ -92,39 +95,42 @@ def prepare_data_fair(optp_, data_df):
         between protected and material features or if no protected features
         are available for fairness correction.
     """
-    var_dic = optp_.var_dict
+    var_cfg = optp_.var_cfg
 
     # Recode all variables to lower case
-    var_dic['protected_ord_name'] = case_insensitve(
-        var_dic['protected_ord_name'].copy())
-    var_dic['protected_unord_name'] = case_insensitve(
-        var_dic['protected_unord_name'].copy())
-    var_dic['polscore_name'] = case_insensitve(
-        var_dic['polscore_name'].copy())
+    var_cfg.protected_ord_name = case_insensitve(
+        var_cfg.protected_ord_name.copy())
+    var_cfg.protected_unord_name = case_insensitve(
+        var_cfg.protected_unord_name.copy())
+    var_cfg.polscore_name = case_insensitve(
+        var_cfg.polscore_name.copy())
     data_df.columns = case_insensitve(data_df.columns.tolist())
 
     # Check if variables are available in data_df
     protected_ord = var_available(
-        var_dic['protected_ord_name'], list(data_df.columns),
-        needed='must_have')
+        var_cfg.protected_ord_name, list(data_df.columns),
+        needed='must_have'
+        )
     protected_unord = var_available(
-        var_dic['protected_unord_name'], list(data_df.columns),
-        needed='must_have')
+        var_cfg.protected_unord_name, list(data_df.columns),
+        needed='must_have'
+        )
     material_ord = var_available(
-        var_dic['material_ord_name'], list(data_df.columns),
-        needed='must_have')
+        var_cfg.material_ord_name, list(data_df.columns),
+        needed='must_have'
+        )
     material_unord = var_available(
-        var_dic['material_unord_name'], list(data_df.columns),
-        needed='must_have')
+        var_cfg.material_unord_name, list(data_df.columns),
+        needed='must_have'
+        )
 
     if not (protected_ord or protected_unord):
         raise ValueError('Neither ordered nor unordered protected features '
                          'specified. Fairness adjustment is impossible '
                          'without specifying at least one protected feature.')
 
-    prot_list = [*var_dic['protected_ord_name'],
-                 *var_dic['protected_unord_name']]
-    mat_list = [*var_dic['material_ord_name'], *var_dic['material_unord_name']]
+    prot_list = [*var_cfg.protected_ord_name, *var_cfg.protected_unord_name]
+    mat_list = [*var_cfg.material_ord_name, *var_cfg.material_unord_name]
     common_elements = [elem for elem in prot_list if elem in mat_list]
     if common_elements:
         raise ValueError(f'Fairness adjustment: {" ".join(common_elements)} '
@@ -132,51 +138,50 @@ def prepare_data_fair(optp_, data_df):
                          'materially relevant features. This is logically '
                          'inconsistent.')
 
-    # var_available(var_dic['polscore_name'], list(data_df.columns),
+    # var_available(var_cfg.polscore_name, list(data_df.columns),
     #               needed='must_have')
 
-    if optp_.gen_dict['with_output']:
+    if optp_.gen_cfg.with_output:
         txt_print = ('\n' + '-' * 100
                      + '\nFairness adjusted score '
-                     f'(method: {optp_.fair_dict["adj_type"]})'
+                     f'(method: {optp_.fair_cfg.adj_type})'
                      + '\n' + '- ' * 50
                      + f'\nProtected features: {" ".join(prot_list)}'
                      )
         if mat_list:
             txt_print += f'\nMaterially relevant features: {" ".join(mat_list)}'
         txt_print += '\n' + '- ' * 50
-        mcf_ps.print_mcf(optp_.gen_dict, txt_print, summary=True)
+        mcf_ps.print_mcf(optp_.gen_cfg, txt_print, summary=True)
 
     # Delete protected variables from x_ord and x_unord and create dummies
-    del_x_var_list, optp_.var_dict['prot_mat_no_dummy_name'] = [], []
+    del_x_var_list, optp_.var_cfg.prot_mat_no_dummy_name = [], []
     if protected_ord:
-        del_x_var_list = [var for var in var_dic['x_ord_name']
-                          if var in var_dic['protected_ord_name']
+        del_x_var_list = [var for var in var_cfg.x_ord_name
+                          if var in var_cfg.protected_ord_name
                           ]
-        optp_.var_dict['x_ord_name'] = [
-            var for var in var_dic['x_ord_name']
-            if var not in var_dic['protected_ord_name']]
-        optp_.var_dict['protected_name'] = var_dic['protected_ord_name'].copy()
-        optp_.var_dict['prot_mat_no_dummy_name'
-                       ] = var_dic['protected_ord_name'].copy()
+        optp_.var_cfg.x_ord_name = [
+            var for var in var_cfg.x_ord_name
+            if var not in var_cfg.protected_ord_name]
+        optp_.var_cfg.protected_name = var_cfg.protected_ord_name.copy()
+        optp_.var_cfg.prot_mat_no_dummy_name = var_cfg.protected_ord_name.copy()
     else:
-        optp_.var_dict['protected_name'] = []
+        optp_.var_cfg.protected_name = []
 
     if protected_unord:
-        del_x_var_list.extend([var for var in var_dic['x_unord_name']
-                               if var in var_dic['protected_unord_name']
-                               ])
-        optp_.var_dict['x_unord_name'] = [
-            var for var in var_dic['x_unord_name']
-            if var not in var_dic['protected_unord_name']]
-
-        dummies_df = pd.get_dummies(data_df[var_dic['protected_unord_name']],
-                                    columns=var_dic['protected_unord_name'],
-                                    dtype=int)
-        optp_.var_dict['prot_mat_no_dummy_name'].extend(
-            var_dic['protected_unord_name'].copy())
-
-        optp_.var_dict['protected_name'].extend(dummies_df.columns)
+        del_x_var_list.extend([var for var in var_cfg.x_unord_name
+                               if var in var_cfg.protected_unord_name]
+                              )
+        optp_.var_cfg.x_unord_name = [var for var in var_cfg.x_unord_name
+                                      if var not in var_cfg.protected_unord_name
+                                      ]
+        dummies_df = pd.get_dummies(data_df[var_cfg.protected_unord_name],
+                                    columns=var_cfg.protected_unord_name,
+                                    dtype=int
+                                    )
+        optp_.var_cfg.prot_mat_no_dummy_name.extend(
+            var_cfg.protected_unord_name.copy()
+            )
+        optp_.var_cfg.protected_name.extend(dummies_df.columns)
         # Add dummies to data_df
         data_df = pd.concat((data_df, dummies_df), axis=1)
 
@@ -184,42 +189,49 @@ def prepare_data_fair(optp_, data_df):
         raise ValueError('No features available for fairness corrections.')
 
     if material_ord:
-        optp_.var_dict['material_name'] = var_dic['material_ord_name'].copy()
-        optp_.var_dict['prot_mat_no_dummy_name'].extend(
-            var_dic['material_ord_name'].copy())
+        optp_.var_cfg.material_name = var_cfg.material_ord_name.copy()
+        optp_.var_cfg.prot_mat_no_dummy_name.extend(
+            var_cfg.material_ord_name.copy())
     else:
-        optp_.var_dict['material_name'] = []
+        optp_.var_cfg.material_name = []
     if material_unord:
-        dummies_df = pd.get_dummies(data_df[var_dic['material_unord_name']],
-                                    columns=var_dic['material_unord_name'],
-                                    dtype=int)
-        optp_.var_dict['prot_mat_no_dummy_name'].extend(
-            var_dic['material_unord_name'].copy())
-        optp_.var_dict['material_name'].extend(dummies_df.columns)
+        dummies_df = pd.get_dummies(data_df[var_cfg.material_unord_name],
+                                    columns=var_cfg.material_unord_name,
+                                    dtype=int,
+                                    )
+        optp_.var_cfg.prot_mat_no_dummy_name.extend(
+            var_cfg.material_unord_name.copy()
+            )
+        optp_.var_cfg.material_name.extend(dummies_df.columns)
         # Add dummies to data_df
         data_df = pd.concat((data_df, dummies_df), axis=1)
 
-    if del_x_var_list and optp_.gen_dict['with_output']:
+    if del_x_var_list and optp_.gen_cfg.with_output:
         optp_.report['fairscores_delete_x_vars_txt'] = (
             'The following variables will not be used as decision variables '
             'because they are specified as protected (fairness) by user: '
             f'{", ".join(del_x_var_list)}.')
-        mcf_ps.print_mcf(optp_.gen_dict,
+        mcf_ps.print_mcf(optp_.gen_cfg,
                          optp_.report['fairscores_delete_x_vars_txt'],
                          summary=True)
     else:
         optp_.report['fairscores_delete_x_vars_txt'] = None
+
     return data_df
 
 
-def prepare_data_for_classifiers(data_df, var_dic, scaler=None,
-                                 x_name_train=None):
+def prepare_data_for_classifiers(
+        data_df: pd.DataFrame,
+        var_cfg: Any,
+        scaler: StandardScaler | None = None,
+        x_name_train: list[str] | None = None,
+        ) -> tuple[NDArray[Any], list[str], StandardScaler | None]:
     """
     Prepare numeric & dummy-encoded feature data for classifier.
 
     This function:
       1) Ensures case-insensitivity for input variable names.
-      2) Identifies ordered and unordered feature names specified in `var_dic`,
+      2) Identifies ordered and unordered feature names specified in `var_cfg`,
          then extracts those columns from `data_df`.
       3) Creates dummy variables for any unordered categorical features.
       4) (Optionally) checks that the generated feature columns match a
@@ -234,9 +246,9 @@ def prepare_data_for_classifiers(data_df, var_dic, scaler=None,
     data_df : pd.DataFrame
         The input DataFrame containing all potential features. Its column names
         may be in various cases (upper/lower). This function expects that
-        columns specified in `var_dic` exist in `data_df`.
-    var_dic : dict
-        A dictionary with entries like:
+        columns specified in `var_cfg` exist in `data_df`.
+    var_cfg : VarCfg Dataclass
+        An object with entries like:
           - 'x_ord_name': list of strings for ordered (numeric) features.
           - 'x_unord_name': list of strings for unordered (categorical)
                             features.
@@ -285,24 +297,27 @@ def prepare_data_for_classifiers(data_df, var_dic, scaler=None,
       consistently at prediction time.
     """
     # ensure case insensitivity of variable names
-    var_dic['x_ord_name'] = case_insensitve(var_dic['x_ord_name'].copy())
-    var_dic['x_unord_name'] = case_insensitve(var_dic['x_unord_name'].copy())
+    var_cfg.x_ord_name = case_insensitve(var_cfg.x_ord_name.copy())
+    var_cfg.x_unord_name = case_insensitve(var_cfg.x_unord_name.copy())
     data_df.columns = case_insensitve(data_df.columns.tolist())
     x_name = []
-    x_ordered = var_available(var_dic['x_ord_name'], list(data_df.columns),
-                              needed='must_have')
-    x_unordered = var_available(var_dic['x_unord_name'], list(data_df.columns),
-                                needed='must_have')
+    x_ordered = var_available(var_cfg.x_ord_name, list(data_df.columns),
+                              needed='must_have'
+                              )
+    x_unordered = var_available(var_cfg.x_unord_name, list(data_df.columns),
+                                needed='must_have'
+                                )
     if x_ordered:
-        x_name.extend(var_dic['x_ord_name'])
-        x_ord_np = data_df[var_dic['x_ord_name']].to_numpy()
+        x_name.extend(var_cfg.x_ord_name)
+        x_ord_np = data_df[var_cfg.x_ord_name].to_numpy()
     else:
         x_ord_np = None
 
     if x_unordered:
-        x_dummies_df = pd.get_dummies(data_df[var_dic['x_unord_name']],
-                                      columns=var_dic['x_unord_name'],
-                                      dtype=int)
+        x_dummies_df = pd.get_dummies(data_df[var_cfg.x_unord_name],
+                                      columns=var_cfg.x_unord_name,
+                                      dtype=int
+                                      )
         x_name.extend(x_dummies_df.columns)
         x_dummies_np = x_dummies_df.to_numpy()
     else:
@@ -329,14 +344,15 @@ def prepare_data_for_classifiers(data_df, var_dic, scaler=None,
                 'removed from the resulting datafrome containing the '
                 'allocation (before using the evaluate method).')
 
-    if x_ordered and x_unordered:
-        x_dat_np = np.concatenate((x_ord_np, x_dummies_np), axis=1)
-    elif x_ordered:
-        x_dat_np = x_ord_np
-    elif x_unordered:
-        x_dat_np = x_dummies_np
-    else:
-        raise ValueError('No features available for bps_classifier.')
+    match (bool(x_ordered), bool(x_unordered)):
+        case (True, True):
+            x_dat_np = np.concatenate((x_ord_np, x_dummies_np), axis=1)
+        case (True, False):
+            x_dat_np = x_ord_np
+        case (False, True):
+            x_dat_np = x_dummies_np
+        case _:
+            raise ValueError('No features available for bps_classifier.')
 
     # Rescaling features by subtracting mean and dividing by std
     # (save in scaler object for later use in allocation method)
@@ -344,79 +360,91 @@ def prepare_data_for_classifiers(data_df, var_dic, scaler=None,
         scaler = StandardScaler()
         scaler.fit(x_dat_np)
     x_dat_trans_np = scaler.transform(x_dat_np)
+
     return x_dat_trans_np, x_name, scaler
 
 
-def prepare_data_bb_pt(optp_, data_df):
+def prepare_data_bb_pt(optp_: 'OptimalPolicy',
+                       data_df: pd.DataFrame,
+                       ) -> tuple[pd.DataFrame, None]:
     """Prepare and check data for Black-Box allocations."""
-    var_dic, gen_dic = optp_.var_dict, optp_.gen_dict
+    var_cfg, gen_cfg = optp_.var_cfg, optp_.gen_cfg
     data_df, var_names = mcf_data.data_frame_vars_lower(data_df)
     # Check status of variables, available and in good shape
-    if var_available(var_dic['polscore_name'], var_names, needed='must_have'):
-        names_to_inc = var_dic['polscore_name'].copy()
+    if var_available(var_cfg.polscore_name, var_names, needed='must_have'):
+        names_to_inc = var_cfg.polscore_name.copy()
     else:
         raise ValueError('Policy scores not in data. Cannot train model.')
-    if var_dic['x_ord_name'] is None:
-        var_dic['x_ord_name'] = []
-    if var_dic['x_unord_name'] is None:
-        var_dic['x_unord_name'] = []
+    if var_cfg.x_ord_name is None:
+        var_cfg.x_ord_name = []
+    if var_cfg.x_unord_name is None:
+        var_cfg.x_unord_name = []
 
-    if gen_dic['method'] != 'best_policy_score':
-        if var_dic['x_ord_name']:
-            x_ordered = var_available(var_dic['x_ord_name'], var_names,
-                                      needed='must_have')
+    if gen_cfg.method != 'best_policy_score':
+        if var_cfg.x_ord_name:
+            x_ordered = var_available(var_cfg.x_ord_name, var_names,
+                                      needed='must_have'
+                                      )
         else:
             x_ordered = False
 
-        if var_dic['x_unord_name']:
-            x_unordered = var_available(var_dic['x_unord_name'], var_names,
-                                        needed='must_have')
+        if var_cfg.x_unord_name:
+            x_unordered = var_available(var_cfg.x_unord_name, var_names,
+                                        needed='must_have'
+                                        )
         else:
             x_unordered = False
 
         if not (x_ordered or x_unordered):
             raise ValueError('No features specified for tree building')
 
-        optp_.var_dict['x_name'] = []
+        optp_.var_cfg.x_name = []
         if x_ordered:
-            names_to_inc.extend(var_dic['x_ord_name'])
-            optp_.var_dict['x_name'].extend(var_dic['x_ord_name'])
+            names_to_inc.extend(var_cfg.x_ord_name)
+            optp_.var_cfg.x_name.extend(var_cfg.x_ord_name)
         if x_unordered:
-            names_to_inc.extend(var_dic['x_unord_name'])
-            optp_.var_dict['x_name'].extend(var_dic['x_unord_name'])
+            names_to_inc.extend(var_cfg.x_unord_name)
+            optp_.var_cfg.x_name.extend(var_cfg.x_unord_name)
 
-    if gen_dic['method'] in ('best_policy_score', 'bps_classifier'):
-        bb_rest_variable = var_available(var_dic['bb_restrict_name'],
-                                         var_names, needed='nice_to_have')
+    if gen_cfg.method in ('best_policy_score', 'bps_classifier'):
+        bb_rest_variable = var_available(var_cfg.bb_restrict_name,
+                                         var_names, needed='nice_to_have'
+                                         )
         if (bb_rest_variable
-                and var_dic['bb_restrict_name'][0] not in names_to_inc):
-            names_to_inc.extend(var_dic['bb_restrict_name'])
+                and var_cfg.bb_restrict_name[0] not in names_to_inc):
+            names_to_inc.extend(var_cfg.bb_restrict_name)
 
-    data_new_df, optp_.var_dict['id_name'] = mcf_data.clean_reduce_data(
-        data_df, names_to_inc, gen_dic, var_dic['id_name'],
-        descriptive_stats=gen_dic['with_output'])
-    if gen_dic['method'] == 'best_policy_score':
+    data_new_df, optp_.var_cfg.id_name = mcf_data.clean_reduce_data(
+        data_df, names_to_inc, gen_cfg, var_cfg.id_name,
+        descriptive_stats=gen_cfg.with_output
+        )
+    if gen_cfg.method == 'best_policy_score':
         return data_new_df, bb_rest_variable
-    (optp_.var_x_type, optp_.var_x_values, optp_.gen_dict
+    (optp_.var_x_type, optp_.var_x_values, optp_.gen_cfg
      ) = classify_var_for_pol_tree(optp_, data_new_df,
-                                   optp_.var_dict['x_name'],
-                                   eff=gen_dic['method'] == 'policy_tree')
-    (optp_.gen_dict, optp_.var_dict, optp_.var_x_type, optp_.var_x_values,
+                                   optp_.var_cfg.x_name,
+                                   eff=gen_cfg.method == 'policy_tree')
+    (optp_.gen_cfg, optp_.var_cfg, optp_.var_x_type, optp_.var_x_values,
      optp_.report['removed_vars']
      ) = mcf_data.screen_adjust_variables(optp_, data_new_df)
+
     return data_new_df, None
 
 
-def classify_var_for_pol_tree(optp_, data_df, all_var_names, eff=False):
+def classify_var_for_pol_tree(optp_: 'OptimalPolicy',
+                              data_df: pd.DataFrame,
+                              all_var_names: list | tuple,
+                              eff: bool = False,
+                              ) -> tuple[dict, dict, dict]:
     """Classify variables as most convenient for policy trees building."""
-    var_dic, pt_dic, gen_dic = optp_.var_dict, optp_.pt_dict, optp_.gen_dict
+    var_cfg, pt_cfg, gen_cfg = optp_.var_cfg, optp_.pt_cfg, optp_.gen_cfg
     x_continuous = x_ordered = x_unordered = False
     x_type_dic, x_value_dic = {}, {}
     list_of_missing_vars = []
     for var in all_var_names:
         values = np.unique(data_df[var].to_numpy())  # Sorted values
-        if var in var_dic['x_ord_name']:
-            if len(values) > pt_dic['no_of_evalupoints']:
+        if var in var_cfg.x_ord_name:
+            if len(values) > pt_cfg.no_of_evalupoints:
                 x_type_dic.update({var: 'cont'})
                 if eff:
                     x_value_dic.update({var: values.tolist()})
@@ -427,14 +455,14 @@ def classify_var_for_pol_tree(optp_, data_df, all_var_names, eff=False):
                 x_type_dic.update({var: 'disc'})
                 x_value_dic.update({var: values.tolist()})
                 x_ordered = True
-        elif var in var_dic['x_unord_name']:
+        elif var in var_cfg.x_unord_name:
             if len(values) < 3:
                 raise ValueError(f'{var} has only {len(values)}'
                                  ' different values. Remove it from the '
                                  'list of unorderd variables and add it '
                                  'to the list of ordered variables.')
             values_round = np.round(values)
-            if np.sum(np.abs(values-values_round)) > 1e-10:
+            if np.sum(np.abs(values-values_round)) > optp_.int_cfg.sum_tol:
                 raise ValueError('Categorical variables must be coded as'
                                  ' integers.')
             x_type_dic.update({var: 'unord'})
@@ -447,67 +475,77 @@ def classify_var_for_pol_tree(optp_, data_df, all_var_names, eff=False):
                          'contained in list of ordered nor in list of '
                          'unordered variables.')
 
-    gen_dic.update({'x_cont_flag': x_continuous, 'x_ord_flag': x_ordered,
-                   'x_unord_flag': x_unordered})
-    return x_type_dic, x_value_dic, gen_dic
+    gen_cfg.x_cont_flag = x_continuous
+    gen_cfg.x_ord_flag = x_ordered
+    gen_cfg.x_unord_flag = x_unordered
+
+    return x_type_dic, x_value_dic, gen_cfg
 
 
 def prepare_data_eval(optp_: 'OptimalPolicy',
-                      data_df: pd.DataFrame
+                      data_df: pd.DataFrame,
                       ) -> tuple[pd.DataFrame, bool, bool, bool, list]:
     """Prepare and check data for evaluation."""
-    var_dic = optp_.var_dict
+    var_cfg = optp_.var_cfg
     data_df, var_names = mcf_data.data_frame_vars_lower(data_df)
-    no_of_treat = len(optp_.gen_dict['d_values'])
-    # var_available(var_dic['polscore_name'], var_names, needed='nice_to_have')
-    d_ok = var_available(var_dic['d_name'], var_names, needed='nice_to_have')
-    polscore_desc_ok = var_available(var_dic['polscore_desc_name'],
-                                     var_names, needed='nice_to_have')
-
-    if var_dic['polscore_desc_name'] is not None and (
+    no_of_treat = len(optp_.gen_cfg.d_values)
+    # var_available(var_cfg.polscore_name, var_names, needed='nice_to_have')
+    d_ok = var_available(var_cfg.d_name, var_names, needed='nice_to_have')
+    polscore_desc_ok = var_available(var_cfg.polscore_desc_name,
+                                     var_names, needed='nice_to_have'
+                                     )
+    if var_cfg.polscore_desc_name is not None and (
             not polscore_desc_ok
-            and len(var_dic['polscore_desc_name']) > no_of_treat
+            and len(var_cfg.polscore_desc_name) > no_of_treat
             ):
-
         # Try again, when removing the adjusted variable
-        var_dic['polscore_desc_name'] = (var_dic['polscore_desc_name']
-                                         [:-no_of_treat])
-        polscore_desc_ok = var_available(var_dic['polscore_desc_name'],
+        var_cfg.polscore_desc_name = var_cfg.polscore_desc_name[:-no_of_treat]
+        polscore_desc_ok = var_available(var_cfg.polscore_desc_name,
                                          var_names, needed='nice_to_have')
-    polscore_ok = var_available(var_dic['polscore_name'], var_names,
-                                needed='nice_to_have')
+    polscore_ok = var_available(var_cfg.polscore_name, var_names,
+                                needed='nice_to_have'
+                                )
     desc_var_list = []
-    if var_available(var_dic['bb_restrict_name'], var_names,
-                     needed='nice_to_have'):
-        desc_var_list.extend(var_dic['bb_restrict_name'])
-    if var_available(var_dic['x_ord_name'], var_names, needed='nice_to_have'):
-        desc_var_list.extend(var_dic['x_ord_name'])
-    if var_available(var_dic['x_unord_name'], var_names,
-                     needed='nice_to_have'):
-        desc_var_list.extend(var_dic['x_unord_name'])
-    if var_available(var_dic['protected_ord_name'], var_names,
-                     needed='nice_to_have'):
-        desc_var_list.extend(var_dic['protected_ord_name'])
-    if var_available(var_dic['protected_unord_name'], var_names,
-                     needed='nice_to_have'):
-        desc_var_list.extend(var_dic['protected_unord_name'])
-    if optp_.gen_dict['variable_importance']:
-        x_in = var_available(optp_.var_dict['vi_x_name'], var_names,
+    if var_available(var_cfg.bb_restrict_name, var_names,
+                     needed='nice_to_have'
+                     ):
+        desc_var_list.extend(var_cfg.bb_restrict_name)
+    if var_available(var_cfg.x_ord_name, var_names, needed='nice_to_have'):
+        desc_var_list.extend(var_cfg.x_ord_name)
+    if var_available(var_cfg.x_unord_name, var_names,
+                     needed='nice_to_have'
+                     ):
+        desc_var_list.extend(var_cfg.x_unord_name)
+    if var_available(var_cfg.protected_ord_name, var_names,
+                     needed='nice_to_have'
+                     ):
+        desc_var_list.extend(var_cfg.protected_ord_name)
+    if var_available(var_cfg.protected_unord_name, var_names,
+                     needed='nice_to_have'
+                     ):
+        desc_var_list.extend(var_cfg.protected_unord_name)
+
+    if optp_.gen_cfg.variable_importance:
+        x_in = var_available(optp_.var_cfg.vi_x_name, var_names,
                              needed='nice_to_have')
-        dum_in = var_available(optp_.var_dict['vi_to_dummy_name'], var_names,
+        dum_in = var_available(optp_.var_cfg.vi_to_dummy_name, var_names,
                                needed='nice_to_have')
         if not (x_in or dum_in):
             print('WARNING: Variable importance requires the specification '
                   'of at least "var_vi_x_name" or "vi_to_dummy_name"'
                   'Since they are not specified, variable_importance'
                   'is not conducted.')
-            optp_.gen_dict['variable_importance'] = False
+            optp_.gen_cfg.variable_importance = False
+
     return (data_df, d_ok, polscore_ok, polscore_desc_ok,
             mcf_gp.remove_dupl_keep_order(desc_var_list))
 
 
-def var_available(variable_all, var_names, needed='nice_to_have',
-                  error_message=None):
+def var_available(variable_all: list | tuple | None,
+                  var_names: list | tuple,
+                  needed: bool = 'nice_to_have',
+                  error_message: str | None = None,
+                  ) -> bool:
     """Check if variable is available and unique in list of variable names."""
     if variable_all is None or variable_all == []:
         return False
@@ -539,20 +577,22 @@ def var_available(variable_all, var_names, needed='nice_to_have',
     return not count0
 
 
-def case_insensitve(variables):
+def case_insensitve(variables: list | tuple | None) -> list | tuple | None:
     """Return list or string of lowercase."""
     if variables is not None and variables != [] and variables != ():
         if isinstance(variables, (list, tuple)):
             return [var.casefold() for var in variables]
         return variables.casefold()
+
     return variables
 
 
-def dataframe_checksum(data_df):
+def dataframe_checksum(data_df: pd.DataFrame) -> Any:
     """Get a checksum for dataframe."""
     # Convert the DataFrame to a string representation
     df_string = data_df.to_string()
 
     # Use hashlib to create a hash of the string
     hash_object = sha256(df_string.encode())
+
     return hash_object.hexdigest()

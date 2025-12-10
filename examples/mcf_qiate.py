@@ -10,7 +10,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.8.0
+Version: 0.9.0
 
 This is an example to show how the qiates of mcf can be computed relying
 on defaults for parameters not related to QIATE estimation. Note that usually in
@@ -68,14 +68,14 @@ P_QIATE_SMOOTH = None           # True: Smooth estimated QIATEs using kernel
 P_QIATE_SMOOTH_BANDWIDTH = None  # Multiplier applied to default bandwidth
 #   used for kernel smoothing of QIATE. Default is 1
 P_QIATE_BIAS_ADJUST = None       # Bias correction procedure for QIATEs.
-#   (see Kutz and Lechner, 2025, for details). Default (or None) is True.
+#   (see Kutz and Lechner, 2025, for details). Default (or None) is False.
 #   If P_QIATE_BIAS_ADJUST is True, P_IATE_SE is set to True as well.
 
 # -----------------------------------------------------------------------------
 if not APPLIC_PATH.exists():
     APPLIC_PATH.mkdir(parents=True)
 
-# Modules may sent many irrelevant warnings: Globally ignore them
+# Modules may send many irrelevant warnings: Globally ignore them
 warnings.filterwarnings('ignore')
 # -----------------------------------------------------------------------------
 mymcf = ModifiedCausalForest(

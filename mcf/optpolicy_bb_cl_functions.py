@@ -5,6 +5,8 @@ Created on Sun Jul 16 14:03:58 2023
 # -*- coding: utf-8 -*-
 @author: MLechner
 """
+from typing import TYPE_CHECKING
+
 from numpy import column_stack
 from pandas import DataFrame
 
@@ -13,12 +15,20 @@ from mcf import mcf_estimation_generic_functions as mcf_est_g
 from mcf import optpolicy_data_functions as op_data
 
 
-def bps_classifier_allocation(optp_, data_df, allocation_df, seed=234356):
+if TYPE_CHECKING:
+    from mcf.optpolicy_main import OptimalPolicy
+
+
+def bps_classifier_allocation(optp_: 'OptimalPolicy',
+                              data_df: DataFrame,
+                              allocation_df: DataFrame,
+                              seed: int = 234356
+                              ) -> tuple[DataFrame, dict, str]:
     """Compute various Black-Box allocations and return to main programme."""
     alloc_name_bb = allocation_df.columns
 
     x_dat_scaled_np, x_name, scaler = op_data.prepare_data_for_classifiers(
-        data_df, optp_.var_dict, scaler=None)
+        data_df, optp_.var_cfg, scaler=None)
     txt_all = ''
     alloc_all, scikit_obj_all, alloc_name_all, results_dic = [], [], [], {}
     for alloc_name in alloc_name_bb:
@@ -45,18 +55,20 @@ def bps_classifier_allocation(optp_, data_df, allocation_df, seed=234356):
     optp_.bps_class_dict['scikit_obj_dict'] = results_dic['scikit_obj_dict']
     optp_.bps_class_dict['x_name_train'] = x_name
 
-    if optp_.gen_dict['with_output']:
-        print_mcf(optp_.gen_dict, txt_all, summary=True)
+    if optp_.gen_cfg.with_output:
+        print_mcf(optp_.gen_cfg, txt_all, summary=True)
 
     return allocations_df, results_dic, txt_all
 
 
-def bps_class_prediction_only(optp_, data_df):
+def bps_class_prediction_only(optp_: 'OptimalPolicy',
+                              data_df: DataFrame
+                              ) -> tuple[DataFrame, str]:
     """Predicts allocation based on new data for the classifiers."""
     allocs_dict = optp_.bps_class_dict['scikit_obj_dict']
     scaler = next(iter(allocs_dict.values()))[0]  # Getting scaler from for dict
     x_dat_scaled_np, _, _ = op_data.prepare_data_for_classifiers(
-        data_df, optp_.var_dict, scaler=scaler,
+        data_df, optp_.var_cfg, scaler=scaler,
         x_name_train=optp_.bps_class_dict['x_name_train'])
     alloc_all, alloc_name_all = [], []
     for key, (_, scikit_obj) in allocs_dict.items():
@@ -68,4 +80,5 @@ def bps_class_prediction_only(optp_, data_df):
     alloc_all_np = column_stack(alloc_all)
     allocations_df = DataFrame(data=alloc_all_np, columns=alloc_name_all)
     allocation_txt = ''
+
     return allocations_df, allocation_txt

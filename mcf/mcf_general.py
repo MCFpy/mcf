@@ -7,29 +7,40 @@ Created on Thu May 11 16:30:11 2023
 # -*- coding: utf-8 -*-
 """
 from copy import deepcopy
+from dataclasses import is_dataclass, fields
 from functools import lru_cache
 from math import log, prod, isnan
+from typing import Any
 
 import numpy as np
+from numpy.typing import NDArray
+from pandas import DataFrame
 from sympy.ntheory import primefactors
-import torch
+
+try:
+    import torch  # type: ignore[import]
+except (ImportError, OSError):
+    torch = None  # type: ignore[assignment]
 
 
-def memoize(func):   # Alternatively using functools.lru_cache may be faster
+# Alternatively using functools.lru_cache may be faster
+def memoize(func: Any) -> Any:
     """Save in for storing computed results."""
     cache = {}  # Cache for storing computed results
 
     def wrapper(*args):
         if args in cache:
             return cache[args]
+
         result = func(*args)
         cache[args] = result
+
         return result
 
     return wrapper
 
 
-def memoize_list(func):
+def memoize_list(func: Any) -> Any:
     """Save in for storing computed results."""
     cache = {}  # Cache for storing computed results
 
@@ -37,14 +48,18 @@ def memoize_list(func):
         arg_tuple = tuple(args)
         if arg_tuple in cache:
             return cache[arg_tuple]
+
         result = func(args)
         cache[arg_tuple] = result
+
         return result
 
     return wrapper
 
 
-def dic_get_list_of_key_by_item(dic, value):
+def dic_get_list_of_key_by_item(dic: dict,
+                                value: list[Any] | tuple[Any] | set[Any],
+                                ) -> list[Any]:
     """Get list of keys by item of a dictionary.
 
     Parameters
@@ -63,10 +78,11 @@ def dic_get_list_of_key_by_item(dic, value):
             key_list += [keys]
     if not key_list:
         raise ValueError('Retrieving items from list was not succesful')
+
     return key_list
 
 
-def get_key_values_in_list(dic):
+def get_key_values_in_list(dic: dict) -> tuple[list[Any], list[Any]]:
     """Create two lists with keys and values of dictionaries.
 
     Parameters
@@ -83,11 +99,12 @@ def get_key_values_in_list(dic):
     for keys in dic.keys():
         key_list += [keys]
         value_list += [dic[keys]]
+
     return key_list, value_list
 
 
 # @memoize_list  To much overhead, does not save anything relevant
-def list_product(factors):
+def list_product(factors: list[int]) -> int:
     """Prodcuce a product of a list keeping python data format.
 
     Parameters
@@ -102,7 +119,10 @@ def list_product(factors):
     return prod(factors)  # should be fast and keep python format
 
 
-def substitute_variable_name(var_dic, old_name, new_name):
+def substitute_variable_name(var_cfg: Any,
+                             old_name: str,
+                             new_name: str
+                             ) -> dict:
     """Exchanges values in a dictionary.
 
     Parameters
@@ -116,18 +136,30 @@ def substitute_variable_name(var_dic, old_name, new_name):
     v_dict : Dictionary with changed names
 
     """
-    vn_dict = deepcopy(var_dic)
-    for i in var_dic:
-        list_of_this_dic = var_dic[i]
-        if list_of_this_dic is not None:
-            for j, elem in enumerate(list_of_this_dic):
-                if elem == old_name:
-                    list_of_this_dic[j] = new_name
-            vn_dict[i] = list_of_this_dic
-    return vn_dict
+    vn_new = deepcopy(var_cfg)
+
+    if is_dataclass(var_cfg):
+        for f in fields(vn_new):
+            list_of_this_dc = getattr(vn_new, f.name)
+            if isinstance(list_of_this_dc, (list, tuple,)):
+                for j, elem in enumerate(list_of_this_dc):
+                    val = getattr(vn_new, f.name)
+                    if isinstance(val, list):
+                        # Transform in-place so no subsequent setattr needed
+                        val[:] = [new_name if x == old_name else x for x in val]
+    else:  # No longer used. Speed increase possible by using list comprehension
+        for i in vn_new:
+            list_of_this_dic = vn_new[i]
+            if list_of_this_dic is not None:
+                for j, elem in enumerate(list_of_this_dic):
+                    if elem == old_name:
+                        list_of_this_dic[j] = new_name
+                vn_new[i] = list_of_this_dic
+
+    return vn_new
 
 
-def adjust_vars_vars(var_in, var_weg):
+def adjust_vars_vars(var_in: list[str], var_weg: list[str]) -> list[str]:
     """Remove from VAR_IN those strings that are also in VAR_WEG.
 
     Parameters
@@ -141,10 +173,11 @@ def adjust_vars_vars(var_in, var_weg):
 
     """
     ohne_var_weg = [var for var in var_in if var not in var_weg]
+
     return ohne_var_weg
 
 
-def adjust_var_name(var_to_check, var_names):
+def adjust_var_name(var_to_check: str, var_names: list[str]) -> str:
     """
     Check if upper or lower case version of name is in namelist and adjust.
 
@@ -165,10 +198,11 @@ def adjust_var_name(var_to_check, var_names):
                     or (var_to_check.casefold() == name.casefold())):
                 var_to_check = name
                 break
+
     return var_to_check
 
 
-def cleaned_var_names(var_name):
+def cleaned_var_names(var_name: list[str]) -> list[str]:
     """Clean variable names.
 
     Cleaning variable by removing empty list and zero and None and putting
@@ -183,7 +217,7 @@ def cleaned_var_names(var_name):
     var_name2 : List with variable names
 
     """
-    if var_name is None:
+    if var_name is None or var_name == [None]:
         var_name = []
     if isinstance(var_name, str):
         var_name = [var_name]
@@ -196,16 +230,26 @@ def cleaned_var_names(var_name):
         if (var not in var_name2) and (var != '0') and (var != 0) and (
                 var != []) and (var is not None):
             var_name2.append(var)
+
     return var_name2
 
 
-def add_var_names(names1, names2=None, names3=None, names4=None, names5=None,
-                  names6=None, names7=None, names8=None, names9=None,
-                  names10=None):
+def add_var_names(names1: list[str],
+                  names2: list[str] = None,
+                  names3: list[str] = None,
+                  names4: list[str] = None,
+                  names5: list[str] = None,
+                  names6: list[str] = None,
+                  names7: list[str] = None,
+                  names8: list[str] = None,
+                  names9: list[str] = None,
+                  names10: list[str] = None
+                  ) -> list[str]:
     """Return a list of strings with unique entries."""
     def none_to_empty_list(name):
         if name is None:
             name = []
+
         return name
 
     names2 = none_to_empty_list(names2)
@@ -228,10 +272,12 @@ def add_var_names(names1, names2=None, names3=None, names4=None, names5=None,
     new_names.extend(names9)
     new_names.extend(names10)
     new_names = cleaned_var_names(new_names)
+
     return new_names
 
 
-def to_list_if_needed(string_or_list):
+def to_list_if_needed(string_or_list: str | list[str] | tuple[str] | set[str]
+                      ) -> list[str]:
     """Help for initialisation."""
     if isinstance(string_or_list, (tuple, set)):
         if len(string_or_list) == 0:
@@ -240,19 +286,26 @@ def to_list_if_needed(string_or_list):
             string_or_list = [item for sublist in string_or_list
                               for item in sublist]
         return list(string_or_list)
+
     if isinstance(string_or_list, str):
         return [string_or_list]
+
     return string_or_list
 
 
-def check_if_iterable(variable):
+def check_if_iterable(variable: str | tuple | list | NDArray
+                      ) -> tuple[tuple | list | NDArray]:
     """Return an iterable if not already iterable."""
     iter_type = (tuple, list, np.ndarray)
     variable_list = variable if isinstance(variable, iter_type) else [variable]
+
     return variable_list
 
 
-def recode_if_all_prime(values, name):
+def recode_if_all_prime(values: tuple | list | NDArray,
+                        name: str | None,
+                        values_unord_org: str | None
+                        ) -> tuple[list[int], str | None]:
     """
     Recode array-like of prime to list of integers.
 
@@ -272,13 +325,28 @@ def recode_if_all_prime(values, name):
     is_prime = set(values_l).issubset(primes_list())
     new_name = name
     if is_prime:
-        values_l = primeposition(values_l, start_with_1=False)
         if name is not None and name.endswith('_prime'):
-            new_name = name[:-6] + '(mayberec0)'
+            # new_name = name[:-6] + '(mayberec0)'
+            # new_name_dic = name[:-6]
+            new_name = name[:-6]
+        else:
+            new_name = None
+        indices_l = primeposition(values_l, start_with_1=False)
+        if values_unord_org is None:
+            values_l = indices_l
+        else:
+            if new_name is None:
+                values_unord = values_unord_org
+            else:
+                values_unord = values_unord_org[new_name]
+            values_l = [values_unord[j] for j in indices_l]
+
     return values_l, new_name
 
 
-def primeposition(x_values, start_with_1=False):
+def primeposition(x_values: list[int],
+                  start_with_1: bool = False
+                  ) -> list[int]:
     """
     Give position of elements of x_values in list of primes.
 
@@ -294,10 +362,11 @@ def primeposition(x_values, start_with_1=False):
     add = 1 if start_with_1 else 0
     primes = primes_list(1000)
     position = [primes.index(val)+add for val in x_values]
+
     return position
 
 
-def primes_list(number=1000):
+def primes_list(number: int = 1000) -> list[int]:
     """List the first 1000 prime numbers.
 
     Parameters
@@ -402,7 +471,7 @@ def primes_list(number=1000):
 
 
 @lru_cache(maxsize=200000)
-def primes_reverse(number, int_type=True):
+def primes_reverse(number: int, int_type: bool = True) -> list[int]:
     """Give the prime factors of integers.
 
     Parameters
@@ -425,7 +494,7 @@ def primes_reverse(number, int_type=True):
     return list_of_primes
 
 
-def check_if_not_number(data_df, variable):
+def check_if_not_number(data_df: DataFrame, variable: str | list[str]) -> None:
     """Check if elements in column of pandas dataframe are not a number.
 
     Parameters
@@ -452,7 +521,10 @@ def check_if_not_number(data_df, variable):
                          ' Number format is needed for this variable.')
 
 
-def grid_log_scale(large, small, number):
+def grid_log_scale(large: int | float,
+                   small: int | float,
+                   number: int
+                   ) -> list[int | float]:
     """Define a logarithmic grid.
 
     Parameters
@@ -474,7 +546,7 @@ def grid_log_scale(large, small, number):
     return sequence_p
 
 
-def share_completed(current, total):
+def share_completed(current: int, total: int) -> None:
     """Count how much of a task is completed and print to terminal.
 
     Parameters
@@ -500,7 +572,12 @@ def share_completed(current, total):
         print('Task completed')
 
 
-def bound_norm_weights_not_one(weight, max_weight, renormalize=True):
+def bound_norm_weights_not_one(weight: NDArray,
+                               max_weight: float = 0.05,
+                               renormalize: bool = True,
+                               zero_tol: float = 1e-15,
+                               sum_tol: float = 1e-12,
+                               ) -> tuple[NDArray, np.intp, np.floating]:
     """Bound and renormalized weights that do not add up to 1.
 
     Parameters
@@ -525,8 +602,8 @@ def bound_norm_weights_not_one(weight, max_weight, renormalize=True):
     max_weight_adj = max_weight * sum_w_org_abs
 
     # Restrict weights that that are too positive or too negative
-    too_large = (weight + 1e-15) > max_weight_adj
-    too_small = (weight - 1e-15) < -max_weight_adj
+    too_large = (weight + zero_tol) > max_weight_adj
+    too_small = (weight - zero_tol) < -max_weight_adj
     no_censored = 0
 
     # Set too large weights to max_weight_adj
@@ -536,7 +613,7 @@ def bound_norm_weights_not_one(weight, max_weight, renormalize=True):
 
     # Set too small negative weights to minus max_weight_adj
     if np.any(too_small):
-        no_censored += np.count_nonzero(too_large)
+        no_censored += np.count_nonzero(too_small)
         weight_norm[too_small] = -max_weight_adj
 
     share_censored = no_censored / len(weight)
@@ -546,13 +623,19 @@ def bound_norm_weights_not_one(weight, max_weight, renormalize=True):
         factor = sum_w_org / np.sum(weight_norm)
 
         # Require no sign change and sufficiently different from 1
-        if factor > 1e-10 and not 1-1e-10 < factor < 1+1e-10:
+        if factor > sum_tol and not 1-sum_tol < factor < 1+sum_tol:
             weight_norm = weight_norm * factor
 
     return weight_norm, no_censored, share_censored
 
 
-def bound_norm_weights(weight, max_weight, renormalize=True):
+def bound_norm_weights(weight: NDArray,
+                       max_weight_share: float = 0.05,
+                       renormalize: bool = True,
+                       zero_tol: float = 1e-15,
+                       sum_tol: float = 1e-15,
+                       negative_weights_possible: bool = False,
+                       ) -> tuple[NDArray, np.intp, np.floating]:
     """Bound and renormalized weights.
 
     Parameters
@@ -561,6 +644,7 @@ def bound_norm_weights(weight, max_weight, renormalize=True):
     max_weight : Scalar Float. Maximum value of any weight.
     renormalize : Boolean, optional. If True renormalize the weights that they
                add to their previous sum. The default is True.
+    ...
 
     Returns
     -------
@@ -569,106 +653,187 @@ def bound_norm_weights(weight, max_weight, renormalize=True):
     share_censored: NP float. Share of censored observations (0-1).
 
     """
+    no_censored = 0
     weight_norm = weight.flatten()
-    too_large = (weight + 1e-15) > max_weight
-    if np.any(too_large):
-        no_censored = np.count_nonzero(too_large)
-        weight_norm[too_large] = max_weight
+    if negative_weights_possible:
+        # There could be negative weights; pos and neg weights sum up tp 1
+        max_weight = np.sum(np.abs(weight_norm)) * max_weight_share
     else:
-        no_censored = 0
+        # All weights are positive and sum up to 1
+        max_weight = max_weight_share
+
+    too_positive = (weight + zero_tol) > max_weight
+    if np.any(too_positive):
+        no_censored += np.count_nonzero(too_positive)
+        weight_norm[too_positive] = max_weight
+
+    if negative_weights_possible:
+        too_negative = (weight - zero_tol) < -max_weight
+        if np.any(too_negative):
+            no_censored += np.count_nonzero(too_negative)
+            weight_norm[too_negative] = -max_weight
+
     share_censored = no_censored / len(weight)
+
     if renormalize:
         sum_w = np.sum(weight_norm)
-        if not ((-1e-10 < sum_w < 1e-10) or (1-1e-10 < sum_w < 1+1e-10)):
+        if not ((-sum_tol < sum_w < sum_tol)
+                or (1-sum_tol < sum_w < 1+sum_tol)):
             weight_norm = weight_norm / sum_w
+
     return weight_norm, no_censored, share_censored
 
 
-def bound_norm_weights_cuda(weight, max_weight, renormalize=True):
-    """Bound and renormalized weights (tensor version).
+def bound_norm_weights_cuda(weight: torch.Tensor,
+                            max_weight_share: float = 0.05,
+                            renormalize: bool = True,
+                            zero_tol: float = 1e-15,
+                            sum_tol: float = 1e-12,
+                            negative_weights_possible: bool = False,
+                            ) -> tuple[torch.Tensor,
+                                       torch.Tensor,
+                                       torch.Tensor]:
+    """Bound and renormalize weights (tensor version).
 
     Parameters
     ----------
-    weight : 1d Tensor. Weights.
-    max_weight : Scalar Float. Maximum value of any weight.
-    renormalize : Boolean, optional. If True renormalize the weights that they
-               add to 1. The default is True.
+    weight : 1d Tensor. Weights, typically on CUDA.
+    max_weight_share : float. Maximum share of the (absolute) total weight
+        that any single weight is allowed to have.
+    renormalize : bool, optional. If True, renormalize the weights so they
+        sum to 1 (unless the sum is ~0 or already ~1). Default is True.
+    negative_weights_possible : bool, optional. If True, allow negative
+        weights and bound both positive and negative sides.
 
     Returns
     -------
     weight_norm : Tensor of same size as input. Normalized weights.
-    no_censored: Intt. Number of censored observations.
-    share_censored: Float. Share of censored observations (0-1).
-
+    no_censored : 0-dim integer tensor. Number of censored observations.
+    share_censored : 0-dim float tensor. Share of censored observations (0–1).
     """
+
+    # Work on a flattened view
     weight_norm = weight.reshape(-1)
-    too_large = (weight + 1e-15) > max_weight
-    if torch.any(too_large):
-        no_censored = torch.count_nonzero(too_large)
-        weight_norm[too_large] = max_weight
+
+    # Determine max allowed absolute weight
+    if negative_weights_possible:
+        # Positive and negative weights may exist; they (roughly) sum to 1
+        max_weight = weight_norm.abs().sum() * max_weight_share
     else:
-        no_censored = 0
-    share_censored = no_censored / len(weight)
+        # All weights are positive and (roughly) sum to 1
+        max_weight = torch.as_tensor(max_weight_share,
+                                     dtype=weight_norm.dtype,
+                                     device=weight_norm.device,
+                                     )
+    # Masks on the flattened tensor
+    too_positive = (weight_norm + zero_tol) > max_weight
+    if negative_weights_possible:
+        too_negative = (weight_norm - zero_tol) < -max_weight
+        censored_mask = too_positive | too_negative
+    else:
+        too_negative = None  # for clarity
+        censored_mask = too_positive
+
+    # Number of censored entries as tensor
+    no_censored = torch.count_nonzero(censored_mask)
+
+    # Apply clipping
+    if torch.any(too_positive):
+        weight_norm[too_positive] = max_weight
+    if (negative_weights_possible
+        and too_negative is not None
+            and torch.any(too_negative)):
+        weight_norm[too_negative] = -max_weight
+
+    # Share censored: keep as tensor on same device
+    share_censored = (no_censored.to(dtype=weight_norm.dtype)
+                      / weight_norm.numel()
+                      )
+
+    # Renormalize to sum ≈ 1 if requested
     if renormalize:
-        sum_w = torch.sum(weight_norm)
-        if not ((-1e-10 < sum_w < 1e-10) or (1-1e-10 < sum_w < 1+1e-10)):
-            weight_norm = weight_norm / sum_w
+        sum_w = weight_norm.sum()
+        sum_w_val = sum_w.item()
+
+        # Do NOT renormalize if sum is ~0 or already ~1
+        close_to_zero = abs(sum_w_val) < sum_tol
+        close_to_one = abs(sum_w_val - 1.0) < sum_tol
+
+        if not (close_to_zero or close_to_one):
+            # Safe: we've excluded near-zero sums
+            weight_norm = weight_norm / sum_w_val
+
     return weight_norm, no_censored, share_censored
 
 
-def bound_norm_weights_not_one_cuda(weight, max_weight, renormalize=True):
-    """Bound and renormalized weights that do not add up to 1 (tensor version).
+def bound_norm_weights_not_one_cuda(weight: torch.Tensor,
+                                    max_weight: float = 0.05,
+                                    renormalize: bool = True,
+                                    zero_tol: float = 1e-15,
+                                    sum_tol: float = 1e-12,
+                                    ) -> tuple[torch.Tensor,
+                                               torch.Tensor,
+                                               torch.Tensor]:
+    """Bound and renormalize weights that do not add up to 1 (tensor version).
 
     Parameters
     ----------
-    weight : 1d Tensor. Weights.
-    max_weight : Scalar Float. Maximum value of any weight (if weights sum to 1)
-    renormalize : Boolean, optional. If True renormalize the weights that they
-               add to their previous sum. The default is True.
+    weight : 1d Tensor. Weights, typically on CUDA.
+    max_weight : float. Maximum absolute value of any weight (if weights sum to 1).
+    renormalize : bool, optional. If True, renormalize the weights so they
+        add up to their original sum. Default is True.
 
     Returns
     -------
-    weight_norm : Numpy array of same size as input. Normalized weights.
-    no_censored: NP float. Number of censored observations.
-    share_censored: NP float. Share of censored observations (0-1).
-
+    weight_norm : Tensor of same size as input. Normalized weights.
+    no_censored : 0-dim integer tensor. Number of censored observations.
+    share_censored : 0-dim float tensor. Share of censored observations (0–1).
     """
+    # Work on a flattened view (no copy if weight is already 1d/contiguous)
     weight_norm = weight.reshape(-1)
-    sum_w_org = torch.sum(weight_norm)
-    sum_w_org_abs = torch.sum(torch.abs(weight_norm))
 
-    # Define threshold (no change if sum of weights equals 1)
+    # Original sums
+    sum_w_org = weight_norm.sum()
+    sum_w_org_abs = weight_norm.abs().sum()
+
+    # Threshold (no change if sum of weights equals 1)
     max_weight_adj = max_weight * sum_w_org_abs
 
-    # Restrict weights that that are too positive or too negative
-    too_large = (weight + 1e-15) > max_weight_adj
-    too_small = (weight - 1e-15) < -max_weight_adj
-    no_censored = 0
+    # Masks for too-large / too-small weights (with zero tolerance buffer)
+    too_large = (weight_norm + zero_tol) > max_weight_adj
+    too_small = (weight_norm - zero_tol) < -max_weight_adj
+    censored_mask = too_large | too_small
 
-    # Set too large weights to max_weight_adj
+    # Number of censored entries as tensor
+    no_censored = torch.count_nonzero(censored_mask)
+
+    # Apply bounding only where needed
     if torch.any(too_large):
-        no_censored += torch.count_nonzero(too_large)
         weight_norm[too_large] = max_weight_adj
-
-    # Set too small negative weights to minus max_weight_adj
     if torch.any(too_small):
-        no_censored += torch.count_nonzero(too_large)
         weight_norm[too_small] = -max_weight_adj
 
-    share_censored = no_censored / len(weight)
-
-    # Renormalize sum of weights to orginal sum of weights
+    # Fraction censored, keep as float tensor on same device
+    share_censored = (no_censored.to(dtype=weight_norm.dtype)
+                      / weight_norm.numel()
+                      )
+    # Renormalize sum of weights to original sum of weights
     if renormalize:
-        factor = sum_w_org / torch.sum(weight_norm)
+        denom = weight_norm.sum()
+        # Avoid division by ~0
+        if torch.abs(denom) > sum_tol:
+            factor = sum_w_org / denom
+            factor_val = factor.item()  # scalar float
 
-        # Require no sign change and sufficiently different from 1
-        if factor > 1e-10 and not 1-1e-10 < factor < 1+1e-10:
-            weight_norm = weight_norm * factor
+            # Require positive factor and sufficiently different from 1
+            if (factor_val > sum_tol
+                    and not 1.0 - sum_tol < factor_val < 1.0 + sum_tol):
+                weight_norm = weight_norm * factor_val
 
     return weight_norm, no_censored, share_censored
 
 
-def remove_dupl_keep_order(input_list):
+def remove_dupl_keep_order(input_list: list[Any]) -> list[Any]:
     """Remove duplicates from a list but preserves the order."""
     output_list = []
     seen = set()  # Keep track of seen elements
@@ -676,10 +841,13 @@ def remove_dupl_keep_order(input_list):
         if item not in seen:
             output_list.append(item)
             seen.add(item)
+
     return output_list
 
 
-def include_org_variables(names, names_in_data):
+def include_org_variables(names: list[str],
+                          names_in_data: list[str]
+                          ) -> list[str]:
     """Add levels if not already in included."""
     new_names = names[:]
     for name in names:
@@ -694,8 +862,12 @@ def include_org_variables(names, names_in_data):
     return new_names
 
 
-def check_reduce_dataframe(data_df, title='', max_obs=100000, seed=124535,
-                           ignore_index=True):
+def check_reduce_dataframe(data_df: DataFrame,
+                           title: str = '',
+                           max_obs: int = 100000,
+                           seed: int = 124535,
+                           ignore_index: bool = True
+                           ) -> tuple[DataFrame, bool, str]:
     """Randomly reduce dataframe to a certain number of observations."""
     total_obs = len(data_df)
     if rnd_reduce := total_obs > max_obs:
@@ -710,7 +882,7 @@ def check_reduce_dataframe(data_df, title='', max_obs=100000, seed=124535,
     return data_df, rnd_reduce, txt
 
 
-def to_numpy_big_data(data_df, obs_bigdata):
+def to_numpy_big_data(data_df: DataFrame, obs_bigdata: int) -> NDArray:
     """Determine datatype when transforming to numpy."""
     data_np = data_df.to_numpy()
 
@@ -720,7 +892,7 @@ def to_numpy_big_data(data_df, obs_bigdata):
     return data_np
 
 
-def remove_duplicates(lst):
+def remove_duplicates(lst: list[Any]) -> list[Any]:
     """Remove duplicates from list without changing order."""
     seen = set()
     result = []
@@ -732,7 +904,7 @@ def remove_duplicates(lst):
     return result
 
 
-def unique_list(list_tuple):
+def unique_list(list_tuple: list[Any] | tuple[Any] | set[Any]) -> list[Any]:
     """Remove duplicate elements from list without changing order."""
     unique = []
     for item in list_tuple:

@@ -14,7 +14,6 @@ from mcf.mcf_sensitivity_functions import sensitivity_main
 from mcf.mcf_unconfound_functions import train_main, predict_main, analyse_main
 # from mcf.mcf_unconfound_functions import blinder_iates_main
 
-
 class ModifiedCausalForest:
     """
     Estimation of treatment effects with the Modified Causal Forest.
@@ -42,7 +41,7 @@ class ModifiedCausalForest:
         must be provided.
         Default is None.
 
-    var_x_name_balance_bgate :  String or List of strings (or None), optional
+    var_x_name_balance_bgate : String or List of strings (or None), optional
         Variables to balance the GATEs on. Only relevant if p_bgate is
         True. The distribution of these variables is kept constant when a
         BGATE is computed. None: Use the other heterogeneity variables
@@ -71,8 +70,7 @@ class ModifiedCausalForest:
         :meth:`~ModifiedCausalForest.train` method.
         Default is None.
 
-    var_x_name_always_in_unord : String or List of strings (or None),
-                                 optional
+    var_x_name_always_in_unord : String or List of strings (or None), optional
         Name of unordered variables that always checked on when deciding on
         the next split during tree building. Only relevant for
         :meth:`~ModifiedCausalForest.train`  method.
@@ -89,7 +87,7 @@ class ModifiedCausalForest:
         selection. Only relevant for :meth:`~ModifiedCausalForest.train` method.
         Default is None.
 
-    var_cluster_name :  String or List of string (or None), optional
+    var_cluster_name : String or List of string (or None), optional
         Name of variable defining clusters. Only relevant if p_cluster_std
         is True.
         Default is None.
@@ -107,7 +105,7 @@ class ModifiedCausalForest:
         Name of weight. Only relevant if gen_weighted is True.
         Default is None.
 
-    var_z_name_cont : String or List of strings (or None), optional
+    var_z_name_list : String or List of strings (or None), optional
         Names of ordered variables with many values to define
         causal heterogeneity. They will be discretized and (dependening
         p_gates_smooth) also treated as continuous. If not already included
@@ -164,7 +162,9 @@ class ModifiedCausalForest:
         The default (None) is dependent on the size of the training data:
         If there are less than 100'000 training observations: No splitting.
         Otherwise:
+        
         .. math::
+        
             \\text{cf_chunks_maxsize} = 100000 + \\frac{{(\\text{number of observations} - 100000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
 
         Default is None.
@@ -277,31 +277,32 @@ class ModifiedCausalForest:
     cf_p_diff_penalty : Float (or None), optional
         Penalty function (depends on the value of `mce_vart`).
 
-    `mce_vart == 0`
-        Irrelevant (no penalty).
-
-    `mce_vart == 1`
-        Multiplier of penalty (in terms of `var(y)`).
-        0 : No penalty.
-        None :
-
-        .. math::
-
-            \\frac{2 \\times (\\text{n} \\times \\text{subsam_share})^{0.9}}{\\text{n} \\times \\text{subsam_share}} \\times \\sqrt{\\frac{\\text{no_of_treatments} \\times (\\text{no_of_treatments} - 1)}{2}}  
-
-    `mce_vart == 2`
-        Multiplier of penalty (in terms of MSE(y) value function without splits) for penalty.  
-        0 : No penalty.
-        None :
-
-        .. math::
-
-            \\frac{100 \\times 4 \\times (n \\times \\text{f_c.subsam_share})^{0.8}}{n \\times \\text{f_c.subsam_share}}  
-
-    `mce_vart == 3`
-        Probability of using p-score (0-1). None : 0.5. Increase value if balancing tests indicate problems. 
-    Default is None.
-
+        `mce_vart == 0`
+            Irrelevant (no penalty).
+    
+        `mce_vart == 1`
+            Multiplier of penalty (in terms of `var(y)`).
+            0 : No penalty.
+            None :
+    
+            .. math::
+    
+                \\frac{2 \\times (\\text{n} \\times \\text{subsam_share})^{0.9}}{\\text{n} \\times \\text{subsam_share}} \\times \\sqrt{\\frac{\\text{no_of_treatments} \\times (\\text{no_of_treatments} - 1)}{2}}  
+    
+        `mce_vart == 2`
+            Multiplier of penalty (in terms of MSE(y) value function without splits) for penalty.  
+            0 : No penalty.
+            None :
+    
+            .. math::
+    
+                \\frac{100 \\times 4 \\times (n \\times \\text{f_c.subsam_share})^{0.8}}{n \\times \\text{f_c.subsam_share}}  
+    
+        `mce_vart == 3`
+            Probability of using p-score (0-1). None : 0.5. Increase value if balancing tests indicate problems. 
+        
+        Default is None.
+    
     cf_penalty_type : String (or None), optional
         Type of penalty function.
         'mse_d':  MSE of treatment prediction in daughter leaf (new in 0.7.0)
@@ -322,19 +323,13 @@ class ModifiedCausalForest:
         Default is None.
 
     cf_subsample_factor_forest : Float (or None), optional
-        Multiplier of default size of subsampling sample (S) used to build
-        tree.
+        Subsample size (S) multiplier for tree building. Default (or None) is 1.
 
         .. math::
 
-            S = \\max(n^{0.5},min(0.67 \\n, \\frac{4 \\times (frac{n}{2}^{0.85})}{n})), \\text{n: # of training observations}
-
-        Maximum share is 0.67. Minimum share is
-
-        .. math::
-            \\frac{2 \\times (frac{n}{2}^{0.5})}{n}
-
-        Default (or None) is 1.
+            S = \\max\\left(\\min(x,0.67),\\frac{2 \\cdot (\\frac{n}{2})^{0.5}}{n}\\right), 
+            
+        where n is the training sample size and :math:`x = \\min\\left(\\frac{4 \\cdot (\\frac{n}{2})^{0.85}}{n},0.67\\right) \\cdot \\text{multiplier}.`
 
     cf_subsample_factor_eval : Float or Boolean (or None), optional
         Size of subsampling sample used to populate tree.
@@ -597,9 +592,9 @@ class ModifiedCausalForest:
     lc_cs_cv_k : Integer (or None), optional
         Data to be used for local centering & common support adjustment:
         Number of folds in cross-validation (if lc_cs_cv is True).
-        Default (or None) depends on the size of the training
-          training sample (N): N < 100'000: 5;  100'000 <= N < 250'000: 4
-          250'000 <= N < 500'000: 3, 500'000 <= N: 2.
+        Default (or None) depends on the size of the training sample (N): 
+        N < 100'000: 5;  100'000 <= N < 250'000: 4; 250'000 <= N < 500'000: 3;
+        500'000 <= N: 2.
 
     lc_cs_share : Float (or None), optional
         Data to be used for local centering & common support adjustment:
@@ -709,7 +704,7 @@ class ModifiedCausalForest:
     p_qiate_smooth : Boolean (or None), optional
         Smooth estimated QIATEs using kernel smoothing.
         Default is True.
-
+        
     p_qiate_smooth_bandwidth : Integer or Float (or None), optional
         Multiplier applied to default bandwidth used for kernel smoothing
         of QIATE.
@@ -720,20 +715,25 @@ class ModifiedCausalForest:
         Default is False.
         If p_qiate_bias_adjust is True, p_iate_se is set to True as well.
 
-    p_iv_aggregation_method: String or list/tuple of strings (or None), optional
-        Defines method used to obtain aggregated effects.
-        Possible values are `local`, `global`,
-                            (`local`, `global`,)
-        `local` : LIATEs will be computed and aggregated to obtain
-                  LGATEs, LBGATEs, LATEs, etc..
-                  This estimator is internally consistent.
-        `global` : LATEs will be directly
-                   computed as the ratio of reduced form and first
-                   stage predictions. This estimator is not
-                   necessarily internally consistent.
-         For the differences in assumptions and properties of the two
-         approaches see Lechner and Mareckova (2025).
-         Default (or None) is (`local`, `global`,).
+    p_qiate_bias_adjust_draws : Integer or Float (or None), optional
+        Number of random draws used in computing the bias adjustment.
+        Default is 1000.
+
+    p_iv_aggregation_method : String or list/tuple of strings (or None), optional
+        Defines the method used to obtain aggregated effects.
+        Possible values are `local`, `global`, `('local', 'global',)`.
+
+        `local` : LIATEs will be computed and aggregated to 
+                  obtain LGATEs, LBGATEs, LATEs, etc. This estimator 
+                  is internally consistent.
+                  
+        `global` : LATEs will be directly computed as the ratio of
+                   reduced form and first–stage predictions. This estimator
+                   estimator is not necessarily internally consistent.
+            
+        For the differences in assumptions and properties of the two
+        approaches see Lechner and Mareckova (2025).
+        Default (or None) is `('local', 'global',)`.
 
     p_ci_level : Float (or None), optional
         Confidence level for bounds used in plots.
@@ -825,7 +825,7 @@ class ModifiedCausalForest:
         must be available in the prediction data.
         Default is None.
 
-    p_ate_no_se_only : Boolean (or None), optional
+    p_ate_no_se_only : Boolean (or None),optional
         Computes only the ATE without standard errors.
         Default (or None) is False.
 
@@ -833,19 +833,23 @@ class ModifiedCausalForest:
         If True, bias adjustment is used. Default is False.
 
     p_ba_adj_method : String (or None), optional
-        Type of adjustment method used. Possible methods are 'zeros',
-        'observables', 'weighted_observables'.
-        Default is 'weighted_observables'.
+        Type of adjustment method used. Possible methods are `zeros`,
+        `observables`, `weighted_observables`.
+        Default is `weighted_observables`.
+    
         This defines how to evaluate the estimated regressions in the adjustment
         procedures:
-        'zeros': The values of the (centered) covariates are set to zero.
-        'observables': They are set to their empirical distribution for the
-            training data (unconditional on treatment).
-        'weighted_observables': As observables, but observations are weighted
-            given the weights from the forests (across treatments). This
-            imposes some localness on the X-distribution and still removes
-            the impact of treatment control differences of X-values in the
-            leaves.
+    
+        `zeros` : The values of the (centered) covariates are set to zero.
+    
+        `observables`: They are set to their empirical distribution for the
+                       training data (unconditional on treatment).
+    
+        `weighted_observables` : As `observables`, but observations are weighted
+                                 by the forest weights (across treatments). This
+                                 imposes some localness on the X-distribution and 
+                                 still removes the impact of treatment-control 
+                                 differences of X-values in the leaves.
 
     p_ba_use_prop_score : Boolean (or None), optional
         If True, propensity score is used as regressor. Propensity is estimated
@@ -878,9 +882,9 @@ class ModifiedCausalForest:
 
     p_ba_cv_k : Integer (or None), optional
         Number of folds in cross-validation for bias adjustment.
-        Default (or None) depends on the size of the training
-          training sample (N): N < 100'000: 5;  100'000 <= N < 250'000: 4
-          250'000 <= N < 500'000: 3, 500'000 <= N: 2.
+        Default (or None) depends on the size of the training sample (N): 
+        N < 100'000: 5;  100'000 <= N < 250'000: 4; 250'000 <= N < 500'000: 3;
+        500'000 <= N: 2.
 
     p_ba_use_x : Boolean (or None), optional
         If True, use variables specified in VAR_X_BA_NAME as regressors.
@@ -1085,21 +1089,24 @@ class ModifiedCausalForest:
         Internal variable, change default only if you know what you do.
 
     _int_mp_weights_type : Integer (or None), optional
-        Type of multiprocessing when computing weights:
-        1 : Groups-of-obs based (fast, lots of memory).
-        2 : Tree based (takes forever, less memory).
-        Value of 2 will be internally changed to 1 if multiprocessing.
+        Type of multiprocessing when computing weights. 1: Groups-of-obs 
+        based (fast, lots of memory). 2: Tree based (takes forever, less 
+        memory). Value of 2 will be internally changed to 1 if multiprocessing. 
         Default (or None) is 1.
         Internal variable, change default only if you know what you do.
 
-     _int_obs_bigdata : Integer or None, optional
-         If number of training observations is larger than this number, the
-         following happens during training:
-         (i) Number of workers is halved in local centering.
-         (ii) The number of workers used is reduced to 75% of default.
-         (iii) The data type for some numpy arrays is reduced from float64 to
-              float32.
-         Default is 1'000'000.
+    _int_obs_bigdata : Integer or None, optional
+        If number of training observations is larger than this number, the
+        following happens during training.
+         
+        (i) Number of workers is halved in local centering.
+         
+        (ii) The number of workers used is reduced to 75% of default.
+         
+        (iii) The data type for some numpy arrays is reduced from float64 
+              to float32.
+               
+        Default is 1'000'000.
 
     _int_output_no_new_dir : Boolean (or None), optional
         Do not create a new directory when the path already exists.
@@ -1141,12 +1148,14 @@ class ModifiedCausalForest:
         Default (or None) is True.
         Internal variable, change default only if you know what you do.
 
-    _int_weight_as_sparse_splits : Integer (or None), optional
-        Compute sparse weight matrix in several chuncks.
-        None : (Rows of prediction data * rows of Fill_y data)
-               / (number of training splits * 25'000 * 25'000))
-        Default is None.
-        Internal variable, change default only if you know what you do.
+    _int_weight_as_sparse_splits : Integer or None, optional
+        Compute the sparse weight matrix in several chunks.
+    
+        `None` : 
+                 Rows of prediction data times rows of ``Fill_y`` data,
+                 divided by (number of training splits × ``25'000 * 25'000``).
+                 Default is None.
+                 Internal variable, change default only if you know what you do.
 
     _int_with_output : Boolean (or None), optional
         Print output on txt file and/or console.
@@ -1165,10 +1174,8 @@ class ModifiedCausalForest:
         computation and may lead to undesirable behaviour).
         Default is False.
 
-
-   Attributes
-   ----------
-
+    Attributes
+    ----------   
     __version__ : String
         Version of mcf module used to create the instance.
 

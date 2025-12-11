@@ -243,5 +243,3 @@ dependencies:
       - sympy==1.14.0
       - threadpoolctl==3.6.0
       - torch==2.9.1
-prefix: C:\ProgramData\miniconda3\envs\test-env090
-

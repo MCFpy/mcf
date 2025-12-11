@@ -1,0 +1,808 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>1. Estimation of treatment effects &#8212; mcf 0.9.0  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'user_guide/estimation';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="2. Data cleaning" href="data_cleaning.html" />
+    <link rel="prev" title="User Guide" href="../user_guide.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">mcf 0.9.0  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../algorithm_reference.html">
+    Algorithm Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../python_api.html">
+    Python API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../FAQ.html">
+    FAQ
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../changelog.html">
+    Changelog
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MCFpy/mcf" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/mcf/" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../algorithm_reference.html">
+    Algorithm Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../python_api.html">
+    Python API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../FAQ.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../changelog.html">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MCFpy/mcf" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/mcf/" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../user_guide.html" class="nav-link">User Guide</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis"><span class="section-number">1. </span>Estimation of treatment effects</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="estimation-of-treatment-effects">
+<h1><span class="section-number">1. </span>Estimation of treatment effects<a class="headerlink" href="#estimation-of-treatment-effects" title="Link to this heading">#</a></h1>
+<section id="types-of-treatment-effects">
+<h2><span class="section-number">1.1. </span>Types of treatment effects<a class="headerlink" href="#types-of-treatment-effects" title="Link to this heading">#</a></h2>
+<p>The Modified Causal Forest estimates three types of treatment effects, which differ in their aggregation level and are discussed in depth by <a class="reference external" href="https://doi.org/10.48550/arXiv.1812.09487">Lechner (2018)</a>. These effects are the average treatment effect (<span class="math notranslate nohighlight">\(\textrm{ATE}\)</span>), the group average treatment effect (<span class="math notranslate nohighlight">\(\textrm{GATE}\)</span>), and the individualized average treatment effect (<span class="math notranslate nohighlight">\(\textrm{IATE}\)</span>). <a class="footnote-reference brackets" href="#id2" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a></p>
+<p>Let us consider a discrete, multi-valued treatment <span class="math notranslate nohighlight">\(D\)</span>. The potential outcome of treatment state <span class="math notranslate nohighlight">\(d\)</span> is denoted by <span class="math notranslate nohighlight">\(Y^d\)</span>. The covariates that are needed to correct for selection bias are denoted by <span class="math notranslate nohighlight">\(X\)</span>. <span class="math notranslate nohighlight">\(Z \subset X\)</span> is a vector of features that defines the effect heterogeneity of interest. <span class="math notranslate nohighlight">\(Z\)</span> can contain continuous and discrete variables. Often these are variables with
+relatively “few values” that define population groups (e.g. age, gender, etc.). The effects of interest are then defined as:</p>
+<div class="math notranslate nohighlight">
+\[ \begin{align}\begin{aligned}\textrm{ATE}(m,l;\Delta) &amp;:= \mathbb{E} \big[ Y^m-Y^l \big\vert D\in \Delta \big]\\\textrm{GATE}(m,l;z,\Delta) &amp;:= \mathbb{E} \big[ Y^m-Y^l \big\vert Z=z, D\in \Delta \big]\\\textrm{IATE}(m,l;x) &amp;:= \mathbb{E} \big[ Y^m-Y^l \big\vert X=x \big]\end{aligned}\end{align} \]</div>
+<p>If <span class="math notranslate nohighlight">\(\Delta = \{m\}\)</span> then <span class="math notranslate nohighlight">\(\textrm{ATE}(m,l;\Delta)\)</span> is better known as the average treatment effect on the treated (<span class="math notranslate nohighlight">\(\textrm{ATET}\)</span>) for the individuals that received treatment <span class="math notranslate nohighlight">\(m\)</span>. <span class="math notranslate nohighlight">\(\textrm{ATE's}\)</span> measure the average impact of treatment <span class="math notranslate nohighlight">\(m\)</span> compared to treatment <span class="math notranslate nohighlight">\(l\)</span> either for the entire population, or in case of an <span class="math notranslate nohighlight">\(\textrm{ATET}\)</span>, for the units that actually received a specific treatment.</p>
+<p>Whereas <span class="math notranslate nohighlight">\(\textrm{ATE's}\)</span> are population averages, <span class="math notranslate nohighlight">\(\textrm{IATE's}\)</span> are average effects at the finest possible aggregation level. They measure the average impact of treatment <span class="math notranslate nohighlight">\(m\)</span> compared to treatment <span class="math notranslate nohighlight">\(l\)</span> for units with features <span class="math notranslate nohighlight">\(X = x\)</span>. <span class="math notranslate nohighlight">\(\textrm{GATE's}\)</span> lie somewhere in-between these two extremes. They measure the average impact of treatment <span class="math notranslate nohighlight">\(m\)</span> compared to treatment <span class="math notranslate nohighlight">\(l\)</span> for units in group <span class="math notranslate nohighlight">\(Z = z\)</span>. <span class="math notranslate nohighlight">\(\textrm{GATE's}\)</span> and <span class="math notranslate nohighlight">\(\textrm{IATES's}\)</span> are special cases of the so-called conditional average treatment effects (<span class="math notranslate nohighlight">\(\textrm{CATE's}\)</span>).</p>
+<p>The following sections will show you how to estimate these different types of treatment effects with the <strong>mcf</strong> package.</p>
+<hr class="docutils" />
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="id2" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">1</a><span class="fn-bracket">]</span></span>
+<p>A recent paper by <a class="reference external" href="https://browse.arxiv.org/abs/2401.08290">Bearth &amp; Lechner (2024)</a> introduced the Balanced Group Average Treatment Effect (<span class="math notranslate nohighlight">\(\textrm{BGATE}\)</span>). Click <a class="reference internal" href="../algorithm_reference/bgates_cbgates.html"><span class="doc">here</span></a> to learn more about estimating <span class="math notranslate nohighlight">\(\textrm{BGATE's}\)</span> with the Modified Causal Forest.</p>
+</aside>
+</aside>
+</section>
+<section id="estimating-ate-s-iate-s">
+<h2><span class="section-number">1.2. </span>Estimating ATE’s / IATE’s<a class="headerlink" href="#estimating-ate-s-iate-s" title="Link to this heading">#</a></h2>
+<p>The <span class="math notranslate nohighlight">\(\textrm{ATE's}\)</span> as well as the <span class="math notranslate nohighlight">\(\textrm{IATE's}\)</span> are estimated by default through the <a class="reference internal" href="../mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a> method of the class <a class="reference internal" href="../python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a>. See <a class="reference internal" href="../getting_started.html"><span class="doc">Getting started</span></a> for a quick example on how to access these estimates.</p>
+<p>Another way to access the estimated <span class="math notranslate nohighlight">\(\textrm{ATE's}\)</span> is through the output folder that the <strong>mcf</strong> package generates once a Modified Causal Forest is initialized. You can find the location of this folder by accessing the <cite>“outpath”</cite> entry of the <cite>gen_dict</cite> attribute of your Modified Causal Forest:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">mcf.example_data_functions</span><span class="w"> </span><span class="kn">import</span> <span class="n">example_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcf.mcf_main</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModifiedCausalForest</span>
+
+<span class="c1"># Generate example data using the built-in function `example_data()`</span>
+<span class="n">training_df</span><span class="p">,</span> <span class="n">prediction_df</span><span class="p">,</span> <span class="n">name_dict</span> <span class="o">=</span> <span class="n">example_data</span><span class="p">()</span>
+
+<span class="n">my_mcf</span> <span class="o">=</span> <span class="n">ModifiedCausalForest</span><span class="p">(</span>
+    <span class="n">var_y_name</span><span class="o">=</span><span class="s2">&quot;outcome&quot;</span><span class="p">,</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">]</span>
+<span class="p">)</span>
+<span class="n">my_mcf</span><span class="o">.</span><span class="n">gen_cfg</span><span class="o">.</span><span class="n">outpath</span>
+</pre></div>
+</div>
+<p>You can also specify this path through the <code class="docutils literal notranslate"><span class="pre">gen_outpath</span></code> parameter of the class <a class="reference internal" href="../python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-meth docutils literal notranslate"><span class="pre">ModifiedCausalForest()</span></code></a>. The output folder will contain csv-files with the estimated <span class="math notranslate nohighlight">\(\textrm{ATE's}\)</span> in the subfolder <cite>ate_iate</cite>.</p>
+<p>You can control whether <span class="math notranslate nohighlight">\(\textrm{IATE's}\)</span> and their standard errors are estimated by setting the parameters <code class="docutils literal notranslate"><span class="pre">p_iate</span></code> and <code class="docutils literal notranslate"><span class="pre">p_iate_se</span></code> of the class <a class="reference internal" href="../python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> to True or False:</p>
+<div class="pst-scrollable-table-container"><table class="table">
+<tbody>
+<tr class="row-odd"><td><p>Parameter</p></td>
+<td><p>Description</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">p_iate</span></code></p></td>
+<td><p>If True, IATE’s will be estimated. Default: True.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">p_iate_se</span></code></p></td>
+<td><p>If True, standard errors of IATE’s will be estimated. Default: False.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="example">
+<h3><span class="section-number">1.2.1. </span>Example<a class="headerlink" href="#example" title="Link to this heading">#</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">mcf.example_data_functions</span><span class="w"> </span><span class="kn">import</span> <span class="n">example_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcf.mcf_main</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModifiedCausalForest</span>
+
+<span class="c1"># Generate example data using the built-in function `example_data()`</span>
+<span class="n">training_df</span><span class="p">,</span> <span class="n">prediction_df</span><span class="p">,</span> <span class="n">name_dict</span> <span class="o">=</span> <span class="n">example_data</span><span class="p">()</span>
+
+<span class="n">my_mcf</span> <span class="o">=</span> <span class="n">ModifiedCausalForest</span><span class="p">(</span>
+    <span class="n">var_y_name</span><span class="o">=</span><span class="s2">&quot;outcome&quot;</span><span class="p">,</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">],</span>
+    <span class="c1"># Estimate IATE&#39;s but not their standard errors</span>
+    <span class="n">p_iate</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">p_iate_se</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="estimating-atet-s">
+<h2><span class="section-number">1.3. </span>Estimating ATET’s<a class="headerlink" href="#estimating-atet-s" title="Link to this heading">#</a></h2>
+<p>The average treatment effects for the treated are estimated by the <a class="reference internal" href="../mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a> method if the parameter <code class="docutils literal notranslate"><span class="pre">p_atet</span></code> of the class <a class="reference internal" href="../python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> is set to True:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">mcf.example_data_functions</span><span class="w"> </span><span class="kn">import</span> <span class="n">example_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcf.mcf_main</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModifiedCausalForest</span>
+
+<span class="c1"># Generate example data using the built-in function `example_data()`</span>
+<span class="n">training_df</span><span class="p">,</span> <span class="n">prediction_df</span><span class="p">,</span> <span class="n">name_dict</span> <span class="o">=</span> <span class="n">example_data</span><span class="p">()</span>
+
+<span class="n">my_mcf</span> <span class="o">=</span> <span class="n">ModifiedCausalForest</span><span class="p">(</span>
+    <span class="n">var_y_name</span><span class="o">=</span><span class="s2">&quot;outcome&quot;</span><span class="p">,</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">],</span>
+    <span class="c1"># Estimating ATET&#39;s</span>
+    <span class="n">p_atet</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">)</span>
+
+<span class="n">my_mcf</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">training_df</span><span class="p">)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">my_mcf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">prediction_df</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <span class="math notranslate nohighlight">\(\textrm{ATET's}\)</span> are, similar to the <span class="math notranslate nohighlight">\(\textrm{ATE's}\)</span>, stored in the <cite>“ate”</cite> entry of the dictionary returned by the <a class="reference internal" href="../mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a> method. This entry will then contain both the estimated <span class="math notranslate nohighlight">\(\textrm{ATET's}\)</span> as well as the <span class="math notranslate nohighlight">\(\textrm{ATE's}\)</span>. The output that is printed to the console during prediction will present you a table with all estimated <span class="math notranslate nohighlight">\(\textrm{ATE's}\)</span> and <span class="math notranslate nohighlight">\(\textrm{ATET's}\)</span>, which should give you a good idea of the structure of the <cite>“ate”</cite> entry in the result dictionary.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;ate&quot;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>The standard errors of the estimates are stored in the <cite>“ate_se”</cite> entry of the same dictionary. The structure of the <cite>“ate_se”</cite> entry is analogous to the <cite>“ate”</cite> entry.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;ate_se&quot;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Another way to access the estimated <span class="math notranslate nohighlight">\(\textrm{ATET's}\)</span> is through the output folder that the <strong>mcf</strong> package generates once a Modified Causal Forest is initialized. You can find the location of this folder by accessing the <cite>“outpath”</cite> entry of the <cite>gen_dict</cite> attribute of your Modified Causal Forest:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">my_mcf</span><span class="o">.</span><span class="n">gen_cfg</span><span class="o">.</span><span class="n">outpath</span>
+</pre></div>
+</div>
+<p>You can also specify this path through the <code class="docutils literal notranslate"><span class="pre">gen_outpath</span></code> parameter of the class <a class="reference internal" href="../python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-meth docutils literal notranslate"><span class="pre">ModifiedCausalForest()</span></code></a>. The output folder will contain csv-files with the estimated <span class="math notranslate nohighlight">\(\textrm{ATET's}\)</span> in the subfolder <cite>ate_iate</cite>.</p>
+</section>
+<section id="estimating-gate-s">
+<h2><span class="section-number">1.4. </span>Estimating GATE’s<a class="headerlink" href="#estimating-gate-s" title="Link to this heading">#</a></h2>
+<p>Group average treatment effects are estimated by the <a class="reference internal" href="../mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a> method if you define heterogeneity variables through the parameters <code class="docutils literal notranslate"><span class="pre">var_z_name_cont</span></code>, <code class="docutils literal notranslate"><span class="pre">var_z_name_ord</span></code> or <code class="docutils literal notranslate"><span class="pre">var_z_name_unord</span></code> in your <a class="reference internal" href="../python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a>. For every feature in the vector of heterogeneity variables <span class="math notranslate nohighlight">\(Z\)</span>, a <span class="math notranslate nohighlight">\(\textrm{GATE}\)</span> will be estimated separately. Please refer to the table further below or the <a class="reference internal" href="../python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">API</span></code></a> for more details on how to specify your heterogeneity variables with the above mentioned parameters.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">mcf.example_data_functions</span><span class="w"> </span><span class="kn">import</span> <span class="n">example_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcf.mcf_main</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModifiedCausalForest</span>
+
+<span class="c1"># Generate example data using the built-in function `example_data()`</span>
+<span class="n">training_df</span><span class="p">,</span> <span class="n">prediction_df</span><span class="p">,</span> <span class="n">name_dict</span> <span class="o">=</span> <span class="n">example_data</span><span class="p">()</span>
+
+<span class="n">my_mcf</span> <span class="o">=</span> <span class="n">ModifiedCausalForest</span><span class="p">(</span>
+    <span class="n">var_y_name</span><span class="o">=</span><span class="s2">&quot;outcome&quot;</span><span class="p">,</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>
+    <span class="c1"># Define binary variables as ordered for faster performance</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">],</span>
+    <span class="c1"># Specify the unordered heterogeneity variable &#39;female&#39; for GATE estimation</span>
+    <span class="n">var_z_name_unord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_unord0&quot;</span><span class="p">]</span>
+<span class="p">)</span>
+<span class="n">my_mcf</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">training_df</span><span class="p">)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">my_mcf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">training_df</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>You can access the estimated <span class="math notranslate nohighlight">\(\textrm{GATE's}\)</span> and their standard errors through their corresponding entries in the dictionary that is returned by the <a class="reference internal" href="../mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a> method:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;gate_names_values&quot;</span><span class="p">]</span> <span class="c1"># Describes the structure of the &#39;gate&#39; entry</span>
+<span class="n">results</span><span class="p">[</span><span class="s2">&quot;gate&quot;</span><span class="p">]</span> <span class="c1"># Estimated GATE&#39;s</span>
+<span class="n">results</span><span class="p">[</span><span class="s2">&quot;gate_se&quot;</span><span class="p">]</span> <span class="c1"># Standard errors of the estimated GATE&#39;s</span>
+</pre></div>
+</div>
+<p>A simpler way to inspect the estimated <span class="math notranslate nohighlight">\(\textrm{GATE's}\)</span> is through the output folder that the <strong>mcf</strong> package generates once a Modified Causal Forest is initialized. You can find the location of this folder by accessing the <cite>“outpath”</cite> entry of the <cite>gen_dict</cite> attribute of your Modified Causal Forest:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">my_mcf</span><span class="o">.</span><span class="n">gen_cfg</span><span class="o">.</span><span class="n">outpath</span>
+</pre></div>
+</div>
+<p>You can also specify this path through the <code class="docutils literal notranslate"><span class="pre">gen_outpath</span></code> parameter of the class <a class="reference internal" href="../python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-meth docutils literal notranslate"><span class="pre">ModifiedCausalForest()</span></code></a>. The output folder will contain both csv-files with the results as well as plots of the estimated <span class="math notranslate nohighlight">\(\textrm{GATE's}\)</span> in the subfolder <cite>gate</cite>.</p>
+<p>To estimate the <span class="math notranslate nohighlight">\(\textrm{GATE's}\)</span> for subpopulations defined by treatment status (<span class="math notranslate nohighlight">\(\textrm{GATET's}\)</span>), you can set the parameter <code class="docutils literal notranslate"><span class="pre">p_gatet</span></code> of the class <a class="reference internal" href="../python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> to True. These estimates can be accessed in the same manner as regular <span class="math notranslate nohighlight">\(\textrm{GATE's}\)</span>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">my_mcf</span> <span class="o">=</span> <span class="n">ModifiedCausalForest</span><span class="p">(</span>
+    <span class="n">var_y_name</span><span class="o">=</span><span class="s2">&quot;outcome&quot;</span><span class="p">,</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">],</span>
+    <span class="n">var_z_name_unord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_unord0&quot;</span><span class="p">],</span>
+    <span class="c1"># Estimate the GATE&#39;s for var_z_name_unord by treatment status</span>
+    <span class="n">p_gatet</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>For a continuous heterogeneity variable, the Modified Causal Forest will by default
+smooth the distribution of the variable. The smoothing procedure evaluates the effects at a local neighborhood around a pre-defined number of evaluation points. The number of evaluation points can be specified through the parameter <code class="docutils literal notranslate"><span class="pre">p_gates_smooth_no_evalu_points</span></code> of the class <a class="reference internal" href="../python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a>. The local neighborhood is based on an Epanechnikov kernel estimation using Silverman’s bandwidth rule. The multiplier for Silverman’s bandwidth rule can be chosen through the parameter <code class="docutils literal notranslate"><span class="pre">p_gates_smooth_bandwidth</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">my_mcf</span> <span class="o">=</span> <span class="n">ModifiedCausalForest</span><span class="p">(</span>
+    <span class="n">var_y_name</span><span class="o">=</span><span class="s2">&quot;outcome&quot;</span><span class="p">,</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">],</span>
+    <span class="c1"># Specify the continuous heterogeneity variable for GATE estimation</span>
+    <span class="n">var_z_name_cont</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_ord0&quot;</span><span class="p">],</span>
+    <span class="c1"># Smoothing the distribution of the continuous variable for GATE estimation</span>
+    <span class="n">p_gates_smooth</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># The number of evaluation points is set to 40</span>
+    <span class="n">p_gates_smooth_no_evalu_points</span> <span class="o">=</span> <span class="mi">40</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Instead of smoothing continuous heterogeneity variables, you can also discretize them and estimate GATE’s for the resulting categories. This can be done by setting the parameter <code class="docutils literal notranslate"><span class="pre">p_gates_smooth</span></code> of the class <a class="reference internal" href="../python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> to False. The maximum number of categories for discretizing continuous variables can be specified through the parameter <code class="docutils literal notranslate"><span class="pre">p_max_cats_z_vars</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">my_mcf</span> <span class="o">=</span> <span class="n">ModifiedCausalForest</span><span class="p">(</span>
+    <span class="n">var_y_name</span><span class="o">=</span><span class="s2">&quot;outcome&quot;</span><span class="p">,</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">],</span>
+    <span class="c1"># Specify the continuous heterogeneity variable for GATE estimation</span>
+    <span class="n">var_z_name_cont</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_ord0&quot;</span><span class="p">],</span>
+    <span class="c1"># Discretizing the continuous variable for GATE estimation</span>
+    <span class="n">p_gates_smooth</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="c1"># The maximum number of categories for discretizing is set to 5</span>
+    <span class="n">p_max_cats_z_vars</span> <span class="o">=</span> <span class="mi">5</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Below you find a list of the discussed parameters that are relevant for the estimation of <span class="math notranslate nohighlight">\(\textrm{GATE's}\)</span>. Please consult the <a class="reference internal" href="../python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">API</span></code></a> for more details or additional parameters on <span class="math notranslate nohighlight">\(\textrm{GATE}\)</span> estimation.</p>
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3">
+<summary class="sd-summary-title sd-card-header">
+<span class="sd-summary-text">Commonly used parameters to estimate <span class="math notranslate nohighlight">\(\ \textrm{GATE's}\)</span></span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<div class="pst-scrollable-table-container"><table class="table">
+<tbody>
+<tr class="row-odd"><td><p class="sd-card-text">Parameter</p></td>
+<td><p class="sd-card-text">Description</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">var_z_name_cont</span></code></p></td>
+<td><p class="sd-card-text">Ordered feature(s) with many values used for <span class="math notranslate nohighlight">\(\textrm{GATE}\)</span> estimation.</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">var_z_name_ord</span></code></p></td>
+<td><p class="sd-card-text">Ordered feature(s) with few values used for <span class="math notranslate nohighlight">\(\textrm{GATE}\)</span> estimation.</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">var_z_name_unord</span></code></p></td>
+<td><p class="sd-card-text">Unordered feature(s) used for <span class="math notranslate nohighlight">\(\textrm{GATE}\)</span> estimation.</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">p_gatet</span></code></p></td>
+<td><p class="sd-card-text">If True, <span class="math notranslate nohighlight">\(\textrm{GATE's}\)</span> are also computed by treatment status (<span class="math notranslate nohighlight">\(\textrm{GATET's}\)</span>). Default: False.</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">p_gates_smooth</span></code></p></td>
+<td><p class="sd-card-text">If True, a smoothing procedure is applied to estimate <span class="math notranslate nohighlight">\(\textrm{GATE's}\)</span> for continuous variables in <span class="math notranslate nohighlight">\(Z\)</span>. Default: True.</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">p_gates_smooth_no_evalu_points</span></code></p></td>
+<td><p class="sd-card-text">If <code class="docutils literal notranslate"><span class="pre">p_gates_smooth</span></code> is True, this defines the number of evaluation points. Default: 50.</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">p_gates_smooth_bandwidth</span></code></p></td>
+<td><p class="sd-card-text">If <code class="docutils literal notranslate"><span class="pre">p_gates_smooth</span></code> is True, this defines the multiplier for Silverman’s bandwidth rule. Default: 1.</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">p_max_cats_z_vars</span></code></p></td>
+<td><p class="sd-card-text">If <code class="docutils literal notranslate"><span class="pre">p_gates_smooth</span></code> is False, this defines the maximum number categorizes when discretizing continuous heterogeneity variables in <span class="math notranslate nohighlight">\(Z\)</span>. Default: <span class="math notranslate nohighlight">\(N^{0.3}\)</span>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</details></section>
+<section id="stabilizing-estimates-by-truncating-weights">
+<h2><span class="section-number">1.5. </span>Stabilizing estimates by truncating weights<a class="headerlink" href="#stabilizing-estimates-by-truncating-weights" title="Link to this heading">#</a></h2>
+<p>The Modified Causal Forest uses weighted averages to estimate treatment effects. If the weights of some observations are very large, they can lead to unstable estimates. To obtain more stable estimates, the <strong>mcf</strong> package provides the option to truncate forest weights to an upper threshold through the parameter <code class="docutils literal notranslate"><span class="pre">p_max_weight_share</span></code> of the class <a class="reference internal" href="../python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a>. By default, <code class="docutils literal notranslate"><span class="pre">p_max_weight_share</span></code> is set to 0.05. After truncation, the program renormalizes the weights for estimation. Because of the renormalization step, the final weights can be slightly above the threshold defined in <code class="docutils literal notranslate"><span class="pre">p_max_weight_share</span></code>.</p>
+<section id="id3">
+<h3><span class="section-number">1.5.1. </span>Example<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">my_mcf</span> <span class="o">=</span> <span class="n">ModifiedCausalForest</span><span class="p">(</span>
+    <span class="n">var_y_name</span><span class="o">=</span><span class="s2">&quot;outcome&quot;</span><span class="p">,</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">],</span>
+    <span class="c1"># Truncate weights to an upper threshold of 0.01</span>
+    <span class="n">p_max_weight_share</span> <span class="o">=</span> <span class="mf">0.01</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="increase-in-efficiency">
+<h2><span class="section-number">1.6. </span>Increase in Efficiency<a class="headerlink" href="#increase-in-efficiency" title="Link to this heading">#</a></h2>
+<p>ATEs, GATEs, QIATEs, and IATEs can be estimated more efficiently by training the algortihm twice (<code class="docutils literal notranslate"><span class="pre">gen_ate_eff</span></code>, <code class="docutils literal notranslate"><span class="pre">gen_gate_eff</span></code>, <code class="docutils literal notranslate"><span class="pre">gen_qiate_eff</span></code>, <code class="docutils literal notranslate"><span class="pre">gen_iate_eff</span></code>). In this procedure, the data used to build the forest and the data used to populate the leaves with outcome values switch roles. The predictions from both forests are then averaged. The same approach is applied to the variance. However, because the averaged variance is likely to overestimate the true variance, the resulting inference is conservative.</p>
+<p>Note that computation time is approximately doubled. Also, the dictionary returned by the <a class="reference internal" href="../mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a> method provides results for the standard effects only (i.e., without efficiency optimization).</p>
+</section>
+<section id="obtaining-new-results-without-retraining-the-forest">
+<h2><span class="section-number">1.7. </span>Obtaining New Results Without Retraining the Forest<a class="headerlink" href="#obtaining-new-results-without-retraining-the-forest" title="Link to this heading">#</a></h2>
+<p>It is possible to obtain new results using different parameter values for the <a class="reference internal" href="../mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a>, <a class="reference internal" href="../mcf_main.ModifiedCausalForest.predict_iv.html#mcf_main.ModifiedCausalForest.predict_iv" title="mcf_main.ModifiedCausalForest.predict_iv"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict_iv()</span></code></a> and <a class="reference internal" href="../mcf_main.ModifiedCausalForest.analyse.html#mcf_main.ModifiedCausalForest.analyse" title="mcf_main.ModifiedCausalForest.analyse"><code class="xref py py-meth docutils literal notranslate"><span class="pre">analyse()</span></code></a> methods without retraining the forest. The modified parameters must be provided in a dictionary and passed to these methods through the <code class="docutils literal notranslate"><span class="pre">new_keywords</span></code> argument. This dictionary is used to update the configuration attributes of the instance that was originally trained. It is essential that these updates are applied only to instances that have not yet been used by <a class="reference internal" href="../mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a> or <a class="reference internal" href="../mcf_main.ModifiedCausalForest.predict_iv.html#mcf_main.ModifiedCausalForest.predict_iv" title="mcf_main.ModifiedCausalForest.predict_iv"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict_iv()</span></code></a>. Therefore, if a single trained instance is intended to be reused with different parameter settings, it should first be deep-copied. The example scripts on BGATEs, as well as the script demonstrating the full parameter set, provide guidance on how to implement this functionality in Python.</p>
+<p>The dictionary provided to <code class="docutils literal notranslate"><span class="pre">new_keywords</span></code> specifies which parameters should be changed for the current method call (and for all subsequently executed methods such as <a class="reference internal" href="../mcf_main.ModifiedCausalForest.analyse.html#mcf_main.ModifiedCausalForest.analyse" title="mcf_main.ModifiedCausalForest.analyse"><code class="xref py py-meth docutils literal notranslate"><span class="pre">analyse()</span></code></a> or <a class="reference internal" href="../mcf_main.ModifiedCausalForest.sensitivity.html#mcf_main.ModifiedCausalForest.sensitivity" title="mcf_main.ModifiedCausalForest.sensitivity"><code class="xref py py-meth docutils literal notranslate"><span class="pre">sensitivity()</span></code></a>). The dictionary keys represent the parameters to be modified, and the corresponding values represent their new settings (note that <code class="docutils literal notranslate"><span class="pre">None</span></code> is not permitted as a new value). However, only a subset of parameters may differ from those used during training. The following parameters may be modified and therefore can be used as keys in the <code class="docutils literal notranslate"><span class="pre">new_keywords</span></code> dictionary:</p>
+<p><code class="docutils literal notranslate"><span class="pre">gen_output_type</span></code>, <code class="docutils literal notranslate"><span class="pre">var_x_name_balance_test_ord</span></code>, <code class="docutils literal notranslate"><span class="pre">var_x_name_balance_test_unord</span></code>, <code class="docutils literal notranslate"><span class="pre">var_x_name_balance_bgate</span></code>, <code class="docutils literal notranslate"><span class="pre">var_x_name_ba</span></code>, <code class="docutils literal notranslate"><span class="pre">var_z_name_ord</span></code>, <code class="docutils literal notranslate"><span class="pre">var_z_name_unord</span></code>, <code class="docutils literal notranslate"><span class="pre">p_ba</span></code>, <code class="docutils literal notranslate"><span class="pre">p_ba_adj_method</span></code>, <code class="docutils literal notranslate"><span class="pre">p_ba_pos_weights_only</span></code>, <code class="docutils literal notranslate"><span class="pre">p_ba_use_x</span></code>, <code class="docutils literal notranslate"><span class="pre">p_ba_use_prop_score</span></code>, <code class="docutils literal notranslate"><span class="pre">p_ba_use_prog_score</span></code>, <code class="docutils literal notranslate"><span class="pre">p_ate_no_se_only</span></code>, <code class="docutils literal notranslate"><span class="pre">p_atet</span></code>, <code class="docutils literal notranslate"><span class="pre">p_gatet</span></code>, <code class="docutils literal notranslate"><span class="pre">p_bgate</span></code>, <code class="docutils literal notranslate"><span class="pre">p_cbgate</span></code>, <code class="docutils literal notranslate"><span class="pre">p_iate</span></code>, <code class="docutils literal notranslate"><span class="pre">p_iate_se</span></code>, <code class="docutils literal notranslate"><span class="pre">p_iate_m_ate</span></code>, <code class="docutils literal notranslate"><span class="pre">p_bgate_sample_share</span></code>, <code class="docutils literal notranslate"><span class="pre">p_gates_minus_previous</span></code>, <code class="docutils literal notranslate"><span class="pre">p_gates_smooth_bandwidth</span></code>, <code class="docutils literal notranslate"><span class="pre">p_gates_smooth</span></code>, <code class="docutils literal notranslate"><span class="pre">p_gates_smooth_no_evalu_points</span></code>, <code class="docutils literal notranslate"><span class="pre">p_gates_no_evalu_points</span></code>, <code class="docutils literal notranslate"><span class="pre">p_qiate</span></code>, <code class="docutils literal notranslate"><span class="pre">p_qiate_se</span></code>, <code class="docutils literal notranslate"><span class="pre">p_qiate_m_mqiate</span></code>, <code class="docutils literal notranslate"><span class="pre">p_qiate_m_opp</span></code>, <code class="docutils literal notranslate"><span class="pre">p_qiate_no_of_quantiles</span></code>, <code class="docutils literal notranslate"><span class="pre">p_qiate_smooth</span></code>, <code class="docutils literal notranslate"><span class="pre">p_qiate_smooth_bandwidth</span></code>, <code class="docutils literal notranslate"><span class="pre">p_qiate_bias_adjust</span></code>, <code class="docutils literal notranslate"><span class="pre">p_bt_yes</span></code>, <code class="docutils literal notranslate"><span class="pre">p_choice_based_sampling</span></code>, <code class="docutils literal notranslate"><span class="pre">p_choice_based_probs</span></code>, <code class="docutils literal notranslate"><span class="pre">p_cond_var</span></code>, <code class="docutils literal notranslate"><span class="pre">p_knn</span></code>, <code class="docutils literal notranslate"><span class="pre">p_knn_const</span></code>, <code class="docutils literal notranslate"><span class="pre">p_knn_min_k</span></code>, <code class="docutils literal notranslate"><span class="pre">p_nw_bandw</span></code>, <code class="docutils literal notranslate"><span class="pre">p_nw_kern</span></code>, <code class="docutils literal notranslate"><span class="pre">p_ci_level</span></code>, <code class="docutils literal notranslate"><span class="pre">p_iv_aggregation_method</span></code>, <code class="docutils literal notranslate"><span class="pre">p_se_boot_ate</span></code>, <code class="docutils literal notranslate"><span class="pre">p_se_boot_gate</span></code>, <code class="docutils literal notranslate"><span class="pre">p_se_boot_iate</span></code>, <code class="docutils literal notranslate"><span class="pre">p_se_boot_qiate</span></code>, <code class="docutils literal notranslate"><span class="pre">post_bin_corr_threshold</span></code>, <code class="docutils literal notranslate"><span class="pre">post_bin_corr_yes</span></code>, <code class="docutils literal notranslate"><span class="pre">post_est_stats</span></code>, <code class="docutils literal notranslate"><span class="pre">post_kmeans_yes</span></code>, <code class="docutils literal notranslate"><span class="pre">post_kmeans_no_of_groups</span></code>, <code class="docutils literal notranslate"><span class="pre">post_kmeans_max_tries</span></code>, <code class="docutils literal notranslate"><span class="pre">post_kmeans_min_size_share</span></code>, <code class="docutils literal notranslate"><span class="pre">post_kmeans_replications</span></code>, <code class="docutils literal notranslate"><span class="pre">post_kmeans_single</span></code>, <code class="docutils literal notranslate"><span class="pre">post_random_forest_vi</span></code>, <code class="docutils literal notranslate"><span class="pre">post_relative_to_first_group_only</span></code>, <code class="docutils literal notranslate"><span class="pre">post_plots</span></code>, <code class="docutils literal notranslate"><span class="pre">post_tree</span></code>.</p>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="../user_guide.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">User Guide</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="data_cleaning.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title"><span class="section-number">2. </span>Data cleaning</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#types-of-treatment-effects">1.1. Types of treatment effects</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#estimating-ate-s-iate-s">1.2. Estimating ATE’s / IATE’s</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example">1.2.1. Example</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#estimating-atet-s">1.3. Estimating ATET’s</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#estimating-gate-s">1.4. Estimating GATE’s</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#stabilizing-estimates-by-truncating-weights">1.5. Stabilizing estimates by truncating weights</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">1.5.1. Example</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#increase-in-efficiency">1.6. Increase in Efficiency</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#obtaining-new-results-without-retraining-the-forest">1.7. Obtaining New Results Without Retraining the Forest</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/user_guide/estimation.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2024, Michael Lechner.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

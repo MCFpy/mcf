@@ -1,0 +1,876 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Getting started &#8212; mcf 0.9.0  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'getting_started';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="User Guide" href="user_guide.html" />
+    <link rel="prev" title="Modified Causal Forests" href="index.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">mcf 0.9.0  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="#">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="algorithm_reference.html">
+    Algorithm Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="python_api.html">
+    Python API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="FAQ.html">
+    FAQ
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="changelog.html">
+    Changelog
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MCFpy/mcf" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/mcf/" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="#">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="algorithm_reference.html">
+    Algorithm Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="python_api.html">
+    Python API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="FAQ.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="changelog.html">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MCFpy/mcf" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/mcf/" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Getting started</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="getting-started">
+<span id="id1"></span><h1>Getting started<a class="headerlink" href="#getting-started" title="Link to this heading">#</a></h1>
+<p>This guide will walk you through using the <strong>mcf</strong> package to:</p>
+<ul class="simple">
+<li><p>estimate heterogeneous treatment effects using the Modified Causal Forest</p></li>
+<li><p>learn an optimal policy rule based on a Policy Tree</p></li>
+<li><p>navigate through the output files structure</p></li>
+</ul>
+<section id="example-data">
+<h2>Example data<a class="headerlink" href="#example-data" title="Link to this heading">#</a></h2>
+<p>First, we will use the <a class="reference internal" href="python_api.html#example_data_functions.example_data" title="example_data_functions.example_data"><code class="xref py py-func docutils literal notranslate"><span class="pre">example_data()</span></code></a> function to generate synthetic datasets for training and prediction. This functions creates training, <code class="docutils literal notranslate"><span class="pre">training_df</span></code>, and prediction ,``prediction_df``, DataFrames with a specified number of observations, features, and treatments, and allows for different heterogeneity types , i.e., <code class="docutils literal notranslate"><span class="pre">'linear'</span></code>, <code class="docutils literal notranslate"><span class="pre">'nonlinear'</span></code>, <code class="docutils literal notranslate"><span class="pre">'quadratic'</span></code>, <code class="docutils literal notranslate"><span class="pre">'WagerAthey'</span></code>. The function also returns a dictionary containing the names of variable groups, <code class="docutils literal notranslate"><span class="pre">name_dict</span></code>. You can define some features of the generated data by using the following parameters:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">obs_y_d_x_iate</span></code> , the number of observations for the training data</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">obs_x_iate</span></code> , the number of observations for the prediction data</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">no_features</span></code> , the number of features of different type to generate</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">no_treatments</span></code> , the number of treatments</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">type_of_heterogeneity</span></code> , different types of heterogeneity</p></li>
+</ul>
+<p>For more details, visit the <a class="reference internal" href="python_api.html"><span class="doc">Python API</span></a>.</p>
+<p>By default, the <a class="reference internal" href="python_api.html#example_data_functions.example_data" title="example_data_functions.example_data"><code class="xref py py-func docutils literal notranslate"><span class="pre">example_data()</span></code></a> produces 1000 observations for both training and prediction, with 20 features, and 3 treatments. Let us change this slightly and generate 1500 training and prediction observations for 10 features and 3 treatments.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">mcf.example_data_functions</span><span class="w"> </span><span class="kn">import</span> <span class="n">example_data</span>
+
+<span class="c1"># Generate example data using the built-in function `example_data()`</span>
+<span class="n">training_df</span><span class="p">,</span> <span class="n">prediction_df</span><span class="p">,</span> <span class="n">name_dict</span> <span class="o">=</span> <span class="n">example_data</span><span class="p">(</span>
+                                        <span class="n">obs_y_d_x_iate</span><span class="o">=</span><span class="mi">1500</span><span class="p">,</span>
+                                        <span class="n">obs_x_iate</span><span class="o">=</span><span class="mi">1500</span><span class="p">,</span>
+                                        <span class="n">no_features</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+                                        <span class="n">no_treatments</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+</pre></div>
+</div>
+<section id="estimating-heterogeneous-treatment-effects">
+<h3>Estimating heterogeneous treatment effects<a class="headerlink" href="#estimating-heterogeneous-treatment-effects" title="Link to this heading">#</a></h3>
+<p>To estimate a Modified Causal Forest, we use the <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> class of the <strong>mcf</strong> package. To create an instance of the <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> class, we need to specify the name of:</p>
+<ul class="simple">
+<li><p>at least one outcome variable through the <code class="docutils literal notranslate"><span class="pre">var_y_name</span></code> parameter</p></li>
+<li><p>the treatment variable through the <code class="docutils literal notranslate"><span class="pre">var_d_name</span></code> parameter</p></li>
+<li><p>ordered features through <code class="docutils literal notranslate"><span class="pre">var_x_name_ord</span></code> and/or unordered features through <code class="docutils literal notranslate"><span class="pre">var_x_name_unord</span></code></p></li>
+</ul>
+<p>as follows:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">mcf.example_data_functions</span><span class="w"> </span><span class="kn">import</span> <span class="n">example_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcf.mcf_main</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModifiedCausalForest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcf.optpolicy_main</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimalPolicy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcf.reporting</span><span class="w"> </span><span class="kn">import</span> <span class="n">McfOptPolReport</span>
+
+<span class="c1"># Generate example data using the built-in function `example_data()`</span>
+<span class="n">training_df</span><span class="p">,</span> <span class="n">prediction_df</span><span class="p">,</span> <span class="n">name_dict</span> <span class="o">=</span> <span class="n">example_data</span><span class="p">()</span>
+
+<span class="c1"># Create an instance of the Modified Causal Forest model</span>
+<span class="n">my_mcf</span> <span class="o">=</span> <span class="n">ModifiedCausalForest</span><span class="p">(</span>
+    <span class="n">var_y_name</span><span class="o">=</span><span class="s2">&quot;outcome&quot;</span><span class="p">,</span>  <span class="c1"># Outcome variable</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>    <span class="c1"># Treatment variable</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">,</span> <span class="s2">&quot;x_ord1&quot;</span><span class="p">],</span>  <span class="c1"># Ordered covariates</span>
+    <span class="n">var_x_name_unord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_unord0&quot;</span><span class="p">],</span>  <span class="c1"># Unordered covariate</span>
+    <span class="n">_int_show_plots</span><span class="o">=</span><span class="kc">False</span>  <span class="c1"># Disable plots for faster performance</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="frequently-used-parameters">
+<h3>Frequently used parameters<a class="headerlink" href="#frequently-used-parameters" title="Link to this heading">#</a></h3>
+<p>Below you find a list of optional parameters that are often used to initialize a Modified Causal Forest. For a more detailed description, please refer to the documentation of <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a>.</p>
+<details class="sd-sphinx-override sd-dropdown sd-card sd-mb-3">
+<summary class="sd-summary-title sd-card-header">
+<span class="sd-summary-text">Commonly used optional parameters</span><span class="sd-summary-state-marker sd-summary-chevron-right"><svg version="1.1" width="1.5em" height="1.5em" class="sd-octicon sd-octicon-chevron-right" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.72 18.78a.75.75 0 0 1 0-1.06L14.44 12 8.72 6.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0Z"></path></svg></span></summary><div class="sd-summary-content sd-card-body docutils">
+<div class="pst-scrollable-table-container"><table class="table">
+<thead>
+<tr class="row-odd"><th class="head"><p class="sd-card-text">Parameter</p></th>
+<th class="head"><p class="sd-card-text">Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">cf_boot</span></code></p></td>
+<td><p class="sd-card-text">Number of Causal Trees. Default: 1000.</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">p_atet</span></code></p></td>
+<td><p class="sd-card-text">If True, <span class="math notranslate nohighlight">\(\textrm{ATE's}\)</span> are also computed by treatment status (<span class="math notranslate nohighlight">\(\textrm{ATET's}\)</span>). Default: False.</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">var_z_name_cont</span></code></p></td>
+<td><p class="sd-card-text">Continuous feature(s) with many values used for <span class="math notranslate nohighlight">\(\textrm{GATE}\)</span> estimation.</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">var_z_name_ord</span></code></p></td>
+<td><p class="sd-card-text">Ordered feature(s) with few values used for <span class="math notranslate nohighlight">\(\textrm{GATE}\)</span> estimation.</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">var_z_name_unord</span></code></p></td>
+<td><p class="sd-card-text">Unordered feature(s) used for <span class="math notranslate nohighlight">\(\textrm{GATE}\)</span> estimation.</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">p_gatet</span></code></p></td>
+<td><p class="sd-card-text">If True, <span class="math notranslate nohighlight">\(\textrm{GATE's}\)</span> are also computed by treatment status (<span class="math notranslate nohighlight">\(\textrm{GATET's}\)</span>). Default: False.</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">var_x_name_always_in_ord</span></code></p></td>
+<td><p class="sd-card-text">Ordered feature(s) always used in splitting decision.</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">var_x_name_always_in_unord</span></code></p></td>
+<td><p class="sd-card-text">Unordered feature(s) always used in splitting decision.</p></td>
+</tr>
+<tr class="row-even"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">var_y_tree_name</span></code></p></td>
+<td><p class="sd-card-text">Outcome used to build trees. If not specified, the first outcome in <code class="docutils literal notranslate"><span class="pre">y_name</span></code> is selected for building trees.</p></td>
+</tr>
+<tr class="row-odd"><td><p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">var_id_name</span></code></p></td>
+<td><p class="sd-card-text">Individual identifier.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</details></section>
+<section id="accessing-and-customizing-output-location">
+<h3>Accessing and customizing output location<a class="headerlink" href="#accessing-and-customizing-output-location" title="Link to this heading">#</a></h3>
+<p>The <strong>mcf</strong> package generates a number of standard outputs for your convenience. After initializing a Modified Causal Forest, the package will create an output folder where these results are stored.
+Any method you are using, returns the location of these output files as last return (the reporting method returns the full file name of the pdf file in addition).
+Manually, you can find the location of the output folder by accessing the <code class="docutils literal notranslate"><span class="pre">outpath</span></code> entry of the <code class="docutils literal notranslate"><span class="pre">gen_cfg</span></code> attribute of your Modified Causal Forest:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">my_mcf</span><span class="o">.</span><span class="n">gen_cfg</span><span class="o">.</span><span class="n">outpath</span>
+</pre></div>
+</div>
+<p>We recommend you specify your preferred location for the output folder using the <code class="docutils literal notranslate"><span class="pre">gen_outpath</span></code> parameter of the class <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a>.</p>
+</section>
+<section id="output-folder-structure">
+<h3>Output Folder Structure<a class="headerlink" href="#output-folder-structure" title="Link to this heading">#</a></h3>
+<p>The output files are organized into folders under your specified or default working directory. The structure is as follows:</p>
+<ol class="arabic">
+<li><p><strong>Reports</strong>: The main PDF report summarizing the results is stored in the <cite>out</cite> folder. This report provides an overview of the analysis and key findings.</p></li>
+<li><p><strong>ATE, IATE, and GATE Results</strong>: Results for the Average Treatment Effects (ATE), Individualized Average Treatment Effects (IATE), and Group Average Treatment Effects (GATE) are stored in separate subfolders:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><cite>plots_ate_iate</cite>: Contains graphs and visualizations of ATE and IATE estimators.</p></li>
+<li><p><cite>plots_gate</cite>: Contains results and visualizations for GATE estimators.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Common Support</strong>: The <cite>plots_common_support</cite> folder contains graphs of common support plots.</p></li>
+<li><p><strong>Text Outputs</strong>: Two .txt files are generated for detailed and summarized outputs:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><cite>txtFileWithOutput</cite>: Contains detailed output logs.</p></li>
+<li><p><cite>txtFileWithOutput_Summary</cite>: Provides a concise summary of the results.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ol>
+</section>
+<section id="training-a-modified-causal-forest">
+<h3>Training a Modified Causal Forest<a class="headerlink" href="#training-a-modified-causal-forest" title="Link to this heading">#</a></h3>
+<p>Next we will train the Modified Causal Forest on the <code class="docutils literal notranslate"><span class="pre">train_mcf_df</span></code> data using the <a class="reference internal" href="mcf_main.ModifiedCausalForest.train.html#mcf_main.ModifiedCausalForest.train" title="mcf_main.ModifiedCausalForest.train"><code class="xref py py-meth docutils literal notranslate"><span class="pre">train()</span></code></a> method:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">my_mcf</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">training_df</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now we are ready to estimate heterogeneous treatment effects on the <code class="docutils literal notranslate"><span class="pre">prediction_df</span></code> data using the <a class="reference internal" href="mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a> method.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span> <span class="o">=</span> <span class="n">my_mcf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">prediction_df</span><span class="p">)</span>
+</pre></div>
+</div>
+<section id="accessing-results">
+<h4>Accessing results<a class="headerlink" href="#accessing-results" title="Link to this heading">#</a></h4>
+<p>The simplest way to get an overview of your results is to read the PDF-report that is generated by the class <a class="reference internal" href="python_api.html#reporting.McfOptPolReport" title="reporting.McfOptPolReport"><code class="xref py py-class docutils literal notranslate"><span class="pre">McfOptPolReport</span></code></a>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mcf_report</span> <span class="o">=</span> <span class="n">McfOptPolReport</span><span class="p">(</span><span class="n">mcf</span><span class="o">=</span><span class="n">my_mcf</span><span class="p">,</span> <span class="n">outputfile</span><span class="o">=</span><span class="s1">&#39;Modified-Causal-Forest_Report&#39;</span><span class="p">)</span>
+<span class="n">mcf_report</span><span class="o">.</span><span class="n">report</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>The <a class="reference internal" href="mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a> method (and <a class="reference internal" href="mcf_main.ModifiedCausalForest.predict_iv.html#mcf_main.ModifiedCausalForest.predict_iv" title="mcf_main.ModifiedCausalForest.predict_iv"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict_iv()</span></code></a>, see API) returns a dictionary with all major estimation results. It includes ATE, QIATE, GATE and IATE estimates with standard errors, a dataframe including the potential outcomes, as well as common-support probabilities and the output directory path. To access the keys of the dictionary programmatically, run:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">keys</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Keys in your dictionary:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">keys</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>By default, the average treatment effects (<span class="math notranslate nohighlight">\(\textrm{ATE's}\)</span>) as well as the individualized average treatment effects (<span class="math notranslate nohighlight">\(\textrm{IATE's}\)</span>) are estimated. If these terms do not sound familiar, <a class="reference internal" href="user_guide/estimation.html"><span class="doc">here</span></a> you can learn more about the different kinds of heterogeneous treatment effects.</p>
+<p>In the multiple treatment setting there is more than one <span class="math notranslate nohighlight">\(\textrm{ATE}\)</span> to consider. The following entry of the <code class="docutils literal notranslate"><span class="pre">results</span></code> dictionary lists the estimated treatment contrasts:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ate_array</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;ate&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Average Treatment Effect (ATE):</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ate_array</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For instance, if you have treatment levels 0, 1, and 2, you will see an entry of the form [[[0.1, 0.3, 0.5]]]. Here, the first entry, 0.1, specifies the treatment contrast between treatment level 1 and treatment level 0. The second entry, 0.3, specifies the treatment contrast between treatment level 2 and treatment level 0. The third entry specifies the treatment contrast between level 1 and 2.</p>
+<p>In the same way, you can access and print the standard errors of the respective <span class="math notranslate nohighlight">\(\textrm{ATE's}\)</span> by running:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ate_se_array</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;ate_se&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Standard Error of ATE:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ate_se_array</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The estimated <span class="math notranslate nohighlight">\(\textrm{IATE's}\)</span>, along with the locally centered and uncentered potential outcomes, are saved as columns in a Pandas DataFrame, which can be accessed from the <code class="docutils literal notranslate"><span class="pre">results</span></code> dictionary. Please have a look at the dictionary keys to also find the corresponding variable names. The elements can be accessed all at once or independently in the following ways:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># access all at once (the full DataFrame)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="s1">&#39;iate_data_df&#39;</span><span class="p">]</span>
+
+<span class="c1"># access only the IATEs</span>
+<span class="n">df_iate</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;_iate&#39;</span><span class="p">)</span> <span class="p">]</span>
+
+<span class="c1"># centered potential outcomes</span>
+<span class="n">df_po_centered</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;pot&#39;</span><span class="p">))</span> <span class="o">&amp;</span>
+                           <span class="o">~</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;un_lc_pot&#39;</span><span class="p">)]</span>
+
+<span class="c1"># uncentered potential outcomes</span>
+<span class="n">df_po_uncentered</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">loc</span><span class="p">[:,</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s1">&#39;un_lc_pot&#39;</span><span class="p">)]</span>
+</pre></div>
+</div>
+<p>To illustrate this, let us build on the previous example with three treatment levels, 0, 1, and 2. The keys <code class="docutils literal notranslate"><span class="pre">outcome_lc0_pot</span></code>, <code class="docutils literal notranslate"><span class="pre">outcome_lc1_pot</span></code>, and <code class="docutils literal notranslate"><span class="pre">outcome_lc2_pot</span></code> represent the <em>predicted</em> and locally centered potential outcomes under the respective treatment level. Let us have a closer look at the first element, individually:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;iate_data_df&#39;</span><span class="p">)[</span><span class="s1">&#39;outcome_lc0_pot&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>The columns <code class="docutils literal notranslate"><span class="pre">outcome_lc1vs0_iate</span></code>, <code class="docutils literal notranslate"><span class="pre">outcome_lc2vs0_iate</span></code>, and <code class="docutils literal notranslate"><span class="pre">outcome_lc2vs1_iate</span></code> store the estimated <span class="math notranslate nohighlight">\(\textrm{IATE's}\)</span>. As above, these columns contrast the respective treatment levels and we inspect them individually as follows:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;iate_data_df&#39;</span><span class="p">)[</span><span class="s1">&#39;outcome_lc1vs0_iate&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p><strong>Note (1)</strong>, if you specify the methods as in the provided example files, you have access to all the elements discussed above directly from <code class="docutils literal notranslate"><span class="pre">results</span></code>. For example,</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># use the .predict() method as shown in the example files</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">my_mcf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">prediction_df</span><span class="p">)</span>
+
+<span class="c1"># access a potential outcome</span>
+<span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;iate_data_df&#39;</span><span class="p">)[</span><span class="s1">&#39;outcome_lc1vs0_iate&#39;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>Here, <code class="docutils literal notranslate"><span class="pre">results</span></code> essentially plays the same role as <code class="docutils literal notranslate"><span class="pre">results</span></code> explained previously. These are two equivalent ways to access your results.</p>
+</section>
+</section>
+<section id="post-estimation">
+<h3>Post-estimation<a class="headerlink" href="#post-estimation" title="Link to this heading">#</a></h3>
+<p>You can use the <a class="reference internal" href="mcf_main.ModifiedCausalForest.analyse.html#mcf_main.ModifiedCausalForest.analyse" title="mcf_main.ModifiedCausalForest.analyse"><code class="xref py py-meth docutils literal notranslate"><span class="pre">analyse()</span></code></a> method to investigate a number of post-estimation plots:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">my_mcf</span><span class="o">.</span><span class="n">analyse</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>These plots are also exported to the previously created output folder.
+<strong>Note (2)</strong>, the above code runs after using the <a class="reference internal" href="mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a> method as shown in the example files (see <strong>Note 1</strong>).</p>
+</section>
+<section id="learning-an-optimal-policy-rule">
+<h3>Learning an optimal policy rule<a class="headerlink" href="#learning-an-optimal-policy-rule" title="Link to this heading">#</a></h3>
+<p>Let’s explore how to learn an optimal policy rule using the <a class="reference internal" href="python_api.html#optpolicy_main.OptimalPolicy" title="optpolicy_main.OptimalPolicy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a> class of the <strong>mcf</strong> package. To get started we need a Pandas DataFrame that holds the estimated potential outcomes (also called policy scores), the treatment variable and the features on which we want to base the decision tree.</p>
+<p>As you may recall, we estimated the potential outcomes in the previous section. They are stored as columns in the <code class="docutils literal notranslate"><span class="pre">iate_data_df</span></code> entry of the results dictionary:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;iate_data_df&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">head</span><span class="p">())</span>
+</pre></div>
+</div>
+<p>The column names are explained in the <code class="docutils literal notranslate"><span class="pre">iate_names_dic</span></code> entry of the results dictionary. The uncentered potential outcomes are stored in columns with the suffix <code class="docutils literal notranslate"><span class="pre">_un_lc_pot</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="s2">&quot;iate_names_dic&quot;</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>Now that we understand this, we are ready to build an Optimal Policy Tree. To do so, we need to create an instance of class <a class="reference internal" href="python_api.html#optpolicy_main.OptimalPolicy" title="optpolicy_main.OptimalPolicy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a> where we set the <code class="docutils literal notranslate"><span class="pre">gen_method</span></code> parameter to “policy_tree” and provide the names of</p>
+<ul class="simple">
+<li><p>the treatment through the <code class="docutils literal notranslate"><span class="pre">var_d_name</span></code> parameter</p></li>
+<li><p>the potential outcomes through the <code class="docutils literal notranslate"><span class="pre">var_polscore_name</span></code> parameter</p></li>
+<li><p>ordered and/or unordered features used to build the policy tree using the <code class="docutils literal notranslate"><span class="pre">var_x_name_ord</span></code> and <code class="docutils literal notranslate"><span class="pre">var_x_name_unord</span></code> parameter respectively</p></li>
+</ul>
+<p>as follows:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Create an instance of the OptimalPolicy class:</span>
+<span class="n">my_optimal_policy</span> <span class="o">=</span> <span class="n">OptimalPolicy</span><span class="p">(</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>
+    <span class="n">var_polscore_name</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;y_pot0&#39;</span><span class="p">,</span> <span class="s1">&#39;y_pot1&#39;</span><span class="p">,</span> <span class="s1">&#39;y_pot2&#39;</span><span class="p">],</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">,</span> <span class="s2">&quot;x_ord1&quot;</span><span class="p">],</span>
+    <span class="n">var_x_name_unord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_unord0&quot;</span><span class="p">],</span>
+    <span class="n">gen_method</span><span class="o">=</span><span class="s2">&quot;policy_tree&quot;</span><span class="p">,</span>
+    <span class="n">pt_depth_tree_1</span><span class="o">=</span><span class="mi">2</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Note (3)</strong>, the <code class="docutils literal notranslate"><span class="pre">pt_depth_tree_1</span></code> parameter specifies the depth of the (first) policy tree. For demonstration purposes we set it to 2. In practice, you should choose a larger value which will increase the computational burden. See the <a class="reference internal" href="user_guide/optimal-policy_example.html"><span class="doc">User guide</span></a> and the <a class="reference internal" href="algorithm_reference/optimal-policy_algorithm.html"><span class="doc">Algorithm reference</span></a> for more detailed explanations.</p>
+<section id="id2">
+<h4>Accessing results<a class="headerlink" href="#id2" title="Link to this heading">#</a></h4>
+<p>After initializing an Optimal Policy Tree, the <strong>mcf</strong> package will automatically create an output folder. This folder will contain a number of standard outputs for your convenience. You can find the location of this folder in your console output. Alternatively, you can manually specify the folder location using the <code class="docutils literal notranslate"><span class="pre">gen_outpath</span></code> parameter.</p>
+</section>
+</section>
+<section id="fit-an-optimal-policy-tree">
+<h3>Fit an Optimal Policy Tree<a class="headerlink" href="#fit-an-optimal-policy-tree" title="Link to this heading">#</a></h3>
+<p>To find the Optimal Policy Tree, we use the <a class="reference internal" href="optpolicy_main.OptimalPolicy.solve.html#optpolicy_main.OptimalPolicy.solve" title="optpolicy_main.OptimalPolicy.solve"><code class="xref py py-meth docutils literal notranslate"><span class="pre">solve()</span></code></a> method, where we need to supply the pandas DataFrame holding the potential outcomes, treatment variable and the features:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">solve_dict</span> <span class="o">=</span> <span class="n">my_optimal_policy</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">training_df</span><span class="p">,</span> <span class="n">data_title</span><span class="o">=</span><span class="s1">&#39;training&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The returned DataFrame contains the optimal allocation rule for the training data.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">solve_dict</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Next, we can use the <a class="reference internal" href="optpolicy_main.OptimalPolicy.evaluate.html#optpolicy_main.OptimalPolicy.evaluate" title="optpolicy_main.OptimalPolicy.evaluate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">evaluate()</span></code></a> method to evaluate this allocation rule. This will return a dictionary holding the results of the evaluation. As a side-effect, the DataFrame with the optimal allocation is augmented with columns that contain the observed treatment and a random allocation of treatments.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">my_optimal_policy</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">solve_dict</span><span class="p">[</span><span class="s1">&#39;allocation_df&#39;</span><span class="p">],</span> <span class="n">training_df</span><span class="p">,</span>
+                                       <span class="n">data_title</span><span class="o">=</span><span class="s1">&#39;training&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<section id="overview-of-results">
+<h4>Overview of results<a class="headerlink" href="#overview-of-results" title="Link to this heading">#</a></h4>
+<p>A great way to get an overview of the results is to read the PDF-report that can be generated using the class <a class="reference internal" href="python_api.html#reporting.McfOptPolReport" title="reporting.McfOptPolReport"><code class="xref py py-class docutils literal notranslate"><span class="pre">McfOptPolReport</span></code></a>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">policy_tree_report</span> <span class="o">=</span> <span class="n">McfOptPolReport</span><span class="p">(</span>
+    <span class="n">optpol</span> <span class="o">=</span> <span class="n">my_optimal_policy</span><span class="p">,</span>
+    <span class="n">outputfile</span> <span class="o">=</span> <span class="s1">&#39;Optimal-Policy_Report&#39;</span>
+    <span class="p">)</span>
+
+<span class="n">policy_tree_report</span><span class="o">.</span><span class="n">report</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Additionally, you can access the results programmatically. The <cite>report</cite> attribute of your optimal policy object is a dictionary containing the results. Here’s how you can access a specific element:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dictionary_of_results</span> <span class="o">=</span> <span class="n">my_optimal_policy</span><span class="o">.</span><span class="n">report</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">dictionary_of_results</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+<span class="n">evaluation_list</span> <span class="o">=</span> <span class="n">dictionary_of_results</span><span class="p">[</span><span class="s1">&#39;evalu_list&#39;</span><span class="p">]</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Evaluation List: &quot;</span><span class="p">,</span> <span class="n">evaluation_list</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Finally, it is straightforward to apply our Optimal Policy Tree to new data. To do so, we simply apply the <a class="reference internal" href="optpolicy_main.OptimalPolicy.allocate.html#optpolicy_main.OptimalPolicy.allocate" title="optpolicy_main.OptimalPolicy.allocate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">allocate()</span></code></a> method
+to the DataFrame holding the potential outcomes, treatment variable and the features for the data that was held out for evaluation:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">alloc_pred_dict</span> <span class="o">=</span> <span class="n">my_optimal_policy</span><span class="o">.</span><span class="n">allocate</span><span class="p">(</span><span class="n">prediction_df</span><span class="p">,</span> <span class="n">data_title</span><span class="o">=</span><span class="s1">&#39;prediction&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>To evaluate this allocation rule, again apply the <a class="reference internal" href="optpolicy_main.OptimalPolicy.allocate.html#optpolicy_main.OptimalPolicy.allocate" title="optpolicy_main.OptimalPolicy.allocate"><code class="xref py py-meth docutils literal notranslate"><span class="pre">allocate()</span></code></a> method similar to above.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">my_optimal_policy</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">alloc_pred_dict</span><span class="p">[</span><span class="s1">&#39;allocation_df&#39;</span><span class="p">],</span>
+                <span class="n">prediction_df</span><span class="p">,</span>
+                <span class="n">data_title</span><span class="o">=</span><span class="s1">&#39;prediction&#39;</span>
+                <span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="next-steps">
+<h3>Next steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h3>
+<p>The following are great sources to learn even more about the <strong>mcf</strong> package:</p>
+<ul class="simple">
+<li><p>The <a class="reference internal" href="user_guide.html"><span class="doc">User Guide</span></a> offers explanations on additional features of the mcf package and provides several example scripts.</p></li>
+<li><p>Check out the <a class="reference internal" href="python_api.html"><span class="doc">Python API</span></a> for details on interacting with the mcf package.</p></li>
+<li><p>The <a class="reference internal" href="algorithm_reference.html"><span class="doc">Algorithm Reference</span></a> provides a technical description of the methods used in the package.</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="index.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Modified Causal Forests</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="user_guide.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">User Guide</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#example-data">Example data</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#estimating-heterogeneous-treatment-effects">Estimating heterogeneous treatment effects</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#frequently-used-parameters">Frequently used parameters</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#accessing-and-customizing-output-location">Accessing and customizing output location</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#output-folder-structure">Output Folder Structure</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#training-a-modified-causal-forest">Training a Modified Causal Forest</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#accessing-results">Accessing results</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#post-estimation">Post-estimation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#learning-an-optimal-policy-rule">Learning an optimal policy rule</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">Accessing results</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#fit-an-optimal-policy-tree">Fit an Optimal Policy Tree</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#overview-of-results">Overview of results</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next steps</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/getting_started.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2024, Michael Lechner.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

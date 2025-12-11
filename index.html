@@ -1,0 +1,698 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Modified Causal Forests &#8212; mcf 0.9.0  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Getting started" href="getting_started.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="#">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">mcf 0.9.0  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="getting_started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="algorithm_reference.html">
+    Algorithm Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="python_api.html">
+    Python API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="FAQ.html">
+    FAQ
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="changelog.html">
+    Changelog
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MCFpy/mcf" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/mcf/" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="getting_started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="algorithm_reference.html">
+    Algorithm Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="python_api.html">
+    Python API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="FAQ.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="changelog.html">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MCFpy/mcf" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/mcf/" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none"></div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="modified-causal-forests">
+<h1>Modified Causal Forests<a class="headerlink" href="#modified-causal-forests" title="Link to this heading">#</a></h1>
+<p>Welcome to the documentation of <strong>mcf</strong>, the Python package implementing the Modified Causal Forest introduced by <a class="reference external" href="https://doi.org/10.48550/arXiv.1812.09487">Lechner (2018)</a>. This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, it allows to learn optimal policy allocations.</p>
+<p>If you’re new to the <strong>mcf</strong> package, we recommend following these steps:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#id1">Installation Guide</a>: Learn about the installation procedure for your system.</p></li>
+<li><p><a class="reference internal" href="#id2">Usage Example</a>: Explore a simple example to see how to apply the <strong>mcf</strong> to your data.</p></li>
+<li><p><a class="reference internal" href="getting_started.html"><span class="doc">Getting started</span></a>: Dive into a more detailed example.</p></li>
+</ul>
+<p>For further information:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="user_guide.html"><span class="doc">User Guide</span></a>: Explore further features of the package and example scripts.</p></li>
+<li><p><a class="reference internal" href="python_api.html"><span class="doc">Python API</span></a>: Get to know the details on how to interact with the package.</p></li>
+<li><p><a class="reference internal" href="algorithm_reference.html"><span class="doc">Algorithm Reference</span></a>: Learn about the technical background of the methods applied in the package.</p></li>
+</ul>
+<section id="installation-guide">
+<span id="id1"></span><h2>Installation Guide<a class="headerlink" href="#installation-guide" title="Link to this heading">#</a></h2>
+<p>The current <strong>mcf</strong> version is compatible with Python 3.12. For the installation you can proceed in different ways.</p>
+<p>You can install the package from PyPI using:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>mcf
+</pre></div>
+</div>
+<p>For a smooth experience without conflicts with other packages, use a virtual environment based on conda. You can manage conda environments either via the command line or a graphical interface.
+The command line offers a compatible solution for all operating systems, making it our recommended choice. However, the graphical interface is more user-friendly. As an alternative, you may also create a new virtual environment directly from the <code class="docutils literal notranslate"><span class="pre">environment.yml</span></code> file available in our GitHub repository.</p>
+<p>If you prefer the command line, install conda as described <a class="reference external" href="https://docs.conda.io/projects/conda/en/latest/user-guide/install/">here</a>. Next open your Anaconda Prompt (Windows) or terminal (macOS and Linux) and do the following:</p>
+<ol class="arabic simple">
+<li><p>Set up and activate a conda environment named <em>mcf-env</em>:</p></li>
+</ol>
+<blockquote>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>create<span class="w"> </span>-n<span class="w"> </span>mcf-env
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>activate<span class="w"> </span>mcf-env
+</pre></div>
+</div>
+</div></blockquote>
+<ol class="arabic simple" start="2">
+<li><p>Install Python 3.12:</p></li>
+</ol>
+<blockquote>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>conda<span class="w"> </span>install<span class="w"> </span><span class="nv">Python</span><span class="o">=</span><span class="s2">&quot;3.12&quot;</span>
+</pre></div>
+</div>
+</div></blockquote>
+<ol class="arabic simple" start="3">
+<li><p>Install <strong>mcf</strong> in this environment using pip:</p></li>
+</ol>
+<blockquote>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>mcf
+</pre></div>
+</div>
+</div></blockquote>
+<p>If you prefer a graphical interface, do the following:</p>
+<ol class="arabic simple">
+<li><p>Install Anaconda distribution including Anaconda navigator from <a class="reference external" href="https://docs.anaconda.com/free/navigator/install/">here</a>.</p></li>
+<li><p>Set up an environment as described <a class="reference external" href="https://docs.anaconda.com/free/navigator/getting-started/#managing-environments">here</a> and make sure you choose Python=3.12.5 for your environment.</p></li>
+<li><p>Install the <strong>mcf</strong> package by using pip install in your IDE console:</p></li>
+</ol>
+<blockquote>
+<div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>mcf
+</pre></div>
+</div>
+</div></blockquote>
+<p>An alternative to the third step, installing the <strong>mcf</strong> package, is to use <a class="reference external" href="https://docs.anaconda.com/free/navigator/getting-started/#managing-packages">this</a> guide. It is recommended to prioritize <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">install</span></code> for package installations before using <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span></code>.</p>
+<p><strong>Note (1)</strong>, if you plan to use Spyder as your IDE on a Windows machine, make sure to execute <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">install</span> <span class="pre">spyder</span></code> before proceeding with <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">mcf</span></code>. This reduces the risk of errors during installation.</p>
+</section>
+<section id="usage-example">
+<span id="id2"></span><h2>Usage Example<a class="headerlink" href="#usage-example" title="Link to this heading">#</a></h2>
+<p>We use the <a class="reference internal" href="python_api.html#example_data_functions.example_data" title="example_data_functions.example_data"><code class="xref py py-func docutils literal notranslate"><span class="pre">example_data()</span></code></a> function to generate synthetic datasets for training and prediction to showcase an application of the <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">mcf.example_data_functions</span><span class="w"> </span><span class="kn">import</span> <span class="n">example_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcf.mcf_main</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModifiedCausalForest</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcf.optpolicy_main</span><span class="w"> </span><span class="kn">import</span> <span class="n">OptimalPolicy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcf.reporting</span><span class="w"> </span><span class="kn">import</span> <span class="n">McfOptPolReport</span>
+
+<span class="c1"># Generate example data using the built-in function `example_data()`</span>
+<span class="n">training_df</span><span class="p">,</span> <span class="n">prediction_df</span><span class="p">,</span> <span class="n">name_dict</span> <span class="o">=</span> <span class="n">example_data</span><span class="p">()</span>
+
+<span class="c1"># Create an instance of the Modified Causal Forest model</span>
+<span class="n">my_mcf</span> <span class="o">=</span> <span class="n">ModifiedCausalForest</span><span class="p">(</span>
+    <span class="n">var_y_name</span><span class="o">=</span><span class="s2">&quot;outcome&quot;</span><span class="p">,</span>  <span class="c1"># Outcome variable</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>    <span class="c1"># Treatment variable</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">,</span> <span class="s2">&quot;x_ord1&quot;</span><span class="p">],</span>  <span class="c1"># Ordered covariates</span>
+    <span class="n">var_x_name_unord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_unord0&quot;</span><span class="p">],</span>  <span class="c1"># Unordered covariate</span>
+    <span class="n">_int_show_plots</span><span class="o">=</span><span class="kc">False</span>  <span class="c1"># Disable plots for faster performance</span>
+<span class="p">)</span>
+
+<span class="c1"># Train the Modified Causal Forest on the training data</span>
+<span class="n">my_mcf</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">training_df</span><span class="p">)</span>
+<span class="c1"># Predict treatment effects using the model on prediction data</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">my_mcf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">prediction_df</span><span class="p">)</span>
+
+<span class="c1"># Access the Average Treatment Effect (ATE)</span>
+<span class="n">ate_array</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;ate&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Average Treatment Effect (ATE):</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ate_array</span><span class="p">)</span>
+
+<span class="c1"># Access the Standard Error of the ATE</span>
+<span class="n">ate_se_array</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;ate_se&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Standard Error of ATE:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">ate_se_array</span><span class="p">)</span>
+
+<span class="c1"># Access the Individualized Treatment Effects (IATE)</span>
+<span class="n">iate_array</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;iate&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Individualized Treatment Effects (IATE):</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">iate_array</span><span class="p">)</span>
+
+<span class="c1"># Access the DataFrame of Individualized Treatment Effects</span>
+<span class="n">iate_df</span> <span class="o">=</span> <span class="n">results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;iate_data_df&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">DataFrame of Individualized Treatment Effects:</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">iate_df</span><span class="p">)</span>
+
+<span class="c1"># Create an instance of the OptimalPolicy class</span>
+<span class="n">my_optimal_policy</span> <span class="o">=</span> <span class="n">OptimalPolicy</span><span class="p">(</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>
+    <span class="n">var_polscore_name</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;y_pot0&#39;</span><span class="p">,</span> <span class="s1">&#39;y_pot1&#39;</span><span class="p">,</span> <span class="s1">&#39;y_pot2&#39;</span><span class="p">],</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">,</span> <span class="s2">&quot;x_ord1&quot;</span><span class="p">],</span>
+    <span class="n">var_x_name_unord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_unord0&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+<span class="c1"># Learn an optimal policy rule using the predicted potential outcomes</span>
+<span class="n">solve_dict</span> <span class="o">=</span> <span class="n">my_optimal_policy</span><span class="o">.</span><span class="n">solve</span><span class="p">(</span><span class="n">training_df</span><span class="p">,</span> <span class="n">data_title</span><span class="o">=</span><span class="s1">&#39;training&#39;</span><span class="p">)</span>
+
+<span class="c1"># Evaluate the optimal policy rule on the training data</span>
+<span class="n">my_optimal_policy</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">solve_dict</span><span class="p">[</span><span class="s1">&#39;allocation_df&#39;</span><span class="p">],</span> <span class="n">training_df</span><span class="p">,</span>
+                                           <span class="n">data_title</span><span class="o">=</span><span class="s1">&#39;training&#39;</span><span class="p">)</span>
+
+<span class="c1"># Allocate observations to treatment state using the prediction data</span>
+<span class="n">alloc_pred_df</span> <span class="o">=</span> <span class="n">my_optimal_policy</span><span class="o">.</span><span class="n">allocate</span><span class="p">(</span><span class="n">prediction_df</span><span class="p">,</span> <span class="n">data_title</span><span class="o">=</span><span class="s1">&#39;prediction&#39;</span><span class="p">)</span>
+
+<span class="c1"># Evaluate allocation with potential outcome data</span>
+<span class="n">my_optimal_policy</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">alloc_pred_df</span><span class="p">[</span><span class="s1">&#39;allocation_df&#39;</span><span class="p">],</span> <span class="n">prediction_df</span><span class="p">,</span>
+                                          <span class="n">data_title</span><span class="o">=</span><span class="s1">&#39;prediction&#39;</span><span class="p">)</span>
+
+<span class="c1"># Produce a PDF-report that summarises the results</span>
+<span class="n">my_report</span> <span class="o">=</span> <span class="n">McfOptPolReport</span><span class="p">(</span><span class="n">mcf</span><span class="o">=</span><span class="n">my_mcf</span><span class="p">,</span>
+                            <span class="n">optpol</span><span class="o">=</span><span class="n">my_optimal_policy</span><span class="p">,</span>
+                            <span class="n">outputfile</span><span class="o">=</span><span class="s1">&#39;mcf_report&#39;</span><span class="p">)</span>
+<span class="n">my_report</span><span class="o">.</span><span class="n">report</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><strong>Note (2)</strong>, to check the version of the <strong>mcf</strong> module used to create an instance, you can additionally run the following code:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">my_mcf</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="source-code-and-contributing">
+<h2>Source code and contributing<a class="headerlink" href="#source-code-and-contributing" title="Link to this heading">#</a></h2>
+<p>The Python source code is available on <a class="reference external" href="https://github.com/MCFpy/mcf">GitHub</a>.
+If you have questions, want to report bugs, or have feature requests, please use the <a class="reference external" href="https://github.com/MCFpy/mcf/issues">issue tracker</a>.</p>
+</section>
+<section id="references">
+<h2>References<a class="headerlink" href="#references" title="Link to this heading">#</a></h2>
+<p><strong>Conceptual foundation</strong>:</p>
+<ul class="simple">
+<li><p>Lechner M (2018). <strong>Modified Causal Forests for Estimating Heterogeneous Causal Effects</strong>. <a class="reference external" href="https://doi.org/10.48550/arXiv.1812.09487">Read Paper</a></p></li>
+<li><p>Lechner M, Mareckova J (2022). <strong>Modified Causal Forest</strong>. <a class="reference external" href="https://doi.org/10.48550/arXiv.2209.03744">Read Paper</a></p></li>
+<li><p>Lechner M, Bearth N (2024). <strong>Causal Machine Learning for Moderation Effects</strong>. <a class="reference external" href="https://arxiv.org/abs/2401.08290">Read Paper</a></p></li>
+</ul>
+<p><strong>Algorithm demonstrations</strong>:</p>
+<ul class="simple">
+<li><p>Bodory H, Busshoff H, Lechner M (2022). <strong>High Resolution Treatment Effects Estimation: Uncovering Effect Heterogeneities with the Modified Causal Forest</strong>. <em>Entropy</em>. 24(8):1039. <a class="reference external" href="https://doi.org/10.3390/e24081039">Read Paper</a></p></li>
+<li><p>Bodory H, Mascolo F, Lechner M (2024). <strong>Enabling Decision Making with the Modified Causal Forest: Policy Trees for Treatment Assignment</strong>. <em>Algorithms</em>. 17(7):318. <a class="reference external" href="https://doi.org/10.3390/a17070318">Read Paper</a></p></li>
+</ul>
+<p><strong>Simulations</strong>:</p>
+<ul class="simple">
+<li><p>Lechner M, Mareckova J (2024). <strong>Comprehensive Causal Causal Machine Learning</strong>. <a class="reference external" href="https://doi.org/10.48550/arXiv.2405.10198">Read Paper</a></p></li>
+</ul>
+<p><strong>Applications in diverse fields</strong>:</p>
+<ul class="simple">
+<li><p>Audrino F, Chassot J, Huang C, Knaus M, Lechner M, Ortega JP (2024). <strong>How does post-earnings announcement affect firms’ dynamics? New evidence from causal machine learning</strong>. <em>Journal of Financial Econometrics</em>. 22(3), 575–604. <a class="reference external" href="https://academic.oup.com/jfec/article/22/3/575/6640191">Read paper</a></p></li>
+<li><p>Burlat H (2024). <strong>Everybody’s got to learn sometime? A causal machine learning evaluation of training programmes for jobseekers in France</strong>. <em>Labour Economics</em>. In Press. Paper 102573. <a class="reference external" href="https://doi.org/10.1016/j.labeco.2024.102573">Read paper</a></p></li>
+<li><p>Cockx B, Michael L, Joost B (2023). <strong>Priority to unemployed immigrants? A causal machine learning evaluation of training in Belgium</strong>. <em>Labour Economics</em>. 80(102306). <a class="reference external" href="https://www.sciencedirect.com/science/article/pii/S0927537122001968">Read paper</a></p></li>
+<li><p>Handouyahia A, Rikhi T, Awad G, Aouli E (2024). <strong>Heterogeneous causal effects of labour market programs: A machine learning approach</strong>. <em>Proceedings of Statistics Canada Symposium 2022</em>. <a class="reference external" href="https://www150.statcan.gc.ca/n1/pub/11-522-x/2022001/article/00017-eng.pdf">Read paper</a></p></li>
+<li><p>Heiniger S, Koeniger W, Lechner M (2024). <strong>The heterogeneous response of real estate prices during the Covid-19 pandemic</strong>. <em>Journal of the Royal Statistical Society Series A: Statistics in Society</em>, 00, 1–24. <a class="reference external" href="https://doi.org/10.1093/jrsssa/qnae078">Read paper</a></p></li>
+<li><p>Hodler R, Lechner M, and Raschky P (2023). <strong>Institutions and the Resource Course: New Insights from Causal Machine Learning</strong>. <em>PLoS ONE</em>. 18(6): e0284968. <a class="reference external" href="https://doi.org/10.1371/journal.pone.0284968">Read paper</a></p></li>
+<li><p>Zhu M (2023). <strong>The Effect of Political Participation of Chinese Citizens on Government Satisfaction: Based on Modified Causal Forest</strong>. <em>Procedia Computer Science</em>. 221, 1044–1051. <a class="reference external" href="https://linkinghub.elsevier.com/retrieve/pii/S187705092300844X">Read paper</a></p></li>
+</ul>
+</section>
+<section id="license">
+<h2>License<a class="headerlink" href="#license" title="Link to this heading">#</a></h2>
+<p><strong>mcf</strong> is distributed under the <a class="reference external" href="https://github.com/MCFpy/mcf?tab=MIT-1-ov-file#readme">MIT License</a>.</p>
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="right-next"
+       href="getting_started.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Getting started</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation-guide">Installation Guide</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage-example">Usage Example</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#source-code-and-contributing">Source code and contributing</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#references">References</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#license">License</a></li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2024, Michael Lechner.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

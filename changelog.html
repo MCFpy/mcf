@@ -1,0 +1,2405 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Changelog &#8212; mcf 0.9.0  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'changelog';</script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="FAQ" href="FAQ.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">mcf 0.9.0  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="getting_started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="algorithm_reference.html">
+    Algorithm Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="python_api.html">
+    Python API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="FAQ.html">
+    FAQ
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" current active">
+  <a class="nav-link dropdown-item nav-internal" href="#">
+    Changelog
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MCFpy/mcf" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/mcf/" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="getting_started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="algorithm_reference.html">
+    Algorithm Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="python_api.html">
+    Python API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="FAQ.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="#">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MCFpy/mcf" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/mcf/" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Changelog</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="changelog">
+<h1>Changelog<a class="headerlink" href="#changelog" title="Link to this heading">#</a></h1>
+<section id="version-0-9-0">
+<h2>Version 0.9.0<a class="headerlink" href="#version-0-9-0" title="Link to this heading">#</a></h2>
+<section id="documentation">
+<h3>Documentation<a class="headerlink" href="#documentation" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>MCF-IV (mcf for instrumental variables documentation added). This version is experimental and a complete documentation will only be added in a later version.</p></li>
+<li><p>The predict and predict_iv methods return a dictionary with important outputs from the estimations. The documentation of these outputs has been improved.</p></li>
+</ul>
+</section>
+<section id="example-data-function">
+<h3>Example data function<a class="headerlink" href="#example-data-function" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>An instrumental variable has been added. Its name can be accessed in returned dictionary with names using the key ‘inst_bin_name’</p></li>
+<li><dl class="simple">
+<dt>New keywords:</dt><dd><ul>
+<li><p>strength_iv : Integer or Float, optional. The larger this number is, the stronger the instrument will be.                                 Default is 1.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="example-programmes">
+<h3>Example programmes<a class="headerlink" href="#example-programmes" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>mcf_iv.py (new): Demonstrates an application of instrumental variable estimation with the mcf.</p></li>
+</ul>
+</section>
+<section id="modifiedcausalforest-class">
+<h3>ModifiedCausalForest class<a class="headerlink" href="#modifiedcausalforest-class" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>The method blinder_iates is no longer available. Fairness is now dealt with the methods provided in the OptPolicy class.</p></li>
+<li><p>There are now options to estimate all ATEs, GATEs, QIATEs, and IATEs in a more efficient manner (so far, this option was only available for the IATEs). This is done by training the mcf twice, where the data used to build the forest, and the data used to fill the leaves with outcome values change their roles. Subsequently, the predictions from both forests are averaged. The same is true for the variance. However since the average variance is most likely an overestimation of the true variance, the resulting inference is conservative. Computation time is roughly doubled. Note that the dictionary returned by the predict method will no longer return explicit results for efficient IATEs in addition to ‘normal’ IATEs.</p></li>
+<li><p>There is now the possibility to use different values of parameters for the predict(), predict_iv(), and analyse() methods. The parameters affected and their new values must be supplied in a dictionary and passed directly to those methods using the keyword ‘new_keywords’. This dictionary is used to change the configuration attributes of the instance used for training (it is important that these changes are performed on instances not yet used by predict() or predict_iv()). Thus, if one instances is trained onces and used for different parameters by the predict(), predict_iv() it is important to deepcopy it (from copy module).</p></li>
+<li><dl class="simple">
+<dt>New methods:</dt><dd><ul>
+<li><p>train_iv: Instrumental mcf. Trains the forests for the reduced forms and the first stages.</p></li>
+<li><p>predict_iv: Instrumental mcf. Predicts average and aggregated effects.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>New keywords of class:</dt><dd><ul>
+<li><p>gen_ate_eff : More efficent estimation of ATE. Default is False.</p></li>
+<li><p>gen_gate_eff : More efficent estimation of all GATE-like parameters. Default is False.</p></li>
+<li><p>gen_qiate_eff : More efficent estimation of IATEs. Default is False.</p></li>
+<li><p>var_iv_name : Name of binary instrumental variable. Only relevant if train_iv method is used. Default is None.</p></li>
+<li><p>p_iv_aggregation_method : String or list/tuple of strings (or None), optional. Defines method used to obtain aggregated effects. Possible values are ‘local’, ‘global’, (‘local’, ‘global’,) ‘local’: LIATEs will be computed and aggregated to obtain LGATEs, LBGATEs, LATEs, etc.. This estimator is “internally consistent”.’global’: LATEs (only) are directly computed as the ratio of reduced form and first stage predictions. This estimator is not necessarily “internally consistent”. For the differences in assumptions and properties of the two approaches see Lechner and Mareckova (2025). Default is (‘local’, ‘global’,).</p></li>
+<li><p>p_ba, p_ba_adj_method, p_ba_use_prop_score, p_ba_use_prog_score,
+p_ba_use_x, p_ba_pos_weights_only, p_ba_estimator,  p_ba_cv_k
+are new keywords for an yet very experimental and undocumented new
+feature.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>New keyword of predict(), predict_iv(), analyse() method</dt><dd><ul>
+<li><dl class="simple">
+<dt>new_keywords<span class="classifier">Dictionary (or None), optional. Default is None.</span></dt><dd><p>The keys in the dictionary are the parameters to be changed
+when running this method (and all methods that are run subsequently,
+like analyse or sensitivity), and the values corresponding to the
+keys are the new value (None is not allowed as new value).
+However, not all parameters can differ from those used during
+training. The following parameters can be changed, and thus
+specified as keys in this dictionary:
+‘gen_output_type’,
+‘var_x_name_balance_test_ord’,  ‘var_x_name_balance_test_unord’,
+‘var_x_name_balance_bgate’, ‘var_x_name_ba’, ‘var_z_name_ord’,
+‘var_z_name_unord’, ‘p_ba’, ‘p_ba_adj_method’,
+‘p_ba_pos_weights_only’, ‘p_ba_use_x’, ‘p_ba_use_prop_score’,
+‘p_ba_use_prog_score’, ‘p_ate_no_se_only’, ‘p_atet’, ‘p_gatet’,
+‘p_bgate’, ‘p_cbgate’, ‘p_iate’, ‘p_iate_se’, ‘p_iate_m_ate’,
+‘p_bgate_sample_share’, ‘p_gates_minus_previous’,
+‘p_gates_smooth_bandwidth’, ‘p_gates_smooth’,
+‘p_gates_smooth_no_evalu_points’, ‘p_gates_no_evalu_points’,
+‘p_qiate’, ‘p_qiate_se’, ‘p_qiate_m_mqiate’, ‘p_qiate_m_opp’,
+‘p_qiate_no_of_quantiles’, ‘p_qiate_smooth’
+‘p_qiate_smooth_bandwidth’, ‘p_qiate_bias_adjust’, ‘p_bt_yes’,
+‘p_choice_based_sampling’, ‘p_choice_based_probs’, ‘p_cond_var’,
+‘p_knn’, ‘p_knn_const’, ‘p_knn_min_k’, ‘p_nw_bandw’, ‘p_nw_kern’,
+‘p_ci_level’, ‘p_iv_aggregation_method’, ‘p_se_boot_ate’,
+‘p_se_boot_gate’, ‘p_se_boot_iate’, ‘p_se_boot_qiate’,
+‘post_bin_corr_threshold’, ‘post_bin_corr_yes’, ‘post_est_stats’,
+‘post_kmeans_yes’, ‘post_kmeans_no_of_groups’,
+‘post_kmeans_max_tries’, ‘post_kmeans_min_size_share’,
+‘post_kmeans_replications’, ‘post_kmeans_single’,
+‘post_random_forest_vi’, ‘post_relative_to_first_group_only’,
+‘post_plots’, ‘post_tree’.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Change of default values</dt><dd><ul>
+<li><p>p_qiate_bias_adjust is False (as the bias adjustment is usually not effective)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Small bug fixes</dt><dd><ul>
+<li><p>Output for Gates (unordered variables) has now the correct labels.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Speed increases.</p></li>
+</ul>
+</section>
+<section id="optimalpolicy-class">
+<h3>OptimalPolicy class<a class="headerlink" href="#optimalpolicy-class" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><dl class="simple">
+<dt>Change of default value</dt><dd><ul>
+<li><p>pt_min_leaf_size: Default value will not be larger than 100.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+</section>
+<section id="version-0-8-0">
+<h2>Version 0.8.0<a class="headerlink" href="#version-0-8-0" title="Link to this heading">#</a></h2>
+<section id="id1">
+<h3>Documentation<a class="headerlink" href="#id1" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>QIATE description added.</p></li>
+<li><p>Fairness adjustments to optimal policy module.</p></li>
+<li><p>Estimation risk adjusted optimal policy added. The method ‘estrisk_adjust’ allows accounting for estimation error in the policy scores. Generally, the idea implemented follows the paper by Chernozhukov, Lee, Rosen, and Sun (2025), Policy Learning With Confidence, arXiv. However, since several approximations are used in the algorithm, the methods will not have the direct confidence-level-related interpretations suggested by these authors. To use ‘estrisk_adjust’,  it is necessary to provide the standard errors of the policy_scores. ‘estrisk_adjust’ adjusts the policy scores for estimation error by subtracting multiples, ‘estrisk_value’, of the  standard error from the policy score. Once the scores are adjusted, standard procedures can be used to obtain optimal decisions.</p></li>
+<li><p>The keywords related to these methods are ‘estrisk_value’. Since this adjustment requires the standard errors of the policy scores, they are now captured in a new keyword (var_polscore_se_name).</p></li>
+<li><p>The predict and predict_iv methods return a dictionary with important outputs from the estimations. The documentation of these outputs has been improved.</p></li>
+</ul>
+</section>
+<section id="example-data">
+<h3>Example data<a class="headerlink" href="#example-data" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Columns of zeros with different names have been added that are useful to demonstrate the use of the optimal policy module.</p></li>
+<li><dl class="simple">
+<dt>New keywords:</dt><dd><ul>
+<li><dl class="simple">
+<dt>correlation_x: String, optional.</dt><dd><p>‘low’: all features are independent.
+‘middle’: only normally distributed features are correlated.
+‘high’: all features are correlated.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>no_effect: Boolean, optional</dt><dd><p>If True, all IATEs are set to 0.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="example-programs">
+<h3>Example Programs<a class="headerlink" href="#example-programs" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>mcf_qiate (new): Demonstrates application of QIATEs.</p></li>
+<li><p>mcf_all_parameters: The new method predict_different_allocations() has been added to this example file.</p></li>
+<li><p>mcf_optpol_combined.py: The new method predict_different_allocations() has been added to this example file.</p></li>
+<li><p>optpolicy_all_parameters: Updates and small fixes.</p></li>
+<li><p>optpolicy_fairness: Demonstrates the use of the fairness methods. The method winners_losers() is also used in this script. In addition it is shown how to obtain plots for the fairness-efficiency trade-off (for selected methods, which can be adapted by the user).This example has been substantially changed and follows now much more closely the methods proposed by Bearth, Lechner, Muny, Mareckova (2025, arXiv).</p></li>
+<li><p>optpolicy_estimation_uncertainty (new): Demonstrates the use of the adjustment procedures for estimation uncertainty of the policy scores in the optimal policy module.</p></li>
+<li><p>all example programmes have been adjusted to account for the changed returns of the train, predict, and analyse methods.</p></li>
+</ul>
+</section>
+<section id="id2">
+<h3>ModifiedCausalForest Class<a class="headerlink" href="#id2" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>The returns of the train, predict, and analysemethods have been unified (and simplified). They all return a single dictionary. Any returns that had before returned as single elements are now returned as part of this dictionary (and more). The API explains their exact content.</p></li>
+<li><p>A bug in randomly selecting the variables to be used for splitting leaves has been fixed. This should improve computation time somewhat and increase the independence of the trees.</p></li>
+<li><p>Small bug fixes.</p></li>
+<li><p>Speed increase (forest building &amp; computation of weight matrix).</p></li>
+<li><p>ModifiedCausalForest is located in mcf_main (instead of mcf_functions).</p></li>
+<li><p>If trainings data is larger than _int_obs_bigdata, gen_mp_parallel is reduced to 75% of specified value to reduce memory consumption.</p></li>
+<li><p>Speed increase for smaller sample because of improved matching function (as part of forest training, issue 17).</p></li>
+<li><p>QIATEs added. The implementation follows the paper by Kutz &amp; Lechner (2025): “Quantile Individualized Average Treatment Effects”</p></li>
+</ul>
+<p><strong>New Methods</strong></p>
+<ul class="simple">
+<li><dl class="simple">
+<dt><strong>predict_different_allocations</strong>:</dt><dd><p>Predicts average potential outcomes for different allocations. This method can be used to get inference for allocations obtained by the OptimalPolicy class        when the policy scores used came from the mcf. The details of this methods are described in the working paper by Busshoff and Lechner (mimeo, 2025).</p>
+</dd>
+</dl>
+</li>
+</ul>
+<p><strong>Change of Keywords</strong></p>
+<ul class="simple">
+<li><p>z_name_list –&gt; z_name_cont: New name better reflects that it relates to names of continuous variables.</p></li>
+<li><p>Name change of output files: All plots are saved in directories. The names of these directories have changed. To make them more self-explanatory they all start now with ‘<a href="#id63"><span class="problematic" id="id64">plots_</span></a>’, e.g. ‘common_support’ now becomes ‘plots_common_support’.</p></li>
+</ul>
+<p><strong>Change of Attribute</strong></p>
+<ul class="simple">
+<li><p>version –&gt; __version__</p></li>
+</ul>
+<p><strong>New Keywords</strong></p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>p_qiate<span class="classifier">Boolean (or None), optional. QIATEs will be estimated.</span></dt><dd><p>Default (or None) is False.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>p_qiate_se<span class="classifier">Boolean (or None), optional. Standard errors of QIATEs</span></dt><dd><p>will be estimated. Default (or None) is False.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>p_qiate_m_mqiate<span class="classifier">Boolean (or None), optional. QIATEs minus median of</span></dt><dd><p>QIATEs will be estimated. Default (or None) is False.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>p_qiate_m_opp<span class="classifier">Boolean (or None), optional.</span></dt><dd><p>QIATE(x, q) - QIATE(x, 1-q) will be estimated,
+including inference if p_qiate_se == True. Increaes
+computation time.
+Default is False.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>p_qiate_no_of_quantiles<span class="classifier">Integer (or None), optional. Number of</span></dt><dd><p>quantiles used for QIATE. Default (or None)
+is 99.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>p_se_boot_qiate<span class="classifier">Integer or Boolean (or None), optional. Bootstrap of</span></dt><dd><p>standard errors for QIATE. Specify either a Boolean (if
+True, number of bootstrap replications will be set to 199) or an
+integer corresponding to the number of bootstrap replications
+(this implies True). None : 199 replications p_cluster_std is
+True, and False otherwise. Default is None.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>p_qiate_smooth<span class="classifier">Boolean (or None), optional. Smooth estimated QIATEs</span></dt><dd><p>using kernel smoothing. Default is True.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>p_qiate_smooth_bandwidth<span class="classifier">Integer or Float (or None), optional.</span></dt><dd><p>Multiplier applied to default bandwidth used for kernel
+smoothing of QIATE. Default is 1.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>p_qiate_bias_adjust<span class="classifier">Boolean (or None), optional</span></dt><dd><p>Bias correction procedure for QIATEs based on simulations.
+Default is True.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>cs_detect_const_vars_stop<span class="classifier">Integer or float (or None)</span></dt><dd><p>Control variables that have no variation inside a treatment
+arm violate the common support condition. If
+‘cs_detect_vars_no_var_stop’ is True, data will be checked for
+such variables and an exception is raised if such a variable is
+detected. Then, the user has to decide to either adjust the
+data (by deleting either observations with the value of the
+variable) that creates the problem (recommended solution) or
+to delete this variable.
+Default is True.</p>
+</dd>
+</dl>
+</li>
+</ul>
+<p><strong>Change of Default values</strong></p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>The base value in the formula of cf_chunks_maxsize has been increased</dt><dd><p>from 90000 to 100000, leading to somewhat deeper forests at the expense
+of some additional memory consumption.</p>
+</dd>
+</dl>
+</li>
+</ul>
+<p>The results dictionary of predict() contain a DataFrame containing treatment probabilities for all treatments, the identifier of the observation, and a dummy variable indicating whether the observation is inside or outside the common support.</p>
+</section>
+<section id="id3">
+<h3>OptimalPolicy Class<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>The returns of the allocate, evaluate, evaluate_multiple, estrisk_adjust,
+solvefair, solve, and winners_losers methods
+have been unified (and simplified). They all return a single
+dictionary. Any returns that had before returned as single elements are
+now returned as part of this dictionary (and more). The API explains their
+exact content.</p></li>
+<li><p>Speed improvements (could be substantial depending on the setting)</p></li>
+<li><p>Small bug fixes</p></li>
+<li><p>OptimalPolicy is now located in the optpolicy_main.py file (instead of optpolicy_functions.py)</p></li>
+<li><p>Fairness module is now similar to the methods described by Bearth, Lechner,
+Mareckova, Muny (2025, arXiv). Improved description of API, documentation,
+as well as introduction of additional procedures (and keywords)</p></li>
+<li><p>The option ‘policy tree’ is renamed ‘policy_tree’ for consistency</p></li>
+</ul>
+<p><strong>New Methods</strong></p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>estrisk_adjust</dt><dd><p>Adjust the policy scores for estimation error. Once the scores
+are adjusted, standard procedures can be used. The adjustment is
+based on subtracting multiples, k, of the standard error from
+the (estimated) policy score.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>solvefair</dt><dd><p>Implements the methods suggested by Bearth, Lechner, Mareckova,
+Muny (2025, arXiv). The syntax and use is identical to the solve
+method.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>winners_losers</dt><dd><p>Compare the winners and loser for 2 allocations. k-means is
+used to cluster groups of individuals that are similar
+in gains and losses from two user-provided allocations. The
+groups are described by the policy scores as well as the
+decision, protected, and materially relevant variables.</p>
+</dd>
+</dl>
+</li>
+</ul>
+<p><strong>Removed Methods</strong></p>
+<ul class="simple">
+<li><p>fairscores is no longer available. Use solvefair instead and specify fair_adjust_target = ‘xvariables’.</p></li>
+</ul>
+<p><strong>New Keywords</strong></p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>estrisk_value: Float or integer (or None), optional</dt><dd><p>The is k in the formula  ‘policy_score - k * standard_error’
+used to adjust the scores for estimation risk.
+Default (or None) is 1.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>var_polscore_se_name<span class="classifier">List or tuple of strings (or None)</span></dt><dd><p>Standard error of policy scores (in same order as
+var_polscore_name). Default is None.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>fair_adjust_target<span class="classifier">Target for the fairness adjustment</span></dt><dd><p>Possible values: ‘scores’, ‘xvariables’, ‘scores_xvariables’ (or None)
+‘scores’: Adjust policy scores
+‘xvariables’: Adjust decision variables
+‘scores_xvariables’: Adjust both decision variables and score
+Default (or None) is ‘xvariables’.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>fair_cont_min_values<span class="classifier">Integer or float (or None)</span></dt><dd><p>The methods used for fairness corrections depends on whether the
+variable is consider as continuous or discrete. All unordered
+variables are considered being discrete, and all ordered
+variables with more than fair_cont_min_values are considered as
+being discrete as well. The default (or None) is 20.</p>
+</dd>
+</dl>
+</li>
+</ul>
+<p><strong>Removed Keywords</strong></p>
+<ul class="simple">
+<li><p>_int_parallel_processing : redundant, use   gen_mp_parallel   instead</p></li>
+<li><p>_int_how_many_parallel : redundant, use   gen_mp_parallel   instead</p></li>
+</ul>
+<p><strong>Name change of attribute</strong>
+- version –&gt; __version__</p>
+<p><strong>New keyword for allocate method</strong></p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>fair_adjust_decision_vars<span class="classifier">Boolean, optional</span></dt><dd><p>If True, it will fairness-adjust the decision variables even when
+fairness adjustments have not been used in training.
+If False, no fairness adjustments of decision variables. However,
+if fairness adjustments of decision variables have already been used
+in training, then these variables will also be fairness adjusted in
+the allocate method, independent of the value of
+<code class="docutils literal notranslate"><span class="pre">fair_adjust_decision_vars</span></code>. The default is False.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+</section>
+<section id="version-0-7-2">
+<h2>Version 0.7.2<a class="headerlink" href="#version-0-7-2" title="Link to this heading">#</a></h2>
+<section id="id4">
+<h3>Documentation<a class="headerlink" href="#id4" title="Link to this heading">#</a></h3>
+<ul>
+<li><p>The user guide contains a <strong>new section</strong> on Computational Speed and Resources for effect estimation. This new section summarizes considerations about computation and resource use. It consists of the (speed and resource relevant) content on grid search, forest growing, and parallel processing that has already been displayed in the documentation. In addition, it now also contains the information on how to reduce the demand on RAM using the parameters <strong>`_int_iate_chunk_size`</strong> and <strong>`_int_weight_as_sparse_splits`</strong>.</p>
+<p>Finally, it contains the following considerations for large data sets:</p>
+<p>When datasets are large, the computational burden (including demands on RAM) may increase rapidly. First of all, it is important to remember that the mcf estimation consists of two steps:</p>
+<ol class="arabic simple">
+<li><p>Train the forest with the training data (Y, D, X).</p></li>
+<li><p>Predict the effects with the prediction data (needs X only, or D and X if e.g. treatment effects on the treated are estimated).</p></li>
+</ol>
+<p>The precision of the results is (almost) entirely determined by the training data, while the prediction data mainly defines the population for which the ATE and other effects are computed.</p>
+<p>mcf deals as follows with large <em>training data</em>: When the training data –&gt; larger than <strong>`cf_chunks_maxsize`</strong>, the data is randomly split and for each split a new forest is estimated. In the prediction part, effects are estimated for each forest and subsequently averaged.</p>
+<p>mcf deals as follows with large <em>prediction data</em>: The critical part when computing the effects is the weight matrix. Its size is <span class="math notranslate nohighlight">\(N_{Tf}\)</span> x <span class="math notranslate nohighlight">\(N_{P}\)</span>, where <span class="math notranslate nohighlight">\(N_{P}\)</span> is the number of observations in the prediction data and <span class="math notranslate nohighlight">\(N_{Tf}\)</span> is the number of observations used for the forest <cite>f</cite> estimated. The weight matrix is estimated for each forest (to save memory it is deleted from memory and stored on disk). Although the weight matrix is (as default) using a sparse data format, it can still be very large and it can be very time-consuming to compute.</p>
+<p>Reducing computation and demand on memory with minimal performance loss:
+Tests for very large data (1 million and more) have shown that indeed the prediction part –&gt; the bottleneck, while the training part computes reasonably fast. Therefore, one way to speed up the mcf and reduce the demand on RAM is to reduce the size of the prediction data (e.g., take a x% random sample). For this approach, tests have shown, for example, that with 1 million training observations, the effect estimates (and standard errors) are very similar if 1 million or only 100,000 prediction observations are used.</p>
+</li>
+<li><p><strong>New keywords</strong> (<strong>`_int_max_obs_training`</strong>, <strong>`_int_max_obs_prediction`</strong>, <strong>`_int_max_obs_kmeans`</strong>, <strong>`_int_max_obs_post_rel_graphs`</strong>) allow setting these parameters accordingly.</p></li>
+</ul>
+</section>
+<section id="id5">
+<h3>Example Programs<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>Name change of programs</strong>:</p>
+<ol class="loweralpha simple">
+<li><p>The <cite>mcf_bgate</cite> program was called <cite>min_parameters_mcf_bgate</cite> in previous versions.</p></li>
+<li><p>All example programs have been renamed so that they either start with <cite>mcf_</cite>, <cite>optpolicy_</cite>, or <cite>mcf_optpolicy_</cite> to better indicate their purpose.</p></li>
+</ol>
+</li>
+<li><p><cite>mcf_opt_combined</cite> now includes a cross-fitting version that uses the data more effectively at the cost of additional computing costs. Additional information has been added to the file and is also reflected in the updated documentation.</p></li>
+<li><p><strong>Small improvements</strong> to some other example programs.</p></li>
+</ul>
+</section>
+<section id="all-classes">
+<h3>All Classes<a class="headerlink" href="#all-classes" title="Link to this heading">#</a></h3>
+<ul>
+<li><p><em>os</em> <strong>module substituted</strong> by <em>pathlib</em> module for better platform interoperability.</p></li>
+<li><p>New public attribute:</p>
+<dl class="simple">
+<dt><cite>version</cite>: String</dt><dd><p>Version of the mcf module used to create the instance.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="id6">
+<h3>ModifiedCausalForest Class<a class="headerlink" href="#id6" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Bug fixes in variance estimation of BGATE (variance accounts for duplicates in matching).</p></li>
+<li><p>Minor bug fixes.</p></li>
+<li><p>Several smaller changes to increase robustness and speed when using very large data.</p></li>
+</ul>
+<p><strong>New Keywords</strong></p>
+<ul class="simple">
+<li><dl class="simple">
+<dt><strong>`_int_iate_chunk_size`</strong>: Integer or None, optional</dt><dd><p>Number of IATEs that are estimated in a single ray worker. Default is number of prediction observations / workers. If programme crashes in second part of IATE because of excess memory consumption, reduce _int_iate_chunk_size.</p>
+</dd>
+</dl>
+</li>
+<li><p>The following new keywords define upper limits for sample size. If the actual number is larger than the prespecified number, the respective data will be randomly reduced to the specified upper limit:</p>
+<ul>
+<li><p><strong>`_int_max_obs_training`</strong>: Integer or None, optional. Reducing observations for training increases MSE and thus should be avoided. Default is infinity.</p></li>
+<li><p><strong>`_int_max_obs_prediction`</strong>: Integer or None, optional. Reducing observations for prediction does not much affect MSE. It may reduce detectable heterogeneity but may also dramatically reduce computation time. Default is 250,000.</p></li>
+<li><p><strong>`_int_max_obs_kmeans`</strong>: Integer or None, optional. Reducing observations for analyzing IATEs does not much affect MSE. It may reduce detectable heterogeneity but also reduces computation time. Default is 200,000.</p></li>
+<li><p><strong>`_int_max_obs_post_rel_graphs`</strong>: Integer or None, optional. Figures showing the relation of IATEs and features (in-built non-parametric regression is computationally intensive). Default is 50,000.</p></li>
+<li><p><strong>`_int_obs_bigdata`</strong>: Integer or None, optional. If the number of training observations is larger than this number, the following happens during training:</p>
+<ol class="arabic simple">
+<li><p>Number of workers is halved in local centering.</p></li>
+<li><p>Ray is explicitly shut down.</p></li>
+<li><p>The number of workers used is reduced to 75% of default.</p></li>
+<li><p>The data type for some numpy arrays is reduced from float64 to float32. Default is 1,000,000.</p></li>
+</ol>
+</li>
+</ul>
+</li>
+</ul>
+<p><strong>New Features</strong></p>
+<ul class="simple">
+<li><p><strong>New figures</strong> showing the univariate relations of IATE to single features. Depending on the type of features, these are box or scatter plots (with nonlinear smoother).</p></li>
+</ul>
+<p><strong>Change of Default Values</strong></p>
+<ul class="simple">
+<li><p>Default value of <strong>`lc_cs_cv_k`</strong> –&gt; dependent on the size of the training sample (<cite>N</cite>):
+- <cite>N &lt; 100,000</cite>: 5
+- <cite>100,000 &lt;= N &lt; 250,000</cite>: 4
+- <cite>250,000 &lt;= N &lt; 500,000</cite>: 3
+- <cite>N &gt;= 500,000</cite>: 2.</p></li>
+<li><p>Default value of <strong>`_int_weight_as_sparse_splits`</strong> is increased to <cite>(Rows of prediction data * rows of Fill_y data) / (number of training splits * 25,000 * 25,000)</cite>. This should lead to some speed-up in larger data sets (at the expense of needing some more memory).</p></li>
+<li><p>The base value in the formula of <strong>`cf_chunks_maxsize`</strong> has been increased from 75,000 to 90,000, leading to somewhat deeper forests at the expense of some additional memory consumption.</p></li>
+<li><p>The default value for the size of the subsamples drawn in the data part used to be the forest has a new lower bound. It cannot be smaller than the square root of the number of training observations used for finding the splits.</p></li>
+</ul>
+<p><strong>Change of Keywords</strong></p>
+<ul class="simple">
+<li><p><cite>var_x_balance_name_ord</cite> –&gt; <cite>var_x_name_balance_test_ord</cite></p></li>
+<li><p><cite>var_x_balance_name_unord</cite> –&gt; <cite>var_x_name_balance_test_unord</cite></p></li>
+<li><p><cite>var_bgate_name</cite> –&gt; <cite>var_x_name_balance_bgate</cite></p></li>
+</ul>
+</section>
+<section id="id7">
+<h3>OptimalPolicy Class<a class="headerlink" href="#id7" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Minor <strong>bug fixes</strong>.</p></li>
+<li><p>Improved readability of output.</p></li>
+<li><p><strong>More statistics</strong> describing the respective allocations:</p>
+<ul>
+<li><p>An additional reference allocation has been added: It shows the allocation when every unit is allocated to the treatment which is best on average for the data used to evaluate the allocation.</p></li>
+<li><p>A <strong>standard error for the mean</strong> of the main welfare measure is printed. This standard error reflects the variability in the evaluation data for a given assignment rule. The variability in the training data when learning the assignment rule is not captured.</p></li>
+<li><p>New <strong>Qini-like plots</strong> are added. These plots compare the optimal allocation to a reference allocation (3 allocations are used as such reference allocations, if available: (i) observed, (ii) random, (iii) the treatment with the highest ATE is allocated to everybody). They show the mean welfare when an increasing share of observations (starting with those who gain most from the optimal allocation compared to the reference allocation) is allocated using the optimal allocation rule.</p></li>
+</ul>
+</li>
+</ul>
+<p><strong>New Keywords</strong></p>
+<ul class="simple">
+<li><p><strong>`_int_dpi`</strong>: Integer (or None), optional. DPI in plots. Default (or None) is 500. Internal variable, change default only if you know what you do.</p></li>
+<li><p><strong>`_int_fontsize`</strong>: Integer (or None), optional. Font for legends, from 1 (very small) to 7 (very large). Default (or None) is 2. Internal variable, change default only if you know what you do.</p></li>
+</ul>
+<p><strong>Change of Default Values</strong></p>
+<ul class="simple">
+<li><p>The default value <strong>`pt_eva_cat_mult`</strong> has been changed to 2.</p></li>
+</ul>
+<p><strong>Change of Keywords</strong></p>
+<p>To increase the consistency between the mcf and the optimal policy module:</p>
+<ul class="simple">
+<li><p><strong>`_int_parallel_processing`</strong> and <strong>`_int_how_many_parallel`</strong> are deprecated and replaced by <strong>`gen_mp_parallel`</strong>: Integer (or None), optional. Number of parallel processes (&gt;0). 0, 1: no parallel computations. Default is to use 80% of logical cores (reduce if memory problems!).</p></li>
+</ul>
+</section>
+</section>
+<section id="version-0-7-1">
+<h2>Version 0.7.1<a class="headerlink" href="#version-0-7-1" title="Link to this heading">#</a></h2>
+<ul class="simple">
+<li><p>Bug in optimal policy module for policy variables with more than 20 unordered values.</p></li>
+</ul>
+</section>
+<section id="version-0-7-0">
+<h2>Version 0.7.0<a class="headerlink" href="#version-0-7-0" title="Link to this heading">#</a></h2>
+<section id="id8">
+<h3>Documentation<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>New section added with published (!) papers using the mcf. We will try to update this section with every release. Please feel free to inform us about your publications when they use the mcf.</p></li>
+<li><p>New script with example on how to use the fairness correction in optimal policy: fairness_optpolicy.py. <strong>This method is experimental.</strong> A detailed description will be added in the next release.</p></li>
+</ul>
+</section>
+<section id="changes-concerning-all-classes">
+<h3>Changes concerning all classes<a class="headerlink" href="#changes-concerning-all-classes" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Speed increase by optimizing numba functions</p></li>
+<li><p>Adjustments required by new Numpy version 2.0</p></li>
+</ul>
+</section>
+<section id="changes-concerning-the-class-modifiedcausalforest">
+<h3>Changes concerning the class <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a><a class="headerlink" href="#changes-concerning-the-class-modifiedcausalforest" title="Link to this heading">#</a></h3>
+<ul>
+<li><p>Small bug fixes.</p></li>
+<li><p>Improved output.</p></li>
+<li><p>A new, additional penalty function has been introduced based on the MSE of the propensity score computed in the split (causal) leaves. This penalty function favors splits that reduce selection bias. One advantage of this new penalty function is that it can be computed with the out-of-bag observations when tuning the forest (which was not possible with the existing penalty function). This change also required the introduction of a new keyword (cf_penalty_type; see below for details).</p></li>
+<li><p>The method blinder_iates (reducing dependence of IATEs on protected variables) is deprecated and removed from the documentation. It will be fully removed in future versions. Use the method fairscores of the OptimalPolicy class instead. It is computationally more efficient and works better at removing the influence of protected variables on scores.</p></li>
+<li><p>Change in k-means clustering of IATEs: If a cluster is smaller than required by post_kmeans_min_size_share, it will be merged with the cluster that has the closest centroid.</p></li>
+<li><p>Additional tool added to describe IATEs(x) with the analyse() method: Shallow regression trees are trained in standard and honest form. Figures and out-of-sample accuracy measures (R-squared) of how they fit the IATEs are provided.</p></li>
+<li><p><strong>Name change of keywords</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">post_k_means_single</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">post_kmeans_single</span></code></p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<section id="new-keywords">
+<h4>New keywords<a class="headerlink" href="#new-keywords" title="Link to this heading">#</a></h4>
+<ul>
+<li><p><strong>cf_tune_all</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Tune all parameters. If True, all <a href="#id9"><span class="problematic" id="id10">*</span></a>_grid keywords will be set to 3. User specified values are respected if larger than 3. Default is False.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>cf_penalty_type</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Type of penalty function. ‘mse_d’:  MSE of treatment prediction in daughter leaf (new in 0.7.0).  ‘diff_d’: Penalty as squared leaf difference (as in Lechner, 2018). Note that ‘mse_d’ that can also be used for tuning,  while (due to its computation), this is not possible for ‘diff_d’. Default (or None) is ‘mse_d’.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>post_kmeans_min_size_share</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Smallest share of cluster size allowed in % (0-33). Default (None) is 1.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>post_tree</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Regression trees (honest and standard) of Depth 2 to 5 are estimated to describe IATES(x). Default (or None) is True.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+</section>
+<section id="changes-concerning-the-class-optimalpolicy">
+<h3>Changes concerning the class <a class="reference internal" href="python_api.html#optpolicy_main.OptimalPolicy" title="optpolicy_main.OptimalPolicy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a><a class="headerlink" href="#changes-concerning-the-class-optimalpolicy" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>The method fairscores has been improved and expanded (for details, see the future paper by Bearth, Lechner, Mareckova, Muny, 2024). However, fairness adjustments are still experimental.</p></li>
+<li><dl class="simple">
+<dt>Change in content of keyword:</dt><dd><ul>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">fair_type</span></code> now captures 3 methods to perform score adjustments:</dt><dd><ul>
+<li><p>‘Mean’: Mean dependence of the policy score on protected variables is removed.</p></li>
+<li><p>‘MeanVar’: Mean dependence and heteroscedasticity are removed.</p></li>
+<li><p>‘Quantiled’: Removing dependence via an empirical version of the approach by Strack and Yang (2024).</p></li>
+<li><p>Default (or None) is ‘Quantiled’.</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<section id="id11">
+<h4>New Keywords<a class="headerlink" href="#id11" title="Link to this heading">#</a></h4>
+<ul>
+<li><p><strong>fair_consistency_test</strong>: Boolean. Test for internal consistency. The fairness corrections are applied independently to every policy score (which usually is a potential outcome or an IATE(x) for each treatment relative to some base treatment, i.e., comparing 1-0, 2-0, 3-0, etc.). Thus, the IATE for the 2-1 comparison can be computed as IATE(2-0) - IATE(1-0). This test compares two ways to compute a fair score for the 2-1 (and all other comparisons), which should give similar results:</p>
+<ul class="simple">
+<li><p><strong>a)</strong> Difference of two fair (!) scores</p></li>
+<li><p><strong>b)</strong> Difference of corresponding scores, subsequently made fair.</p></li>
+</ul>
+<p>Note: Depending on the number of treatments, this test may be computationally more expensive than the original fairness corrections. Fairness adjustments are experimental. The default is False.</p>
+</li>
+<li><p><strong>fair_protected_disc_method</strong>, <strong>fair_material_disc_method</strong>: String
+Parameters for discretization of features (necessary for ‘Quantilized’). Method on how to perform the discretization for materially relevant and protected variables.</p>
+<ul class="simple">
+<li><p><strong>NoDiscretization</strong>: Variables are not changed. If one of the features has more different values than <cite>fair_protected_disc_method</cite> / <cite>fair_material_disc_method</cite>, all protected / materially relevant features will formally be treated as continuous. The latter may become unreliable if their dimension is not small.</p></li>
+<li><p><strong>EqualCell</strong>: Attempts to create equal cells for each variable. May be useful for a very small number of variables with few different values.</p></li>
+<li><p><strong>Kmeans</strong>: Use Kmeans clustering algorithm to form homogeneous cells.</p></li>
+</ul>
+<p>Fairness adjustments are experimental. The default (or None) is <strong>Kmeans</strong>.</p>
+</li>
+<li><p><strong>fair_protected_max_groups</strong>, <strong>fair_material_max_groups</strong>: String.
+Level of discretization of variables (only if needed). Number of groups of values of features that are materially relevant / protected. This keyword is currently only necessary for ‘Quantilized’. Its meaning depends on <cite>fair_protected_disc_method</cite>, <cite>fair_material_disc_method</cite>:</p>
+<ul class="simple">
+<li><p><strong>EqualCell</strong>: If more than 1 variable is included among the protected features, this restriction is applied to each variable.</p></li>
+<li><p><strong>Kmeans</strong>: This is the number of clusters used by Kmeans.</p></li>
+</ul>
+<p>Fairness adjustments are experimental. The default (or None) is 5.</p>
+</li>
+</ul>
+</section>
+</section>
+<section id="changes-concerning-the-class-mcfoptpolreport">
+<h3>Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">McfOptPolReport</span></code><a class="headerlink" href="#changes-concerning-the-class-mcfoptpolreport" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>mcf_blind</strong> is removed, because the method <cite>blinder_iates</cite> is deprecated.</p></li>
+</ul>
+</section>
+</section>
+<section id="version-0-6-0">
+<h2>Version 0.6.0<a class="headerlink" href="#version-0-6-0" title="Link to this heading">#</a></h2>
+<section id="general">
+<h3>General<a class="headerlink" href="#general" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Data are no longer provided as <em>.csv files. Instead they are generated directly by the new function example_data(</em>) (which has to be loaded from mcf.example_data_functions.py). These changes are reflected in the various parts of the documentation. The function itself is documented in the API. This leads to changes in all example programmes provided (and the related documentation).</p></li>
+<li><p>Programmes have been simplified as intermediate results are no longer saved.</p></li>
+</ul>
+</section>
+<section id="id12">
+<h3>Changes concerning all classes<a class="headerlink" href="#id12" title="Link to this heading">#</a></h3>
+<ul>
+<li><p><strong>Variable names are case insensitive in the package</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>So far this has been achieved by converting all names to uppercase. This is now changed by converting names to lowercase using the casefold() methods which is more robust than the upper() and lower() methods.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>New value error</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>If variables with only two different values are passed as ‘unordered’ a value error is raised. These variables should appear in the category of ‘ordered’ variables.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+<section id="changes-concerning-all-methods">
+<h3>Changes concerning all methods<a class="headerlink" href="#changes-concerning-all-methods" title="Link to this heading">#</a></h3>
+<ul>
+<li><p><strong>Location of the output files</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>All methods return the location of the output files on the computer as last return (the reporting method is an exception as it returns the full file name of the pdf file, not just the location).</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+<section id="id13">
+<h3>Changes concerning the class <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a><a class="headerlink" href="#id13" title="Link to this heading">#</a></h3>
+<section id="bug-fixes">
+<h4>Bug fixes<a class="headerlink" href="#bug-fixes" title="Link to this heading">#</a></h4>
+<blockquote>
+<div><ul class="simple">
+<li><p>Local centering using classifiers is disabled (implementation was incorrect for discrete outcomes with less than 10 values).</p></li>
+<li><p>Data used to build common support plots are now properly created as DataFrames (instead of lists) and stored in csv files (as before).</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="change-of-default-values">
+<h4>Change of default values<a class="headerlink" href="#change-of-default-values" title="Link to this heading">#</a></h4>
+<blockquote>
+<div><ul class="simple">
+<li><p><strong>p_ci_level</strong>: The default significance levels used for the width of computing confidence intervals is changed from 90% to the more conventional 95%.</p></li>
+<li><p><strong>_int_cuda</strong>: As the gains in speed (on respective servers that run cuda) are currently slow, this experimental feature defaults to False.</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="additional-features-and-new-keywords">
+<h4>Additional features and new keywords<a class="headerlink" href="#additional-features-and-new-keywords" title="Link to this heading">#</a></h4>
+<ul>
+<li><p><strong>New keyword: post_k_means_single</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>If True, clustering is also with respect to all single effects. Default is False.</p></li>
+<li><p>Setting <strong>post_k_means_single</strong> to True allows k-means clustering of IATEs also with respect to the single IATEs (in addition to jointly clustering on all relevant IATEs)</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>New keyword: cf_compare_only_to_zero</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>If True, the computation of the MSE (and MCE) ignores all elements not related to the first treatment.</p></li>
+<li><p>When setting <strong>cf_compare_only_to_zero</strong> to True, the computation of the MSE (and MCE) ignores all elements not related to the first treatment (which usually is the control group). This speeds up computation and may be attractive when interest is only in the comparisons of each treatment to the control group and not among each other. This may also be attractive for optimal policy analysis based on using potential outcomes normalized by the potential outcome of the control group (i.e., IATEs of treatments vs. control group). Default is False.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>New keyword: lc_estimator</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The estimation method used for local centering can be specified.</p></li>
+<li><p>Possible choices are scikit-learn’s regression methods: ‘RandomForest’, ‘RandomForestNminl5’,’RandomForestNminls5’, ‘SupportVectorMachine’, ‘SupportVectorMachineC2’, ‘SupportVectorMachineC4’, ‘AdaBoost’, ‘AdaBoost100’, ‘AdaBoost200’, ‘GradBoost’, ‘GradBoostDepth6’,  ‘GradBoostDepth12’,  ‘LASSO’,  ‘NeuralNet’, ‘NeuralNetLarge’, ‘NeuralNetLarger’, ‘Mean’.</p></li>
+<li><p>If set to ‘automatic’, the estimator with the lowest out-of-sample mean squared error (MSE) is selected.Whether this selection is based on cross-validation  or a test sample is governed by the keyword lc_cs_cv. ‘Mean’ is included for the cases when none of the  methods have out-of-sample explanatory power. The default is ‘RandomForest’.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+</section>
+<section id="changes-in-the-implementation-of-train-method-train">
+<h3>Changes in the implementation of train method <a class="reference internal" href="mcf_main.ModifiedCausalForest.train.html#mcf_main.ModifiedCausalForest.train" title="mcf_main.ModifiedCausalForest.train"><code class="xref py py-meth docutils literal notranslate"><span class="pre">train()</span></code></a><a class="headerlink" href="#changes-in-the-implementation-of-train-method-train" title="Link to this heading">#</a></h3>
+<ul>
+<li><p><strong>Building the forest</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>If variables randomly selected for splitting do not show any variation in the leaf considered for splitting, then up to 3 additional random draws are tried using variables not yet used  for splitting. If there is still no variation, then all remaining  variables will be tried for this potential split. This increases computation time somewhat, but leads to smaller leaves.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+<section id="changes-in-the-implementation-of-train-method-predict">
+<h3>Changes in the implementation of train method <a class="reference internal" href="mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a><a class="headerlink" href="#changes-in-the-implementation-of-train-method-predict" title="Link to this heading">#</a></h3>
+<ul>
+<li><p><strong>Clustering predictions with Kmeans algorithm</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>When the smallest cluster is smaller than 1% of the sample, this case is now  discouraged when determining the optimal number of clusters with scikit-learn’s silhouette_score.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+<section id="id14">
+<h3>Changes concerning the class <a class="reference internal" href="python_api.html#optpolicy_main.OptimalPolicy" title="optpolicy_main.OptimalPolicy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a><a class="headerlink" href="#id14" title="Link to this heading">#</a></h3>
+<section id="id15">
+<h4>Bug fixes<a class="headerlink" href="#id15" title="Link to this heading">#</a></h4>
+<blockquote>
+<div><ul class="simple">
+<li><p>Bug removed when reporting results for policy trees (when treatment state was available in evaluation data).</p></li>
+<li><p>Maximum number of iterations (1000) for automatic cost search added to avoid that the cost-search algorithm does not converge.</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="removed-features">
+<h4>Removed features<a class="headerlink" href="#removed-features" title="Link to this heading">#</a></h4>
+<blockquote>
+<div><ul class="simple">
+<li><p>‘policy tree old’ has been removed from the list of available methods (keyword: gen_method).</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="additional-features">
+<h4>Additional features<a class="headerlink" href="#additional-features" title="Link to this heading">#</a></h4>
+<ul>
+<li><p><strong>New method: fairscores(*args, *keyws)</strong></p>
+<blockquote>
+<div><ul>
+<li><p>This fairness method is experimental. It is a preview of what  will be discussed in the paper by Bearth, Lechner, Mareckova, and   Muny (2024): Explainable Optimal Policy with Protected Variables.  The main idea is to adjust the policy scores in a way such that the resulting optimal allocation will not depend on the protected  variables.</p>
+<blockquote>
+<div><ul>
+<li><p>The following keywords are new and related to this adjustment:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><strong>fair_regression_method</strong> : String (or None), optional. Regression method to adjust scores w.r.t. protected variables. Available methods are ‘RandomForest’, ‘RandomForestNminl5’, ‘RandomForestNminls5’, ‘SupportVectorMachine’,    ‘SupportVectorMachineC2’, ‘SupportVectorMachineC4’, ‘AdaBoost’, ‘AdaBoost100’, ‘AdaBoost200’, ‘GradBoost’, ‘GradBoostDepth6’, ‘GradBoostDepth12’, ‘LASSO’, ‘NeuralNet’, ‘NeuralNetLarge’, ‘NeuralNetLarger’, ‘Mean’. If ‘automatic’, an optimal methods will be chosen based on 5-fold cross-validation in the training data. If a method is specified it will be used for all scores and all adjustments. If ‘automatic’, every policy score might be adjusted with a different method. ‘Mean’ is included for cases in which regression methods have no explanatory power. Default is ‘RandomForest’.</p></li>
+<li><p><strong>fair_type</strong> : String (or None), optional. Method to chose the type of correction for the policy scores. ‘Mean’:  Mean dependence of the policy score on protected var’s is removed by residualisation. ‘MeanVar’:  Mean dependence and heteroscedasticity is removed by residualisation and rescaling. Default (or None) is ‘MeanVar’.</p></li>
+<li><p><strong>var_protected_ord_name</strong> : List or tuple of strings (nor None), optional. Names of ordered variables for which their influence will be removed on the policy scores.</p></li>
+<li><p><strong>var_protected_unord_name</strong> : List or tuple of strings (nor None),optional. Names of unordered variables for which their influence will be removed on the policy scores.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Solve method has an additional return (2nd position)</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p><strong>result_dic</strong> : Dictionary that contains additional information about the trained allocation rule. Currently, the only entry is a dictionary decribing the terminal leaves of the policy tree (or None if the policy has been selected as allocation method).</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Solve method has a new algorithm named ‘bps_classifier’</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The <strong>bps_classifier</strong> classifier algorithm runs a classifier for each of the allocations obtained by the ‘best_policy_score’ algorithm. One advantage compared of this approach compared to the     ‘best_policy_score’ algorithm is that the prediction of the allocation for new observations is fast as it does not require to recompute the policy score (as it is case with the ‘best_policy_score’ algorithm). The classifier is selected among four different classifiers offered by  sci-kit learn, namely a simple neural network, two classification random forests with minimum leaf size of 2 and 5, and ADDABoost. The selection is a made according to the out-of-sample performance on scikit-learns Accuracy Score.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Some additional explanations to the output of the policy tree (including a warning if there are more than 30 features for the policy trees) have been added.</p></li>
+</ul>
+</section>
+</section>
+<section id="id16">
+<h3>Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">McfOptPolReport</span></code><a class="headerlink" href="#id16" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>The structure of the policy tree is added to the pdf file.</p></li>
+</ul>
+</section>
+</section>
+<section id="version-0-5-1">
+<h2>Version 0.5.1<a class="headerlink" href="#version-0-5-1" title="Link to this heading">#</a></h2>
+<section id="id17">
+<h3>General<a class="headerlink" href="#id17" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Updated link to new website on PyPI.</p></li>
+</ul>
+</section>
+</section>
+<section id="version-0-5-0">
+<h2>Version 0.5.0<a class="headerlink" href="#version-0-5-0" title="Link to this heading">#</a></h2>
+<section id="id18">
+<h3>General<a class="headerlink" href="#id18" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>In general, most changes lead to more efficient code.</p></li>
+<li><p>A new reporting tool is introduced that produces a pdf file that should be more informative about estimation and results. The existing output via figures, (<em>.csv) and (</em>.txt) files continue to exist. They contain more detailed information than the new pdf files.</p></li>
+</ul>
+</section>
+<section id="id19">
+<h3>Changes concerning the class <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a><a class="headerlink" href="#id19" title="Link to this heading">#</a></h3>
+<ul>
+<li><p><strong>Bug fixes</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>OOB values were not available for tuning forests.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Performance improvements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Several parts have been optimized that led to limited speed increases and reduced memory consumption.</p></li>
+<li><p>Some GPU capabilities have been added (based on Pytorch tensors; therefore Pytorch needs to be installed in addition even if the GPU is not used). Currently, GPU (if available) is used only to speed up Mahalanobis matching prior to training the causal forest (note that the default is NOT to use Mahalanobis matching, but to use matching based on the prognostic score instead; partly on computational grounds).</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Name change of keywords</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">gen_replication</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">_int_replication</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">p_amgate</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">p_cbgate</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">p_gmate_no_evalu_points</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">p_gates_no_evalu_points</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">p_gmate_sample_share</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">p_bgate_sample_share</span></code></p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>New keyword</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_int_cuda</span></code> : Boolean (or None). Use CUDA based GPU if available on hardware. Default is True.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Sensitivity analysis</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The method <a class="reference internal" href="mcf_main.ModifiedCausalForest.sensitivity.html#mcf_main.ModifiedCausalForest.sensitivity" title="mcf_main.ModifiedCausalForest.sensitivity"><code class="xref py py-meth docutils literal notranslate"><span class="pre">sensitivity()</span></code></a> has the new keyword <code class="docutils literal notranslate"><span class="pre">results</span></code>. Here the standard output dictionary from the <a class="reference internal" href="mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a> method is expected. If this dictionary contains estimated IATEs, the same data as in the <a class="reference internal" href="mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a> method will be used, IATEs are computed under the no effect (basic) scenario and these IATEs are compared to the IATEs contained in the results dictionary.</p></li>
+<li><p>If the dictionary does not contain estimated IATEs, passing it has no consequence.</p></li>
+<li><p>If the results dictionary is passed, and it contains IATEs, then the (new) default value for the keyword <code class="docutils literal notranslate"><span class="pre">sens_iate</span></code> is True (and False otherwise)</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+<section id="id20">
+<h3>Changes concerning the class <a class="reference internal" href="python_api.html#optpolicy_main.OptimalPolicy" title="optpolicy_main.OptimalPolicy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a><a class="headerlink" href="#id20" title="Link to this heading">#</a></h3>
+<ul>
+<li><p><strong>Bug fixes</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Single variables can be passed as strings without leading to errors.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>General performance improvements</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Several parts have been optimized that led to limited increases and reduced memory consumption.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Change of names of keywords</strong></p>
+<blockquote>
+<div><p>(to use the same names as in the <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> class)</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">var_x_ord_name</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">var_x_name_ord</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">var_x_unord_name</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">var_x_name_unord</span></code></p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Change of default values</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The default of <code class="docutils literal notranslate"><span class="pre">pt_enforce_restriction</span></code> is set to False.</p></li>
+<li><p>The previous default of <code class="docutils literal notranslate"><span class="pre">pt_min_leaf_size</span></code> is now multiplied by the smallest allowed treatment if (and only if) treatment shares are restricted.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Method for policy trees</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>“policy tree eff” becomes the standard method for policy trees and is renamed as “policy tree”.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Change of default value for ``gen_variable_importance``</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Change of default value** for <code class="docutils literal notranslate"><span class="pre">gen_variable_importance</span></code>. New default is True.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>Changes to speed up the computation of policy trees</strong></p>
+<blockquote>
+<div><ul class="simple">
+<li><p>New keyword: <code class="docutils literal notranslate"><span class="pre">_int_xtr_parallel</span></code> Parallelize to a larger degree to make sure all CPUs are busy for most of the time. Only used for “policy tree” and only used if <code class="docutils literal notranslate"><span class="pre">_int_parallel_processing</span></code> &gt; 1 (or None). Default is True.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p><strong>New option to build a new optimal policy trees</strong></p>
+<blockquote>
+<div><p>There is the new option to build a new optimal policy trees based on the data in each leaf of the (first) optimal policy tree. Although this second tree will also be optimal, the combined tree is no longer optimal. The advantage is a huge speed increase, i.e. a 3+1 tree computes much, much faster than a 4+0 tree, etc. This increased capabilities require a change in keywords:</p>
+<ul>
+<li><p>Deleted keyword: <code class="docutils literal notranslate"><span class="pre">pt_depth_tree</span></code></p></li>
+<li><p>New keywords</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">pt_depth_tree_1</span></code>   Depth of 1st optimal tree. Default is 3.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pt_depth_tree_2</span></code>   Depth of 2nd optimal tree. This tree is build within the strata obtained from the leaves of the first tree. If set to 0, a second tree is not build. Default is 1. Using both defaults leads to a (not optimal) total tree of level of 4.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+<section id="new-class-mcfoptpolreport">
+<h3>New class <code class="xref py py-class docutils literal notranslate"><span class="pre">McfOptPolReport</span></code><a class="headerlink" href="#new-class-mcfoptpolreport" title="Link to this heading">#</a></h3>
+<blockquote>
+<div><div class="versionadded">
+<p><span class="versionmodified added">Added in version 0.5.0: </span>Reporting tools for the <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> and
+<a class="reference internal" href="python_api.html#optpolicy_main.OptimalPolicy" title="optpolicy_main.OptimalPolicy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a> classes</p>
+</div>
+</div></blockquote>
+<ul class="simple">
+<li><p>This new class provides informative reports about the main specification choices and most important results of the ModifiedCausalForest and OptimalPolicy estimations. The report is saved in pdf-format.The reporting capabilities in this version are still basic but will be continously extended in the future (if users see them as a useful addition to the package).</p></li>
+<li><p>Method: the <a class="reference internal" href="reporting.McfOptPolReport.report.html#reporting.McfOptPolReport.report" title="reporting.McfOptPolReport.report"><code class="xref py py-meth docutils literal notranslate"><span class="pre">report()</span></code></a> method takes the instance of the ModifiedCausalForest and the OptimalPolicy classes as input (after they were used in running the different methods of both classes). It creates the report on a pdf file, which is saved in a user provided location.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-4-3">
+<h2>Version 0.4.3<a class="headerlink" href="#version-0-4-3" title="Link to this heading">#</a></h2>
+<section id="id21">
+<h3>Changes concerning the class <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a><a class="headerlink" href="#id21" title="Link to this heading">#</a></h3>
+<section id="id22">
+<h4>Bug fixes<a class="headerlink" href="#id22" title="Link to this heading">#</a></h4>
+<ul>
+<li><p>Minor bug fixes:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Weight computation (turned off and sparse weight matrix)</p></li>
+<li><p>KeyError in Gate estimation</p></li>
+<li><p>Corrected sample split when using feature selection</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+<section id="new">
+<h4>New<a class="headerlink" href="#new" title="Link to this heading">#</a></h4>
+<ul>
+<li><p>Leaf size adjustments:</p>
+<p>Sometimes, the mcf leads to fairly big leaves due to insufficient observations in each treatment arm. The following changes in default settings and minor code corrections have been implemented. They somewhat reduce leaf sizes, but necessarily lead to more cases, where the data used to populate the leaves will have to ignore more leaves as they cannot be populated with outcomes from all treatment arms.</p>
+<p>In this case, if the problem can be solved be redoing the last split (i.e. using the parent leave instead of the final child leaves), then these two leaves are merged.</p>
+<p>If this does not solve the problem (either because one of the children is split further, or because there are still treatment arms missing in the merged leave), then this leave is not used in the computation of the weights.</p>
+<ul class="simple">
+<li><p>Default for <code class="docutils literal notranslate"><span class="pre">cf_n_min_treat</span></code> changed to <cite>(n_min_min + n_min_max) / 2 / # of treatments / 10</cite>. Minimum is 1.</p></li>
+<li><p>Defaults for <code class="docutils literal notranslate"><span class="pre">cf_n_min_min</span></code> and <code class="docutils literal notranslate"><span class="pre">cf_n_min_max</span></code> changed to:
+- <cite>n_min_min = round(max((n_d_subsam**0.4) / 10, 1.5) * # of treatments)</cite>
+- <cite>n_min_max = round(max((n_d_subsam**0.5) / 10, 2) * # of treatments)</cite></p></li>
+<li><p>Default values for tuning parameters are taken into account when observations are used only for feature selection, common support, or local centering.</p></li>
+</ul>
+</li>
+<li><p>Improved computational performance:</p>
+<ul class="simple">
+<li><p>Speed-up for categorical (unordered) variables due to memorization. This requires some additional memory, but the gains could be substantial.</p></li>
+<li><p>Improved internal computation and storage of estimated forests lead to speed and precision gains (instead of using lists of lists, we now use a list of dictionaries of optimized numpy arrays to save the trees). Since the precision of the new method is higher (by at the same time needing less RAM), this might lead to smallish changes in the results.</p></li>
+</ul>
+</li>
+<li><p><strong>Experimental</strong>: The method <a class="reference internal" href="mcf_main.ModifiedCausalForest.sensitivity.html#mcf_main.ModifiedCausalForest.sensitivity" title="mcf_main.ModifiedCausalForest.sensitivity"><code class="xref py py-meth docutils literal notranslate"><span class="pre">sensitivity()</span></code></a> has been added. It contains some simulation-based tools to check how well the mcf works in removing selection bias and how sensitive the results are with respect to potentially missing confounding covariates (i.e., those related to treatment and potential outcome) added in the future.</p>
+<ul>
+<li><p>Note: This section is currently experimental and thus not yet fully documented and tested. A paper by Armendariz-Pacheco, Lechner, Mareckova and Odermatt (2024) will discuss and investigate the different methods in detail. So far, please note that all methods are simulation based.</p></li>
+<li><p>The sensitivity checks consist of the following steps:</p>
+<ol class="arabic simple">
+<li><p>Estimate all treatment probabilities.</p></li>
+<li><p>Remove all observations from treatment states other than one (largest treatment or user-determined).</p></li>
+<li><p>Use estimated probabilities to simulate treated observations, respecting the original treatment shares (pseudo-treatments).</p></li>
+<li><p>Estimate the effects of pseudo-treatments. The true effects are known to be zero, so the deviation from 0 is used as a measure of result sensitivity.</p></li>
+</ol>
+<p>Steps 3 and 4 may be repeated, and results averaged to reduce simulation noise.</p>
+</li>
+<li><p>In this experimental version, the method depends on the following new keywords:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">sens_amgate</span></code>: Boolean (or None), optional. Compute AMGATEs for sensitivity analysis. Default is False.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sens_bgate</span></code>: Boolean (or None), optional. Compute BGATEs for sensitivity analysis. Default is False.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sens_gate</span></code>: Boolean (or None), optional. Compute GATEs for sensitivity analysis. Default is False.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sens_iate</span></code>: Boolean (or None), optional. Compute IATEs for sensitivity analysis. Default is False.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sens_iate_se</span></code>: Boolean (or None), optional. Compute standard errors of IATEs for sensitivity analysis. Default is False.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sens_scenarios</span></code>: List or tuple of strings, optional. Different scenarios considered. Default is (‘basic’,). ‘basic’: Use estimated treatment probabilities for simulations. No confounding.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sens_cv_k</span></code>: Integer (or None), optional. Data to be used for any cross-validation: Number of folds in cross-validation. Default (or None) is 5.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sens_replications</span></code>: Integer (or None), optional. Number of replications for simulating placebo treatments. Default is 2.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">sens_reference_population</span></code>: Integer or float (or None). Defines the treatment status of the reference population used by the sensitivity analysis. Default is to use the treatment with most observed observations.</p></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+<section id="id23">
+<h3>Changes concerning the class <a class="reference internal" href="python_api.html#optpolicy_main.OptimalPolicy" title="optpolicy_main.OptimalPolicy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a><a class="headerlink" href="#id23" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>No changes.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-4-2">
+<h2>Version 0.4.2<a class="headerlink" href="#version-0-4-2" title="Link to this heading">#</a></h2>
+<section id="id24">
+<h3>Bug fixes<a class="headerlink" href="#id24" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Minor bug fixes for <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> (mainly redundant elements in return of prediction and analysis method deleted).</p></li>
+</ul>
+</section>
+<section id="id25">
+<h3>New<a class="headerlink" href="#id25" title="Link to this heading">#</a></h3>
+<section id="id26">
+<h4>General<a class="headerlink" href="#id26" title="Link to this heading">#</a></h4>
+<ul>
+<li><p>Output files for text, data and figures: So far, whenever a directory existed that has already been used for output, a new directory is created to avoid accidentally overwriting results. However, there is a new keyword for both the <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> and the <a class="reference internal" href="python_api.html#optpolicy_main.OptimalPolicy" title="optpolicy_main.OptimalPolicy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a> class:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_int_output_no_new_dir</span></code>: Boolean. Do not create a new directory for outputs when the path already exists. Default is False.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+<section id="id27">
+<h4>Changes concerning the class <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a><a class="headerlink" href="#id27" title="Link to this heading">#</a></h4>
+<ul>
+<li><p>Mild improvements of output when categorical variables are involved.</p></li>
+<li><p>Data used for common support are saved in csv files.</p></li>
+<li><p>New keyword <code class="docutils literal notranslate"><span class="pre">_int_del_forest</span></code>: Boolean. Delete forests from instance. If True, less memory is needed, but the trained instance of the class cannot be reused when calling predict with the same instance again, i.e. the forest has to be retrained. Default is False.</p></li>
+<li><p>New keyword <code class="docutils literal notranslate"><span class="pre">_int_keep_w0</span></code>: Boolean. Keep all zero weights when computing standard errors (slows down computation). Default is False.</p></li>
+<li><p>New keyword <code class="docutils literal notranslate"><span class="pre">p_ate_no_se_only</span></code>: Boolean (or None). Computes only the ATE without standard errors. Default is False.</p></li>
+<li><p>New default value for <code class="docutils literal notranslate"><span class="pre">gen_iate_eff</span></code>: The second round IATE estimation is no longer performed by default (i.e. the new default is False).</p></li>
+<li><p>There is a new experimental features to both the mcf estimation (of IATEs) as well as the optimal policy module. It allows to partially blind the decision with respect to certain variables. The accompanying discussion paper by Nora Bearth, Fabian Muny, Michael Lechner, and Jana Marackova (‘Partially Blind Optimal Policy Analysis’) is currently written. If you desire more information, please email one of the authors.</p>
+<blockquote>
+<div><ul>
+<li><p>New method <code class="xref py py-meth docutils literal notranslate"><span class="pre">blinder_iates()</span></code>: Compute ‘standard’ IATEs as well as IATEs that are to a certain extent blinder than the standard ones. Available keywords:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">blind_var_x_protected_name</span></code> : List of strings (or None). Names of protected variables. Names that are explicitly denote as blind_var_x_unrestricted_name or as blind_var_x_policy_name and used to compute IATEs will be automatically added to this list. Default is None.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">blind_var_x_policy_name</span></code> : List of strings (or None). Names of decision variables. Default is None.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">blind_var_x_unrestricted_name</span></code> : List of strings (or None). Names of unrestricted variables. Default is None.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">blind_weights_of_blind</span></code> : Tuple of float (or None). Weights to compute weighted means of blinded and unblinded IATEs. Between 0 and 1. 1 implies all weight goes to fully blinded IATE. Default is None.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">blind_obs_ref_data</span></code> : Integer (or None), optional. Number of observations to be used for blinding. Runtime of programme is almost linear in this parameter. Default is 50.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">blind_seed</span></code> : Integer, optional. Seed for the random selection of the reference data. Default is 123456.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+<section id="id28">
+<h4>Changes concerning the class <a class="reference internal" href="python_api.html#optpolicy_main.OptimalPolicy" title="optpolicy_main.OptimalPolicy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a><a class="headerlink" href="#id28" title="Link to this heading">#</a></h4>
+<ul>
+<li><p>General keyword change in the <a class="reference internal" href="python_api.html#optpolicy_main.OptimalPolicy" title="optpolicy_main.OptimalPolicy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a> class. All keywords that started with <cite>int_</cite> now start with <cite>_int_</cite> (in order to use the same conventions as in the <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> class).</p></li>
+<li><p>New keywords:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_pt_select_values_cat</span></code>: Approximation method for larger categorical variables. Since we search among optimal trees, for categorical variables variables we need to check for all possible combinations of the different values that lead to binary splits. This number could indeed be huge. Therefore, we compare only pt_no_of_evalupoints * 2 different combinations. Method 1 (pt_select_values_cat == True) does this by randomly drawing values from the particular categorical variable and forming groups only using those values. Method 2 (pt_select_values_cat==False) sorts the values of the categorical variables according to a values of the policy score as one would do for a standard random forest. If this set is still too large, a random sample of the entailed combinations is drawn.  Method 1 is only available for the method ‘policy tree eff’. The default is False.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_pt_enforce_restriction</span></code>: Boolean (or None). Enforces the imposed restriction (to some extent) during the computation of the policy tree. This can be very time consuming. Default is True.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_pt_eva_cat_mult</span></code>: Integer (or None). Changes the number of the evaluation points (pt_no_of_evalupoints) for the unordered (categorical) variables to: pt_eva_cat_mult * pt_no_of_evalupoints (available only for the method ‘policy tree eff’). Default is 1.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_gen_variable_importance</span></code>: Boolean. Compute variable importance statistics based on random forest classifiers. Default is False.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_var_vi_x_name</span></code>: List of strings or None, optional. Names of variables for which variable importance is computed. Default is None.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_var_vi_to_dummy_name</span></code>: List of strings or None, optional. Names of variables for which variable importance is computed. These variables will be broken up into dummies. Default is None.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+<p>The optimal policy module currently has three methods (<code class="xref py py-meth docutils literal notranslate"><span class="pre">best_policy_score()</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">policy</span> <span class="pre">tree()</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">OptimalPolicypolicy</span> <span class="pre">tree</span> <span class="pre">eff()</span></code>):</p>
+<ul>
+<li><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">OptimalPolicypolicy</span> <span class="pre">tree</span> <span class="pre">eff()</span></code> (NEW in 0.4.2) is very similar to ‘policy tree’. It uses different approximation rules and uses slightly different coding.  In many cases it should be faster than ‘policy tree’.  Default (or None) is ‘best_policy_score’.</p></li>
+<li><p><code class="xref py py-meth docutils literal notranslate"><span class="pre">best_policy_score()</span></code> conducts Black-Box allocations, which are obtained by using the scores directly (potentially subject to restrictions). When the Black-Box allocations are used for allocation of data not used for training, the respective scores must be available.</p></li>
+<li><p>The implemented <code class="xref py py-meth docutils literal notranslate"><span class="pre">policy</span> <span class="pre">tree()</span></code>’s are optimal trees, i.e. all possible trees are checked if they lead to a better performance. If restrictions are specified, then this is incorporated into treatment specific cost parameters. Many ideas of the implementation follow Zhou, Athey, Wager (2022). If the provided policy scores fulfil their conditions (i.e., they use a doubly robust double machine learning like score), then they also provide attractive theoretical properties.</p></li>
+<li><p>New method <a class="reference internal" href="optpolicy_main.OptimalPolicy.evaluate_multiple.html#optpolicy_main.OptimalPolicy.evaluate_multiple" title="optpolicy_main.OptimalPolicy.evaluate_multiple"><code class="xref py py-meth docutils literal notranslate"><span class="pre">evaluate_multiple()</span></code></a>: Evaluate several allocations simultaneously.  Parameters:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">allocations_dic</span></code> : Dictionary. Contains DataFrame’s with specific allocations.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">data_df</span></code> : DataFrame. Data with the relevant information about potential outcomes which will be used to evaluate the allocations.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-4-1">
+<h2>Version 0.4.1<a class="headerlink" href="#version-0-4-1" title="Link to this heading">#</a></h2>
+<section id="id29">
+<h3>Bug fixes<a class="headerlink" href="#id29" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Bug fix for AMGATE and Balanced GATE (BGATE)</p></li>
+<li><p>Minor bug fixes in Forest and Optimal Policy module</p></li>
+</ul>
+</section>
+<section id="id30">
+<h3>New<a class="headerlink" href="#id30" title="Link to this heading">#</a></h3>
+<ul>
+<li><p>We provide the change_log.py script, which provides extensive information on past changes and upcoming changes.</p></li>
+<li><p>We provide example data and example files on how to use <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> and <a class="reference internal" href="python_api.html#optpolicy_main.OptimalPolicy" title="optpolicy_main.OptimalPolicy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a> in various ways.</p>
+<blockquote>
+<div><ul>
+<li><p>The following data files are provided. The names are self-explanatory. The number denotes the sample size, x are features, y is outcome, d is treatment, and ps denotes policy scores.:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>data_x_1000.csv</p></li>
+<li><p>data_x_4000.csv</p></li>
+<li><p>data_x_ps_1_1000.csv</p></li>
+<li><p>data_x_ps_2_1000.csv</p></li>
+<li><p>data_y_d_x_1000.csv</p></li>
+<li><p>data_y_d_x_4000.csv</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>The following example programmes are provided:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>all_parameters_mcf.py, all_parameters_optpolicy.py: Contains an explanation of all available parameters / keywords for the <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> and <a class="reference internal" href="python_api.html#optpolicy_main.OptimalPolicy" title="optpolicy_main.OptimalPolicy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a> classes.</p></li>
+<li><p>min_parameters_mcf.py, min_parameters_optpolicy.py: Contains the minimum specifications to run the methods of the <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> and <a class="reference internal" href="python_api.html#optpolicy_main.OptimalPolicy" title="optpolicy_main.OptimalPolicy"><code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a> classes.</p></li>
+<li><p>training_prediction_data_same_mcf.py: One suggestion on how to proceed when data to train and fill the forest are the same as those used to compute the effects.</p></li>
+<li><p>mcf_and_optpol_combined.py: One suggestion on how to combine mcf and optimal policy estimation in a simple split sample approach.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-4-0">
+<h2>Version 0.4.0<a class="headerlink" href="#version-0-4-0" title="Link to this heading">#</a></h2>
+<p>Both the mcf module and the optimal policy module have undergone major revisions. The goal was to increase scalability and reduce internal complexity of the modules. The entire package now runs on Python 3.11, which is also recommended and tested. Note that all keywords changed compared to prior versions. Refer to the APIs for an updated list. For details on the updated worfklow, consult the respective tutorials.</p>
+<section id="what-s-new">
+<h3>What’s New<a class="headerlink" href="#what-s-new" title="Link to this heading">#</a></h3>
+<section id="id31">
+<h4>Changes concerning the class <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a>:<a class="headerlink" href="#id31" title="Link to this heading">#</a></h4>
+<ul>
+<li><p>Update in the feature selection algorithm.</p></li>
+<li><p>Update in the common support estimation.</p></li>
+<li><p>Updates related to GATE estimation:
+- Wald tests are no longer provided,
+- MGATEs are no longer estimated.
+- AMGATEs will be conducted for the same heterogeneity variables as the GATEs.
+- New parameter <code class="docutils literal notranslate"><span class="pre">p_iate_m_ate</span></code> to compute difference of the IATEs and the ATE. The default is False.</p></li>
+<li><p>New parameter <code class="docutils literal notranslate"><span class="pre">p_iate_eff</span></code>.</p></li>
+<li><p>Introduction of the BGATEs.</p></li>
+<li><p>Sample reductions for computational speed ups, need to be user-defined. Related options are removed from the mcf:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_int_red_split_sample</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_int_red_split_sample_pred_share</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_int_smaller_sample</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_int_red_training</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_int_red_training_share</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_int_red_prediction</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_int_red_prediction_share</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_int_red_largest_group_train</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_int_red_largest_group_train_share</span></code></p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Improved scalability by splitting training data into chunks and taking averages.</p></li>
+<li><p>Unified data concept to deal with common support and local centering.</p></li>
+</ul>
+</section>
+</section>
+<section id="name-changes-and-default-updates">
+<h3>Name Changes and Default Updates<a class="headerlink" href="#name-changes-and-default-updates" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>All keywords are changed. Please refer to the <a class="reference internal" href="python_api.html"><span class="doc">Python API</span></a>.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-3-3">
+<h2>Version 0.3.3<a class="headerlink" href="#version-0-3-3" title="Link to this heading">#</a></h2>
+<section id="id32">
+<h3>What’s New<a class="headerlink" href="#id32" title="Link to this heading">#</a></h3>
+<ul>
+<li><p>Now runs also on Python 3.10.x.</p></li>
+<li><p>Renaming of output: Marginal effects became Moderated effects.</p></li>
+<li><p>Speed and memory improvements:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Weight matrix computed in smaller chunks for large data</p></li>
+<li><p>There is also a parameter that comes along this change (which should usually not be changed by the user)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_weight_as_sparse_splits</span></code>  Default value is round(Rows of prediction data * rows of Fill_y data / (20’000 * 20’000))</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Additional and improved statistics for balancing tests.</p></li>
+</ul>
+</section>
+<section id="id33">
+<h3>Bug fixes<a class="headerlink" href="#id33" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Correction of prognostic score nearest neighbour matching when local centering was activated.</p></li>
+</ul>
+</section>
+<section id="id34">
+<h3>Name Changes and Default Updates<a class="headerlink" href="#id34" title="Link to this heading">#</a></h3>
+<ul>
+<li><p>Name changes:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">m_share_min</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">m_min_share</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">m_share_max</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">m_max_share</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">nw_kern_flag</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">nw_kern</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">atet_flag</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">atet</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gatet_flag</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">gatet</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">iate_flag</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">iate</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">iate_se_flag</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">iate_se</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">iate_eff_flag</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">iate_eff</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">iate_cv_flag</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">iate_cv</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">cond_var_flag</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">cond_var</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">knn_flag</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">knn</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">clean_data_flag</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">clean_data</span></code></p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Default values</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">alpha_reg_min</span></code> = 0.05</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">alpha_reg_max</span></code> = 0.15</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">alpha_reg_grid</span></code> = 1 (default): <code class="docutils literal notranslate"><span class="pre">alpha</span></code> = (<code class="docutils literal notranslate"><span class="pre">alpha_reg_min</span></code> + <code class="docutils literal notranslate"><span class="pre">alpha_reg_ax</span></code>)/2</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">m_share_min</span></code> = 0.1</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">m_share_max</span></code> = 0.6</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">m_grid</span></code> = 1</p></li>
+<li><p>number of variables used for splitting = share * total # of variable</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">m_grid</span></code> ==1: <code class="docutils literal notranslate"><span class="pre">m_share</span></code> = (<code class="docutils literal notranslate"><span class="pre">m_share_min</span></code> + <code class="docutils literal notranslate"><span class="pre">m_share_max</span></code>)/2</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_min_min</span></code> = <code class="docutils literal notranslate"><span class="pre">n_d</span></code> ** 0.4/6; at least 4</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_min_max</span></code> = sqrt(<code class="docutils literal notranslate"><span class="pre">n_d</span></code>)/6, at least ^4 where n_d denotes the number of observations in the smallest treatment arm</p></li>
+<li><p>If <code class="docutils literal notranslate"><span class="pre">n_min_grid</span></code> == 1: <code class="docutils literal notranslate"><span class="pre">n_min``=(``n_min_min</span></code> + <code class="docutils literal notranslate"><span class="pre">n_min_max</span></code>)/2</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_min_treat</span></code> = <code class="docutils literal notranslate"><span class="pre">n_min_min</span></code> + <code class="docutils literal notranslate"><span class="pre">n_min_max</span></code>)/2 / # of treatments / 4. Minimum is 2.</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-3-2">
+<h2>Version 0.3.2<a class="headerlink" href="#version-0-3-2" title="Link to this heading">#</a></h2>
+<section id="id35">
+<h3>What’s New<a class="headerlink" href="#id35" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>In estimation use cross-fitting to compute the IATEs. To enable cross-fitting set iate_cv to True. The default is False. The default number of folds is 5 and can be overwritten via the input argument iate_cv_folds. The estimates are stored in the  iate_cv_file.csv. Further information on estimation and descriptives are stored in the iate_cv_file.txt.</p></li>
+<li><p>Compare GATE(x) to GATE(x-1), where x is the current evaluation point and x-1 the previous one by setting GATE_MINUS_PREVIOUS to True. The default is False.</p></li>
+<li><p>Set n_min_treat to regulate the minimum number of observations in the treatment leaves.</p></li>
+<li><p>Experimental support for Dask. The default for multiprocessing is Ray. You may deploy Dask by setting _RAY_OR_DASK =’dask’. Note that with Dask the call of the programme needs to proteced by setting <cite>__name__ == ‘__main__’</cite></p></li>
+</ul>
+</section>
+<section id="id36">
+<h3>Bug fixes<a class="headerlink" href="#id36" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Minor bug when GATEs were printed is fixed.</p></li>
+<li><p>Updated labels in sorted effects plots.</p></li>
+</ul>
+</section>
+<section id="id37">
+<h3>Name Changes and Default Updates<a class="headerlink" href="#id37" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">effiate_flag</span></code> = <code class="docutils literal notranslate"><span class="pre">iate_eff_flag</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smooth_gates</span></code> = <code class="docutils literal notranslate"><span class="pre">gates_smooth</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smooth_gates_bandwidth</span></code> = <code class="docutils literal notranslate"><span class="pre">gates_smooth_bandwidth</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">smooth_gates_no_evaluation_points</span></code> = <code class="docutils literal notranslate"><span class="pre">gates_smooth_no_evaluation_points</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">relative_to_first_group_only</span></code> = <code class="docutils literal notranslate"><span class="pre">post_relative_to_first_group_only</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bin_corr_yes</span></code> = <code class="docutils literal notranslate"><span class="pre">post_bin_corr_yes</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">bin_corr_threshold</span></code> = <code class="docutils literal notranslate"><span class="pre">post_bin_corr_threshold</span></code></p></li>
+<li><p>Increase in the default for sampling share</p></li>
+<li><p>New defaults for feature selection
+- <code class="docutils literal notranslate"><span class="pre">fs_other_sample_share</span></code> = 0.33
+- <code class="docutils literal notranslate"><span class="pre">fs_rf_threshold</span></code> = 0.0001</p></li>
+<li><p>Defaults for <code class="docutils literal notranslate"><span class="pre">n_min_min</span></code> increased to n**0.4/10, at least 3; -1: n**0.4/5 - where n is the number of observations in the smallest treatment arm.</p></li>
+<li><p>Number of parallel processes set to <code class="docutils literal notranslate"><span class="pre">mp_parallel</span></code> = 80% of logical cores.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">subsample_factor_eval</span></code> = True, where True means 2 * subsample size used for tree.</p></li>
+</ul>
+</section>
+</section>
+<section id="version-0-3-1">
+<h2>Version 0.3.1<a class="headerlink" href="#version-0-3-1" title="Link to this heading">#</a></h2>
+<section id="id38">
+<h3>What’s New<a class="headerlink" href="#id38" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>New experimental feature: A new module is provided (optpolicy_with_mcf) that combines mcf estimations of IATEs with optimal policies (black-box and policy trees). It also provides out-of-sample evaluations of the allocations. For more details refer to Cox, Lechner, Bollens (2022) and user_evaluate_optpolicy_with_mcf.py.</p></li>
+</ul>
+</section>
+<section id="id39">
+<h3>Bug fixes<a class="headerlink" href="#id39" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>csv files for GATE tables can also deal with general treatment definitions</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_mp_with_ray</span></code> no longer an input argument</p></li>
+<li><p>names_pot_iate is an additional return from the estimator. It is a 2-tuple with the list of potentially outcomes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">return_iate_sp</span></code> is a new parameter to algorithm to predict and return effects despite <code class="docutils literal notranslate"><span class="pre">with_output</span></code> being set to False.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-3-0">
+<h2>Version 0.3.0<a class="headerlink" href="#version-0-3-0" title="Link to this heading">#</a></h2>
+<section id="id40">
+<h3>What’s New<a class="headerlink" href="#id40" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>The mcf supports an object-oriented interface: new class <a class="reference internal" href="python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a> and methods (<a class="reference internal" href="mcf_main.ModifiedCausalForest.predict.html#mcf_main.ModifiedCausalForest.predict" title="mcf_main.ModifiedCausalForest.predict"><code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a>, <a class="reference internal" href="mcf_main.ModifiedCausalForest.train.html#mcf_main.ModifiedCausalForest.train" title="mcf_main.ModifiedCausalForest.train"><code class="xref py py-meth docutils literal notranslate"><span class="pre">train()</span></code></a> and <code class="xref py py-meth docutils literal notranslate"><span class="pre">train_predict()</span></code>).</p></li>
+<li><p>Delivery of potential outcome estimates for which local centering is reversed by setting <code class="docutils literal notranslate"><span class="pre">l_centering_undo_iate</span></code> to True; default is True.</p></li>
+<li><p>Readily available tables for GATEs, AMGATEs, and MGATEs. Generated tables summarize all estimated causal effects. Tables are stored in respective folders.</p></li>
+<li><p>The optimal policy function is generalized to encompass also stochastic treatment allocations.</p></li>
+</ul>
+</section>
+<section id="id41">
+<h3>Bug fixes<a class="headerlink" href="#id41" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Training and prediction are done in separate runs.</p></li>
+<li><p>Issue in optimal policy learning for unobserved treatment was resolved.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-2-6">
+<h2>Version 0.2.6<a class="headerlink" href="#version-0-2-6" title="Link to this heading">#</a></h2>
+<section id="id42">
+<h3>Bug fixes<a class="headerlink" href="#id42" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Bug fix in general_purpose.py</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-2-5-yanked">
+<h2>Version 0.2.5 (yanked)<a class="headerlink" href="#version-0-2-5-yanked" title="Link to this heading">#</a></h2>
+<section id="id43">
+<h3>Bug fixes<a class="headerlink" href="#id43" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Bug fix in bootstrap of optimal policy module.</p></li>
+</ul>
+</section>
+<section id="id44">
+<h3>What’s New<a class="headerlink" href="#id44" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Change in output directory structure.</p></li>
+<li><p>Name change of file with predicted IATE (ends &lt;foo&gt;_IATE.csv)</p></li>
+<li><p>default value of <code class="docutils literal notranslate"><span class="pre">l_centering_replication</span></code> changed from False to True.</p></li>
+<li><p>More efficient estimation of IATE, referred to as EffIATE</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-2-4">
+<h2>Version 0.2.4<a class="headerlink" href="#version-0-2-4" title="Link to this heading">#</a></h2>
+<section id="id45">
+<h3>Bug fixes<a class="headerlink" href="#id45" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Bug fix for cases when outcome had no variation when splitting.</p></li>
+</ul>
+</section>
+<section id="id46">
+<h3>What’s New<a class="headerlink" href="#id46" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>File with IATEs also contains indicator of specific cluster in k-means clustering.</p></li>
+<li><p>Option for guaranteed replicability of results. sklearn.ensemble.RandomForestRegressor does not necessarily replicable results (due to threading). A new keyword argument (l_centering_replication, default is False) is added. Setting this argument to True slows down local centering a but but removes that problem</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-2-3">
+<h2>Version 0.2.3<a class="headerlink" href="#version-0-2-3" title="Link to this heading">#</a></h2>
+<section id="id47">
+<h3>Bug fixes<a class="headerlink" href="#id47" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Missing information in init.py.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-2-2">
+<h2>Version 0.2.2<a class="headerlink" href="#version-0-2-2" title="Link to this heading">#</a></h2>
+<section id="id48">
+<h3>Bug fixes<a class="headerlink" href="#id48" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Bug fix in plotting GATEs.</p></li>
+</ul>
+</section>
+<section id="id49">
+<h3>What’s New<a class="headerlink" href="#id49" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>ATEs are saved in csv file (same as data for figures and other effects).</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-2-1">
+<h2>Version 0.2.1<a class="headerlink" href="#version-0-2-1" title="Link to this heading">#</a></h2>
+<section id="id50">
+<h3>Bug fixes<a class="headerlink" href="#id50" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Bug fix in MGATE estimation, which led to program aborting.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-2-0">
+<h2>Version 0.2.0<a class="headerlink" href="#version-0-2-0" title="Link to this heading">#</a></h2>
+<section id="id51">
+<h3>Bug fixes<a class="headerlink" href="#id51" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Bug fix for policy trees under restrictions.</p></li>
+<li><p>Bug fix for GATE estimation (when weighting was used).</p></li>
+</ul>
+</section>
+<section id="id52">
+<h3>What’s New<a class="headerlink" href="#id52" title="Link to this heading">#</a></h3>
+<ul>
+<li><p>Main function changed from <cite>ModifiedCausalForest()</cite> to <cite>modified_causal_forest()</cite>.</p></li>
+<li><p>Complete seeding of random number generator.</p></li>
+<li><p>Keyword modifications:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">stop_empty</span></code> removed as parameter,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">descriptive_stats</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">_descriptive_stats</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">dpi</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">_dpi</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fontsize</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">_fontsize</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mp_vim_type</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">_mp_vim_type</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mp_weights_tree_batch</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">_mp_weights_tree_batch</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mp_weights_type</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">_mp_weights_type</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mp_with_ray</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">_mp_with_ray</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">no_filled_plot</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">_no_filled_plot</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">show_plots</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">_show_plots</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">verbose</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">_verbose</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">weight_as_sparse</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">_weight_as_sparse</span></code>,</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">support_adjust_limits</span></code> new keyword for common support.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Experimental version of continuous treatment. Newly introduced keywords here</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">d_type</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ct_grid_nn</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ct_grid_w</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ct_grid_dr</span></code></p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>The optimal policy function contains new rules based on ‘black box’ approaches, i.e., using the potential outcomes directly to obtain optimal allocations.</p></li>
+<li><p>The optimal policy function allows to describe allocations with respect to other policy variables than the ones used for determining the allocation.</p></li>
+<li><p>Plots:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>improved plots</p></li>
+<li><p>new overlapping plots for common support analysis</p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-1-4">
+<h2>Version 0.1.4<a class="headerlink" href="#version-0-1-4" title="Link to this heading">#</a></h2>
+<section id="id53">
+<h3>Bug fixes<a class="headerlink" href="#id53" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Bug fix for predicting from previously trained and saved forests.</p></li>
+<li><p>Bug fix in <code class="docutils literal notranslate"><span class="pre">mcf_init_function</span></code> when there are missing values.</p></li>
+</ul>
+</section>
+<section id="id54">
+<h3>What’s New<a class="headerlink" href="#id54" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_mp_ray_shutdown</span></code> new defaults. If object size is smaller 100,000, the default is False and else True.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-1-3">
+<h2>Version 0.1.3<a class="headerlink" href="#version-0-1-3" title="Link to this heading">#</a></h2>
+<section id="id55">
+<h3>Bug fixes<a class="headerlink" href="#id55" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Minor bug fixes, which led to unstable performance.</p></li>
+</ul>
+</section>
+<section id="id56">
+<h3>What’s New<a class="headerlink" href="#id56" title="Link to this heading">#</a></h3>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">subsample_factor</span></code> is split into <code class="docutils literal notranslate"><span class="pre">subsample_factor_eval</span></code> and <code class="docutils literal notranslate"><span class="pre">subsample_factor_forest</span></code>.</p></li>
+<li><p>New default value for <code class="docutils literal notranslate"><span class="pre">stop_empty</span></code>.</p></li>
+<li><p>Optimal policy module computes the policy tree also sequentially. For this purpose, the <cite>optpoltree</cite> API has changed slightly. Renamed input arguments are</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">ft_yes</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ft_depth</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ft_min_leaf_size</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ft_no_of_evalupoints</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">ft_yes</span></code></p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>the new input arguments for the sequential tree are:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">st_yes</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">st_depth</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">st_min_leaf_size</span></code></p></li>
+</ul>
+</div></blockquote>
+</li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-1-2">
+<h2>Version 0.1.2<a class="headerlink" href="#version-0-1-2" title="Link to this heading">#</a></h2>
+<section id="id57">
+<h3>Bug fixes<a class="headerlink" href="#id57" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Common support with very few observations is turned off.</p></li>
+<li><p>Minor fix of MSE computation for multiple treatments.</p></li>
+</ul>
+</section>
+<section id="id58">
+<h3>What’s New<a class="headerlink" href="#id58" title="Link to this heading">#</a></h3>
+<ul>
+<li><p>New default values for</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">alpha_reg_grid</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">alpha_reg_max</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">alpha_reg_min</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">knn_flag</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">l_centering</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mp_parallel</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">p_diff_penalty</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">random_thresholds</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">se_boot_ate</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">se_boot_gate</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">se_boot_iate</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">stop_empty</span></code></p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Consistent use of a new random number generator.</p></li>
+<li><p>Ray is initialized once.</p></li>
+<li><p>Ray can be fine-tuned via</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">_mp_ray_del</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">_mp_ray_shutdown</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mp_ray_objstore_multiplier</span></code> –&gt; <code class="docutils literal notranslate"><span class="pre">_mp_ray_objstore_multiplier</span></code></p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>New options to deal with larger data sets:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">reduce_split_sample</span></code>: split sample in a part used for estimation and predicting the effects for given x; large prediction sample may increase running time.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reduce_training</span></code>: take a random sample from training data.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reduce_prediction</span></code>: take a random sample from prediction data.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reduce_largest_group_train</span></code>: reduce the largest group in the training data; this should be less costly in terms of precision than taking random samples.</p></li>
+</ul>
+</div></blockquote>
+</li>
+<li><p>Optional IATEs via <code class="docutils literal notranslate"><span class="pre">iate_flag</span></code> and optional standard errors via <code class="docutils literal notranslate"><span class="pre">iate_se_flag</span></code>.</p></li>
+<li><p><cite>ModifiedCausalForest()</cite> now also returns potential outcomes and their variances.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mp_with_ray</span></code> is a new input argument to <cite>‌optpoltree()</cite>;  Ray can be used for multiprocessing when calling <cite>‌optpoltree()</cite>.</p></li>
+<li><p>Block-bootstrap on <span class="math notranslate nohighlight">\(w_i \times y_i\)</span> is the new clustered standard errors default. This is slower but likely to be more accurate  than the aggregation within-clusters deployed before.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-1-1">
+<h2>Version 0.1.1<a class="headerlink" href="#version-0-1-1" title="Link to this heading">#</a></h2>
+<section id="id59">
+<h3>Bug fixes<a class="headerlink" href="#id59" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Minor bug fixes concerning <code class="docutils literal notranslate"><span class="pre">with_output</span></code>, <code class="docutils literal notranslate"><span class="pre">smaller_sample</span></code>, (A,AM)GATE/IATE-ATE plots, and the sampling weights.</p></li>
+</ul>
+</section>
+<section id="id60">
+<h3>What’s New<a class="headerlink" href="#id60" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Optional tree-specific subsampling for evaluation sample (subsample variables got new names).</p></li>
+<li><p>k-Means cluster indicator for the IATEs saved in file with IATE predictions.</p></li>
+<li><p>Evaluation points of GATE figures are included in the output csv-file.</p></li>
+<li><p>Exception raised if choice based sampling is activated and there is no treatment information in predictions file.</p></li>
+<li><p>New defaults for <code class="docutils literal notranslate"><span class="pre">random_thresholds</span></code>; by default the value is set to 20 percent of the square-root of the number of training observations.</p></li>
+<li><p>Stabilizing <cite>ray</cite> by deleting references to object store and tasks</p></li>
+<li><p>The function <cite>ModifiedCausalForest()</cite> returns now ATE, standard error (SE) of the ATE, GATE, SE of the GATE, IATE, SE of the IATE, and the name of the file with the predictions.</p></li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="version-0-1-0">
+<h2>Version 0.1.0<a class="headerlink" href="#version-0-1-0" title="Link to this heading">#</a></h2>
+<section id="id61">
+<h3>Bug fixes<a class="headerlink" href="#id61" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Bug fix for dealing with missings.</p></li>
+<li><p>Bug fixes for problems computing treatment effects for treatment populations.</p></li>
+<li><p>Bug fixes for the use of panel data and clustering.</p></li>
+</ul>
+</section>
+<section id="id62">
+<h3>What’s New<a class="headerlink" href="#id62" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">post_kmeans_no_of_groups</span></code> can now be a list or tuple with multiple values for the number of clusters; the optimal value is chosen through silhouette analysis.</p></li>
+<li><p>Detection of numerical variables added; raises an exception for non-numerical inputs.</p></li>
+<li><p>All variables used are shown in initial treatment-specific statistics to detect common support issues.</p></li>
+<li><p>Improved statistics for common support analysis.</p></li>
+</ul>
+</section>
+<section id="experimental">
+<h3>Experimental<a class="headerlink" href="#experimental" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Optimal Policy Tool building policy trees included bases on estimated IATEs (allowing implicitly for constraints and programme costs).</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="FAQ.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">FAQ</p>
+      </div>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-9-0">Version 0.9.0</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#documentation">Documentation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-data-function">Example data function</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-programmes">Example programmes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#modifiedcausalforest-class">ModifiedCausalForest class</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#optimalpolicy-class">OptimalPolicy class</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-8-0">Version 0.8.0</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id1">Documentation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-data">Example data</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#example-programs">Example Programs</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id2">ModifiedCausalForest Class</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id3">OptimalPolicy Class</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-7-2">Version 0.7.2</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id4">Documentation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id5">Example Programs</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#all-classes">All Classes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id6">ModifiedCausalForest Class</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id7">OptimalPolicy Class</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-7-1">Version 0.7.1</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-7-0">Version 0.7.0</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id8">Documentation</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#changes-concerning-all-classes">Changes concerning all classes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#changes-concerning-the-class-modifiedcausalforest">Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a><ul class="visible nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#new-keywords">New keywords</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#changes-concerning-the-class-optimalpolicy">Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a><ul class="visible nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id11">New Keywords</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#changes-concerning-the-class-mcfoptpolreport">Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">McfOptPolReport</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-6-0">Version 0.6.0</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#general">General</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id12">Changes concerning all classes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#changes-concerning-all-methods">Changes concerning all methods</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id13">Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a><ul class="visible nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#bug-fixes">Bug fixes</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#change-of-default-values">Change of default values</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#additional-features-and-new-keywords">Additional features and new keywords</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#changes-in-the-implementation-of-train-method-train">Changes in the implementation of train method <code class="xref py py-meth docutils literal notranslate"><span class="pre">train()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#changes-in-the-implementation-of-train-method-predict">Changes in the implementation of train method <code class="xref py py-meth docutils literal notranslate"><span class="pre">predict()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id14">Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a><ul class="visible nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id15">Bug fixes</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#removed-features">Removed features</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#additional-features">Additional features</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id16">Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">McfOptPolReport</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-5-1">Version 0.5.1</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id17">General</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-5-0">Version 0.5.0</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id18">General</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id19">Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id20">Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#new-class-mcfoptpolreport">New class <code class="xref py py-class docutils literal notranslate"><span class="pre">McfOptPolReport</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-4-3">Version 0.4.3</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id21">Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a><ul class="visible nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id22">Bug fixes</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#new">New</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id23">Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-4-2">Version 0.4.2</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id24">Bug fixes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id25">New</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id26">General</a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id27">Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id28">Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">OptimalPolicy</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-4-1">Version 0.4.1</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id29">Bug fixes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id30">New</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-4-0">Version 0.4.0</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#what-s-new">What’s New</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#id31">Changes concerning the class <code class="xref py py-class docutils literal notranslate"><span class="pre">ModifiedCausalForest</span></code>:</a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#name-changes-and-default-updates">Name Changes and Default Updates</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-3-3">Version 0.3.3</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id32">What’s New</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id33">Bug fixes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id34">Name Changes and Default Updates</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-3-2">Version 0.3.2</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id35">What’s New</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id36">Bug fixes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id37">Name Changes and Default Updates</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-3-1">Version 0.3.1</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id38">What’s New</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id39">Bug fixes</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-3-0">Version 0.3.0</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id40">What’s New</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id41">Bug fixes</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-2-6">Version 0.2.6</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id42">Bug fixes</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-2-5-yanked">Version 0.2.5 (yanked)</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id43">Bug fixes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id44">What’s New</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-2-4">Version 0.2.4</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id45">Bug fixes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id46">What’s New</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-2-3">Version 0.2.3</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id47">Bug fixes</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-2-2">Version 0.2.2</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id48">Bug fixes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id49">What’s New</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-2-1">Version 0.2.1</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id50">Bug fixes</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-2-0">Version 0.2.0</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id51">Bug fixes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id52">What’s New</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-1-4">Version 0.1.4</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id53">Bug fixes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id54">What’s New</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-1-3">Version 0.1.3</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id55">Bug fixes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id56">What’s New</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-1-2">Version 0.1.2</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id57">Bug fixes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id58">What’s New</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-1-1">Version 0.1.1</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id59">Bug fixes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id60">What’s New</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#version-0-1-0">Version 0.1.0</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id61">Bug fixes</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id62">What’s New</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#experimental">Experimental</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/changelog.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2024, Michael Lechner.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

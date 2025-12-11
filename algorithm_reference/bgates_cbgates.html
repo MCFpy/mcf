@@ -1,0 +1,645 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>4. CBGATEs and BGATEs &#8212; mcf 0.9.0  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=f281be69"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'algorithm_reference/bgates_cbgates';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="5. QIATEs" href="QIATEs.html" />
+    <link rel="prev" title="3. Local centering" href="local_centering.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">mcf 0.9.0  documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../algorithm_reference.html">
+    Algorithm Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../python_api.html">
+    Python API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../FAQ.html">
+    FAQ
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../changelog.html">
+    Changelog
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MCFpy/mcf" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/mcf/" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../user_guide.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="../algorithm_reference.html">
+    Algorithm Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../python_api.html">
+    Python API
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../FAQ.html">
+    FAQ
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../changelog.html">
+    Changelog
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/MCFpy/mcf" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/mcf/" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../algorithm_reference.html" class="nav-link">Algorithm Reference</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis"><span class="section-number">4. </span>CBGATEs and BGATEs</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="cbgates-and-bgates">
+<h1><span class="section-number">4. </span>CBGATEs and BGATEs<a class="headerlink" href="#cbgates-and-bgates" title="Link to this heading">#</a></h1>
+<p>Balanced Group Average Treatment Effects (<span class="math notranslate nohighlight">\(\textrm{BGATE's}\)</span>) and Causal Balanced Group Average Treatment Effects (<span class="math notranslate nohighlight">\(\textrm{CBGATE's}\)</span>) have been introduced by <a class="reference external" href="https://browse.arxiv.org/abs/2401.08290">Bearth &amp; Lechner (2024)</a>.</p>
+<p>The <span class="math notranslate nohighlight">\(\textrm{BGATE}\)</span> can be used to estimate <span class="math notranslate nohighlight">\(\textrm{ATE's}\)</span> for different groups (<span class="math notranslate nohighlight">\(\textrm{GATE's}\)</span>), while accounting for differences in other covariates, i.e.</p>
+<div class="math notranslate nohighlight">
+\[BGATE(m,l;x) = \mathbb{E} \bigg[ \mathbb{E} \big[ Y^1 - Y^0 \big\vert Z=z, W=w \big]\bigg]\]</div>
+<p>Here, <span class="math notranslate nohighlight">\(Z\)</span> is a single feature of <span class="math notranslate nohighlight">\(X\)</span> and <span class="math notranslate nohighlight">\(W\)</span> denotes a subgroup of features of <span class="math notranslate nohighlight">\(X\)</span> excluding <span class="math notranslate nohighlight">\(Z\)</span>. <span class="math notranslate nohighlight">\(z\)</span> is a possible value of the variable of interest <span class="math notranslate nohighlight">\(Z\)</span>.</p>
+<p>The <span class="math notranslate nohighlight">\(\textrm{BGATE}\)</span> partially overcomes the attribution problem related to a simple <span class="math notranslate nohighlight">\(\textrm{GATE}\)</span>, where other relevant variables may confound effect heterogeneity.
+Furthermore, the Causal Balanced Group Average Treatment Effect (<span class="math notranslate nohighlight">\(\textrm{CBGATE}\)</span>) makes a causal interpretation of the <span class="math notranslate nohighlight">\(\textrm{BGATE}\)</span> possible, when all variables other than the heterogeneity variable <span class="math notranslate nohighlight">\(Z\)</span> are balanced and further asssumptions discussed in <a class="reference external" href="https://browse.arxiv.org/abs/2401.08290">Bearth &amp; Lechner (2024)</a> hold. Hence, both <span class="math notranslate nohighlight">\(\textrm{CBGATE}\)</span> and the plain-vanilla <span class="math notranslate nohighlight">\(\textrm{GATE}\)</span> are limiting cases of the <span class="math notranslate nohighlight">\(\textrm{BGATE}\)</span>.</p>
+<p>Algorithmically, the <span class="math notranslate nohighlight">\(\textrm{BGATE}\)</span> and the <span class="math notranslate nohighlight">\(\textrm{CBGATE}\)</span> are implemented as follows:</p>
+<ol class="arabic simple">
+<li><p>Draw a random sample from the prediction data.</p></li>
+<li><p>Keep the heterogeneity and balancing variables.</p></li>
+<li><p>Replicate the data from step 2 <span class="math notranslate nohighlight">\(n_z\)</span> times, where <span class="math notranslate nohighlight">\(n_z\)</span> denotes the cardinality of the heterogeneity variable of interest. In each <span class="math notranslate nohighlight">\(n_z\)</span> fold, set <span class="math notranslate nohighlight">\(Z\)</span> to a specific value.</p></li>
+<li><p>Draw the nearest neighbours of each observation in the prediction data in terms of the balancing variables and the heterogeneity variable. If there is a tie, the algorithm chooses one randomly.</p></li>
+<li><p>Form a new sample with all selected neighbours.</p></li>
+<li><p>Compute <span class="math notranslate nohighlight">\(\textrm{GATE's}\)</span> and their standard errors.</p></li>
+</ol>
+<p>One should note that this procedure only happens in the prediction part using the previously trained forest. This implementation differs from <a class="reference external" href="https://browse.arxiv.org/abs/2401.08290">Bearth &amp; Lechner (2024)</a> estimation approach. They use double/debiased machine learning to estimate the parameters of interest.</p>
+<p>To turn on the <span class="math notranslate nohighlight">\(\textrm{BGATE}\)</span> , set <code class="docutils literal notranslate"><span class="pre">p_bgate</span></code> to True. To turn on the <span class="math notranslate nohighlight">\(\textrm{CBGATE}\)</span>, set <code class="docutils literal notranslate"><span class="pre">p_cbgate</span></code> to True. The balancing variables <span class="math notranslate nohighlight">\(W\)</span> have to be specified in <code class="docutils literal notranslate"><span class="pre">var_x_name_balance_bgate</span></code>.</p>
+<p>Below you find a list of the main parameters which are related to the <span class="math notranslate nohighlight">\(\textrm{BGATE's}\)</span> and <span class="math notranslate nohighlight">\(\textrm{CBGATE's}\)</span>. Please consult the <a class="reference internal" href="../python_api.html#mcf_main.ModifiedCausalForest" title="mcf_main.ModifiedCausalForest"><code class="xref py py-class docutils literal notranslate"><span class="pre">API</span></code></a> for more details or additional parameters.</p>
+<section id="parameters">
+<h2><span class="section-number">4.1. </span>Parameters<a class="headerlink" href="#parameters" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="table">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">var_x_name_balance_bgate</span></code></p></td>
+<td><p>This parameter, which can be a string or a list of strings, specifies the variables that the GATEs should be balanced on. It’s only relevant if p_bgate is set to True. When a BGATE is computed, the distribution of these specified variables remains constant, ensuring that the effect of the treatment is estimated in a balanced manner across these variables. This helps to control for potential confounding effects that these variables might have on the treatment effect. If set to None, the program defaults to using the other heterogeneity variables (specified in var_z) for balancing. This means that the GATEs will be balanced across the distribution of these heterogeneity variables.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">p_bgate</span></code></p></td>
+<td><p>Activates the estimation of a Balanced Group Average Treatment Effect (BGATE).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">p_cbgate</span></code></p></td>
+<td><p>Enables the estimation of a GATE that is balanced in all other features.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">p_gate_no_evalu_points</span></code></p></td>
+<td><p>Determines the number of evaluation points for discretized variables in (C)BGATE estimation. The default value is 50.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">p_bgate_sample_share</span></code></p></td>
+<td><p>Used to speed up the program as the (C)BGATE estimation is CPU intensive.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="examples">
+<h3><span class="section-number">4.1.1. </span>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">mcf.example_data_functions</span><span class="w"> </span><span class="kn">import</span> <span class="n">example_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcf.mcf_main</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModifiedCausalForest</span>
+
+<span class="c1"># Generate example data using the built-in function `example_data()`</span>
+<span class="n">training_df</span><span class="p">,</span> <span class="n">prediction_df</span><span class="p">,</span> <span class="n">name_dict</span> <span class="o">=</span> <span class="n">example_data</span><span class="p">()</span>
+
+<span class="n">my_mcf</span> <span class="o">=</span> <span class="n">ModifiedCausalForest</span><span class="p">(</span>
+    <span class="n">var_y_name</span><span class="o">=</span><span class="s2">&quot;outcome&quot;</span><span class="p">,</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">,</span> <span class="s2">&quot;x_ord1&quot;</span><span class="p">],</span>
+    <span class="n">var_z_name_cont</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">],</span>
+    <span class="c1"># Variables to balance the GATEs on</span>
+    <span class="n">var_x_name_balance_bgate</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont1&quot;</span><span class="p">],</span>
+    <span class="c1"># Estimate a balanced GATE in selected features</span>
+    <span class="n">p_bgate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="c1"># Random samples to speed up the programme</span>
+    <span class="n">p_bgate_sample_share</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="p">)</span>
+
+<span class="n">my_mcf</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">training_df</span><span class="p">)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">my_mcf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">prediction_df</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">my_mcf</span> <span class="o">=</span> <span class="n">ModifiedCausalForest</span><span class="p">(</span>
+    <span class="n">var_y_name</span><span class="o">=</span><span class="s2">&quot;outcome&quot;</span><span class="p">,</span>
+    <span class="n">var_d_name</span><span class="o">=</span><span class="s2">&quot;treat&quot;</span><span class="p">,</span>
+    <span class="n">var_x_name_ord</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_unord0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_cont0&quot;</span><span class="p">,</span> <span class="s2">&quot;x_ord1&quot;</span><span class="p">],</span>
+    <span class="n">var_z_name_cont</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x_cont0&quot;</span><span class="p">],</span>
+    <span class="c1"># Estimate a GATE that is balanced in all other features</span>
+    <span class="n">p_cbgate</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+
+<span class="n">my_mcf</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">training_df</span><span class="p">)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">my_mcf</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">prediction_df</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="local_centering.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title"><span class="section-number">3. </span>Local centering</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="QIATEs.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title"><span class="section-number">5. </span>QIATEs</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parameters">4.1. Parameters</a><ul class="visible nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#examples">4.1.1. Examples</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/algorithm_reference/bgates_cbgates.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2024, Michael Lechner.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

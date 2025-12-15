@@ -59,7 +59,7 @@ If you prefer a graphical interface, do the following:
 
 1. Install Anaconda distribution including Anaconda navigator from `here <https://docs.anaconda.com/free/navigator/install/>`__.
 
-2. Set up an environment as described `here <https://docs.anaconda.com/free/navigator/getting-started/#managing-environments>`__ and make sure you choose Python=3.12.5 for your environment.
+2. Set up an environment as described `here <https://docs.anaconda.com/free/navigator/getting-started/#managing-environments>`__ and make sure you choose the compatible Python version indicated at the beginning of this installation guide.
 
 3. Install the **mcf** package by using pip install in your IDE console:
 

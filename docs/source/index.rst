@@ -57,9 +57,9 @@ If you prefer the command line, install conda as described `here <https://docs.c
 
 If you prefer a graphical interface, do the following:
 
-1. Install Anaconda distribution including Anaconda navigator from `here <https://docs.anaconda.com/free/navigator/install/>`__.
+1. Download Anaconda Distribution including Anaconda Navigator from the Anaconda Documentation `here <https://www.anaconda.com/docs/main>`__ and install the software on your device.
 
-2. Set up an environment as described `here <https://docs.anaconda.com/free/navigator/getting-started/#managing-environments>`__ and make sure you choose the compatible Python version indicated at the beginning of this installation guide.
+2. Set up an environment as described in the Environments Page of the Anaconda Documentation and make sure you choose the compatible Python version indicated at the beginning of this installation guide.
 
 3. Install the **mcf** package by using pip install in your IDE console:
 
@@ -67,7 +67,7 @@ If you prefer a graphical interface, do the following:
 
       pip install mcf
 
-An alternative to the third step, installing the **mcf** package, is to use `this <https://docs.anaconda.com/free/navigator/getting-started/#managing-packages>`__ guide. It is recommended to prioritize ``conda install`` for package installations before using ``pip install``.
+Alternative ways of installing packages are shown in the Packages Page of the Anaconda Documentation. It is recommended to prioritize ``conda install`` for package installations before using ``pip install``.
 
 **Note (1)**, if you plan to use Spyder as your IDE on a Windows machine, make sure to execute ``conda install spyder`` before proceeding with ``pip install mcf``. This reduces the risk of errors during installation.
 

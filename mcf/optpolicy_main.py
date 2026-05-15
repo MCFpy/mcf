@@ -20,12 +20,12 @@ class OptimalPolicy:
 
     dc_check_perfectcorr : Boolean (or None), optional
         Features that are perfectly correlated are deleted (1 of them).
-        Only relevant if `dc\_screen\_covariates` is True.
+        Only relevant if ``'dc_screen_covariates'`` is True.
         Default (or None) is True.
 
     dc_min_dummy_obs : Integer (or None), optional
-        Delete dummy variables that have less than dc_min_dummy_obs in one of their categories.
-        Only relevant if `dc\_screen\_covariates` is True.
+        Delete dummy variables that have less than ``'dc_min_dummy_obs'`` in one of their categories.
+        Only relevant if ``'dc_screen_covariates'`` is True.
         Default (or None) is 10.
 
     dc_clean_data : Boolean (or None), optional
@@ -61,13 +61,13 @@ class OptimalPolicy:
     fair_cont_min_values : Integer or float (or None),  optional
          The methods used for fairness corrections depends on whether the variable is consider as
          continuous or discrete. All unordered variables are considered being discrete, and all
-         ordered variables with more than ``fair_cont_min_values`` are considered as being discrete
+         ordered variables with more than ``'fair_cont_min_values'`` are considered as being discrete
          as well. The default (or None) is 20.
 
     fair_material_disc_method : String (or None), optional\
         Method on how to perform the discretization for materially relevant features.\
         ``'NoDiscretization'`` : Variables are not changed. If one of the features has more
-        different values than fair_material_max_groups, all materially relevant features will
+        different values than ``'fair_material_max_groups'``, all materially relevant features will
         formally be treated as continuous. The latter may become unreliable if their dimension is
         not year small.\
         ``'EqualCell'`` : Attempts to create equal cells for each variable.
@@ -78,7 +78,7 @@ class OptimalPolicy:
     fair_protected_disc_method : String (or None), optional\
         Method on how to perform the discretization for protected features.\
         ``'NoDiscretization'`` : Variables are not changed. If one of the features has more
-        different values than fair_protected_max_groups, all protected features will formally be
+        different values than ``'fair_protected_max_groups'``, all protected features will formally be
         treated as continuous. The latter may become unreliable if their dimension is not very
         small.\
         ``'EqualCell'`` : Attempts to create equal cells for each variable.
@@ -89,7 +89,7 @@ class OptimalPolicy:
     fair_material_max_groups : Integer (or None), optional\
         Level of discretization of materially relavant variables (only if needed). Number of groups
         of materially relavant features for cases when materially relavant variables are needed in
-        protected form. This is currently only necessary for 'Quantilized'.\
+        protected form. This is currently only necessary for ``'Quantilized'``.\
         Its meaning depends on fair_material_disc_method:\
         If ``'EqualCell'``: If more than 1 variable is included among the protected variables, this
         restriction is applied to each variable.\
@@ -100,7 +100,7 @@ class OptimalPolicy:
         Level of discretization of protected variables (only if needed). Number of groups of
         protected features for cases when protected variables are needed in discretized form. This
         is currently only necessary for ``'Quantilized'``.\
-        Its meaning depends on fair_protected_disc_method: If ``'EqualCell'`` : If more than 1
+        Its meaning depends on ``'fair_protected_disc_method'``: If ``'EqualCell'`` : If more than 1
         variable is included among the protected variables, this restriction is applied to each
         variable.\
         If ``'Kmeans'`` : This is the number of clusters used by Kmeans.
@@ -116,8 +116,8 @@ class OptimalPolicy:
         ``'NeuralNet'``, ``'NeuralNetLarge'``, ``'NeuralNetLarger'``, ``'Mean'``. If
         ``'automatic'``, an optimal method will be chosen based on 5-fold cross-validation in the
         training data. If a method is specified it will be used for all scores and all adjustments.
-        If 'automatic', every policy score might be adjusted with a different method.
-        'Mean' is included for cases in which regression methods have no explanatory power.\
+        If ``'automatic'``, every policy score might be adjusted with a different method.
+        ``'Mean'`` is included for cases in which regression methods have no explanatory power.\
         Default (or None) is ``'RandomForest'``.
 
     fair_type : String (or None), optional\
@@ -131,7 +131,7 @@ class OptimalPolicy:
         ``'Mean'`` and ``'MeanVar'`` are only availabe for adjusting the score (not the decision
         variables).\
         See the paper by Bearth, Lechner, Mareckova, Muny (2024) for details on these methods.\
-        Default (or None) is 'Quantiled'.
+        Default (or None) is ``'Quantiled'``.
 
     fs_yes : Boolean (or None), optional
         Feature selection before building assignment rule: A feature is deleted if it is irrelevant
@@ -156,7 +156,7 @@ class OptimalPolicy:
 
     fs_other_sample_share : Float (or None), optional
         Feature selection: Share of sample used for feature selection (only relevant if
-        fs_other_sample is True).
+        ``'fs_other_sample'`` is True).
         Default (or None) is 0.33.
 
     gen_method : String (or None), optional.\
@@ -186,7 +186,7 @@ class OptimalPolicy:
 
     gen_outfiletext : String (or None), optional
         File for text output. (.txt) file extension will be automatically added.
-        Default (or None) is 'txtFileWithOutput'.
+        Default (or None) is ``'txtFileWithOutput'``.
 
     gen_outpath : String or Pathlib object (or None), optional
         Directory to where to put text output and figures. If it does not exist, it will be created.
@@ -210,13 +210,13 @@ class OptimalPolicy:
         Default value (or None) with constraints: It defaults to 0.
         Default value (or None) without constraints: Costs will be automatically determined such as
         to enforce constraints in the training data by finding cost values that lead to an
-        allocation ('best_policy_score') that fulfils restrictions other_max_shares.
+        allocation (``'best_policy_score'``) that fulfils restrictions ``'other_max_shares'``.
         Default (or None) is None.
 
     other_costs_of_treat_mult : Float or tuple of floats (with as many elements as treatments)
         (or None), optional.
         Multiplier of automatically determined cost values. Use only when automatic costs violate
-        the constraints given by other_max_shares. This allows to increase (>1) or decrease (<1) the
+        the constraints given by ``'other_max_shares'``. This allows to increase (>1) or decrease (<1) the
         share of treated in particular treatment. None: (1, ..., 1).
         Default (or None) is None.
 
@@ -233,7 +233,7 @@ class OptimalPolicy:
     pt_depth_tree_2 : Integer (or None), optional
         Depth of 2nd optimal tree. This set is built within the strata obtained from the leaves of
         the first tree. If set to 0, a second tree is not built. Default is 1 (together with the
-        default for pt_depth_tree_1 this leads to a (not optimal) total tree of level of 4. Note
+        default for ``'pt_depth_tree_1'`` this leads to a (not optimal) total tree of level of 4. Note
         that tree depth is defined such that a depth of 1 implies 2 leaves, a depth of 2 implies 4
         leaves, a depth of 3 implies 8 leaves, etc.
 
@@ -245,7 +245,7 @@ class OptimalPolicy:
         Default (or None) is False.
 
     pt_eva_cat_mult : Integer (or None), optional
-        Changes the number of the evaluation points (pt_no_of_evalupoints) for the unordered
+        Changes the number of the evaluation points (``'pt_no_of_evalupoints'``) for the unordered
         (categorical) variables to:
             :math:`\\text{pt\_eva\_cat\_mult} \\times \\text{pt\_no\_of\_evalupoints}`
         (available only for the method ``'policy tree'``).
@@ -260,14 +260,14 @@ class OptimalPolicy:
         Default (or None) is 100.
 
     pt_min_leaf_size : Integer (or None), optional
-        Minimum leaf size. Leaves that are smaller than pt_min_leaf_size in the training data will
+        Minimum leaf size. Leaves that are smaller than ``'pt_min_leaf_size'`` in the training data will
         not be considered. A larger number reduces computation time and avoids some overfitting.
         None :
         .. math::
             min(0.1 \\times \\frac{\\text{number of training observations}}
                 {{\\text{number of leaves}}}, 100)
         (if treatment shares are restricted this is multiplied by the smallest share allowed).
-        Only relevant if gen_method is 'policy tree'.
+        Only relevant if ``'gen_method'`` is ``'policy tree'``.
         Default is None.
 
     pt_select_values_cat : Boolean (or None), optional
@@ -280,7 +280,7 @@ class OptimalPolicy:
         values. Method 2 (pt\_select\_values\_cat == False) sorts the values of the categorical
         variables according to a values of the policy score as one would do for a standard random
         forest. If this set is still too large, a random sample of the entailed combinations is
-        drawn. Method 1 is only available for the method 'policy tree'.
+        drawn. Method 1 is only available for the method ``'policy tree'``.
 
     rnd_shares : Tuple of floats (or None), optional
         Share of treatments of a stochastic assignment as computed by the
@@ -292,11 +292,11 @@ class OptimalPolicy:
     var_bb_restrict_name : String (or None), optional
         Name of variable related to a restriction in case of capacity constraints. If there is a
         capacity constraint, preference will be given to observations with highest values of this
-        variable. Only relevant if gen_method is 'best_policy_score'.
+        variable. Only relevant if gen_method is ``'best_policy_score'``.
         Default is None.
 
     var_d_name : String (or None), optional
-        Name of (discrete) treatment. Needed in training data only if 'changers' (different
+        Name of (discrete) treatment. Needed in training data only if ``'changers'`` (different
         treatment in allocation than observed treatment) are analysed and if allocation is compared
         to observed allocation (in :meth:`~OptimalPolicy.evaluate` method).
         Default is None.
@@ -344,7 +344,7 @@ class OptimalPolicy:
     var_protected_ord_name : List or tuple of strings (nor None), optional
         Names of protected ordered variables. Their influence on the policy scores will be removed
         (conditional on the 'materially important' variables). These variables should NOT be
-        contained in decision variables, i.e., ``'var\_x\_name\_ord'``. If they are included, they will be
+        contained in decision variables, i.e., ``'var_x_name_ord'``. If they are included, they will be
         removed and ``'var_x_name_ord'`` will be adjusted accordingly.
         Default is None.
 
@@ -407,7 +407,7 @@ class OptimalPolicy:
 
     _int_xtr_parallel : Boolean (or None), optional.
         Parallelize to a larger degree to make sure all CPUs are busy for most of the time.
-        Only used for 'policy tree' and only used if _int_parallel_processing > 1 (or None)
+        Only used for 'policy tree' and only used if ``'_int_parallel_processing'`` > 1 (or None)
         Default (or None) is True.
         Internal variable, change default only if you know what you do.
 

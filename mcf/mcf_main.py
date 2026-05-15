@@ -159,7 +159,7 @@ class ModifiedCausalForest:
         
         .. math::
         
-            \\text{cf\_chunks\_maxsize} = 100000 + \\frac{{(\\text{number of observations} - 100000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
+            \\text{cf\_chunks\_maxsize} = 100000 + \\frac{{(\\text{number of observations} - 100000)^{0.8}}}{{(\\text{\# of treatments} - 1)}}
 
         Default is None.
         
@@ -168,7 +168,7 @@ class ModifiedCausalForest:
         
         .. math::
         
-            \\text{cf\_chunks\_maxsize} = 250000 + \\frac{{(\\text{number of observations} - 250000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
+            \\text{cf\_chunks\_maxsize} = 250000 + \\frac{{(\\text{number of observations} - 250000)^{0.8}}}{{(\\text{\# of treatments} - 1)}}
 
         Default is None.
 
@@ -194,7 +194,7 @@ class ModifiedCausalForest:
 
             \\text{A} = \\frac{\\sqrt{\\text{number of observations in the smallest treatment group}}}{10}, \\text{at least 2} 
 
-        :math:`\\text{cf_n_min_max} = \\text{round}(A \\times \\text{number of treatments})`
+        :math:`\\text{cf\_n\_min\_max} = \\text{round}(A \\times \\text{number of treatments})`
         Default is None.
 
     cf_n_min_min : Integer (or None), optional
@@ -205,7 +205,7 @@ class ModifiedCausalForest:
 
             \\text{A} = \\text{number of observations in smallest treatment group}^{0.4} / 10, \\text{at least 1.5} 
 
-        :math:`\\text{cf_n_min_min} = \\text{round}(A \\times \\text{number of treatments})`
+        :math:`\\text{cf\_n\_min\_min} = \\text{round}(A \\times \\text{number of treatments})`
         Default is None.
 
     cf_n_min_treat : Integer (or None), optional
@@ -213,12 +213,12 @@ class ModifiedCausalForest:
         a leaf cannot be filled with outcomes from all treatment arms in the evaluation subsample.
         There is no grid based tuning for this parameter. This parameter impacts the minimum leaf
         size which will be at least
-        to :math:`\\text{n_min_treat} \\times \\text{number of treatments}`
+        to :math:`\\text{n\_min\_treat} \\times \\text{number of treatments}`
         None :
 
         .. math::
 
-            \\frac{\\frac{{\\text{n_min_min}} + {\\text{n_min_max}}}{2}}{\\text{number of treatments} \\times 10}, \\text{at least 1} 
+            \\frac{\\frac{{\\text{n\_min\_min}} + {\\text{n\_min\_max}}}{2}}{\\text{number of treatments} \\times 10}, \\text{at least 1} 
 
         Default is None.
 
@@ -278,7 +278,7 @@ class ModifiedCausalForest:
     
             .. math::
     
-                \\frac{2 \\times (\\text{n} \\times \\text{`subsam_share`})^{0.9}}{\\text{n} \\times \\text{`subsam_share`}} \\times \\sqrt{\\frac{\\text{`no_of_treatments`} \\times (\\text{`no_of_treatments`} - 1)}{2}}  
+                \\frac{2 \\times (\\text{n} \\times \\text{subsam\_share})^{0.9}}{\\text{n} \\times \\text{subsam\_share}} \\times \\sqrt{\\frac{\\text{no\_of\_treatments} \\times (\\text{no\_of\_treatments} - 1)}{2}}  
     
         `mce_vart == 2`
             Multiplier of penalty (in terms of MSE(y) value function without splits) for penalty.  
@@ -287,7 +287,7 @@ class ModifiedCausalForest:
     
             .. math::
     
-                \\frac{100 \\times 4 \\times (n \\times \\text{`f_c.subsam_share`})^{0.8}}{n \\times \\text{`f_c.subsam_share`}}  
+                \\frac{100 \\times 4 \\times (n \\times \\text{f\_c.subsam\_share})^{0.8}}{n \\times \\text{f\_c.subsam\_share}}  
     
         `mce_vart == 3`
             Probability of using p-score (0-1). None : 0.5. Increase value if balancing tests
@@ -297,7 +297,7 @@ class ModifiedCausalForest:
     
     cf_penalty_type : String (or None), optional
         Type of penalty function.
-        'mse_d':  MSE of treatment prediction in daughter leaf (new in 0.7.0)
+        'mse_d':  MSE of treatment prediction in daughter leaf (new since 0.7.0)
         'diff_d': Penalty as squared leaf difference (as in Lechner, 2018)
         Note that an important advantage of 'mse_d' that it can also be used for tuning (due to its
         computation, this is not possible for 'diff_d').
@@ -327,7 +327,7 @@ class ModifiedCausalForest:
         Size of subsampling sample used to populate tree.
         False: No subsampling in evaluation subsample.
         True or None: :math:(2 \\times \\text{subsample size}) used for tree building
-            (to avoid too many empty leaves).
+        (to avoid too many empty leaves).
         Float (>0): Multiplier of subsample size used for tree building.
         In particular for larger samples, using subsampling in evaluatio will speed up computations
         and reduces demand on memory. Tree-specific subsampling in evaluation sample increases speed
@@ -563,9 +563,9 @@ class ModifiedCausalForest:
         be internally expanded to such a list for which all elements are equal to this single
         Boolean.
         True: Coefficients of the version dummies in the version ridge regression are (also)
-              penalized. Could be useful, when there are very many treatment versions.
+        penalized. Could be useful, when there are very many treatment versions.
         False: Only coefficients of covariates are penalized (including treatment covariate
-               interactions).
+        interactions).
         Default (or None) is False.
 
     lc_yes : Boolean (or None), optional
@@ -839,11 +839,11 @@ class ModifiedCausalForest:
         `zeros` : The values of the (centered) covariates are set to zero.
     
         `train_obs` : They are set to their empirical distribution for the training data
-                  (unconditional on treatment).
+        (unconditional on treatment).
     
-        `weighted_train_obs` : As `train_obs`, but observations are weighted by the forest weights
-                  (across treatments). This imposes some localness on the X-distribution  and  still
-                  removes the impact of treatment-control differences of X-values in the leaves.
+        `weighted_train_obs` : As `train_obs`, but observations are weighted by the forest weights 
+        (across treatments). This imposes some localness on the X-distribution  and  still
+        removes the impact of treatment-control differences of X-values in the leaves.
 
     p_ba_use_prop_score : Boolean (or None), optional
         If True, propensity score is used as regressor. Propensity is estimated with random forest
@@ -1180,9 +1180,9 @@ class ModifiedCausalForest:
 
     _int_weight_as_sparse_splits : Integer or None, optional
         Compute the sparse weight matrix in several chunks.
-        `None` : If _int_low_memory_max is True, then the default is 1. Otherwise, it is determined
-                 by the rows of prediction data times rows of ``Fill_y`` data,
-                 divided by (number of training splits × ``25'000 * 25'000``).
+        `None` : If _int_low_memory_max is True, then the default is 1. Otherwise, it is 
+        determined by the rows of prediction data times rows of ``Fill_y`` data, divided
+        by (number of training splits × ``25'000 * 25'000``).
         Default is None.
         Internal variable, change default only if you know what you do.
 

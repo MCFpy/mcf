@@ -32,7 +32,7 @@ class ModifiedCausalForest:
         If the number of versions > 1, this is a list with the treatment version as second variable.
         Note that the value of versions are conditional on the main treatment. In other words,
         version 2 of treatment 1 and version 2 of treatment 2 lead to different potential outcomes.
-        IMPORTANT: Main treatment must always be the first element in the treatments list. This
+            IMPORTANT: Main treatment must always be the first element in the treatments list. This
             variable is also used for the programme to determine if there are treatment
             versions at all. Only one element in list/tuple or string: No treatment versions.
             Two elements in list/tuple: 1st element is main treatment, 2nd element is subtreatment.
@@ -159,7 +159,7 @@ class ModifiedCausalForest:
         
         .. math::
         
-            \\text{`cf_chunks_maxsize`} = 100000 + \\frac{{(\\text{number of observations} - 100000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
+            \\text{cf\_chunks\_maxsize} = 100000 + \\frac{{(\\text{number of observations} - 100000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
 
         Default is None.
         
@@ -168,7 +168,7 @@ class ModifiedCausalForest:
         
         .. math::
         
-            \\text{cf_chunks_maxsize} = 250000 + \\frac{{(\\text{number of observations} - 250000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
+            \\text{cf\_chunks\_maxsize} = 250000 + \\frac{{(\\text{number of observations} - 250000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
 
         Default is None.
 

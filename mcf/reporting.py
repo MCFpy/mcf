@@ -73,11 +73,13 @@ class McfOptPolReport:
     </NOT-ON-API>
 
     """
+    
 
-    def __init__(self, mcf=None, mcf_sense=None, optpol=None,
-                 outputpath=None, outputfile=None):
+    def __init__(self, *, mcf=None, mcf_sense=None, optpol=None, outputpath=None, outputfile=None):
         self.gen_cfg = rep.ReportCfg.from_args(outputfile, outputpath)
-        self.mcf_o, self.opt_o, self.sens_o = mcf, optpol, mcf_sense
+        self.mcf_o = mcf
+        self.opt_o = optpol
+        self.sens_o = mcf_sense
         self.blind_o = None  # Underlying method deprecated. No reporting.
         self.mcf = self.mcf_o is not None
         self.opt = self.opt_o is not None
@@ -86,14 +88,15 @@ class McfOptPolReport:
         self.text = {}
         self.iv = False        # Instrumental variable estimation
 
-        self.version = '0.9.0'
+        self.version = '0.10.0'
 
     def report(self):
         """Create a PDF report save file to a user provided location.
 
         Using instances of the
-        :class:`~mcf_functions.ModifiedCausalForest` and
-        :class:`~optpolicy_functions.OptimalPolicy` classes.
+        :class:`~mcf_main.ModifiedCausalForest` and
+        :class:`~optpolicy_main.OptimalPolicy` or
+        :class:`~optpolicy_main.OptimalPolicyVersion` classes.
 
         Returns
         -------
@@ -109,4 +112,5 @@ class McfOptPolReport:
         # Step two: Connect the text and figures save as pdf
         rep.create_pdf_file(self)
         print(f'\nReport printed: {self.gen_cfg.outfilename}\n')
+
         return self.gen_cfg.outfilename

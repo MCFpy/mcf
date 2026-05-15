@@ -344,15 +344,15 @@ class OptimalPolicy:
     var_protected_ord_name : List or tuple of strings (nor None), optional
         Names of protected ordered variables. Their influence on the policy scores will be removed
         (conditional on the 'materially important' variables). These variables should NOT be
-        contained in decision variables, i.e., var\_x\_name\_ord. If they are included, they will be
-        removed and ``'var\_x\_name\_ord'`` will be adjusted accordingly.
+        contained in decision variables, i.e., ``'var\_x\_name\_ord'``. If they are included, they will be
+        removed and ``'var_x_name_ord'`` will be adjusted accordingly.
         Default is None.
 
     var_protected_unord_name : List or tuple of strings (nor None), optional
         Names of protected unordered variables. Their influence on the policy scores will be removed
         (conditional on the 'materially important' variables). These variables should NOT be
-        contained in decision variables, i.e., var\_x\_name\_unord. If they are included, they will be
-        removed andvar\_x\_name\_unord will be adjusted accordingly.
+        contained in decision variables, i.e., ``'var_x_name_unord'``. If they are included, they will be
+        removed and ``'var_x_name_unord'`` will be adjusted accordingly.
         Default is None.
 
     var_vi_x_name : List or tuple of strings or None, optional
@@ -417,26 +417,26 @@ class OptimalPolicy:
         Internal variable, change default only if you know what you do.
 
     _int_mp_backend : String (or None), optional
-        Backend to be used for parallelisation. Possible varlues 'ray' or 'joblib' or 'sequential'.
+        Backend to be used for parallelisation. Possible varlues ``'ray'`` or ``'joblib'`` or ``'sequential'``.
         Only relevant if int_mp_use_old_ray is False.
-        The default for Windows is 'joblib', else 'ray'.
+        The default for Windows is ``'joblib'``, else ``'ray'``.
         Internal variable, change default only if you know what you do.
 
     _int_mp_batches: Integer (or None), optional
         Number of batches used when running multiprocessing (all backends).
-        Only relevant if int_mp_use_old_ray is False.
+        Only relevant if ``'int_mp_use_old_ray'`` is False.
         Default is 20.
         Internal variable, change default only if you know what you do.
 
     _int_mp_memmap_min_bytes: Integer (or None), optional
         Minimum size of objects required to use memory maps in joblib.
-        Only relevant if int_mp_use_old_ray is False.
+        Only relevant if ``'int_mp_use_old_ray'`` is False.
         Default is 64 * 1024 * 1024.
         Internal variable, change default only if you know what you do.
 
     _int_mp_memmap_dir: str or Path object (or None), optional
        Tempory path to store memory maps. To be removed when  finished.
-       Only relevant if int_mp_use_old_ray is False.
+       Only relevant if ``'int_mp_use_old_ray'`` is False.
        Default is Path.cwd() / 'joblibtemp'.
        Internal variable, change default only if you know what you do.
 

@@ -171,7 +171,7 @@ class OptimalPolicy:
         different classifiers offered by sci-kit learn, namely a simple neural network, two
         classification random forests with minimum leaf size of 2 and 5, and ADDABoost. The
         selection is made according to the out-of-sample performance on scikit-learns Accuracy
-        Score. The implemented ``'policy tree'``'s are optimal trees, i.e. all possible trees are
+        Score. The implemented ``'policy tree'`` 's are optimal trees, i.e. all possible trees are
         checked if they lead to a better performance. If restrictions are specified, then this is
         incorporated into treatment specific cost parameters. Many ideas of the implementation
         follow Zhou, Athey, Wager (2022). If the provided policy scores fulfil their conditions

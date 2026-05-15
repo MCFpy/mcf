@@ -15,6 +15,7 @@ from mcf.mcf_sensitivity import sensitivity_main
 from mcf.mcf_unconfound import train_main, predict_main, analyse_main
 from mcf.mcfoptp_parallel_backend_ray_classical import check_ray_shutdown
 
+
 class ModifiedCausalForest:
     """
     Estimation of treatment effects with the Modified Causal Forest.

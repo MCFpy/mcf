@@ -255,7 +255,7 @@ class OptimalPolicy:
         No of evaluation points for continuous variables. The lower this  value, the faster the
         algorithm, but it may also deviate more from the optimal splitting rule. This parameter is
         closely related to the approximation parameter of Zhou, Athey, Wager (2022)(A) with
-        :math:`\\text{pt_no_of_evalupoints} = \\text{number of observation} / \\text{A}`.
+        :math:`\\text{pt\_no\_of\_evalupoints} = \\text{number of observation} / \\text{A}`.
         Only relevant if gen\_method is `policy tree`.
         Default (or None) is 100.
 

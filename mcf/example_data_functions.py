@@ -44,7 +44,7 @@ def example_data(obs_y_d_x_iate: int = 1000,
         Different types of heterogeneity broadly (but not exactly) following
         the specifications used in the simulations of Lechner and Mareckova
         (Comprehensive Causal Machine Learning, arXiv, 2024). Possible
-        types are 'linear', 'nonlinear', 'quadratic', 'WagerAthey'.
+        types are ``'linear'``, ``'nonlinear'``, ``'quadratic'``, ``'WagerAthey'``.
     seed : Integer, optional
         Seed of numpy random number generator object. The default is 12345.
     descr_stats :  Boolean, optional
@@ -53,15 +53,15 @@ def example_data(obs_y_d_x_iate: int = 1000,
         The larger this number is, the stronger the instrument will be.
         Default is 1.
     correlation_x : str, optinal
-        Allows three different levels of dependence between features ('low',
-        'middle', 'high'). Default is 'middle'.
+        Allows three different levels of dependence between features (``'low'``,
+        ``'middle'``, ``'high'``). Default is ``'middle'``.
     no_effect : Boolean, optional
         All IATEs are set to 0 if True.
     no_printing : Boolean, optional
         Avoids printing output. Default is False.
     d_no_versions : Integer, optional
         Number of exclusive versions of the treatments. They share the same
-        assignment process. If d_versions == 1,then there are no subtreatments
+        assignment process. If ``'d_versions'`` == 1,then there are no subtreatments
         (standard case).
         If d_versions > 1, then d_features must be 1.
         Default is 1.   

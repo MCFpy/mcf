@@ -265,12 +265,7 @@ class OptimalPolicy:
         None :
         .. math::
         
-           \\min\\left(
-           0.1 \\times
-           \\frac{\\text{number of training observations}}
-           {\\text{number of leaves}},
-           100
-           \\right)
+           \min(0.1 \\times\\frac{\\text{number of training observations}}{\\text{number of leaves}},100)
    
         Only relevant if ``'gen_method'`` is ``'policy tree'``.
         Default is None.

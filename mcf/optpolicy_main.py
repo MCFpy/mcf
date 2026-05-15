@@ -171,7 +171,7 @@ class OptimalPolicy:
         different classifiers offered by sci-kit learn, namely a simple neural network, two
         classification random forests with minimum leaf size of 2 and 5, and ADDABoost. The
         selection is made according to the out-of-sample performance on scikit-learns Accuracy
-        Score. The implemented ``'policy tree'`` 's are optimal trees, i.e. all possible trees are
+        Score. The implemented ``'policy tree'``'s are optimal trees, i.e. all possible trees are
         checked if they lead to a better performance. If restrictions are specified, then this is
         incorporated into treatment specific cost parameters. Many ideas of the implementation
         follow Zhou, Athey, Wager (2022). If the provided policy scores fulfil their conditions
@@ -255,8 +255,8 @@ class OptimalPolicy:
         No of evaluation points for continuous variables. The lower this  value, the faster the
         algorithm, but it may also deviate more from the optimal splitting rule. This parameter is
         closely related to the approximation parameter of Zhou, Athey, Wager (2022)(A) with
-        :math:`\\text{pt_no_of_evalupoints} = \\text{number of observation} / \\text{A}`.
-        Only relevant if gen\_method is `policy tree`.
+        :math:`\\text{pt\_no\_of\_evalupoints} = \\text{number of observation} / \\text{A}`.
+        Only relevant if gen_method is ``'policy tree'``.
         Default (or None) is 100.
 
     pt_min_leaf_size : Integer (or None), optional
@@ -264,8 +264,8 @@ class OptimalPolicy:
         not be considered. A larger number reduces computation time and avoids some overfitting.
         None :
         .. math::
-            min(0.1 \\times \\frac{\\text{number of training observations}}
-                {{\\text{number of leaves}}}, 100)
+            min(0.1 \times \frac{\text{number of training observations}}
+                {{\text{number of leaves}}}, 100)
         (if treatment shares are restricted this is multiplied by the smallest share allowed).
         Only relevant if ``'gen_method'`` is ``'policy tree'``.
         Default is None.

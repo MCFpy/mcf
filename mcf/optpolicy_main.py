@@ -33,7 +33,7 @@ class OptimalPolicy:
         Default (or None) is True.
 
     estrisk_value : Float or integer (or None), optional
-        The is k in the formula  'policy\_score - k * standard\_error' used to adjust the scores for
+        The is k in the formula: 'policy\_score - k * standard\_error', used to adjust the scores for
         estimation risk.
         Default (or None) is 1.
 
@@ -248,7 +248,7 @@ class OptimalPolicy:
         Changes the number of the evaluation points (pt_no_of_evalupoints) for the unordered
         (categorical) variables to:
             :math:`\\text{pt_eva_cat_mult} \\times \\text{pt_no_of_evalupoints}`
-        (available only for the method 'policy tree').
+        (available only for the method ``'policy tree'``).
         Default (or None) is 2.
 
     pt_no_of_evalupoints : Integer (or None), optional
@@ -256,7 +256,7 @@ class OptimalPolicy:
         algorithm, but it may also deviate more from the optimal splitting rule. This parameter is
         closely related to the approximation parameter of Zhou, Athey, Wager (2022)(A) with
         :math:`\\text{pt_no_of_evalupoints} = \\text{number of observation} / \\text{A}`.
-        Only relevant if gen_method is 'policy tree'.
+        Only relevant if gen\_method is `policy tree`.
         Default (or None) is 100.
 
     pt_min_leaf_size : Integer (or None), optional

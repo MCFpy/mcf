@@ -3,7 +3,7 @@ from mcf import reporting_functions as rep
 
 class McfOptPolReport:
     """
-    Summary report of main specifications and results for MCF estimation and optimal policy learning.
+    Summary of main specifications and results for MCF estimation and optimal policy learning.
 
     Parameters
     ----------
@@ -14,7 +14,7 @@ class McfOptPolReport:
             Contains all information from sensitivity analysis needed for
             reports. The default is None.
 
-        optpol : Instance of the OptimalPolicy class or None, optional
+        optpol : Instance of the OptimalPolicy or  OptimalPolicyVersions class or None, optional
             Contains all information from the optimal policy analysis needed
             for reports. The default is None.
 
@@ -32,7 +32,6 @@ class McfOptPolReport:
 
     Attributes
     ----------
-
     version : String
         Version of mcf module used to create the instance.
 
@@ -61,7 +60,7 @@ class McfOptPolReport:
 
     opt : Boolean
         True if there is anything to report about optimal policy allocation.
-
+        
     sens : Boolean
         True if there is anything to report about sensitivity analysis.
 

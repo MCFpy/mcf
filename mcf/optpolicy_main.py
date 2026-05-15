@@ -261,10 +261,9 @@ class OptimalPolicy:
 
     pt_min_leaf_size : Integer (or None), optional
         Minimum leaf size. Leaves that are smaller than ``'pt_min_leaf_size'`` in the training data will
-        not be considered. A larger number reduces computation time and avoids some overfitting.
-        None :
-        .. math::
+        not be considered. A larger number reduces computation time and avoids some overfitting. None :
         
+        .. math::
            \min(0.1 \\times\\frac{\\text{number of training observations}}{\\text{number of leaves}},100)
    
         Only relevant if ``'gen_method'`` is ``'policy tree'``.

@@ -1,11 +1,14 @@
+from copy import deepcopy
 from pathlib import Path
+from time import time
 
-from pandas import DataFrame
-
-from mcf import optpolicy_evaluation_functions as op_eval
-from mcf import optpolicy_init_functions as op_init
+from mcf.mcf_feature_selection import FsCfg
+from mcf.optpolicy_data import dataframe_checksum
+from mcf import optpolicy_evaluation as op_eval
+from mcf import optpolicy_init as op_init
 from mcf import optpolicy_methods as op_methods
-from mcf import mcf_print_stats_functions as mcf_ps
+from mcf import optpolicy_version as op_version
+from mcf.mcf_print_stats import print_mcf
 
 
 class OptimalPolicy:
@@ -490,103 +493,113 @@ class OptimalPolicy:
     
     """
 
-    def __init__(
-        self, dc_check_perfectcorr=True,
-        dc_clean_data=True, dc_min_dummy_obs=10, dc_screen_covariates=True,
-        estrisk_value=1,
-        fair_adjust_target='xvariables', fair_consistency_test=False,
-        fair_cont_min_values=20,
-        fair_material_disc_method='Kmeans', fair_material_max_groups=5,
-        fair_regression_method='RandomForest',
-        fair_protected_disc_method='Kmeans', fair_protected_max_groups=5,
-        fair_type='Quantiled',
-        gen_method='best_policy_score', gen_mp_parallel='None',
-        gen_outfiletext='txtFileWithOutput',
-        gen_outpath=None, gen_output_type=2, gen_variable_importance=True,
-        other_costs_of_treat=None, other_costs_of_treat_mult=None,
-        other_max_shares=None,
-        pt_depth_tree_1=3, pt_depth_tree_2=1, pt_enforce_restriction=False,
-        pt_eva_cat_mult=1, pt_no_of_evalupoints=100, pt_min_leaf_size=None,
-        pt_select_values_cat=False,
-        rnd_shares=None,
-        var_bb_restrict_name=None, var_d_name=None, var_effect_vs_0=None,
-        var_effect_vs_0_se=None, var_id_name=None,
-        var_material_name_ord=None, var_material_name_unord=None,
-        var_polscore_desc_name=None, var_polscore_name=None,
-        var_polscore_se_name=None,
-        var_protected_name_ord=None, var_protected_name_unord=None,
-        var_vi_x_name=None, var_vi_to_dummy_name=None,
-        var_x_name_ord=None, var_x_name_unord=None,
-        _int_dpi=500, _int_fontsize=2, _int_output_no_new_dir=False,
-        _int_report=True, _int_with_numba=True, _int_with_output=True,
-        _int_xtr_parallel=True,
-            ):
+    def __init__(self, *,
+                 dc_check_perfectcorr=True, dc_clean_data=True, dc_min_dummy_obs=10,
+                 dc_screen_covariates=True,
+                 estrisk_value=1,
+                 fair_adjust_target='xvariables', fair_consistency_test=False,
+                 fair_cont_min_values=20, fair_material_disc_method='Kmeans',
+                 fair_material_max_groups=5, fair_regression_method='RandomForest',
+                 fair_protected_disc_method='Kmeans', fair_protected_max_groups=5,
+                 fair_type='Quantiled',
+                 fs_rel_vi_threshold=0, fs_other_sample=True, fs_other_sample_share=0.33,
+                 fs_yes=False,
+                 gen_method='best_policy_score', gen_mp_parallel='None',
+                 gen_outfiletext='txtFileWithOutput', gen_outpath=None, gen_output_type=2,
+                 gen_variable_importance=True,
+                 other_costs_of_treat=None, other_costs_of_treat_mult=None, other_max_shares=None,
+                 pt_depth_tree_1=3, pt_depth_tree_2=1, pt_enforce_restriction=False,
+                 pt_eva_cat_mult=1, pt_no_of_evalupoints=100, pt_min_leaf_size=None,
+                 pt_select_values_cat=False,
+                 rnd_shares=None,
+                 var_bb_restrict_name=None, var_d_name=None, var_effect_vs_0=None,
+                 var_effect_vs_0_se=None, var_id_name=None, var_material_name_ord=None,
+                 var_material_name_unord=None, var_polscore_desc_name=None, var_polscore_name=None,
+                 var_polscore_se_name=None, var_protected_name_ord=None,
+                 var_protected_name_unord=None, var_vi_x_name=None, var_vi_to_dummy_name=None,
+                 var_x_name_ord=None, var_x_name_unord=None,
+                _int_dpi=500, _int_fontsize=2, _int_output_no_new_dir=False, _int_report=True,
+                _int_with_numba=True, _int_with_output=True, _int_xtr_parallel=True,
+                _int_mp_use_old_ray=False,
+                _int_mp_backend='joblib', _int_mp_batches='automatic',
+                _int_mp_memmap_min_bytes=64*1024*1024,
+                _int_mp_memmap_dir=Path.cwd() / 'joblibtemp',
+                ):
+        self.__version__ = '0.10.0'
 
-        self.version = '0.9.0'
-        self.__version__ = '0.9.0'
-
-        self.int_cfg = op_init.IntCfg.from_args(
-            cuda=False, output_no_new_dir=_int_output_no_new_dir,
-            report=_int_report, with_numba=_int_with_numba,
-            with_output=_int_with_output, xtr_parallel=_int_xtr_parallel,
-            dpi=_int_dpi, fontsize=_int_fontsize,
-            )
-        self.gen_cfg = op_init.GenCfg.from_args(
-            method=gen_method, mp_parallel=gen_mp_parallel,
-            outfiletext=gen_outfiletext,
-            outpath=gen_outpath, output_type=gen_output_type,
-            variable_importance=gen_variable_importance,
-            with_output=self.int_cfg.with_output,
-            new_outpath=not self.int_cfg.output_no_new_dir,
-            )
-        self.dc_cfg = op_init.DataCleanCfg.from_args(
-            check_perfectcorr=dc_check_perfectcorr,
-            clean_data=dc_clean_data,
-            min_dummy_obs=dc_min_dummy_obs,
-            screen_covariates=dc_screen_covariates,
-            )
-        self.pt_cfg = op_init.PtCfg.from_args(
-            depth_tree_1=pt_depth_tree_1, depth_tree_2=pt_depth_tree_2,
-            eva_cat_mult=pt_eva_cat_mult,
-            enforce_restriction=pt_enforce_restriction,
-            no_of_evalupoints=pt_no_of_evalupoints,
-            select_values_cat=pt_select_values_cat,
-            min_leaf_size=pt_min_leaf_size,
-            )
+        self.int_cfg = op_init.IntCfg.from_args(cuda=False,
+                                                output_no_new_dir=_int_output_no_new_dir,
+                                                report=_int_report, with_numba=_int_with_numba,
+                                                with_output=_int_with_output,
+                                                xtr_parallel=_int_xtr_parallel,
+                                                dpi=_int_dpi, fontsize=_int_fontsize,
+                                                mp_use_old_ray=_int_mp_use_old_ray,
+                                                mp_backend=_int_mp_backend,
+                                                mp_batches=_int_mp_batches,
+                                                mp_memmap_min_bytes=_int_mp_memmap_min_bytes,
+                                                mp_memmap_dir=_int_mp_memmap_dir,
+                                                )
+        self.gen_cfg = op_init.GenCfg.from_args(method=gen_method, mp_parallel=gen_mp_parallel,
+                                                outfiletext=gen_outfiletext,
+                                                outpath=gen_outpath, output_type=gen_output_type,
+                                                variable_importance=gen_variable_importance,
+                                                with_output=self.int_cfg.with_output,
+                                                new_outpath=not self.int_cfg.output_no_new_dir,
+                                                )
+        self.dc_cfg = op_init.DataCleanCfg.from_args(check_perfectcorr=dc_check_perfectcorr,
+                                                     clean_data=dc_clean_data,
+                                                     min_dummy_obs=dc_min_dummy_obs,
+                                                     screen_covariates=dc_screen_covariates,
+                                                     )
+        self.pt_cfg = op_init.PtCfg.from_args(depth_tree_1=pt_depth_tree_1,
+                                              depth_tree_2=pt_depth_tree_2,
+                                              eva_cat_mult=pt_eva_cat_mult,
+                                              enforce_restriction=pt_enforce_restriction,
+                                              no_of_evalupoints=pt_no_of_evalupoints,
+                                              select_values_cat=pt_select_values_cat,
+                                              min_leaf_size=pt_min_leaf_size,
+                                              )
         self.other_cfg = op_init.OtherCfg.from_args(
             other_costs_of_treat=other_costs_of_treat,
             other_costs_of_treat_mult=other_costs_of_treat_mult,
-            other_max_shares=other_max_shares
+            other_max_shares=other_max_shares,
             )
         self.rnd_cfg = op_init.RndCfg.from_args(rnd_shares=rnd_shares)
 
-        self.var_cfg = op_init.VarCfg.from_args(
-            bb_restrict_name=var_bb_restrict_name,
-            d_name=var_d_name,
-            effect_vs_0=var_effect_vs_0, effect_vs_0_se=var_effect_vs_0_se,
-            id_name=var_id_name, polscore_desc_name=var_polscore_desc_name,
-            material_ord_name=var_material_name_ord,
-            material_unord_name=var_material_name_unord,
-            polscore_name=var_polscore_name,
-            polscore_se_name=var_polscore_se_name,
-            protected_ord_name=var_protected_name_ord,
-            protected_unord_name=var_protected_name_unord,
-            x_ord_name=var_x_name_ord, x_unord_name=var_x_name_unord,
-            vi_x_name=var_vi_x_name, vi_to_dummy_name=var_vi_to_dummy_name)
-
-        self.fair_cfg = op_init.FairCfg.from_args(
-            self.gen_cfg,
-            adjust_target=fair_adjust_target,
-            consistency_test=fair_consistency_test,
-            cont_min_values=fair_cont_min_values,
-            material_disc_method=fair_material_disc_method,
-            protected_disc_method=fair_protected_disc_method,
-            material_max_groups=fair_material_max_groups,
-            regression_method=fair_regression_method,
-            protected_max_groups=fair_protected_max_groups,
-            adj_type=fair_type)
-
-        self.estriskcfg = op_init.EstRiskCfg(value=estrisk_value)
+        self.var_cfg = op_init.VarCfg.from_args(bb_restrict_name=var_bb_restrict_name,
+                                                d_name=var_d_name,
+                                                effect_vs_0=var_effect_vs_0,
+                                                effect_vs_0_se=var_effect_vs_0_se,
+                                                id_name=var_id_name,
+                                                polscore_desc_name=var_polscore_desc_name,
+                                                material_ord_name=var_material_name_ord,
+                                                material_unord_name=var_material_name_unord,
+                                                polscore_name=var_polscore_name,
+                                                polscore_se_name=var_polscore_se_name,
+                                                protected_ord_name=var_protected_name_ord,
+                                                protected_unord_name=var_protected_name_unord,
+                                                x_ord_name=var_x_name_ord,
+                                                x_unord_name=var_x_name_unord,
+                                                vi_x_name=var_vi_x_name,
+                                                vi_to_dummy_name=var_vi_to_dummy_name,
+                                                )
+        self.fair_cfg = op_init.FairCfg.from_args(self.gen_cfg,
+                                                  adjust_target=fair_adjust_target,
+                                                  consistency_test=fair_consistency_test,
+                                                  cont_min_values=fair_cont_min_values,
+                                                  material_disc_method=fair_material_disc_method,
+                                                  protected_disc_method=fair_protected_disc_method,
+                                                  material_max_groups=fair_material_max_groups,
+                                                  regression_method=fair_regression_method,
+                                                  protected_max_groups=fair_protected_max_groups,
+                                                  adj_type=fair_type,
+                                                  )
+        self.fs_cfg = FsCfg.from_args(rel_vi_threshold=fs_rel_vi_threshold,
+                                      other_sample=fs_other_sample,
+                                      other_sample_share=fs_other_sample_share,
+                                      yes=fs_yes
+                                      )
+        self.estriskcfg = op_init.EstRiskCfg.from_args(value=estrisk_value)
 
         self.time_strings, self.var_x_type, self.var_x_values = {}, {}, {}
         self.bps_class_dict = {}
@@ -596,18 +609,15 @@ class OptimalPolicy:
                        'evaluation': False,
                        'allocation': False,
                        'estriskscores': False,
+                       'opt_versions': False,
                        'training_data_chcksm': 0,   # To identify training data
                        'training_alloc_chcksm': 0,  # To identify train. alloc.
-                       'alloc_list': [],   # List because of possible multiple
-                       'evalu_list': [],   # allocation, evaluation methods
+                       'alloc_list': [],            # List because of possible multiple
+                       'evalu_list': [],            # allocation, evaluation methods
                        }                   # might be used multiple times.
         self.number_scores = len(self.var_cfg.polscore_name)
 
-    def allocate(self,
-                 data_df,
-                 data_title: str = '',
-                 fair_adjust_decision_vars: bool = False
-                 ):
+    def allocate(self, data_df, data_title='', fair_adjust_decision_vars=False):
         """
         Allocate observations to treatment state.
 
@@ -626,8 +636,7 @@ class OptimalPolicy:
             If False, no fairness adjustments of decision variables. However,
             if fairness adjustments of decision variables have already been used
             in training, then these variables will also be fairness adjusted in
-            the allocate method, independent of the value of
-            ``fair_adjust_decision_vars``.
+            the allocate method, independent of the value of ``fair_adjust_decision_vars``.
             The default is False.
 
         Returns
@@ -640,26 +649,15 @@ class OptimalPolicy:
                 Location of directory in which output is saved.
 
         """
-        (allocation_df, self.gen_cfg.outpath
-         ) = op_methods.allocate_method(
-             self,
-             data_df,
-             data_title=data_title,
-             fair_adjust_decision_vars=fair_adjust_decision_vars
-             )
-        results_dic = {
-            'allocation_df': allocation_df,
-            'outpath': self.gen_cfg.outpath
-            }
+        allocation_df, self.gen_cfg.outpath = op_methods.allocate_method(
+            self, data_df, data_title=data_title,
+            fair_adjust_decision_vars=fair_adjust_decision_vars,
+            )
+        results_dic = {'allocation_df': allocation_df, 'outpath': self.gen_cfg.outpath}
 
         return results_dic
 
-    def evaluate(self,
-                 allocation_df,
-                 data_df,
-                 data_title='',
-                 seed=12434
-                 ):
+    def evaluate(self, allocation_df, data_df, data_title='', seed=12434):
         """
         Evaluate allocation with potential outcome data.
 
@@ -682,21 +680,14 @@ class OptimalPolicy:
         Returns
         -------
         results_all_dic : Dictory
-            'results_dic': Collected results of evaluation with
-                           self-explanatory keys.
+            'results_dic': Collected results of evaluation with self-explanatory keys.
             'outpath': Output path.
 
         """
-        (results_dic, self.gen_cfg.outpath
-         ) = op_methods.evaluate_method(self,
-                                        allocation_df,
-                                        data_df,
-                                        data_title=data_title,
-                                        seed=seed)
-        results_all_dic = {
-            'results_dic': results_dic,
-            'outpath': self.gen_cfg.outpath
-            }
+        results_dic, self.gen_cfg.outpath = op_methods.evaluate_method(
+            self, allocation_df, data_df, data_title=data_title, seed=seed
+            )
+        results_all_dic = {'results_dic': results_dic, 'outpath': self.gen_cfg.outpath}
 
         return results_all_dic
 
@@ -710,8 +701,7 @@ class OptimalPolicy:
             Contains dataframes with specific allocations.
 
         data_df : DataFrame.
-            Data with the relevant information about potential outcomes
-            which
+            Data with the relevant information about potential outcomes which
             will be used to evaluate the allocations.
 
         Returns
@@ -726,8 +716,7 @@ class OptimalPolicy:
             raise ValueError('To use this method, allow output to be written.')
         potential_outcomes_np = data_df[self.var_cfg.polscore_name]
         op_eval.evaluate_multiple(self, allocations_dic, potential_outcomes_np)
-        results_dic = {'outpath': self.gen_cfg.outpath
-                       }
+        results_dic = {'outpath': self.gen_cfg.outpath}
 
         return results_dic
 
@@ -756,23 +745,19 @@ class OptimalPolicy:
 
         """
         (data_estrisk_df, estrisk_scores_names, self.gen_cfg.outpath
-         ) = op_methods.estrisk_adjust_method(self,
-                                              data_df,
-                                              data_title=data_title)
-        results_dic = {
-            'data_estrisk_df': data_estrisk_df,
-            'estrisk_scores_names': estrisk_scores_names,
-            'outpath': self.gen_cfg.outpath
-            }
+         ) = op_methods.estrisk_adjust_method(self, data_df, data_title=data_title)
+        results_dic = {'data_estrisk_df': data_estrisk_df,
+                       'estrisk_scores_names': estrisk_scores_names,
+                       'outpath': self.gen_cfg.outpath
+                       }
         return results_dic
 
     def solvefair(self, data_df, data_title=''):
         """
         Solve for optimal allocation rule with fairness adjustments.
 
-        Follows the suggestions of Bearth, Lechner, Muny, Mareckova (2025,
-        arXiV). It has the same syntax and is used in the same way as the solve
-        method.
+        Follows the suggestions of Bearth, Lechner, Muny, Mareckova (2025, arXiV).
+        It has the same syntax and is used in the same way as the solve method.
 
         Parameters
         ----------
@@ -795,14 +780,11 @@ class OptimalPolicy:
 
         """
         (allocation_df, result_dic, self.gen_cfg.outpath
-         ) = op_methods.solvefair_method(self,
-                                         data_df,
-                                         data_title=data_title)
-        results_all_dic = {
-            'allocation_df': allocation_df,
-            'result_dic': result_dic,
-            'outpath': self.gen_cfg.outpath
-            }
+         ) = op_methods.solvefair_method(self, data_df, data_title=data_title)
+        results_all_dic = {'allocation_df': allocation_df,
+                           'result_dic': result_dic,
+                           'outpath': self.gen_cfg.outpath
+                           }
         return results_all_dic
 
     def solve(self, data_df, data_title=''):
@@ -827,32 +809,32 @@ class OptimalPolicy:
                 Only complete when keyword _int_with_output is True.
             'outpath' : Path
                 Location of directory in which output is saved.
+        data_df: Pandas DataFrame.
+            Input data that is used to train the assignment algorithm.
 
         """
-        (allocation_df, result_dic, self.gen_cfg.outpath
-         ) = op_methods.solve_method(self,
-                                     data_df,
-                                     data_title=data_title)
-        results_all_dic = {
-            'allocation_df': allocation_df,
-            'result_dic': result_dic,
-            'outpath': self.gen_cfg.outpath
-            }
-        return results_all_dic
+        allocation_df, result_dic, self.gen_cfg.outpath, data_df = op_methods.solve_method(
+            self, data_df, data_title=data_title
+            )
+        results_all_dic = {'allocation_df': allocation_df,
+                           'result_dic': result_dic,
+                           'outpath': self.gen_cfg.outpath
+                           }
+        return results_all_dic, data_df
 
-    def print_time_strings_all_steps(self, title=''):
+    def print_time_strings_all_steps(self, title='', line_length=100):
         """Print an overview over the time needed in all steps of programme."""
-        txt = '\n' + '=' * 100 + '\nSummary of computation times of all steps '
+        txt = '\n' + '=' * line_length + '\nSummary of computation times of all steps '
         txt += title
-        mcf_ps.print_mcf(self.gen_cfg, txt, summary=True)
+        print_mcf(self.gen_cfg, txt, summary=True)
         val_all = ''
         for _, val in self.time_strings.items():
             val_all += val
-        mcf_ps.print_mcf(self.gen_cfg, val_all, summary=True)
+        print_mcf(self.gen_cfg, val_all, summary=True)
 
     def winners_losers(self,
                        data_df,
-                       welfare_df,
+                       welfare_df, *,
                        welfare_reference_df: int = 0,
                        outpath: None = None,
                        title: str = ''
@@ -861,9 +843,8 @@ class OptimalPolicy:
         Compare the winners and loser.
 
         k-means is used to cluster groups of individuals that are similar
-        in gains and losses from two user-provided allocations. The groups are
-        described by the policy scores as well as the decision, protected,
-        and materially relevant variables.
+        in gains and losses from two user-provided allocations. The groups are described by the
+        policy scores as well as the decision, protected, and materially relevant variables.
 
         Parameters
         ----------
@@ -892,16 +873,268 @@ class OptimalPolicy:
                 Location of directory in which output is saved.
 
         """
-        (data_plus_cluster_number_df, self.gen_cfg.outpath
-         ) = op_methods.winners_losers_method(
+        data_plus_cluster_number_df, self.gen_cfg.outpath = op_methods.winners_losers_method(
              self, data_df, welfare_df,
-             welfare_reference_df=welfare_reference_df,
-             outpath=outpath,
-             title=title
+             welfare_reference_df=welfare_reference_df, outpath=outpath, title=title,
              )
-        results_dic = {
-            'data_plus_cluster_number_df': data_plus_cluster_number_df,
-            'outpath': self.gen_cfg.outpath
-            }
+        results_dic = {'data_plus_cluster_number_df': data_plus_cluster_number_df,
+                       'outpath': self.gen_cfg.outpath
+                       }
         return results_dic
 
+
+class OptimalPolicyVersions:
+    """
+    Optimal policy learning when there are versions in some of the main treatments.
+
+    Parameters
+    ----------
+    policyscores_dict : Dictionary of lists/tuple of strings or Nones
+        This dictionary contains the information about the policy scores for the main treatments
+        (they are the keys of this dict) and the policy scores of the corresponding versions of the
+        respective main treatment (as items of this dict). If there is only a single version of the
+        respective main treatment, the corresponding value should be set to zero.
+        This dictionary must always be provided, there is no default value.
+
+    depth_version_tree : Integer or list/tuple of integers (or None), optional
+        Depth of the tree build for treatment versions for each main treatment with more than one
+        version. This must either be a list/tuple of integers with length equal of the number
+        of the main treatments (and in the same order as the main treatments in policyscores_dict),
+        or an integer (or None). If it is one integer (or None) the same depth-level is applied to
+        to all main treatments.
+        This keywords is only relevant of policy trees are used (a combination of different methods
+        for the main treatments and their versions is currently not implemented).
+        Default (or None) is 2.
+
+    params_optpol : Dictionary (or None), optional
+        All keywords of the initialisation of the OptimalPolicy class.
+        Default is None (this implies setting all keywords to their default values)
+
+    var_d_name = list of strings, optinal
+        Treatment information. 1st element contains the name of the main treatments, 2nd element 
+        contains the name of the subtreatments. If not None, this information will be used to
+        evaluate the allocations.
+        Default is None.
+
+
+    Attributes
+    ----------
+    __version__ : String
+        Version of mcf module used to create the instance.
+
+    <NOT-ON-API>
+
+    version_cfg : VersionCfg dataclass
+        Parameters used in version estimation.
+
+    optp: Instance of OptimalPolicy class or list of Instances of OptimalPolicy class
+        (many instances for policy trees, otherwise only one instance)
+        
+    </NOT-ON-API>
+    
+    """
+
+    def __init__(self, *,
+                 depth_version_tree=2,
+                 params_optpol=None, policyscores_dict=None,
+                 var_d_name=None,
+                 ):
+        self.__version__ = '0.10.0'
+        self.version_cfg = op_init.VersionCfg.from_args(policyscores_dict=policyscores_dict,
+                                                        depth_version_tree=depth_version_tree,
+                                                        params_optpol=params_optpol,
+                                                        d_name=var_d_name,
+                                                        )
+        self.policy_scores_all = self.optp = self.gen_cfg_print = None
+        self.time_strings = {}
+        self.report = {'opt_versions': True}
+
+    def allocate(self, data_df, data_title='', fair_adjust_decision_vars=False):
+        """
+        Allocate observations to treatment state.
+
+        Parameters
+        ----------
+        data_df : DataFrame
+            Input data with at least features or policy scores
+            (depending on algorithm).
+
+        data_title : String, optional
+            This string is used as title in outputs. The default is ''.
+
+        fair_adjust_decision_vars : Boolean, optional
+            If True, it will fairness-adjust the decision variables even when fairness adjustments
+            have not been used in training. If False, no fairness adjustments of decision variables.
+            However, if fairness adjustments of decision variables have already been used
+            in training, then these variables will also be fairness adjusted in the allocate method,
+            independent of the value of ``fair_adjust_decision_vars``.
+            The default is False.
+
+        Returns
+        -------
+        results : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'allocation_df' : DataFrame
+                data_df with optimal allocation appended.
+            'outpath' : Path
+                Location of directory in which output is saved.
+
+        """
+        return op_version.allocate_version(self,
+                                           data_df,
+                                           data_title=data_title,
+                                           fair_adjust_decision_vars=fair_adjust_decision_vars,
+                                           )
+
+    def evaluate(self, allocation_df, data_df, data_title='', seed=12434):
+        """
+        Evaluate allocation with potential outcome data.
+
+        Parameters
+        ----------
+        allocation_df : DataFrame
+            Optimal allocation as outputed by the
+            :meth:`~OptimalPolicy.solve`, :meth:`~OptimalPolicy.solvefair`,
+            and :meth:`~OptimalPolicy.allocate` methods.
+
+        data_df : DataFrame
+            Additional information that can be linked to allocation_df.
+
+        data_title : String, optional
+            This string is used as title in outputs. The default is ''.
+
+        seed : Integer, optional
+            Seed for random number generators. The default is 12434.
+
+        Returns
+        -------
+        results_all_dic : Dictionary
+            'results_dic': Collected results of evaluation with self-explanatory keys.
+            'outpath': Output path.
+
+        """
+        return op_version.evaluate_version(self,
+                                           allocation_df,
+                                           data_df,
+                                           data_title=data_title,
+                                           seed=seed
+                                           )
+
+    def solve(self, data_df, data_title=''):
+        """
+        Solve for optimal allocation rule.
+
+        Parameters
+        ----------
+        data_df : DataFrame
+            Input data to train particular allocation algorithm.
+        data_title : String, optional
+            This string is used as title in outputs. The default is ''.
+
+        Returns
+        -------
+        results_all_dict : Dictionary.
+            Contains the results. This dictionary has the following structure:
+            'allocation_df' : DataFrame
+                data_df with optimal allocation appended.
+            'result_dic' : Dictionary
+                Contains additional information about trained allocation rule.
+                Only completed when keyword _int_with_output is True.
+            'outpath' : Path
+                Location of directory in which output is saved.
+        data_df: DataFrame.
+             Input data that is used for training allocation rule.
+
+        """
+        start_time = time()
+
+        (policy_scores_main, self.policy_scores_all, policy_scores_main_version, txt_descr
+         ) = op_version.analyse_treatment_version(self.version_cfg.policyscores_dict)
+
+        if self.version_cfg.params_optpol.get('gen_method') == 'policy_tree':
+            if self.version_cfg.params_optpol.get('fs_yes') is True:
+                raise NotImplementedError('Automatic  Feature selection not (yet?) implemented for '
+                                          'sequential version policy tree.'
+                                          )
+
+            # Sequential procedure:
+            # Step 1: The policy tree will be build for the main treatments only
+            params_optpol = op_version.solve_main_para_pt(self.version_cfg.params_optpol,
+                                                          policy_scores_main,
+                                                          )
+            optp_main = OptimalPolicy(**params_optpol)
+            gen_cfg_print = deepcopy(optp_main.gen_cfg)  # Output locations are needed below
+            if gen_cfg_print.with_output:
+                txt_descr += op_version.tree_main_header(line_length=100)
+                print_mcf(gen_cfg_print, txt_descr, summary=True)
+            results_all_dic_main, data_df = optp_main.solve(data_df, data_title=data_title)
+            # Step 2: If there are treatment versions, for each main treatment we build a new tree
+            #         using training observations allocated to that treatment only.
+            #  - Split according to main treatments (and adjust parameters accordings)
+            params_v, data_v, title_v, tree_yes_v = op_version.split_main_treatment_pt_only(
+                self,
+                optp_main=optp_main,
+                alloc_main_df=results_all_dic_main['allocation_df']['Policy Tree'],
+                data_df=data_df, data_title=data_title,
+                policy_scores_main_version=policy_scores_main_version,
+                )
+            self.optp = [optp_main]
+            results_all_dic_list = [results_all_dic_main,]
+
+            # Iterate over main treatments
+            for idx, _ in enumerate(params_v):
+                _ = op_version.print_title_for_version_tree(idx,
+                                                            tree_yes_v[idx],
+                                                            policy_scores_main_version[idx],
+                                                            gen_cfg_print
+                                                            )
+                if tree_yes_v[idx]:
+                    optp_vers = OptimalPolicy(**params_v[idx])
+                    optp_vers, old_index, data_version = op_version.prepare_version_for_solve(
+                        optp_vers, gen_cfg_print, data_v[idx]
+                        )
+                    results_all_dic_vers, data_version = optp_vers.solve(data_version,
+                                                                         data_title=title_v[idx]
+                                                                         )
+                    # Put old indices back into allocation file
+                    results_all_dic_vers['allocation_df'].index = old_index
+                else:
+                    optp_vers = results_all_dic_vers = None
+                results_all_dic_list.append(results_all_dic_vers)
+                self.optp.append(deepcopy(optp_vers))
+
+            results_all_dic = op_version.combine_results_all_dic(
+                results_all_dic_list, policy_scores_main_version, gen_cfg=optp_main.gen_cfg,
+                )
+            self.gen_cfg_print = gen_cfg_print
+        else:
+            # All treatment versions will be treated symmetrically
+            self.version_cfg.params_optpol['var_polscore_name'] = self.policy_scores_all
+            self.optp = OptimalPolicy(**self.version_cfg.params_optpol)
+            results_all_dic, data_df = self.optp.solve(data_df, data_title=data_title)
+            if self.optp.gen_cfg.with_output:
+                print_mcf(self.optp.gen_cfg, txt_descr, summary=True)
+
+            self.gen_cfg_print = deepcopy(self.optp.gen_cfg)
+
+        self.report['training_alloc_chcksm'] = dataframe_checksum(results_all_dic['allocation_df'])
+        # Timing
+        time_title = f'Solve using {self.version_cfg.params_optpol["gen_method"]}'
+        key, time_str = op_version.timestr_version(self.gen_cfg_print,
+                                                   start_time,
+                                                   title=time_title,
+                                                   data_title=data_title
+                                                   )
+        self.time_strings[key] = time_str
+
+        return results_all_dic, data_df
+
+    def print_time_strings_all_steps(self, title='', line_length=100):
+        """Print an overview over the time needed in all steps of programme."""
+        txt = '\n' + '=' * line_length + '\nSummary of computation times of all steps '
+        txt += title
+        print_mcf(self.gen_cfg_print, txt, summary=True)
+        val_all = ''
+        for _, val in self.time_strings.items():
+            val_all += val
+        print_mcf(self.gen_cfg_print, val_all, summary=True)

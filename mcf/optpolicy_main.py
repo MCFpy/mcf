@@ -247,7 +247,7 @@ class OptimalPolicy:
     pt_eva_cat_mult : Integer (or None), optional
         Changes the number of the evaluation points (pt_no_of_evalupoints) for the unordered
         (categorical) variables to:
-            :math:`\\text{pt_eva_cat_mult} \\times \\text{pt_no_of_evalupoints}`
+            :math:`\\text{pt\_eva\_cat\_mult} \\times \\text{pt\_no\_of\_evalupoints}`
         (available only for the method ``'policy tree'``).
         Default (or None) is 2.
 
@@ -274,10 +274,10 @@ class OptimalPolicy:
         Approximation method for larger categorical variables. Since we search among optimal trees,
         for categorical variables variables we need to check for all possible combinations of the
         different values that lead to binary splits. Thus number could indeed be huge. Therefore,
-        we compare only :math:`\\text{pt_no_of_evalupoints} \\times \\text{pt_eva_cat_mult}`
-        different combinations. Method 1 (pt_select_values_cat == True) does this by randomly
+        we compare only :math:`\\text{pt\_no\_of\_evalupoints} \\times \\text{pt\_eva\_cat\_mult}`
+        different combinations. Method 1 (pt\_select\_values\_cat == True) does this by randomly
         drawing values from the particular categorical variable and forming groups only using those
-        values. Method 2 (pt_select_values_cat == False) sorts the values of the categorical
+        values. Method 2 (pt\_select\_values\_cat == False) sorts the values of the categorical
         variables according to a values of the policy score as one would do for a standard random
         forest. If this set is still too large, a random sample of the entailed combinations is
         drawn. Method 1 is only available for the method 'policy tree'.
@@ -344,15 +344,15 @@ class OptimalPolicy:
     var_protected_ord_name : List or tuple of strings (nor None), optional
         Names of protected ordered variables. Their influence on the policy scores will be removed
         (conditional on the 'materially important' variables). These variables should NOT be
-        contained in decision variables, i.e., var_x_name_ord. If they are included, they will be
-        removed and var_x_name_ord will be adjusted accordingly.
+        contained in decision variables, i.e., var\_x\_name\_ord. If they are included, they will be
+        removed and ``'var\_x\_name\_ord'`` will be adjusted accordingly.
         Default is None.
 
     var_protected_unord_name : List or tuple of strings (nor None), optional
         Names of protected unordered variables. Their influence on the policy scores will be removed
         (conditional on the 'materially important' variables). These variables should NOT be
-        contained in decision variables, i.e., var_x_name_unord. If they are included, they will be
-        removed andvar_x_name_unord will be adjusted accordingly.
+        contained in decision variables, i.e., var\_x\_name\_unord. If they are included, they will be
+        removed andvar\_x\_name\_unord will be adjusted accordingly.
         Default is None.
 
     var_vi_x_name : List or tuple of strings or None, optional

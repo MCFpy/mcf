@@ -264,8 +264,14 @@ class OptimalPolicy:
         not be considered. A larger number reduces computation time and avoids some overfitting.
         None :
         .. math::
-            min(0.1 \\times \\frac{\\text{number of training observations}}
-                {{\\text{number of leaves}}}, 100)
+        
+           \min\left(
+           0.1 \times
+           \frac{\text{number of training observations}}
+           {\text{number of leaves}},
+           100
+           \right)
+   
         Only relevant if ``'gen_method'`` is ``'policy tree'``.
         Default is None.
 

@@ -99,7 +99,7 @@ class ModifiedCausalForest:
         Default is None.
 
     var_iv_name : String or List of string (or None), optional
-        Name of binary instrumental variable. Only relevant if ``'train_iv method'``.
+        Name of binary instrumental variable. Only relevant if :meth:`~ModifiedCausalForest.train_iv` method
         is used.
         Default is None.
 

@@ -151,15 +151,15 @@ class ModifiedCausalForest:
         forest in each chunk, and estimate effects for each forest. Final effect estimates are
         obtained by averaging effects obtained for each forest. This procedures improves
         scalability by reducing computation time (at the possible price of a somewhat larger
-        finite sample bias). If cf_chunks_maxsize is larger than the sample size, there is no random
+        finite sample bias). If `cf_chunks_maxsize` is larger than the sample size, there is no random
         splitting.
         The default (None) is dependent on the size of the training data:
-        Default (NOne) value if int_low_memory_predict is False:
+        Default (NOne) value if `int_low_memory_predict` is False:
         If there are less than 100'000 training observations: No splitting. Otherwise:
         
         .. math::
         
-            \\text{cf_chunks_maxsize} = 100000 + \\frac{{(\\text{number of observations} - 100000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
+            \\text{`cf_chunks_maxsize`} = 100000 + \\frac{{(\\text{number of observations} - 100000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
 
         Default is None.
         
@@ -278,7 +278,7 @@ class ModifiedCausalForest:
     
             .. math::
     
-                \\frac{2 \\times (\\text{n} \\times \\text{subsam_share})^{0.9}}{\\text{n} \\times \\text{subsam_share}} \\times \\sqrt{\\frac{\\text{no_of_treatments} \\times (\\text{no_of_treatments} - 1)}{2}}  
+                \\frac{2 \\times (\\text{n} \\times \\text{`subsam_share`})^{0.9}}{\\text{n} \\times \\text{`subsam_share`}} \\times \\sqrt{\\frac{\\text{`no_of_treatments`} \\times (\\text{`no_of_treatments`} - 1)}{2}}  
     
         `mce_vart == 2`
             Multiplier of penalty (in terms of MSE(y) value function without splits) for penalty.  
@@ -287,7 +287,7 @@ class ModifiedCausalForest:
     
             .. math::
     
-                \\frac{100 \\times 4 \\times (n \\times \\text{f_c.subsam_share})^{0.8}}{n \\times \\text{f_c.subsam_share}}  
+                \\frac{100 \\times 4 \\times (n \\times \\text{`f_c.subsam_share`})^{0.8}}{n \\times \\text{`f_c.subsam_share`}}  
     
         `mce_vart == 3`
             Probability of using p-score (0-1). None : 0.5. Increase value if balancing tests
@@ -360,8 +360,8 @@ class ModifiedCausalForest:
         None :
         :math:`(\\text{number of treatments} - 2) \\times 0.05`
         If cs_type > 0:
-        :math:`\\text{upper limit} \\times = 1 + \\text{support_adjust_limits}`,
-        :math:`\\text{lower limit} \\times = 1 - \\text{support_adjust_limits}`.
+        :math:`\\text{upper limit} \\times = 1 + \\text{`support_adjust_limits`}`,
+        :math:`\\text{lower limit} \\times = 1 - \\text{`support_adjust_limits`}`.
         The restrictiveness of the common support criterion increases with
         the number of treatments. This parameter allows to reduce this restrictiveness.
         Default is None.

@@ -57,6 +57,17 @@ def example_data(obs_y_d_x_iate: int = 1000,
         'middle', 'high'). Default is 'middle'.
     no_effect : Boolean, optional
         All IATEs are set to 0 if True.
+    no_printing : Boolean, optional
+        Avoids printing output. Default is False.
+    d_no_versions : Integer, optional
+        Number of exclusive versions of the treatments. They share the same
+        assignment process. If d_versions == 1,then there are no subtreatments
+        (standard case).
+        If d_versions > 1, then d_features must be 1.
+        Default is 1.   
+    zero_tol: float, optional
+        Default is 1e-10.
+        Zero tolerance (for floats)
 
     Returns
     -------
@@ -69,6 +80,7 @@ def example_data(obs_y_d_x_iate: int = 1000,
         Contains the names of the variable groups.
 
     """
+                   
     if obs_y_d_x_iate is None:
         obs_y_d_x_iate = 1000
 

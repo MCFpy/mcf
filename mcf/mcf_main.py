@@ -154,7 +154,7 @@ class ModifiedCausalForest:
         finite sample bias). If `cf_chunks_maxsize` is larger than the sample size, there is no random
         splitting.
         The default (None) is dependent on the size of the training data:
-        Default (NOne) value if `int_low_memory_predict` is False:
+        Default (None) value if `int_low_memory_predict` is False:
         If there are less than 100'000 training observations: No splitting. Otherwise:
         
         .. math::

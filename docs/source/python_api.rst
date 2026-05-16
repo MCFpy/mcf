@@ -108,19 +108,19 @@ Methods
    autosummary below will, even when commented out, generate the separate
    documentation page that can be cross-referenced.
 
-   .. autosummary:: 
+   .. autosummary::
       :toctree:
-      OptimalPolicy.allocate
-      OptimalPolicy.evaluate
-      OptimalPolicy.solve
-      OptimalPolicy.print_time_strings_all_steps
+      OptimalPolicyVersions.allocate
+      OptimalPolicyVersions.evaluate
+      OptimalPolicyVersions.solve
+      OptimalPolicyVersions.print_time_strings_all_steps
 
 
-.. autosummary:: 
-    ~OptimalPolicy.allocate
-    ~OptimalPolicy.evaluate
-    ~OptimalPolicy.solve
-    ~OptimalPolicy.print_time_strings_all_steps
+.. autosummary::
+    ~OptimalPolicyVersions.allocate
+    ~OptimalPolicyVersions.evaluate
+    ~OptimalPolicyVersions.solve
+    ~OptimalPolicyVersions.print_time_strings_all_steps
 
 
 Reporting

@@ -13,6 +13,7 @@ Overview of classes
     ~optpolicy_main.OptimalPolicy
     ~optpolicy_main.OptimalPolicyVersions
     ~reporting.McfOptPolReport
+    ~example_data.example_data
     
 
 Modified Causal Forest
@@ -153,13 +154,13 @@ Methods
 Example Data function
 ---------------------
 
-.. currentmodule:: example_data_functions
+.. currentmodule:: example_data
 
 .. autofunction:: example_data
 
    .. autosummary:: 
       :toctree:
-      example_data_functions.example_data
+      example_data.example_data
 
 .. autosummary:: 
-    ~example_data_functions.example_data
+    ~example_data.example_data

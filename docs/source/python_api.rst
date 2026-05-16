@@ -11,8 +11,9 @@ Overview of classes
 .. autosummary::
     ~mcf_main.ModifiedCausalForest
     ~optpolicy_main.OptimalPolicy
+    ~optpolicy_main.OptimalPolicyVersions
     ~reporting.McfOptPolReport
-
+    
 
 Modified Causal Forest
 ----------------------

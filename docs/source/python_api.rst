@@ -91,6 +91,38 @@ Methods
     ~OptimalPolicy.winners_losers
 
 
+Optimal Policy Versions
+-----------------------
+
+.. currentmodule:: optpolicy_main
+
+.. autoclass:: OptimalPolicyVersions
+
+
+Methods
+^^^^^^^
+
+..
+   HACK -- Also list the methods in the "commented out" paragraph below. The
+   point here is that we don't want this to appear in the output, but the
+   autosummary below will, even when commented out, generate the separate
+   documentation page that can be cross-referenced.
+
+   .. autosummary:: 
+      :toctree:
+      OptimalPolicy.allocate
+      OptimalPolicy.evaluate
+      OptimalPolicy.solve
+      OptimalPolicy.print_time_strings_all_steps
+
+
+.. autosummary:: 
+    ~OptimalPolicy.allocate
+    ~OptimalPolicy.evaluate
+    ~OptimalPolicy.solve
+    ~OptimalPolicy.print_time_strings_all_steps
+
+
 Reporting
 --------------
 

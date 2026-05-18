@@ -161,8 +161,7 @@ Example programmes
 
   - Additional return in :py:meth:`~mcf_main.ModifiedCausalForest.predict` method results dictionary
 
-    The dictionary returned by the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method has an additional element:
-        'inputdata_on_support': DataFrame of input data that on the common support. None if 'exit_after_commonsupport' is True.
+    - The dictionary returned by the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method has the additional element 'inputdata_on_support': DataFrame of input data that on the common support. None if 'exit_after_commonsupport' is True.
 
   - New default values for keywords
 

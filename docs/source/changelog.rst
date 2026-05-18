@@ -33,20 +33,169 @@ Version 0.10.0
 General remarks
 ~~~~~~~~~~~~~~~
 
-- Beyond certain improvements in all sections of the modul, the main changes are the addition of capabilities needed when there are a smallish number of main treatments, in which however each of these main treatments has a main-treatment-specific number of versions. For the :py:class:`~mcf_main.ModifiedCausalForest` class this approach is implemented using new keywords (and some generalizations of existing keywords), while for Optimal Policy, there is a new class :py:class:`~mcf_main.optpolicy_main.OptimalPolicyVersions`. The documentation with the exact reference to a paper by Kutz & Lechner will be added in release 0.11.0.
+- Beyond certain improvements in all sections of the modul, the main changes are the addition of capabilities needed when there are a smallish number of main treatments, in which however each of these main treatments has a main-treatment-specific number of versions. For the :py:class:`~mcf_main.ModifiedCausalForest` class this approach is implemented using new keywords (and some generalizations of existing keywords), while for Optimal Policy, there is a new class :py:class:`~optpolicy_main.OptimalPolicyVersions`. The documentation with the exact reference to a paper by Kutz & Lechner will be added in release 0.11.0.
 
-- Feature selection has been changed. (i) Feature selection is now also available as part of the optimal policy module. (ii) Algorithm has been improved. While still based
-on sequentially randomizing the values of single features, now after removing a feature the score is reestimated. The documentation with the exact reference to a paper by
-Lechner & Yakymovych will be added in release 0.11.0.
+- Feature selection has been enhanced:
+
+  (i) Feature selection is now also available in the optimal policy module.
+
+  (ii) The algorithm has been improved. While it remains based on sequentially randomizing the values of single features, the score is now re-estimated after each feature removal.
+
+  Documentation, including the exact reference to a paper by Lechner & Yakymovych, will be added in release 0.11.0.
     
-- Joblib is now available as an alternative to Ray for multiprocessing. This is particularly attractive for Windows users, because as of this release, Ray is only available for Python 3.12, whereas the **mcf** package also runs with Joblib under Python 3.13.
+- Joblib is now available as an alternative to ray for multiprocessing. This is particularly attractive for Windows users, because as of this release, ray is only available for Python 3.12, whereas the **mcf** package also runs with joblib under Python 3.13.
 
 Example programmes
 ~~~~~~~~~~~~~~~~~~
 - mcf_commonsupport.py (new): Demonstrates how to obtain prediction data on common support when multiple training data are used.
+
 - mcf_versions.py (new): Demonstrate how estimation with many versions of a smallish number of main treatments can be performed.
+
 - optpolicy_versions.py (new): Demonstrates (mainly) how sequential optimal decision trees can be used to account for treatment versions in a feasible way. 
 
+:py:class:`~mcf_main.ModifiedCausalForest` class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- Computational performance of the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method of the :py:class:`~mcf_main.ModifiedCausalForest` class has been substantially increased.
+
+- Instrumental variable estimation added (documentation is planned to follow in **mcf** 0.12.0).
+
+- The algorithm for feature selection has changed. Now it is done sequentially:
+
+  (i) Variables are deleted one at a time.
+
+  (ii) The model is reestimated after deleting a variable.
+
+  (iii) The user can chose between different ways to define when a variable is removed.
+
+  As a result, keywords relating to feature selection have changed as well.
+
+- Additional keywords that can be changed in the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method added.
+
+- Detailed changes:
+
+  - Deleted keywords
+
+    - ``fs_rel_vi_threshold`` (this is now substituted by more specific keywords, see below)
+
+  - New keywords
+
+    - ``p_ba_ridge`` : Boolean (or None), optional
+        If True use weighted ridge regression, otherwise use weighted OLS. Default (or None) is True.
+
+    - ``gen_tv_estimator`` : String (or None), optional
+        Estimator used in version estimation. Possible options are 'ols', 'ridge'. Default (or None) is 'ridge'.
+
+    - ``gen_tv_specification`` : String (or None), optional
+        This keyword defines how the covariates enter the version-regressions inside the main treatments. Possible options are 'interacted' or 'separable'.
+        'interacted': Covariates are interacted with the version dummies (V*X * b).
+        'separable': Covariates and version dummies are linearly separable ((V*b1 + X*b2).
+        Default (or None) is 'interacted'.
+
+    - ``gen_tv_cv_k`` : Integer (or None), optional
+        Number of folds in cross-validation for treatment version estimation (to find optimal penalty for ridge regression). Only relevant if ``gen_tv_estimator`` == 'ridge' is used. Default value (or None) depends on the size of the training sample (N): 
+        N < 100'000: 5; 100'000 <= N < 250'000: 4; 250'000 <= N < 500'000: 3; 500'000 <= N: 2.
+
+    - ``gen_tv_min_subtreat`` : Integer (or None), optional
+        Minimum number of subtreated per treatment. If actual number of subtreated with positive weight in effct estimation is below ``gen_tv_min_subtreat``, the average effect is used for this subtreatment. Default (or None) is 10.
+
+    - ``gen_tv_penalize_version``: Boolean or list or tuple of Booleans (or None)
+        Determines whether the coefficients of version dummies are penalized in a particular main treatment. Only relevant if ``gen_tv_estimator` == 'ridge' is used. This is either a Boolean or a list or tuple of Booleans. The number of elements of the list/tuple MUST equal the number of main treatments. If a single Boolean is provided it will be internally expanded to such a list for which all elements are equal to this single Boolean.
+        True: Coefficients of the version dummies in the version ridge regression are (also) penalized. Could be useful, when there are very many treatment versions.
+        False: Only coefficients of covariates are penalized (including treatment covariate interactions).
+        Default (or None) is False.
+
+    - ``fs_rel_vi_threshold_y`` : Integer or Float (or None), optional
+        Feature selection: Threshold in terms of relative loss of variable importance (0-1) for outcome regression. Default (or None) is 0.
+
+    - ``fs_rel_vi_threshold_d`` : Integer or Float (or None), optional
+        Feature selection: Threshold in terms of relative loss of variable importance (0-1) for propensity score. Default (or None) is 0.
+
+    - ``fs_rel_vi_keep_if`` : String (or None), optional
+        Feature selection: Defines how the two thresholds are combined. Possible choice are: 'y_relevant', 'y_or_d_relevant', 'y_and_d_relevant'. Default is 'y_or_d_relevant'.
+
+    - ``_int_memory_print`` : Boolean (or None), optional
+        If True print memory statistics for certain memory-intensive steps of the algorithm. Default is False.
+
+    - ``_int_mp_use_old_ray`` : Boolean (or None), optional
+        Use old implementation of ray. Default is False.
+
+    - ``_int_mp_backend`` : String (or None), optional
+        Backend to be used for parallelisation. Possible values 'ray' or 'joblib' or 'sequential'. Only relevant if ``_int_mp_use_old_ray`` is False. The default for Windows is 'joblib', else 'ray'. Internal variable, change default only if you know what you do.
+
+    - ``_int_mp_batches``: Integer, str (or None), optional
+        Number of batches used when running multiprocessing (all backends). Only relevant if ``_int_mp_use_old_ray`` is False. This variable partly determines memory consumption. Possible values are 'automatic' or positive integers. 'automatic' means that the number of batches are set to minimize memory consumptions (at the cost of sometimes some speed reduction), by setting them to ceil(no_of_tasks/number_of_workers). Default is 'automatic'. Internal variable, change default only if you know what you do.
+
+    - ``_int_mp_memmap_min_bytes``: Integer (or None), optional
+        Minimum size of objects required to use memory maps in joblib. Only relevant if int_mp_use_old_ray is False. Default is 64 * 1024 * 1024. Internal variable, change default only if you know what you do.
+
+    - ``_int_mp_memmap_dir``: str or Path object (or None), optional
+        Tempory path to store memory maps. To be removed when finished. Only relevant if int_mp_use_old_ray is False. Default is Path.cwd() / 'joblibtemp'. Internal variable, change default only if you know what you do.
+
+    - ``_int_low_memory_predict`` : Boolean (or None), optional
+        If True, the memory footprint of the prediction step will be drastically reduced (and computational speed significantly increased) by not keeping the full weight matrix. This will allow for deeper forests and more prediction data points that can reasonably be used when training data is very large. Therefore, the defaults for
+          ``_int_max_obs_prediction`` and ``cf_chunks_maxsize`` are larger when ``_int_low_memory_predict`` is True. As of now, this option is incompatible with instrumental variable estimation and the estimation of QIATEs. ``p_iate_m_ate`` must also be set to False if ``_int_low_memory_predict`` is True. Default is True. Internal variable, change default only if you know what you do.
+
+    - ``int_low_memory_max_chunksize`` : Boolean (or None), optional
+        Maximum number of prediction observations that are jointly computed by a single process. Only relevant if ``_int_low_memory_predict`` is True. Default (or None) is 1'000 - (N_training - 10'000)**0.5. Minimum is 10. Maximum is 1000.
+
+- Changed definition of keywords
+
+    - ``var_d_name`` : String or List of string (or None), optional
+        Name of treatment variable. Must be provided to use the :py:meth:`~mcf_main.ModifiedCausalForest.train` method. Can be provided for the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method. If the number of versions > 1, this is a list with the treatment version as second variable. Note that the value of versions are conditional on the main treatment. In other words, version 2 of treatment 1 and version 2 of treatment 2 lead to different potential outcomes.
+        IMPORTANT: Main treatment must always be the first element in the treatments list. This variable is also used for the programme to determine if there are treatment versions at all. Only one element in list/tuple or string: No treatment versions. Two elements in list/tuple: 1st element is main treatment, 2nd element is the subtreatment.
+
+    - New default values of keywords
+
+      - ``cf_chunks_maxsize``
+          If ``_int_low_memory_predict`` is False:
+          If less than 100000 training observations: No splitting. Otherwise, the maximal size of each chunksize is obtained as 100000 + (number of observations - 100000)**0.8 / (# of treatments-1).
+
+          If ``_int_low_memory_predict`` is True:
+          If less than 250000 training observations: No splitting. Otherwise, the maximal size of each chunksize is obtained as 250000 + (number of observations - 250000)**0.8 / (# of treatments-1).
+
+      - ``_int_max_obs_prediction``
+          If ``_int_low_memory_predict`` is False: 250'000.
+          If ``_int_low_memory_predict`` is True: 1'000'000.
+
+      - New keywords for the :py:meth:`~mcf_main.ModifiedCausalForest.train` and :py:meth:`~mcf_main.ModifiedCausalForest.predict` methods
+
+        - ``exit_after_commonsupport`` : Boolean, optional
+        Programme exits training/prediction once the common support is determined. This is useful to determine the prediction data that is on the common support without effect estimation.
+
+    - Additional return in :py:meth:`~mcf_main.ModifiedCausalForest.predict` method results dictionary
+
+      The dictionary returned by the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method has an additional element:
+        'inputdata_on_support': DataFrame of input data that on the common support. None if 'exit_after_commonsupport' is True.
+
+    - New default values for keywords
+
+      - ``fs_rel_vi_threshold``:
+          New value is 0.0 (due to the different algorithm used for feature selection)
+
+
+:py:class:`~optpolicy_main.OptimalPolicy` class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+New option to use feature selection, checking if (policy_scores - first policy score) are conditionally related to features; if not such features will be deleted. Not yet available for fairness corrections and treatment versions.
+
+Minor optimizations and bug fixes.
+
+Detailed changes:
+
+- New keywords
+
+  - ``fs_yes``, ``fs_other_sample``, ``fs_other_sample_share``, ``fs_rel_vi_threshold``
+  - ``_int_mp_use_old_ray``, ``_int_mp_backend``, ``_int_mp_batches``, ``_int_mp_memmap_min_bytes``, ``_int_mp_memmap_dir``
+
+- Additional return of the :py:meth:`~optpolicy_main.OptimalPolicy.solve` method
+
+  The ``solve`` method returns the data set to be used for learning the assignment algorithms. This dataset could be smaller than the original data if, for example, some data is used exclusively for feature selection.
+
+:py:class:`~optpolicy_main.OptimalPolicyVersions` class (new)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The class can generally be used in a similar way as OptimalPolicy. For its methods and keywords consult the API (and the new example programme).
+    
 
 Version 0.9.0
 -------------

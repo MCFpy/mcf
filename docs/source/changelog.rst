@@ -27,6 +27,27 @@ Changelog
 
     Note the absence of the tilde '~' in this case. 
 
+Version 0.10.0
+--------------
+
+General remarks
+~~~~~~~~~~~~~~~
+
+- Beyond certain improvements in all sections of the modul, the main changes are the addition of capabilities needed when there are a smallish number of main treatments, in which however each of these main treatments has a main-treatment-specific number of versions. For the :py:class:`~mcf_main.ModifiedCausalForest` class this approach is implemented using new keywords (and some generalizations of existing keywords), while for Optimal Policy, there is a new class :py:class:`~mcf_main.optpolicy_main.OptimalPolicyVersions`. The documentation with the exact reference to a paper by Kutz & Lechner will be added in release 0.11.0.
+
+- Feature selection has been changed. (i) Feature selection is now also available as part of the optimal policy module. (ii) Algorithm has been improved. While still based
+on sequentially randomizing the values of single features, now after removing a feature the score is reestimated. The documentation with the exact reference to a paper by
+Lechner & Yakymovych will be added in release 0.11.0.
+    
+- Joblib is now available as an alternative to Ray for multiprocessing. This is particularly attractive for Windows users, because as of this release, Ray is only available for Python 3.12, whereas the **mcf** package also runs with Joblib under Python 3.13.
+
+Example programmes
+~~~~~~~~~~~~~~~~~~
+- mcf_commonsupport.py (new): Demonstrates how to obtain prediction data on common support when multiple training data are used.
+- mcf_versions.py (new): Demonstrate how estimation with many versions of a smallish number of main treatments can be performed.
+- optpolicy_versions.py (new): Demonstrates (mainly) how sequential optimal decision trees can be used to account for treatment versions in a feasible way. 
+
+
 Version 0.9.0
 -------------
 

@@ -139,9 +139,8 @@ Example programmes
 
   - Changed definition of keywords
 
-      - ``var_d_name`` : String or List of string (or None), optional
-          Name of treatment variable. Must be provided to use the :py:meth:`~mcf_main.ModifiedCausalForest.train` method. Can be provided for the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method. If the number of versions > 1, this is a list with the treatment version as second variable. Note that the value of versions are conditional on the main treatment. In other words, version 2 of treatment 1 and version 2 of treatment 2 lead to different potential outcomes. 
-            IMPORTANT: Main treatment must always be the first element in the treatments list. This variable is also used for the programme to determine if there are treatment versions at all. Only one element in list/tuple or string: No treatment versions. Two elements in list/tuple: 1st element is main treatment, 2nd element is the subtreatment.
+    - ``var_d_name`` : String or List of string (or None), optional
+        Name of treatment variable. Must be provided to use the :py:meth:`~mcf_main.ModifiedCausalForest.train` method. Can be provided for the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method. If the number of versions > 1, this is a list with the treatment version as second variable. Note that the value of versions are conditional on the main treatment. In other words, version 2 of treatment 1 and version 2 of treatment 2 lead to different potential outcomes. IMPORTANT: Main treatment must always be the first element in the treatments list. This variable is also used for the programme to determine if there are treatment versions at all. Only one element in list/tuple or string: No treatment versions. Two elements in list/tuple: 1st element is main treatment, 2nd element is the subtreatment.
 
   - New default values of keywords
 
@@ -157,7 +156,7 @@ Example programmes
 
   - New keywords for the :py:meth:`~mcf_main.ModifiedCausalForest.train` and :py:meth:`~mcf_main.ModifiedCausalForest.predict` methods
 
-      - ``exit_after_commonsupport`` : Boolean, optional
+    - ``exit_after_commonsupport`` : Boolean, optional
         Programme exits training/prediction once the common support is determined. This is useful to determine the prediction data that is on the common support without effect estimation.
 
   - Additional return in :py:meth:`~mcf_main.ModifiedCausalForest.predict` method results dictionary
@@ -167,8 +166,8 @@ Example programmes
 
   - New default values for keywords
 
-      - ``fs_rel_vi_threshold``:
-          New value is 0.0 (due to the different algorithm used for feature selection)
+    - ``fs_rel_vi_threshold``:
+        New value is 0.0 (due to the different algorithm used for feature selection)
 
 
 :py:class:`~optpolicy_main.OptimalPolicy` class

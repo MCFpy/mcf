@@ -71,7 +71,7 @@ Example programmes
 
 - Additional keywords that can be changed in the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method added.
 
-- Detailed changes:
+Detailed changes:
 
   - Deleted keywords
 
@@ -132,24 +132,23 @@ Example programmes
         Tempory path to store memory maps. To be removed when finished. Only relevant if int_mp_use_old_ray is False. Default is Path.cwd() / 'joblibtemp'. Internal variable, change default only if you know what you do.
 
     - ``_int_low_memory_predict`` : Boolean (or None), optional
-        If True, the memory footprint of the prediction step will be drastically reduced (and computational speed significantly increased) by not keeping the full weight matrix. This will allow for deeper forests and more prediction data points that can reasonably be used when training data is very large. Therefore, the defaults for
-          ``_int_max_obs_prediction`` and ``cf_chunks_maxsize`` are larger when ``_int_low_memory_predict`` is True. As of now, this option is incompatible with instrumental variable estimation and the estimation of QIATEs. ``p_iate_m_ate`` must also be set to False if ``_int_low_memory_predict`` is True. Default is True. Internal variable, change default only if you know what you do.
+        If True, the memory footprint of the prediction step will be drastically reduced (and computational speed significantly increased) by not keeping the full weight matrix. This will allow for deeper forests and more prediction data points that can reasonably be used when training data is very large. Therefore, the defaults for ``_int_max_obs_prediction`` and ``cf_chunks_maxsize`` are larger when ``_int_low_memory_predict`` is True. As of now, this option is incompatible with instrumental variable estimation and the estimation of QIATEs. ``p_iate_m_ate`` must also be set to False if ``_int_low_memory_predict`` is True. Default is True. Internal variable, change default only if you know what you do.
 
-    - ``int_low_memory_max_chunksize`` : Boolean (or None), optional
+    - ``_int_low_memory_max_chunksize`` : Boolean (or None), optional
         Maximum number of prediction observations that are jointly computed by a single process. Only relevant if ``_int_low_memory_predict`` is True. Default (or None) is 1'000 - (N_training - 10'000)**0.5. Minimum is 10. Maximum is 1000.
 
-- Changed definition of keywords
+    - Changed definition of keywords
 
-    - ``var_d_name`` : String or List of string (or None), optional
-        Name of treatment variable. Must be provided to use the :py:meth:`~mcf_main.ModifiedCausalForest.train` method. Can be provided for the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method. If the number of versions > 1, this is a list with the treatment version as second variable. Note that the value of versions are conditional on the main treatment. In other words, version 2 of treatment 1 and version 2 of treatment 2 lead to different potential outcomes.
-        IMPORTANT: Main treatment must always be the first element in the treatments list. This variable is also used for the programme to determine if there are treatment versions at all. Only one element in list/tuple or string: No treatment versions. Two elements in list/tuple: 1st element is main treatment, 2nd element is the subtreatment.
+      - ``var_d_name`` : String or List of string (or None), optional
+          Name of treatment variable. Must be provided to use the :py:meth:`~mcf_main.ModifiedCausalForest.train` method. Can be provided for the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method. If the number of versions > 1, this is a list with the treatment version as second variable. Note that the value of versions are conditional on the main treatment. In other words, version 2 of treatment 1 and version 2 of treatment 2 lead to different potential outcomes.
+          
+          IMPORTANT: Main treatment must always be the first element in the treatments list. This variable is also used for the programme to determine if there are treatment versions at all. Only one element in list/tuple or string: No treatment versions. Two elements in list/tuple: 1st element is main treatment, 2nd element is the subtreatment.
 
     - New default values of keywords
 
       - ``cf_chunks_maxsize``
           If ``_int_low_memory_predict`` is False:
           If less than 100000 training observations: No splitting. Otherwise, the maximal size of each chunksize is obtained as 100000 + (number of observations - 100000)**0.8 / (# of treatments-1).
-
           If ``_int_low_memory_predict`` is True:
           If less than 250000 training observations: No splitting. Otherwise, the maximal size of each chunksize is obtained as 250000 + (number of observations - 250000)**0.8 / (# of treatments-1).
 
@@ -157,14 +156,14 @@ Example programmes
           If ``_int_low_memory_predict`` is False: 250'000.
           If ``_int_low_memory_predict`` is True: 1'000'000.
 
-      - New keywords for the :py:meth:`~mcf_main.ModifiedCausalForest.train` and :py:meth:`~mcf_main.ModifiedCausalForest.predict` methods
+    - New keywords for the :py:meth:`~mcf_main.ModifiedCausalForest.train` and :py:meth:`~mcf_main.ModifiedCausalForest.predict` methods
 
-        - ``exit_after_commonsupport`` : Boolean, optional
+      - ``exit_after_commonsupport`` : Boolean, optional
         Programme exits training/prediction once the common support is determined. This is useful to determine the prediction data that is on the common support without effect estimation.
 
     - Additional return in :py:meth:`~mcf_main.ModifiedCausalForest.predict` method results dictionary
 
-      The dictionary returned by the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method has an additional element:
+        The dictionary returned by the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method has an additional element:
         'inputdata_on_support': DataFrame of input data that on the common support. None if 'exit_after_commonsupport' is True.
 
     - New default values for keywords

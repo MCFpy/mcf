@@ -165,7 +165,7 @@ class ModifiedCausalForest:
         
         .. math::
         
-            \\text{cf\_chunks\_maxsize} = 100000 + \\frac{{(\\text{number of observations} - 100000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
+            \\text{cf\_chunks\_maxsize} = 100000 + \\frac{{(\\text{number of observations} - 100000)^{0.8}}}{{(\\text{\# of treatments} - 1)}}
 
         Default is None.
 
@@ -214,7 +214,7 @@ class ModifiedCausalForest:
         outcomes from all treatment arms in the evaluation subsample.
         There is no grid based tuning for this parameter.
         This parameter impacts the minimum leaf size which will be at least
-        to :math:`\\text{n_min_treat} \\times \\text{number of treatments}`
+        to :math:`\\text{n\_min\_treat} \\times \\text{number of treatments}`
         None :
 
         .. math::
@@ -373,8 +373,8 @@ class ModifiedCausalForest:
         None :
         :math:`(\\text{number of treatments} - 2) \\times 0.05`
         If cs_type > 0:
-        :math:`\\text{upper limit} \\times = 1 + \\text{support_adjust_limits}`,
-        :math:`\\text{lower limit} \\times = 1 - \\text{support_adjust_limits}`.
+        :math:`\\text{upper limit} \\times = 1 + \\text{support\_adjust\_limits}`,
+        :math:`\\text{lower limit} \\times = 1 - \\text{support\_adjust\_limits}`.
         The restrictiveness of the common support criterion increases with
         the number of treatments. This parameter allows to reduce this
         restrictiveness.

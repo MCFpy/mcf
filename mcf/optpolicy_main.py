@@ -254,7 +254,7 @@ class OptimalPolicy:
     pt_eva_cat_mult : Integer (or None), optional
         Changes the number of the evaluation points (pt_no_of_evalupoints)
         for the unordered (categorical) variables to:
-        :math:`\\text{pt_eva_cat_mult} \\times \\text{pt_no_of_evalupoints}`
+        :math:`\\text{pt\_eva\_cat\_mult} \\times \\text{pt\_no\_of\_evalupoints}`
         (available only for the method 'policy tree').
         Default (or None) is 2.
 
@@ -263,7 +263,7 @@ class OptimalPolicy:
         value, the faster the algorithm, but it may also deviate more from
         the optimal splitting rule. This parameter is closely related to
         the approximation parameter of Zhou, Athey, Wager (2022)(A) with
-        :math:`\\text{pt_no_of_evalupoints} = \\text{number of observation} / \\text{A}`.
+        :math:`\\text{pt\_no\_of\_evalupoints} = \\text{number of observation} / \\text{A}`.
         Only relevant if gen_method is 'policy tree'.
         Default (or None) is 100.
 
@@ -287,7 +287,7 @@ class OptimalPolicy:
         need to check for all possible combinations of the different values
         that lead to binary splits. Thus number could indeed be huge.
         Therefore, we compare only
-        :math:`\\text{pt_no_of_evalupoints} \\times \\text{pt_eva_cat_mult}`
+        :math:`\\text{pt\_no\_of\_evalupoints} \\times \\text{pt\_eva\_cat\_mult}`
         different combinations. Method 1 (pt_select_values_cat == True) does
         this by randomly drawing values from the particular categorical variable
         and forming groups only using those values. Method 2

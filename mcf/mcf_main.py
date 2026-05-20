@@ -165,7 +165,7 @@ class ModifiedCausalForest:
         
         .. math::
         
-            \\text{cf_chunks_maxsize} = 100000 + \\frac{{(\\text{number of observations} - 100000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
+            \\text{cf\_chunks\_maxsize} = 100000 + \\frac{{(\\text{number of observations} - 100000)^{0.8}}}{{(\\text{# of treatments} - 1)}}
 
         Default is None.
 
@@ -194,7 +194,7 @@ class ModifiedCausalForest:
 
             \\text{A} = \\frac{\\sqrt{\\text{number of observations in the smallest treatment group}}^{0.5}}{10}, \\text{at least 2} 
 
-        :math:`\\text{cf_n_min_max} = \\text{round}(A \\times \\text{number of treatments})`
+        :math:`\\text{cf\_n\_min\_max} = \\text{round}(A \\times \\text{number of treatments})`
         Default is None.
 
     cf_n_min_min : Integer (or None), optional
@@ -205,7 +205,7 @@ class ModifiedCausalForest:
 
             \\text{A} = \\text{number of observations in smallest treatment group}^{0.4} / 10, \\text{at least 1.5} 
 
-        :math:`\\text{cf_n_min_min} = \\text{round}(A \\times \\text{number of treatments})`
+        :math:`\\text{cf\_n\_min\_min} = \\text{round}(A \\times \\text{number of treatments})`
         Default is None.
 
     cf_n_min_treat : Integer (or None), optional
@@ -219,7 +219,7 @@ class ModifiedCausalForest:
 
         .. math::
 
-            \\frac{\\frac{{\\text{n_min_min}} + {\\text{n_min_max}}}{2}}{\\text{number of treatments} \\times 10}, \\text{at least 1} 
+            \\frac{\\frac{{\\text{n\_min\_min}} + {\\text{n\_min\_max}}}{2}}{\\text{number of treatments} \\times 10}, \\text{at least 1} 
 
         Default is None.
 
@@ -287,7 +287,7 @@ class ModifiedCausalForest:
     
             .. math::
     
-                \\frac{2 \\times (\\text{n} \\times \\text{subsam_share})^{0.9}}{\\text{n} \\times \\text{subsam_share}} \\times \\sqrt{\\frac{\\text{no_of_treatments} \\times (\\text{no_of_treatments} - 1)}{2}}  
+                \\frac{2 \\times (\\text{n} \\times \\text{subsam\_share})^{0.9}}{\\text{n} \\times \\text{subsam\_share}} \\times \\sqrt{\\frac{\\text{no\_of\_treatments} \\times (\\text{no\_of\_treatments} - 1)}{2}}  
     
         `mce_vart == 2`
             Multiplier of penalty (in terms of MSE(y) value function without splits) for penalty.  
@@ -296,7 +296,7 @@ class ModifiedCausalForest:
     
             .. math::
     
-                \\frac{100 \\times 4 \\times (n \\times \\text{f_c.subsam_share})^{0.8}}{n \\times \\text{f_c.subsam_share}}  
+                \\frac{100 \\times 4 \\times (n \\times \\text{f\_c.subsam\_share})^{0.8}}{n \\times \\text{f\_c.subsam\_share}}  
     
         `mce_vart == 3`
             Probability of using p-score (0-1). None : 0.5. Increase value if balancing tests indicate problems. 

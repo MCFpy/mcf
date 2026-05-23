@@ -166,7 +166,7 @@ Example programmes
   - Replaced keywords
 
     - ``fs_rel_vi_threshold``:
-        Newly, the two keywords ``fs_rel_vi_threshold_y``and ``fs_rel_vi_threshold_d`` are defined instead.
+        Newly, the two keywords ``fs_rel_vi_threshold_y`` and ``fs_rel_vi_threshold_d`` are defined instead.
 
 
 :py:class:`~optpolicy_main.OptimalPolicy` class

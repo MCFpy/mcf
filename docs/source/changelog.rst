@@ -163,10 +163,10 @@ Example programmes
 
     - The dictionary returned by the :py:meth:`~mcf_main.ModifiedCausalForest.predict` method has the additional element 'inputdata_on_support': DataFrame of input data that on the common support. None if 'exit_after_commonsupport' is True.
 
-  - New default values for keywords
+  - Replaced keywords
 
     - ``fs_rel_vi_threshold``:
-        New value is 0.0 (due to the different algorithm used for feature selection)
+        Newly, the two keywords ``fs_rel_vi_threshold_y``and ``fs_rel_vi_threshold_d`` are defined instead.
 
 
 :py:class:`~optpolicy_main.OptimalPolicy` class

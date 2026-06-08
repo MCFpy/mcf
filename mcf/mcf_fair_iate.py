@@ -1,0 +1,448 @@
+"""
+Created on Tue Sep 12 13:45:30 2023.
+
+Contains the class and the functions needed for running the mcf.
+@author: MLechner
+-*- coding: utf-8 -*-
+"""
+from typing import Any, TYPE_CHECKING
+
+import numpy as np
+from numpy.typing import NDArray
+import pandas as pd
+
+try:
+    import ray
+except ImportError:
+    ray = None
+
+from mcf import mcf_general as mcf_gp
+from mcf import mcf_print_stats as mcf_ps
+from mcf.mcfoptp_parallel_backend_ray_classical import init_ray_with_fallback, ray_put_all
+from mcf.mcfoptp_parallel_backend_forest_executor import (forest_executor_with_shared,
+                                                          map_task_batches,
+                                                          )
+from mcf.mcfoptp_parallel_backends_base import TaskSpec
+
+if TYPE_CHECKING:
+    from mcf.mcf_main import ModifiedCausalForest
+
+
+def make_fair_iates(mcf_: 'ModifiedCausalForest',
+                    data_df: pd.DataFrame,
+                    with_output: bool | None = None,
+                    ) -> tuple[dict, pd.DataFrame, list[str],  list[str], list[str], list[str],]:
+    """Compute fair iates by rerunning mcf with reference samples."""
+    blind_dic = mcf_.blind_dict
+    potout_dic = {}
+    mcf_.gen_cfg.with_output = False
+    mcf_.p_cfg.atet = mcf_.p_cfg.gatet = False
+    mcf_.p_cfg.cbgate = False
+    mcf_.p_cfg.bt_yes = False
+    mcf_.p_cfg.bgate = mcf_.p_cfg.bt_yes = False
+    mcf_.p_cfg.cluster_std = mcf_.p_cfg.gates_smooth = False
+    mcf_.p_cfg.iate_se = mcf_.p_cfg.iate_m_ate = False
+    mcf_.p_cfg.se_boot_ate = mcf_.p_cfg.se_boot_gate = False
+    mcf_.p_cfg.se_boot_iate = False
+    mcf_.gen_cfg.return_iate_sp = True
+    if len(mcf_.var_cfg.y_name) > 1:
+        raise ValueError('Blinded method runs only with a single outcome.')
+    # Labels for the dictionary with the results
+    polscore_labels_dic = ['pol_score_weight' + str(weight)
+                           for weight in blind_dic['weights_of_blind']
+                           ]
+    # Labels for the (un-) adjusted potential outcomes in DataFrame
+    # Step 1: Check and define variables
+    (var_not_blind_ord, var_not_blind_unord, var_blind_ord, var_blind_unord,
+     var_policy_ord, var_policy_unord) = check_fair_vars(mcf_, with_output)
+    var_not_blind = var_not_blind_ord + var_not_blind_unord
+    var_blind = var_blind_ord + var_blind_unord
+    var_all = var_blind + var_not_blind
+
+    # Step 2: Compute (unadjusted, unblinded) IATEs
+    mcf_.p_cfg.iate = True
+    if with_output:
+        print('\n' + 'Computing unblinded (standard) potential outcomes')
+    results_dic = mcf_.predict(data_df)
+    data_all_df = results_dic['iate_data_df']
+    data_df = data_all_df[var_all]
+    potout_dic[polscore_labels_dic[0]], polscore_names = pols_names_from_res(mcf_, results_dic)
+
+    # Step 3. Compute Blind IATEs
+    compute_blind = ((len(blind_dic['weights_of_blind']) > 1)
+                     or (len(blind_dic['weights_of_blind']) == 1
+                         and blind_dic['weights_of_blind'][0] > 0))
+    if compute_blind:
+        mcf_.p_cfg.ate_no_se_only = True
+        mcf_.p_cfg.iate = mcf_.cs_cfg.yes = False
+        mp_parallel = mcf_.gen_cfg.mp_parallel
+        mcf_.gen_cfg.mp_parallel = 1
+        data_reference_df = compute_reference_data(mcf_, data_df, with_output=with_output)
+        data_not_blind_df = data_df[var_not_blind]
+        # Define empty Dataframe to collect the blinded policy scores
+        blind_pol_score_df = pd.DataFrame(0, columns=polscore_names,
+                                          index=range(len(data_df)),
+                                          dtype=float,
+                                          )
+        n_x = len(data_df)
+        no_of_treat = mcf_.gen_cfg.no_of_treat
+        # ATEs will returned relative to treatment 0 (which is normalized to 0)
+        y_pot_0 = potout_dic[polscore_labels_dic[0]].iloc[:, 0].to_numpy()
+        blind_ate_np = np.ones((len(data_df), no_of_treat)) * y_pot_0.reshape(-1, 1)
+        if with_output:
+            print('\n' + 'Computing blinded potential outcomes')
+        if mp_parallel < 1.5:
+            for row_no in range(n_x):
+                blind_pol_score_df.iloc[row_no] = ate_for_blinded(
+                    mcf_, row_no, data_reference_df, data_not_blind_df,
+                    no_of_treat=no_of_treat, ate_np=blind_ate_np,
+                    )
+                mcf_gp.progress_clean_memory(output=with_output, clean_mem=False,
+                                             current_idx=row_no, total=n_x,
+                                             )
+        else:
+            ray_err_txt='Ray initialisation error in fairness adjustment of IATEs.'
+            if mcf_.int_cfg.mp_use_old_ray:
+                if ray is None:
+                    raise ImportError('int_cfg.mp_use_old_ray=True, but ray is not installed. '
+                                      'Install ray or use the new backend with '
+                                      'mp_use_old_ray=False.'
+                                      )
+                if not ray.is_initialized():
+                    init_ray_with_fallback(mp_parallel, mcf_.gen_cfg,
+                                           mem_object_store_2=mcf_.int_cfg.mem_object_store_2,
+                                           ray_err_txt=ray_err_txt,
+                                           )
+                (data_reference_df_ref, data_not_blind_df_ref, blind_ate_np_ref
+                 ) = ray_put_all(data_reference_df, data_not_blind_df, blind_ate_np)
+
+                still_running = [ray_ate_for_blinded.remote(
+                    mcf_, row_no, data_reference_df_ref, data_not_blind_df_ref,
+                    no_of_treat=no_of_treat, ate_np=blind_ate_np_ref,
+                    ) for row_no in range(n_x)
+                    ]
+                jdx = 0
+                while len(still_running) > 0:
+                    finished, still_running = ray.wait(still_running, num_returns=1)
+                    finished_res = ray.get(finished)
+                    for res in finished_res:
+                        iix = res[1]
+                        blind_pol_score_df.iloc[iix] = res[0]
+                        mcf_gp.progress_clean_memory(output=with_output, current_idx=jdx, total=n_x)
+                        jdx += 1
+            else:
+                shared_fairness_data = {'data_reference_df': data_reference_df,
+                                        'data_not_blind_df': data_not_blind_df,
+                                        'ate_np': blind_ate_np,
+                                        }
+                fail_txt='Failed to make executor in fairness adjustment of IATEs.'
+                with forest_executor_with_shared(int_cfg=mcf_.int_cfg,
+                                                 maxworkers=mp_parallel,
+                                                 shared_obj=shared_fairness_data,
+                                                 shared_name='fairness_adjustment_data',
+                                                 ray_err_txt=ray_err_txt,
+                                                 fail_txt=fail_txt,
+                                                 ) as (executor, fairness_data_handle, maxworkers):
+                    tasks = [TaskSpec(func=ate_for_blinded_backend_fairness,
+                                      kwargs={'mcf_': mcf_,
+                                              'row_no': row_no,
+                                              'data': fairness_data_handle,
+                                              'no_of_treat': no_of_treat,
+                                              },
+                                      name=f'fairness_ate_{row_no}',
+                                      )
+                            for row_no in range(n_x)
+                            ]
+                    jdx = 0
+                    for res in map_task_batches(executor=executor, tasks=tasks,
+                                                int_cfg=mcf_.int_cfg, maxworkers=maxworkers,
+                                                min_worker_waves = (
+                                                    4 if mcf_.int_cfg.mp_backend == 'joblib' else 1
+                                                    ),
+                                                ):
+                        iix = res[1]
+                        blind_pol_score_df.iloc[iix] = res[0]
+
+                        jdx += 1
+                        mcf_gp.progress_clean_memory(output=with_output, current_idx=jdx, total=n_x)
+
+        potout_dic[polscore_labels_dic[-1]] = blind_pol_score_df
+
+    # 4. Linear combinations (falls weights nicht nur 0,1)
+    for idx, weight in enumerate(blind_dic['weights_of_blind']):
+        if 0.00001 < weight < 0.99999:
+            pol_score_df = (weight * blind_pol_score_df + (1 - weight)
+                            * potout_dic[polscore_labels_dic[0]]
+                            )
+            potout_dic[polscore_labels_dic[idx]] = pol_score_df.copy()
+
+    # 5. Descriptive stats of potential outcomes
+    if with_output:
+        descriptives_of_allocation(mcf_, potout_dic, polscore_labels_dic)
+
+    return potout_dic, data_df, var_policy_ord,  var_policy_unord, var_blind_ord, var_blind_unord
+
+
+def ate_for_blinded_backend_fairness(*, mcf_: Any,
+                                     row_no: int,
+                                     data: dict[str, Any],
+                                     no_of_treat: int,
+                                     ) -> Any:
+    """Backend-agnostic wrapper for one fairness-adjustment task."""
+    return ate_for_blinded(mcf_, row_no, data['data_reference_df'], data['data_not_blind_df'],
+                          no_of_treat=no_of_treat, ate_np=data['ate_np'],
+                          )
+
+
+def descriptives_of_allocation(mcf_: 'ModifiedCausalForest',
+                               potout_dic: dict,
+                               polscore_labels_dic: dict,
+                               ) -> None:
+    """Create descriptive stats of policy scores."""
+    txt = ('\n' * 2 + '-' * 100 + 'Descriptive statistics of policy scores\n'
+           + '- ' * 50)
+    mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=True)
+    for label in polscore_labels_dic:
+        mcf_ps.print_mcf(mcf_.gen_cfg, '\n' + str(label) + '\n', summary=True)
+        with pd.option_context(
+                'display.max_rows', 500, 'display.max_columns', 500,
+                'display.expand_frame_repr', True, 'display.width', 150,
+                'chop_threshold', 1e-13):
+            data = potout_dic[label].copy()
+            mcf_ps.print_mcf(mcf_.gen_cfg, data.describe().transpose(), summary=True)
+
+
+# @ray.remote
+# def ray_ate_for_blinded(mcf_: 'ModifiedCausalForest',
+#                         row_no: int,
+#                         data_reference_df: pd.DataFrame,
+#                         data_not_blind_df: pd.DataFrame, *,
+#                         no_of_treat: int,
+#                         ate_np: NDArray[Any],
+#                         ) -> NDArray[Any]:
+#     """Make ate_for_blinded ready for ray."""
+#     ate2_np = ate_np.copy()
+#     return (ate_for_blinded(mcf_, row_no, data_reference_df, data_not_blind_df,
+#                             no_of_treat=no_of_treat, ate_np=ate2_np
+#                             ),
+#             row_no
+#             )
+def _ray_ate_for_blinded_impl(mcf_: 'ModifiedCausalForest',
+                              row_no: int,
+                              data_reference_df: pd.DataFrame,
+                              data_not_blind_df: pd.DataFrame, *,
+                              no_of_treat: int,
+                              ate_np: NDArray[Any],
+                              ) -> tuple[NDArray[Any], int]:
+    """Implement legacy Ray wrapper."""
+    ate2_np = ate_np.copy()
+    return (ate_for_blinded(mcf_, row_no, data_reference_df, data_not_blind_df,
+                            no_of_treat=no_of_treat, ate_np=ate2_np,
+                            ),
+            row_no,
+            )
+
+
+ray_ate_for_blinded = ray.remote(_ray_ate_for_blinded_impl) if ray is not None else None
+
+
+def ate_for_blinded(mcf_: 'ModifiedCausalForest',
+                    row_no: int,
+                    data_reference_df: pd.DataFrame,
+                    data_not_blind_df: pd.DataFrame, *,
+                    no_of_treat: int,
+                    ate_np: NDArray,
+                    ):
+    """Compute ate for blinding adjustment for single observation."""
+    data_index_df = data_index_df_fct(row_no, data_reference_df, data_not_blind_df)
+    results_dic = mcf_.predict(data_index_df)
+    ate = np.zeros(no_of_treat)
+    ate[1:] = results_dic['ate'][0, 0, :no_of_treat-1].squeeze()
+    ate_ret = ate_np[row_no, :] + ate
+
+    return ate_ret
+
+
+def data_index_df_fct(row_no: int,
+                      data_reference_df: pd.DataFrame,
+                      data_not_blind_df: pd.DataFrame,
+                      ) -> pd.DataFrame:
+    """Modify reference data."""
+    data_row_no_np = data_not_blind_df.iloc[row_no]
+    no_blind_vars = data_not_blind_df.columns
+    # data_np = np.ones_like(data_reference_df[no_blind_vars]) * data_row_no_np
+    data_np = np.zeros_like(data_reference_df[no_blind_vars])
+    data_np[:] = data_row_no_np.values
+    data_index_df = data_reference_df.copy()
+    data_index_df[no_blind_vars] = data_np
+
+    return data_index_df
+
+
+def compute_reference_data(mcf_: 'ModifiedCausalForest',
+                           data_df: pd.DataFrame,
+                           with_output: bool = True,
+                           ) -> pd.DataFrame:
+    """Compute reference data set."""
+    data_reference_df = data_df.sample(
+        n=mcf_.blind_dict['obs_ref_data'], replace=False,
+        random_state=mcf_.blind_dict['seed'])
+    data_reference_df.reset_index(drop=True, inplace=True)
+    if with_output:
+        mcf_ps.print_mcf(mcf_.gen_cfg, '\n' * 2
+                         + 'Reference data set (randomly drawn)\n' + '- ' * 50,
+                         summary=False)
+        with pd.option_context(
+                'display.max_rows', 500, 'display.max_columns', 500,
+                'display.expand_frame_repr', True, 'display.width', 150,
+                'chop_threshold', 1e-13):
+            mcf_ps.print_mcf(mcf_.gen_cfg, data_df.describe().transpose(), summary=False)
+
+    return data_reference_df
+
+
+def check_fair_vars(mcf_: 'ModifiedCausalForest',
+                    with_output: bool,
+                    ) -> tuple[list[str], list[str], list[str], list[str], list[str], list[str],]:
+    """Check and sort variables."""
+    # Put variables in list, upper case, empty lists if None
+    x_type = mcf_.var_x_type
+
+    # Clean variable names
+    mcf_.blind_dict['var_x_protected_name'] = mcf_gp.cleaned_var_names(
+        mcf_.blind_dict['var_x_protected_name'])
+    mcf_.blind_dict['var_x_policy_name'] = mcf_gp.cleaned_var_names(
+        mcf_.blind_dict['var_x_policy_name'])
+    mcf_.blind_dict['var_x_unrestricted_name'] = mcf_gp.cleaned_var_names(
+        mcf_.blind_dict['var_x_unrestricted_name'])
+
+    # Classify variables
+    var_not_blind = (mcf_.blind_dict['var_x_policy_name']
+                     + mcf_.blind_dict['var_x_unrestricted_name'])
+    var_blind = mcf_.blind_dict['var_x_protected_name'].copy()
+    var_policy = mcf_.blind_dict['var_x_policy_name']
+
+    # Add uncategorized variables to list of protected variables
+    all_names = remove_end_str(list(x_type.keys()), 'catv')
+    all_names = remove_end_str(all_names, '_prime')
+    add_vars_to_blind = [var for var in all_names
+                         if var not in var_not_blind and var not in var_blind
+                         and var not in var_policy
+                         ]
+
+    if add_vars_to_blind:
+        var_blind.extend(add_vars_to_blind)
+
+    # Split into ordered and unordered variables
+    var_blind_ord = [var for var in var_blind
+                     if ((var in x_type and x_type[var] == 0) or (var + 'catv') in x_type)
+                     ]
+    var_blind_unord = [var for var in var_blind
+                       if ((var in x_type and x_type[var] > 0) or (var + '_prime') in x_type)
+                       ]
+    var_not_blind_ord = [var for var in var_not_blind
+                         if ((var in x_type and x_type[var] == 0) or (var + 'catv') in x_type)
+                         ]
+    var_not_blind_unord = [var for var in var_not_blind
+                           if ((var in x_type and x_type[var] > 0) or (var + '_prime') in x_type)
+                           ]
+    var_policy_ord = [var for var in var_policy
+                      if ((var in x_type and x_type[var] == 0) or (var + 'catv') in x_type)
+                      ]
+    var_policy_unord = [var for var in var_policy
+                        if ((var in x_type and x_type[var] > 0) or (var + '_prime') in x_type)
+                        ]
+    var_blind_ord = remove_end_str(var_blind_ord, 'catv')
+    var_not_blind_ord = remove_end_str(var_not_blind_ord, 'catv')
+    var_policy_ord = remove_end_str(var_policy_ord, 'catv')
+    var_blind_unord = remove_end_str(var_blind_unord, '_prime')
+    var_not_blind_unord = remove_end_str(var_not_blind_unord, '_prime')
+    var_policy_unord = remove_end_str(var_policy_unord, '_prime')
+
+    # Print
+    if with_output:
+        print_variable_output(mcf_, var_blind=var_blind, var_policy=var_policy)
+
+    return (var_not_blind_ord, var_not_blind_unord, var_blind_ord,
+            var_blind_unord, var_policy_ord, var_policy_unord
+            )
+
+
+def remove_end_str(var_list: list[str],
+                   str_to_remove: str = '_prime',
+                   ) -> list[str]:
+    """Remove ending that have been added by the mcf estimation programme."""
+    var_list_red = []
+    for var in var_list:
+        if var.endswith('catv'):
+            var_list_red.append(var[:-4])
+            continue
+        if var.endswith('_prime'):
+            var_list_red.append(var[:-6])
+            continue
+        if var.endswith(str_to_remove):
+            var_list_red.append(var[:-len(str_to_remove)])
+            continue
+        var_list_red.append(var)
+    return var_list_red
+
+
+def print_variable_output(mcf_: 'ModifiedCausalForest',
+                          var_blind: list[str] | None = None,
+                          var_policy: list[str] | None = None,
+                          ) -> None:
+    """Print a summary of the variables and their roles."""
+    x_type = mcf_.var_x_type
+    txt = ('\n' + '=' * 100
+           + '\nBlinding protected variables for optimal policy analysis'
+           + '\n' + '-' * 100)
+
+    txt += '\nPolicy_variables:                        ' + ' '.join(
+        mcf_.blind_dict['var_x_policy_name']) + '\n' + '- ' * 50
+    txt += '\nProtected variables (specified by user): ' + ' '.join(
+        mcf_.blind_dict['var_x_protected_name']) + '\n' + '- ' * 50
+    txt += '\nUnrestricted variables:                  ' + ' '.join(
+        mcf_.blind_dict['var_x_unrestricted_name']) + '\n' + '- ' * 50
+    mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=True)
+
+    txt = ('\n' + '-' * 100
+           + '\nClassification of all features used for IATE estimation'
+           + '\n' + '- ' * 50
+           )
+    for var in x_type:
+        ordered = 'ordered' if x_type[var] == 0 else 'unordered'
+        if ordered == 'ordered':
+            if var.endswith('catv'):
+                var = var[:-4]
+        else:
+            if var.endswith('_prime'):
+                var = var[:-6]
+        if var in var_blind:
+            if var in mcf_.blind_dict['var_x_protected_name']:
+                blind = 'Protected - blinded (as decided by user)'
+            else:
+                blind = 'Protected - blinded (automatically decided)'
+        elif var in var_policy:
+            blind = 'Policy (decision)'
+        else:
+            blind = 'Other unblinded'
+        txt += f'\n{var:30s} {ordered:15s} {blind}'
+    txt += ('\n' + '- ' * 50 + '\nVariables not explicity designated by user'
+            ' as "Other unblinded" will be treated as "Protected."\n'
+            + '-' * 100
+            )
+    mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=False)
+
+
+def pols_names_from_res(mcf_: 'ModifiedCausalForest',
+                        results_dic: dict,
+                        ) -> tuple[pd.DataFrame, list[str]]:
+    """Get the right names for the data contained in the results dic."""
+    if mcf_.gen_cfg.iate_eff:
+        name_pot = 'names_y_pot_uncenter_eff' if mcf_.lc_cfg.yes else 'names_y_pot_eff'
+    else:
+        name_pot = 'names_y_pot_uncenter' if mcf_.lc_cfg.yes else 'names_y_pot'
+    polscore_names = results_dic['iate_names_dic'][0][name_pot]
+    polscore_df = results_dic['iate_data_df'][polscore_names]
+
+    return polscore_df, polscore_names

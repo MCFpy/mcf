@@ -1,4 +1,3 @@
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/mcf)
 [![PyPI Downloads](https://static.pepy.tech/badge/mcf)](https://pepy.tech/projects/mcf)
 ![PyPI Downloads](https://img.shields.io/pypi/dm/mcf)
 
@@ -52,11 +51,7 @@ This allows translation of policy scores into actionable decision rules for opti
 
 The implementation builds on the following literature:
 
-- Lechner (2019): *Modified Causal Forests for Estimating Heterogeneous Causal Effects*
-
-If you use **mcf** in your work, please cite:
-
-> Lechner, M. (2019). Modified Causal Forests for Estimating Heterogeneous Causal Effects. arXiv:1812.09487.
+- Lechner (2019): *Modified Causal Forests for Estimating Heterogeneous Causal Effects*. arXiv:1812.09487.
 
 ```bibtex
 @misc{lechner2019modifiedcausalforest,
@@ -68,6 +63,7 @@ If you use **mcf** in your work, please cite:
   primaryClass = {econ.EM},
   url          = {https://arxiv.org/abs/1812.09487}
 }
+```
 
 ---
 

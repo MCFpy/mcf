@@ -1,4 +1,4 @@
-from mcf.example_data_functions import example_data
+from mcf.example_data import example_data
 from mcf.optpolicy_main import OptimalPolicy
 from mcf.reporting import McfOptPolReport
 from mcf.mcf_main import ModifiedCausalForest

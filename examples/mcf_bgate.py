@@ -10,7 +10,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.9.0
+Version: 0.10.0
 
 This is an example to show how the mcf with BGATE estimation can be implemented
 relying on defaults for parameters not related to the BGATE. Note that usually
@@ -25,7 +25,7 @@ Related paper: Nora Bearth & Michael Lechner (2025): Causal Machine Learning
 from pathlib import Path
 import warnings
 
-from mcf.example_data_functions import example_data
+from mcf.example_data import example_data
 from mcf.mcf_general_sys import save_load
 from mcf.mcf_main import ModifiedCausalForest
 from mcf.reporting import McfOptPolReport
@@ -49,8 +49,7 @@ VAR_Y_NAME = 'outcome'          # Name of outcome variable
 VAR_X_NAME_ORD = ('x_cont0', 'x_cont1', 'x_cont2')
 VAR_Z_NAME = 'x_cont1'
 VAR_X_NAME_BALANCE_BGATE_1 = 'x_cont2'
-VAR_X_NAME_BALANCE_BGATE_2 = ('x_cont2',
-                                'x_cont0')  # Alternative balancing variables
+VAR_X_NAME_BALANCE_BGATE_2 = ('x_cont2', 'x_cont0')  # Alternative balancing variables
 # -----------------------------------------------------------------------------
 if not APPLIC_PATH.exists():
     APPLIC_PATH.mkdir(parents=True)
@@ -61,42 +60,38 @@ training_df, prediction_df, name_dict = example_data()
 # Modules may sent many irrelevant warnings: Globally ignore them
 warnings.filterwarnings('ignore')
 # -----------------------------------------------------------------------------
-mymcf = ModifiedCausalForest(
-    gen_outpath=APPLIC_PATH,
-    var_d_name=VAR_D_NAME,
-    var_y_name=VAR_Y_NAME,
-    var_x_name_ord=VAR_X_NAME_ORD,
-    var_z_name_cont=VAR_Z_NAME,
-    p_cbgate=True, p_bgate=True,
-    var_x_name_balance_bgate=VAR_X_NAME_BALANCE_BGATE_1,
-    )
-
+mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
+                             var_d_name=VAR_D_NAME,
+                             var_y_name=VAR_Y_NAME,
+                             var_x_name_ord=VAR_X_NAME_ORD,
+                             var_z_name_cont=VAR_Z_NAME,
+                             p_cbgate=True, p_bgate=True,
+                             var_x_name_balance_bgate=VAR_X_NAME_BALANCE_BGATE_1,
+                             )
 mymcf.train(training_df)  # Returns not used here
 
 # Save instance before predict for later use with different conditioning set
 # (see the MCF_ALL_PARAMETERS example for an alternative way to do this).
-save_load(APPLIC_PATH / 'mymcf.pickle',
-          object_to_save=mymcf, save=True, output=True
-          )
+save_load(APPLIC_PATH / 'mymcf.pickle', object_to_save=mymcf, save=True, output=True)
 
 results = mymcf.predict(prediction_df)
 results_with_cluster_id_df = mymcf.analyse(results)
 my_report = McfOptPolReport(mcf=mymcf)
 my_report.report()
 
-# Second round of BGATE estimation with same forests but a different BGATE 
+# Second round of BGATE estimation with same forests but a different BGATE
 # conditioning set
 
 # Load the trained instance
 mymcf2 = save_load(APPLIC_PATH / 'mymcf.pickle', save=False, output=True)
-results2 = mymcf2.predict(
-    prediction_df,
-    new_keywords={'var_x_name_balance_bgate': VAR_X_NAME_BALANCE_BGATE_2}
-    )
+results2 = mymcf2.predict(prediction_df,
+                          new_keywords={'var_x_name_balance_bgate': VAR_X_NAME_BALANCE_BGATE_2}
+                          )
 results2_with_cluster_id_df = mymcf2.analyse(results2)
 my_report2 = McfOptPolReport(mcf=mymcf2)
 my_report2.report()
 
 
 print('End of computations.\n\nThanks for using ModifiedCausalForest.'
-      ' \n\nYours sincerely\nMCF \U0001F600')
+      ' \n\nYours sincerely\nMCF \U0001F600'
+      )

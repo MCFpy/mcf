@@ -13,7 +13,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.9.0
+Version: 0.10.0
 
 This is an example to show the optimal policy package can be implemented with
 a minimum number of specification (it could be even more further simplified
@@ -24,7 +24,7 @@ method-specific parameters redundant).
 """
 from pathlib import Path
 
-from mcf.example_data_functions import example_data
+from mcf.example_data import example_data
 from mcf.optpolicy_main import OptimalPolicy
 from mcf.reporting import McfOptPolReport
 
@@ -61,7 +61,7 @@ for method in METHODS:
                            var_polscore_name=VAR_POLSCORE_NAME,
                            var_x_name_ord=VAR_X_NAME_ORD)
 
-    solve_dict = myoptp.solve(training_df, data_title='training')
+    solve_dict, training_df = myoptp.solve(training_df, data_title='training')
 
     myoptp.evaluate(solve_dict['allocation_df'],
                     training_df,

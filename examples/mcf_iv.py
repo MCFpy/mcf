@@ -10,7 +10,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.9.0
+Version: 0.10.0
 
 This is an example to show how IV estimation can be implemented relying on
 defaults. Note that usually in applications it is very likely to be appropriate
@@ -20,7 +20,7 @@ to deviate from some of the default specifications.
 from pathlib import Path
 import warnings
 
-from mcf.example_data_functions import example_data
+from mcf.example_data import example_data
 from mcf.mcf_main import ModifiedCausalForest
 from mcf.reporting import McfOptPolReport
 
@@ -29,13 +29,12 @@ from mcf.reporting import McfOptPolReport
 OBS_TRAINING = 2000
 OBS_PREDICTION = 2000
 # ---------------------- Generate artificial data ------------------------------
-training_df, prediction_df, name_dict = example_data(
-    no_treatments=2,
-    obs_y_d_x_iate=OBS_TRAINING,
-    obs_x_iate=OBS_PREDICTION,
-    strength_iv=10,
-    no_effect=True
-    )
+training_df, prediction_df, name_dict = example_data(no_treatments=2,
+                                                     obs_y_d_x_iate=OBS_TRAINING,
+                                                     obs_x_iate=OBS_PREDICTION,
+                                                     strength_iv=10,
+                                                     no_effect=True,                                                     
+                                                     )
 # ------------------ Parameters of the ModifiedCausalForest -------------------
 APPLIC_PATH = Path.cwd() / 'example/output'
 
@@ -93,6 +92,7 @@ mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
                              var_iv_name=VAR_IV_NAME,
                              cf_boot=CF_BOOT,
                              p_iv_aggregation_method=P_IV_AGGREGATION_METHOD,
+                             _int_low_memory_predict=False,
                              )
 mymcf.train_iv(training_df)
 results_global, results_local = mymcf.predict_iv(prediction_df)
@@ -108,4 +108,5 @@ my_report = McfOptPolReport(mcf=mymcf)
 my_report.report()
 
 print('End of computations.\n\nThanks for using ModifiedCausalForest (IV).'
-      ' \n\nYours sincerely\nMCF \U0001F600')
+      ' \n\nYours sincerely\nMCF \U0001F600'
+      )

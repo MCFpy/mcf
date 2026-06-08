@@ -10,7 +10,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.9.0
+Version: 0.10.0
 
 This is an example to show how the qiates of mcf can be computed relying
 on defaults for parameters not related to QIATE estimation. Note that usually in
@@ -21,7 +21,7 @@ default specifications.
 from pathlib import Path
 import warnings
 
-from mcf.example_data_functions import example_data
+from mcf.example_data import example_data
 from mcf.mcf_main import ModifiedCausalForest
 from mcf.reporting import McfOptPolReport
 
@@ -35,8 +35,8 @@ APPLIC_PATH = Path.cwd() / 'example/output'
 training_df, prediction_df, name_dict = example_data(no_treatments=2,
                                                      obs_y_d_x_iate=2000,
                                                      obs_x_iate=2000,
-                                                     no_effect=False)
-
+                                                     no_effect=False,
+                                                     )
 # ------------------ Parameters of the ModifiedCausalForest -------------------
 
 VAR_D_NAME = name_dict['d_name']          # Name of treatment variable
@@ -78,22 +78,22 @@ if not APPLIC_PATH.exists():
 # Modules may send many irrelevant warnings: Globally ignore them
 warnings.filterwarnings('ignore')
 # -----------------------------------------------------------------------------
-mymcf = ModifiedCausalForest(
-    gen_outpath=APPLIC_PATH,
-    var_d_name=VAR_D_NAME,
-    var_y_name=VAR_Y_NAME,
-    var_x_name_ord=VAR_X_NAME_ORD,
-    var_x_name_unord=VAR_X_NAME_UNORD,
-    p_qiate=P_QIATE,
-    p_qiate_se=P_QIATE_SE,
-    p_qiate_m_mqiate=P_QIATE_M_MQIATE,
-    p_qiate_m_opp=P_QIATE_M_OPP,
-    p_qiate_no_of_quantiles=P_QIATE_NO_OF_QUANTILES,
-    p_qiate_smooth=P_QIATE_SMOOTH,
-    p_qiate_smooth_bandwidth=P_QIATE_SMOOTH_BANDWIDTH,
-    p_qiate_bias_adjust=P_QIATE_BIAS_ADJUST,
-    cf_boot=None,
-    gen_mp_parallel=None,
+mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
+                             var_d_name=VAR_D_NAME,
+                             var_y_name=VAR_Y_NAME,
+                             var_x_name_ord=VAR_X_NAME_ORD,
+                             var_x_name_unord=VAR_X_NAME_UNORD,
+                             p_qiate=P_QIATE,
+                             p_qiate_se=P_QIATE_SE,
+                             p_qiate_m_mqiate=P_QIATE_M_MQIATE,
+                             p_qiate_m_opp=P_QIATE_M_OPP,
+                             p_qiate_no_of_quantiles=P_QIATE_NO_OF_QUANTILES,
+                             p_qiate_smooth=P_QIATE_SMOOTH,
+                             p_qiate_smooth_bandwidth=P_QIATE_SMOOTH_BANDWIDTH,
+                             p_qiate_bias_adjust=P_QIATE_BIAS_ADJUST,
+                             cf_boot=None,
+                             gen_mp_parallel=None,
+                             _int_low_memory_predict=False,
                              )
 
 mymcf.train(training_df)  # Returns not used here
@@ -106,4 +106,5 @@ my_report = McfOptPolReport(mcf=mymcf)
 my_report.report()
 
 print('End of computations.\n\nThanks for using ModifiedCausalForest (IV).'
-      ' \n\nYours sincerely\nMCF \U0001F600')
+      ' \n\nYours sincerely\nMCF \U0001F600'
+      )

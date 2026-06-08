@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
 Name: mcf
-Version: 0.9.0
-Summary: The Python package mcf implements the Modified Causal Forest introduced by Lechner (2018). This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, mcf offers the capability to learn optimal policy allocations.
+Version: 0.10.0
+Summary: Modified Causal Forest in Python
 Home-page: https://mcfpy.github.io/mcf/#/
 Author: mlechner
 Author-email: michael.lechner@unisg.ch
@@ -11,17 +11,92 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.12,<3.14
+Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: ray==2.52.1
-Requires-Dist: pandas==2.3.3
-Requires-Dist: matplotlib==3.10.7
-Requires-Dist: numba==0.62.1
+Requires-Dist: ray==2.55.1; python_version == "3.12"
+Requires-Dist: ray==2.55.1; python_version == "3.13" and sys_platform != "win32"
+Requires-Dist: pandas==3.0.3
+Requires-Dist: matplotlib==3.10.9
+Requires-Dist: numba==0.65.1
 Requires-Dist: sympy==1.14.0
-Requires-Dist: scikit-learn==1.7.2
-Requires-Dist: scipy==1.16.3
-Requires-Dist: torch==2.9.1
-Requires-Dist: fpdf2==2.8.5
+Requires-Dist: scikit-learn==1.8.0
+Requires-Dist: scipy==1.17.1
+Requires-Dist: torch==2.12.0
+Requires-Dist: fpdf2==2.8.7
 Requires-Dist: seaborn==0.13.2
 Requires-Dist: statsmodels==0.14.6
 
-The Python package mcf implements the Modified Causal Forest introduced by Lechner (2018). This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, mcf offers the capability to learn optimal policy allocations.
+[![PyPI Downloads](https://static.pepy.tech/badge/mcf)](https://pepy.tech/projects/mcf)
+![PyPI Downloads](https://img.shields.io/pypi/dm/mcf)
+
+# mcf – Modified Causal Forest in Python
+
+**mcf** is a Python package implementing the Modified Causal Forest (MCF) methodology introduced by Lechner (2018) for estimating heterogeneous causal effects.
+
+It provides a flexible framework for causal machine learning with support for binary and multiple treatments in both experimental and observational data settings.
+
+In addition to treatment effect estimation, **mcf** enables data-driven policy learning through optimal treatment allocation rules based on estimated potential outcomes.
+
+---
+
+## Documentation and Maintenance
+
+- Documentation and website: https://mcfpy.github.io/mcf/#/
+- Bug tracker: https://github.com/mcfpy/mcf/issues
+
+---
+
+## Main Features
+
+The **mcf** package provides two core components for causal machine learning:
+
+### Modified Causal Forest
+
+The `ModifiedCausalForest` class implements a flexible tree-based framework for estimating heterogeneous treatment effects. It supports:
+
+- Estimation of and inference for individualized treatment effects (IATEs) and aggregates as the (group) average treatment effects (GATEs, ATEs)
+- Binary and multiple treatment settings
+- Experimental and observational data
+- Flexible covariate specification (ordered and unordered variables)
+
+The object-oriented design provides a unified workflow for model training, prediction, and extraction of causal estimates.
+
+---
+
+### Optimal Policy Learning
+
+The `OptimalPolicy` class enables data-driven treatment assignment by learning decision rules that maximize a reward function. It provides:
+
+- Learning of optimal treatment allocation rules
+- Policy evaluation on training and test data
+- Support for multiple treatment alternatives and policy constraints
+
+This allows translation of policy scores into actionable decision rules for optimal policy design.
+
+---
+
+## Citation
+
+The implementation builds on the following literature:
+
+- Lechner (2019): *Modified Causal Forests for Estimating Heterogeneous Causal Effects*. arXiv:1812.09487.
+
+```bibtex
+@misc{lechner2019modifiedcausalforest,
+  title        = {Modified Causal Forests for Estimating Heterogeneous Causal Effects},
+  author       = {Michael Lechner},
+  year         = {2019},
+  eprint       = {1812.09487},
+  archivePrefix = {arXiv},
+  primaryClass = {econ.EM},
+  url          = {https://arxiv.org/abs/1812.09487}
+}
+```
+
+---
+
+## License
+
+This project is distributed under the MIT License.

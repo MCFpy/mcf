@@ -6,21 +6,27 @@ Created on Thu May 11 16:30:11 2023
 @author: MLechner
 # -*- coding: utf-8 -*-
 """
+from __future__ import annotations
+
 from copy import deepcopy
 from dataclasses import is_dataclass, fields
 from functools import lru_cache
-from math import log, prod, isnan
-from typing import Any
+from gc import collect
+from math import log, prod, isnan, ceil
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 from pandas import DataFrame
+from psutil import virtual_memory
 from sympy.ntheory import primefactors
-
 try:
     import torch  # type: ignore[import]
 except (ImportError, OSError):
     torch = None  # type: ignore[assignment]
+
+if TYPE_CHECKING:
+    from mcf.mcf_init import VarCfg
 
 
 # Alternatively using functools.lru_cache may be faster
@@ -119,10 +125,7 @@ def list_product(factors: list[int]) -> int:
     return prod(factors)  # should be fast and keep python format
 
 
-def substitute_variable_name(var_cfg: Any,
-                             old_name: str,
-                             new_name: str
-                             ) -> dict:
+def substitute_variable_name(var_cfg: 'VarCfg', old_name: str, new_name: str) -> dict:
     """Exchanges values in a dictionary.
 
     Parameters
@@ -221,9 +224,10 @@ def cleaned_var_names(var_name: list[str]) -> list[str]:
         var_name = []
     if isinstance(var_name, str):
         var_name = [var_name]
-    if any(s is isinstance(s, (tuple, list)) for s in var_name):
-        raise ValueError(f'{var_name} must be a list or tuple. It seems '
-                         ' that it is list/tuple of lists/tuples.')
+    if any(isinstance(s, (tuple, list)) for s in var_name):
+        raise TypeError(f'{var_name} must be a list or tuple. It seems that it is list/tuple of '
+                        'lists/tuples.'
+                        )
     var_name1 = [s.casefold() for s in var_name]
     var_name2 = []
     for var in var_name1:
@@ -234,16 +238,16 @@ def cleaned_var_names(var_name: list[str]) -> list[str]:
     return var_name2
 
 
-def add_var_names(names1: list[str],
-                  names2: list[str] = None,
-                  names3: list[str] = None,
-                  names4: list[str] = None,
-                  names5: list[str] = None,
-                  names6: list[str] = None,
-                  names7: list[str] = None,
-                  names8: list[str] = None,
-                  names9: list[str] = None,
-                  names10: list[str] = None
+def add_var_names(names1: list[str], *,
+                  names2: list[str] | None = None,
+                  names3: list[str] | None = None,
+                  names4: list[str] | None = None,
+                  names5: list[str] | None = None,
+                  names6: list[str] | None = None,
+                  names7: list[str] | None = None,
+                  names8: list[str] | None = None,
+                  names9: list[str] | None = None,
+                  names10: list[str] | None = None
                   ) -> list[str]:
     """Return a list of strings with unique entries."""
     def none_to_empty_list(name):
@@ -276,25 +280,43 @@ def add_var_names(names1: list[str],
     return new_names
 
 
-def to_list_if_needed(string_or_list: str | list[str] | tuple[str] | set[str]
-                      ) -> list[str]:
-    """Help for initialisation."""
-    if isinstance(string_or_list, (tuple, set)):
-        if len(string_or_list) == 0:
-            return []
-        if isinstance(string_or_list[0], (tuple, set)):
-            string_or_list = [item for sublist in string_or_list
-                              for item in sublist]
-        return list(string_or_list)
+# def to_list_if_needed(string_or_list: str | list[str] | tuple[str] | set[str]) -> list[str]:
+#     """Help for initialisation."""
+#     if isinstance(string_or_list, (tuple, set)):
+#         if len(string_or_list) == 0:
+#             return []
+#         if isinstance(string_or_list[0], (tuple, set)):
+#             string_or_list = [item for sublist in string_or_list
+#                               for item in sublist]
+#         return list(string_or_list)
 
+#     if isinstance(string_or_list, str):
+#         return [string_or_list]
+
+#     return string_or_list
+def to_list_if_needed(string_or_list: str | list[str] | tuple[str, ...] | set[str]) -> list[str]:
+    """Convert scalar or iterable names to a list."""
     if isinstance(string_or_list, str):
         return [string_or_list]
 
-    return string_or_list
+    if isinstance(string_or_list, set):
+        string_or_list = list(string_or_list)
+
+    if isinstance(string_or_list, tuple):
+        string_or_list = list(string_or_list)
+
+    if not string_or_list:
+        return []
+
+    if any(isinstance(item, (tuple, list, set)) for item in string_or_list):
+        return [elem
+                for item in string_or_list
+                for elem in (item if isinstance(item, (tuple, list, set)) else [item])
+                ]
+    return list(string_or_list)
 
 
-def check_if_iterable(variable: str | tuple | list | NDArray
-                      ) -> tuple[tuple | list | NDArray]:
+def check_if_iterable(variable: str | tuple | list | NDArray) -> tuple[tuple | list | NDArray]:
     """Return an iterable if not already iterable."""
     iter_type = (tuple, list, np.ndarray)
     variable_list = variable if isinstance(variable, iter_type) else [variable]
@@ -344,9 +366,7 @@ def recode_if_all_prime(values: tuple | list | NDArray,
     return values_l, new_name
 
 
-def primeposition(x_values: list[int],
-                  start_with_1: bool = False
-                  ) -> list[int]:
+def primeposition(x_values: list[int], start_with_1: bool = False) -> list[int]:
     """
     Give position of elements of x_values in list of primes.
 
@@ -482,6 +502,7 @@ def primes_reverse(number: int, int_type: bool = True) -> list[int]:
                         It is easier to use TRUE in other operations, but with
                         False it may be possible to pass (and split) much
                         larger numbers
+
     Returns
     -------
     list_of_primes : INT (same as input)
@@ -517,14 +538,12 @@ def check_if_not_number(data_df: DataFrame, variable: str | list[str]) -> None:
         if not np.all(is_number_mask[:, idx]):
             var_not_a_number.append(var)
     if var_not_a_number:
-        raise ValueError(' '.join(var_not_a_number) + 'are no numbers.'
-                         ' Number format is needed for this variable.')
+        raise TypeError(f'{" ".join(var_not_a_number)} are no numbers.'
+                        ' Number format is needed for this variable.'
+                         )
 
 
-def grid_log_scale(large: int | float,
-                   small: int | float,
-                   number: int
-                   ) -> list[int | float]:
+def grid_log_scale(large: int | float, small: int | float, number: int) -> list[int | float]:
     """Define a logarithmic grid.
 
     Parameters
@@ -545,6 +564,37 @@ def grid_log_scale(large: int | float,
     sequence_p = sequence.tolist()
     return sequence_p
 
+def tqdm_setup(tqdm: Any, output_yes: bool) -> tuple[bool, bool]:
+    """Set up tqdm use."""
+    use_tqdm = (tqdm is not None) and output_yes
+    output_clean = False if use_tqdm else output_yes
+
+    return use_tqdm, output_clean
+
+
+def progress_clean_memory(*, output: bool = True,
+                           clean_mem: bool = False,
+                           current_idx: int = 0,
+                           total: int =1_000,
+                           ) -> None:
+    """Print progress and activate carbage collection."""
+    if output:
+        share_completed(current_idx, total)
+    if clean_mem and int(current_idx) == int(total / 2):
+        auto_garbage_collect(50)   # do if half mem full
+
+
+def auto_garbage_collect(pct: float | int = 80.0) -> None:
+    """
+    Call garbage collector if memory used > pct% of total available memory.
+
+    This is called to deal with an issue in Ray not freeing up used memory.
+    pct - Default value of 80%.  Amount of memory in use that triggers
+          the garbage collection call.
+    """
+    if virtual_memory().percent >= pct:
+        collect()
+
 
 def share_completed(current: int, total: int) -> None:
     """Count how much of a task is completed and print to terminal.
@@ -562,12 +612,16 @@ def share_completed(current: int, total: int) -> None:
     if current == 1:
         print("\nShare completed (%):", end=" ")
     share = current / total * 100
+
     if total < 20:
         print(f'{share:4.0f}', end=" ", flush=True)
     else:
-        points_to_print = range(1, total, round(total/20))
-        if current in points_to_print:
-            print(f'{share:4.0f}', end=" ", flush=True)
+        prev_step = ((current - 1) * 20) // total
+        curr_step = (current * 20) // total
+
+        for step in range(prev_step + 1, curr_step + 1):
+            print(f'{step * 5: 4.0f} ', end=" ", flush=True)
+
     if current == total:
         print('Task completed')
 
@@ -575,8 +629,8 @@ def share_completed(current: int, total: int) -> None:
 def bound_norm_weights_not_one(weight: NDArray,
                                max_weight: float = 0.05,
                                renormalize: bool = True,
-                               zero_tol: float = 1e-15,
-                               sum_tol: float = 1e-12,
+                               zero_tol: float = 1e-10,
+                               sum_tol: float = 1e-8,
                                ) -> tuple[NDArray, np.intp, np.floating]:
     """Bound and renormalized weights that do not add up to 1.
 
@@ -629,10 +683,10 @@ def bound_norm_weights_not_one(weight: NDArray,
     return weight_norm, no_censored, share_censored
 
 
-def bound_norm_weights(weight: NDArray,
+def bound_norm_weights(weight: NDArray, *,
                        max_weight_share: float = 0.05,
                        renormalize: bool = True,
-                       zero_tol: float = 1e-15,
+                       zero_tol: float = 1e-10,
                        sum_tol: float = 1e-15,
                        negative_weights_possible: bool = False,
                        ) -> tuple[NDArray, np.intp, np.floating]:
@@ -684,11 +738,11 @@ def bound_norm_weights(weight: NDArray,
     return weight_norm, no_censored, share_censored
 
 
-def bound_norm_weights_cuda(weight: torch.Tensor,
+def bound_norm_weights_cuda(weight: torch.Tensor, *,
                             max_weight_share: float = 0.05,
                             renormalize: bool = True,
-                            zero_tol: float = 1e-15,
-                            sum_tol: float = 1e-12,
+                            zero_tol: float = 1e-10,
+                            sum_tol: float = 1e-8,
                             negative_weights_possible: bool = False,
                             ) -> tuple[torch.Tensor,
                                        torch.Tensor,
@@ -711,7 +765,6 @@ def bound_norm_weights_cuda(weight: torch.Tensor,
     no_censored : 0-dim integer tensor. Number of censored observations.
     share_censored : 0-dim float tensor. Share of censored observations (0–1).
     """
-
     # Work on a flattened view
     weight_norm = weight.reshape(-1)
 
@@ -722,8 +775,7 @@ def bound_norm_weights_cuda(weight: torch.Tensor,
     else:
         # All weights are positive and (roughly) sum to 1
         max_weight = torch.as_tensor(max_weight_share,
-                                     dtype=weight_norm.dtype,
-                                     device=weight_norm.device,
+                                     dtype=weight_norm.dtype, device=weight_norm.device,
                                      )
     # Masks on the flattened tensor
     too_positive = (weight_norm + zero_tol) > max_weight
@@ -746,9 +798,7 @@ def bound_norm_weights_cuda(weight: torch.Tensor,
         weight_norm[too_negative] = -max_weight
 
     # Share censored: keep as tensor on same device
-    share_censored = (no_censored.to(dtype=weight_norm.dtype)
-                      / weight_norm.numel()
-                      )
+    share_censored = no_censored.to(dtype=weight_norm.dtype) / weight_norm.numel()
 
     # Renormalize to sum ≈ 1 if requested
     if renormalize:
@@ -769,8 +819,8 @@ def bound_norm_weights_cuda(weight: torch.Tensor,
 def bound_norm_weights_not_one_cuda(weight: torch.Tensor,
                                     max_weight: float = 0.05,
                                     renormalize: bool = True,
-                                    zero_tol: float = 1e-15,
-                                    sum_tol: float = 1e-12,
+                                    zero_tol: float = 1e-10,
+                                    sum_tol: float = 1e-8,
                                     ) -> tuple[torch.Tensor,
                                                torch.Tensor,
                                                torch.Tensor]:
@@ -814,9 +864,7 @@ def bound_norm_weights_not_one_cuda(weight: torch.Tensor,
         weight_norm[too_small] = -max_weight_adj
 
     # Fraction censored, keep as float tensor on same device
-    share_censored = (no_censored.to(dtype=weight_norm.dtype)
-                      / weight_norm.numel()
-                      )
+    share_censored = no_censored.to(dtype=weight_norm.dtype) / weight_norm.numel()
     # Renormalize sum of weights to original sum of weights
     if renormalize:
         denom = weight_norm.sum()
@@ -845,9 +893,7 @@ def remove_dupl_keep_order(input_list: list[Any]) -> list[Any]:
     return output_list
 
 
-def include_org_variables(names: list[str],
-                          names_in_data: list[str]
-                          ) -> list[str]:
+def include_org_variables(names: list[str], names_in_data: list[str]) -> list[str]:
     """Add levels if not already in included."""
     new_names = names[:]
     for name in names:
@@ -874,17 +920,19 @@ def check_reduce_dataframe(data_df: DataFrame,
         data_df = data_df.sample(n=max_obs,
                                  random_state=seed,
                                  replace=False,
-                                 ignore_index=ignore_index)
+                                 ignore_index=ignore_index,
+                                 )
         txt = (f'{title}: Sample randomly reduced from {total_obs} to '
                f'{max_obs} observations.')
     else:
         txt = ''
+
     return data_df, rnd_reduce, txt
 
 
 def to_numpy_big_data(data_df: DataFrame, obs_bigdata: int) -> NDArray:
     """Determine datatype when transforming to numpy."""
-    data_np = data_df.to_numpy()
+    data_np = data_df.to_numpy(copy=True)
 
     if len(data_np) > obs_bigdata and data_np.dtype == np.float64:
         data_np = data_np.astype(np.float32)
@@ -912,3 +960,48 @@ def unique_list(list_tuple: list[Any] | tuple[Any] | set[Any]) -> list[Any]:
             unique.append(item)
 
     return unique
+
+
+def split_dataframe(df: DataFrame, *,
+                    max_chunk_size: int,
+                    reset_index: bool = False,
+                    ) -> tuple[list[DataFrame], NDArray]:
+    """
+    Split a dataframe into deterministic, almost equally sized chunks.
+
+    Conditions:
+    - original row order is preserved
+    - no chunk has more than `max_chunk_size` rows
+    - chunk sizes differ by at most 1
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame to split.
+    max_chunk_size : int
+        Maximum number of rows allowed in each chunk.
+    reset_index : bool, default=False
+        If True, reset the index inside each chunk.
+
+    Returns
+    -------
+    list[pd.DataFrame]
+        List of chunked dataframes.
+    list[NDArray]
+        List if chunked indices (0...N)
+    """
+    if max_chunk_size <= 0:
+        raise ValueError('max_chunk_size must be a positive integer.')
+
+    n_rows = len(df)
+    if n_rows == 0:
+        return []
+
+    n_chunks = ceil(n_rows / max_chunk_size)
+    indices_chunk = np.array_split(np.arange(n_rows), n_chunks)
+    chunks = [df.iloc[idx].copy() for idx in indices_chunk]
+
+    if reset_index:
+        chunks = [chunk.reset_index(drop=True) for chunk in chunks]
+
+    return chunks, indices_chunk

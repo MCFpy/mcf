@@ -13,7 +13,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.9.0
+Version: 0.10.0
 
 This is an example showing how to use the adjustments for policy score
 uncertainty in the mcf optimal policy module.
@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-from mcf.example_data_functions import example_data
+from mcf.example_data import example_data
 from mcf.optpolicy_main import OptimalPolicy
 from mcf.reporting import McfOptPolReport
 
@@ -33,11 +33,11 @@ from mcf.reporting import McfOptPolReport
 #      Be careful, it will run for a long time!
 
 
-# ------------- NOT passed to OptimalPolicy -----------------------------------
+# ------------- NOT passed to OptimalPolicy --------------------------------------------------------
 #  Define data to be used in this example
 APPLIC_PATH = Path.cwd() / 'example'
 
-# ---------------------- Generate artificial data ------------------------------
+# ---------------------- Generate artificial data --------------------------------------------------
 
 # Parameters to generate artificial data (DataFrame) for this example
 TRAIN_OBS = 2000        # Number of observations of training data.
@@ -58,47 +58,45 @@ PRED_OBS = 2000         # Number of observations of prediction data.
 # (var_protected_xxx, fair_xxx).
 
 PREDDATA_IS_TRAINDATA = False  # If True, the same data will be used
-#                                for training and prediction (in this case,
-#                                PRED_OBS is ignored).
+#                                for training and prediction (in this case, PRED_OBS is ignored).
 
 NO_FEATURES = 20         # Number of features. Will generate different types of
 #                          features (continuous, dummies, ordered, unordered)
 
 NO_TREATMENTS = 3        # Number of treatments
 
-training_df, prediction_df, name_dict = example_data(
-    obs_y_d_x_iate=TRAIN_OBS,
-    obs_x_iate=PRED_OBS,
-    no_features=NO_FEATURES,
-    no_treatments=NO_TREATMENTS,
-    seed=12345,
-    type_of_heterogeneity='WagerAthey',
-    descr_stats=True)
-
+training_df, prediction_df, name_dict = example_data(obs_y_d_x_iate=TRAIN_OBS,
+                                                     obs_x_iate=PRED_OBS,
+                                                     no_features=NO_FEATURES,
+                                                     no_treatments=NO_TREATMENTS,
+                                                     seed=12345,
+                                                     type_of_heterogeneity='WagerAthey',
+                                                     descr_stats=True
+                                                     )
 if PREDDATA_IS_TRAINDATA:
     prediction_df = training_df
 
-# ------------- Methods used in Optimal Policy Module --------------------------
+# ------------- Methods used in Optimal Policy Module ----------------------------------------------
 # METHODS = ('best_policy_score', 'bps_classifier', 'policy_tree',)
 # Using 'best_policy_score' requires scores also for the prediction data!
 # Therefore, training data is used for the evaluation of 'best_policy_score'.
 GEN_METHOD_ALL = ('policy_tree', 'bps_classifier',)
 
-# -------- All what follows are parameters of the OptimalPolicy --------
+# -------- All what follows are parameters of the OptimalPolicy ------------------------------------
 #   Whenever None is specified, parameter will be set to default values.
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 GEN_OUTPATH = Path.cwd() / 'example/outputOPT'  # Directory for output.
 #   If it does not exist, it will be created. Default is an *.out directory
 #   just below to the directory where the programme is run.
 
 WEIGHTPLOT_PATH = Path.cwd() / 'out'
-#   Path to put the plots for the different fairness weighting
+#   Path to put the plots for the different fairness weighting; define as Path object
 
 GEN_OUTFILETEXT = "OptPolicy_0_8_0_Fairness"  # File for text output
 #   Default is 'txtFileWithOutput'.
 #   *.txt file extension will be added by the programme
 
-# ---------------- Names of variables used ------------------------------------
+# ---------------- Names of variables used ---------------------------------------------------------
 VAR_ID_NAME = 'id'     # Name of identifier in data. Default is None.
 
 VAR_D_NAME = 'treat'   # Name of discrete treatment.
@@ -144,7 +142,7 @@ VAR_VI_TO_DUMMY_NAME = ('x_unord0',)
 #   Names of categorical variables for which variable importance is computed.
 #   These variables will be broken up into dummies. Default is None.
 
-# ----------------- Allocations adjusted for estimation risk -------------------
+# ----------------- Allocations adjusted for estimation risk ---------------------------------------
 # Two methods are explicitly designed to account for estimation risk.
 # Generally, the ideas implemented follow the paper by Chernozhukov, Lee, Rosen,
 # and Sun (2025), Policy Learning With Confidence, arXiv. However, since several
@@ -173,7 +171,7 @@ ESTRISK_VALUE_TUPLE = (0, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2,)
 #  Values of ESTRISK_VALUE to be used below for comparing different
 #  allocations.
 
-# ---------------------- Tree depth of policy tree -----------------------------
+# ---------------------- Tree depth of policy tree -------------------------------------------------
 
 PT_DEPTH_TREE_1 = 2   # Depth of 1st optimal tree. Default is 3.
 #   In this example, this parameter is set to 2 to speed up computation.
@@ -187,7 +185,7 @@ PT_DEPTH_TREE_2 = 2   # Depth of 2nd optimal tree. This set is built within
 #   Note that tree depth is defined such that a depth of 1 implies 2 leaves,
 #   a depth of 2 implies 4 leaves, a depth of = 3 implies 8 leaves, etc.
 
-# -------------- Other parameters (costs and restrictions) --------------------
+# -------------- Other parameters (costs and restrictions) -----------------------------------------
 OTHER_MAX_SHARES = (1, 1, 1)  # Maximum share allowed for each treatment.
 #   This is a tuple with as many elements as treatments.
 #   0 <  OTHER_MAX_SHARES <= 1.  (1,...,1) implies unconstrained optimization
@@ -198,21 +196,20 @@ OTHER_MAX_SHARES = (1, 1, 1)  # Maximum share allowed for each treatment.
 # For convenience the parameters are collected and passed as a dictionary.
 # Of course, they can also be passed as single parameters (or not at all, in
 # which case default values are used).
-params_org = {
-    'gen_outfiletext': GEN_OUTFILETEXT,
-    'gen_outpath': GEN_OUTPATH,
-    'other_max_shares': OTHER_MAX_SHARES,
-    'pt_depth_tree_1': PT_DEPTH_TREE_1,
-    'pt_depth_tree_2': PT_DEPTH_TREE_2,
-    'var_d_name': VAR_D_NAME,
-    'var_polscore_desc_name': VAR_POLSCORE_DESC_NAME,
-    'var_polscore_name': VAR_POLSCORE_NAME,
-    'var_vi_x_name': VAR_VI_X_NAME,
-    'var_vi_to_dummy_name': VAR_VI_TO_DUMMY_NAME,
-    'var_x_name_ord': VAR_X_NAME_ORD,
-    'var_x_name_unord': VAR_X_NAME_UNORD,
-    'var_polscore_se_name': VAR_POLSCORE_SE_NAME,
-    }
+params_org = {'gen_outfiletext': GEN_OUTFILETEXT,
+              'gen_outpath': GEN_OUTPATH,
+              'other_max_shares': OTHER_MAX_SHARES,
+              'pt_depth_tree_1': PT_DEPTH_TREE_1,
+              'pt_depth_tree_2': PT_DEPTH_TREE_2,
+              'var_d_name': VAR_D_NAME,
+              'var_polscore_desc_name': VAR_POLSCORE_DESC_NAME,
+              'var_polscore_name': VAR_POLSCORE_NAME,
+              'var_vi_x_name': VAR_VI_X_NAME,
+              'var_vi_to_dummy_name': VAR_VI_TO_DUMMY_NAME,
+              'var_x_name_ord': VAR_X_NAME_ORD,
+              'var_x_name_unord': VAR_X_NAME_UNORD,
+              'var_polscore_se_name': VAR_POLSCORE_SE_NAME,
+              }
 if not APPLIC_PATH.exists():
     APPLIC_PATH.mkdir(parents=True)
 
@@ -225,9 +222,7 @@ for mult_idx, muliplier in enumerate(ESTRISK_VALUE_TUPLE):
     params = params_org.copy()
     params['estrisk_value'] = muliplier
     myoptp_risk = OptimalPolicy(**params)
-    estrisk = myoptp_risk.estrisk_adjust(training_df.copy(),
-                                         data_title='training'
-                                         )
+    estrisk = myoptp_risk.estrisk_adjust(training_df.copy(), data_title='training')
     training_risk_df = estrisk['data_estrisk_df']
     polscore_risk_name = myoptp_risk.var_cfg.polscore_name.copy()
 
@@ -237,31 +232,26 @@ for mult_idx, muliplier in enumerate(ESTRISK_VALUE_TUPLE):
         myoptp = deepcopy(myoptp_risk)
         myoptp.gen_cfg.method = gen_method
         # ----- Training data ----------
-        solve_dict = myoptp.solve(training_risk_df.copy(),
-                                  data_title='training fair'
-                                  )
-        myoptp.evaluate(solve_dict['allocation_df'],
-                        training_risk_df.copy(),
+        solve_dict, training_risk_df = myoptp.solve(training_risk_df.copy(),
+                                                    data_title='training fair'
+                                                    )
+        myoptp.evaluate(solve_dict['allocation_df'], training_risk_df.copy(),
                         data_title='training risk'
                         )
+        results_alloc = myoptp.allocate(prediction_df.copy(), data_title='prediction')
 
-        results_alloc = myoptp.allocate(prediction_df.copy(),
-                                        data_title='prediction'
-                                        )
         # Evaluate using prediction data
-        myoptp.evaluate(results_alloc['allocation_df'],
-                        prediction_df.copy(),
+        myoptp.evaluate(results_alloc['allocation_df'], prediction_df.copy(),
                         data_title='prediction'
                         )
         myoptp.print_time_strings_all_steps()
-        my_report = McfOptPolReport(optpol=myoptp,
-                                    outputfile='Report_OptP_')
+        my_report = McfOptPolReport(optpol=myoptp, outputfile='Report_OptP_')
+
         my_report.report()
         del my_report, myoptp
 
         # Compute welfare with original policy scores
-        new_alloc_np = results_alloc['allocation_df'].to_numpy(
-            )[:, 0].reshape(-1)
+        new_alloc_np = results_alloc['allocation_df'].to_numpy()[:, 0].reshape(-1)
         row_indices = np.arange(len(new_alloc_np))
         welfare_indiv_np = pot_pred_true_np[row_indices, np.int32(new_alloc_np)]
         welfare_np[mult_idx, midx] = np.mean(welfare_indiv_np)
@@ -286,10 +276,12 @@ for midx, gen_method in enumerate(GEN_METHOD_ALL):
             )
     ax.legend()
 
+WEIGHTPLOT_PATH.mkdir(parents=True, exist_ok=True)
 fig.savefig(WEIGHTPLOT_PATH / (TITEL_PLOT + '.jpeg'), format='jpeg')
 fig.savefig(WEIGHTPLOT_PATH / (TITEL_PLOT + '.pdf'), format='pdf')
 plt.show()
 plt.close()
 
-print('End of example estimation.\n\nThanks for using OptimalPolicy. \n\nYours'
-      ' sincerely\nExperimental OptimalPolicy MCF module \U0001F600')
+print('End of example estimation.\n\nThanks for using OptimalPolicy.'
+      ' \n\nYours sincerely\nExperimental OptimalPolicy MCF module \U0001F600'
+      )

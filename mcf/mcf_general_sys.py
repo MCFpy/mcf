@@ -6,21 +6,44 @@ Created on Thu May 11 16:30:11 2023
 @author: MLechner
 # -*- coding: utf-8 -*-
 """
-from gc import collect
 from itertools import chain
 from math import ceil, floor
+import os
 from pathlib import Path
 from pickle import dump, load
+from shutil import rmtree
+from stat import S_IWRITE
 from sys import getsizeof, stderr
-from typing import Any
-
-from scipy.sparse import csr_matrix
-from psutil import virtual_memory
-import ray
+from typing import Any, TYPE_CHECKING
 
 from numpy.typing import NDArray
+from psutil import virtual_memory
+from scipy.sparse import csr_matrix
 
-from mcf import mcf_print_stats_functions as mcf_ps
+from mcf import mcf_print_stats as mcf_ps
+
+if TYPE_CHECKING:
+    from mcf.mcf_init import GenCfg
+
+
+def _make_writable_and_retry(func, path, _):
+    # rmtree calls: onexc(func, path, exc_info)
+    os.chmod(path, S_IWRITE)
+    func(path)
+
+
+def delete_path_or_file_if_exists(path: Path) -> None:
+    """Delete file/symlink/dir if it exists (no-op if missing)."""
+    p = Path(path)
+
+    try:
+        if p.is_dir() and not p.is_symlink():
+            rmtree(p, onexc=_make_writable_and_retry)
+        else:
+            # file or symlink (incl. broken) -> unlink
+            p.unlink()
+    except FileNotFoundError:
+        pass
 
 
 def delete_file_if_exists(file_name: Path) -> None:
@@ -29,9 +52,7 @@ def delete_file_if_exists(file_name: Path) -> None:
         Path.unlink(file_name)
 
 
-def define_outpath(outpath: Path | str | None,
-                   new_outpath: bool = True,
-                   ) -> Path:
+def define_outpath(outpath: Path | str | None, new_outpath: bool = True,) -> Path:
     """Verify outpath and create new one if needed."""
     path_programme_run = Path.cwd()
     match outpath:
@@ -46,15 +67,21 @@ def define_outpath(outpath: Path | str | None,
         out_temp = outpath
         for i in range(1000):
             if out_temp.is_dir():
-                print(f'Directory for output {out_temp} already exists',
-                      'A new directory is created for the output.')
-                out_temp = outpath.with_name(f'{outpath.name}{i}')
+                if any(out_temp.iterdir()):
+                    print(f'Non-empty directory for output {out_temp} already exists. '
+                          'A new directory is created for the output.'
+                          )
+                    out_temp = outpath.with_name(f'{outpath.name}{i}')
+                else:
+                    print(f'An empty directory for output {out_temp} already exists. ')
+                    if out_temp != outpath:
+                        outpath = out_temp
+                    break
             else:
                 try:
                     out_temp.mkdir(parents=True)
                 except OSError as oserr:
-                    raise OSError(f'Creation of the directory {out_temp}'
-                                  ' failed') from oserr
+                    raise OSError(f'Creation of the directory {out_temp} failed') from oserr
                 print(f'Successfully created the directory {out_temp}')
                 if out_temp != outpath:
                     outpath = out_temp
@@ -64,8 +91,7 @@ def define_outpath(outpath: Path | str | None,
             try:
                 outpath.mkdir(parents=True)
             except OSError as oserr:
-                raise OSError(
-                    f'Creation of the directory {outpath} failed') from oserr
+                raise OSError(f'Creation of the directory {outpath} failed') from oserr
 
     return outpath
 
@@ -97,35 +123,9 @@ def get_fig_path(dic_to_update: dict,
     return dic_to_update
 
 
-def check_ray_shutdown(gen_cfg: Any,
-                       reference_duration: float,
-                       duration: float,
-                       no_of_workers: int,
-                       max_multiplier: float | int = 3,
-                       with_output: bool = True,
-                       err_txt: str = ''
-                       ) -> tuple[float, str]:
-    """Shutdown ray with there is substantial increase in computation time."""
-    if (no_of_workers == 1 or not ray.is_initialized()
-            or duration < reference_duration * max_multiplier):
-        return (reference_duration + duration) / 2, ''
-
-    ray.shutdown()
-    txt = (err_txt +
-           '\nRay shutdown because the time needed is '
-           f'{duration/reference_duration:.1%} of last time this part '
-           'was running in ray. Maybe some workers do not work anymore. '
-           'Ray will be restarted if needed.'
-           )
-    if with_output:
-        mcf_ps.print_mcf(gen_cfg, txt, summary=False)
-
-    return reference_duration, txt
-
-
 def find_no_of_workers(maxworkers: int,
                        sys_share: float = 0,
-                       zero_tol: float = 1e-15
+                       zero_tol: float = 1e-10,
                        ) -> int:
     """
     Find the optimal number of workers for MP such that system does not crash.
@@ -155,72 +155,6 @@ def find_no_of_workers(maxworkers: int,
     workers = floor(workers + zero_tol)
 
     return workers
-
-
-def init_ray_with_fallback(maxworkers: int,
-                           int_cfg: Any,
-                           gen_cfg: Any,
-                           mem_object_store: None | float = None,
-                           ray_err_txt: str = ''
-                           ) -> tuple[bool, int]:
-    """Start ray in cases when this can be problematic."""
-    while maxworkers >= 2:
-        try:
-            if mem_object_store is None:
-                ray.init(num_cpus=maxworkers,
-                         include_dashboard=False,
-                         ignore_reinit_error=False,
-                         )
-            else:
-                ray.init(
-                    num_cpus=maxworkers,
-                    include_dashboard=False,
-                    ignore_reinit_error=False,
-                    object_store_memory=mem_object_store,
-                    )
-            mcf_ps.print_mcf(gen_cfg,
-                             '\n'
-                             + f'Ray started with {maxworkers} workers',
-                             summary=False)
-
-            return True, maxworkers
-
-        except OSError:
-            if int_cfg.mem_object_store_2 is not None:  # Check memory needed
-                memory = virtual_memory()
-                memory_needed = mem_object_store * 1.1
-                if memory.free < memory_needed:
-                    if gen_cfg.with_output and gen_cfg.verbose:
-                        _, _, _, _, txt_memory = memory_statistics()
-                        txt = ('\n' + ray_err_txt
-                               + ' Potential lack of memory for object store.'
-                               + '\nMemory needed: '
-                               + f'{round(memory_needed / (1024 * 1024), 2)} MB'
-                               + '\n' + txt_memory
-                               )
-                        mcf_ps.print_mcf(gen_cfg, txt, summary=False)
-
-            ray.shutdown()
-            if maxworkers > 50:
-                maxworkers = maxworkers // 2
-            elif maxworkers > 10:
-                maxworkers = round(maxworkers * 0.75)
-            elif maxworkers > 5:
-                maxworkers -= 2
-            else:
-                maxworkers -= 1
-            if gen_cfg.with_output and gen_cfg.verbose:
-                txt = ('\n' + ray_err_txt +
-                       f' Number of workers reduced to {maxworkers}')
-                mcf_ps.print_mcf(gen_cfg, txt, summary=False)
-
-    if gen_cfg.with_output and gen_cfg.verbose:
-        txt = ('\n' + ray_err_txt +
-               'RAY NOT USED. No multiprocessing. This will slow down execution'
-               )
-        mcf_ps.print_mcf(gen_cfg, txt, summary=False)
-
-    return False, maxworkers
 
 
 def no_of_boot_splits_fct(size_of_object_mb: int | float, workers: int) -> int:
@@ -340,7 +274,7 @@ def memory_statistics() -> tuple[int, int, int, int, str]:
     return total, available, used, free, txt
 
 
-def print_mememory_statistics(gen_cfg: Any, location_txt: str) -> None:
+def print_mememory_statistics(gen_cfg: 'GenCfg', location_txt: str) -> None:
     """Print memory statistics."""
     mcf_ps.print_mcf(gen_cfg, '\n'
                               + location_txt
@@ -348,18 +282,6 @@ def print_mememory_statistics(gen_cfg: Any, location_txt: str) -> None:
                               + '\n',
                      summary=False
                      )
-
-
-def auto_garbage_collect(pct: float | int = 80.0) -> None:
-    """
-    Call garbage collector if memory used > pct% of total available memory.
-
-    This is called to deal with an issue in Ray not freeing up used memory.
-    pct - Default value of 80%.  Amount of memory in use that triggers
-          the garbage collection call.
-    """
-    if virtual_memory().percent >= pct:
-        collect()
 
 
 def print_size_weight_matrix(weights: csr_matrix | NDArray[Any],
@@ -389,6 +311,7 @@ def print_size_weight_matrix(weights: csr_matrix | NDArray[Any],
                             + weights[d_idx].indptr.nbytes)
     if no_text:
         return total_bytes
+
     return f'Size of weight matrix: {total_bytes / (1024 * 1024): .2f} MB'
 
 

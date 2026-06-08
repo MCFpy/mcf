@@ -24,7 +24,7 @@ import warnings
 
 import pandas as pd
 
-from mcf.example_data_functions import example_data
+from mcf.example_data import example_data
 from mcf.mcf_main import ModifiedCausalForest
 from mcf.optpolicy_main import OptimalPolicy
 from mcf.reporting import McfOptPolReport
@@ -106,8 +106,7 @@ rows_per_split_train = math.floor(num_rows * 0.4)
 # Data used for evaluating allocation rules
 rows_per_split_eval = num_rows - rows_per_split_mcf - rows_per_split_train
 train_mcf_df = alldata_df_shuffled.iloc[:rows_per_split_mcf]
-pred_mcf_train_pt_df = alldata_df_shuffled.iloc[rows_per_split_mcf:
-                                                2*rows_per_split_train]
+pred_mcf_train_pt_df = alldata_df_shuffled.iloc[rows_per_split_mcf: 2*rows_per_split_train]
 evaluate_pt_df = alldata_df_shuffled.iloc[num_rows-rows_per_split_eval:]
 
 # Reset indices
@@ -152,9 +151,9 @@ if CROSSFITTING:
 
     # The IATEs and potential outcomes (which are used as policy scores are
     # predicted for both data sets and put together)
-    results['iate_data_df'] = pd.concat(
-        (results1['iate_data_df'], results2['iate_data_df']), ignore_index=True
-        )
+    results['iate_data_df'] = pd.concat((results1['iate_data_df'], results2['iate_data_df']),
+                                        ignore_index=True
+                                        )
 else:
     results = results1
 
@@ -168,14 +167,13 @@ if CROSSFITTING:
 
     # Provide ID to deal with common support that might slightly differ for the
     # different forests
-    id_name = 'id_mcf'  # No ID provided -> use automatically generated
+    ID_NAME = 'id'  # No ID provided -> use automatically generated
     #                                      (by mcf training) ID
 
     # Average policy scores for observations in both common supports
-    iate_data_df_1 = results_oos1['iate_data_df'].set_index(id_name)
-    iate_data_df_2 = results_oos2['iate_data_df'].set_index(id_name)
-    iate_data_df_1a, iate_data_df_2a = iate_data_df_1.align(iate_data_df_2,
-                                                            join="inner")
+    iate_data_df_1 = results_oos1['iate_data_df'].set_index(ID_NAME)
+    iate_data_df_2 = results_oos2['iate_data_df'].set_index(ID_NAME)
+    iate_data_df_1a, iate_data_df_2a = iate_data_df_1.align(iate_data_df_2, join="inner")
     iate_data_df_sum = iate_data_df_1a.add(iate_data_df_2a, fill_value=0)
     iate_data_df = iate_data_df_sum / 2
     iate_data_df = iate_data_df.reset_index()
@@ -212,20 +210,14 @@ myoptp = OptimalPolicy(var_d_name=VAR_D_NAME,
                        )
 
 # Learn the policy tree
-solve_dict = myoptp.solve(data_train_pt, data_title='Training PT data')
+solve_dict, data_train_pt = myoptp.solve(data_train_pt, data_title='Training PT data')
 # Evaluate the learned policy tree on the training data
-myoptp.evaluate(solve_dict['allocation_df'],
-                data_train_pt,
-                data_title='Training PT data'
-                )
+myoptp.evaluate(solve_dict['allocation_df'], data_train_pt, data_title='Training PT data')
 # Allocate the treatments according to the learned tree for the evaluation data
 results_alloc = myoptp.allocate(oos_df, data_title='')
 
 # Evaluate the learned policy tree on the evaluation data
-myoptp.evaluate(results_alloc['allocation_df'],
-                oos_df,
-                data_title='Evaluate PT data'
-                )
+myoptp.evaluate(results_alloc['allocation_df'], oos_df, data_title='Evaluate PT data')
 myoptp.print_time_strings_all_steps()
 
 # Some inference for allocations
@@ -235,11 +227,10 @@ mymcf1.predict_different_allocations(oos_df, results_alloc['allocation_df'])
 if CROSSFITTING:
     print('Crossfitting used.')
 
-my_report = McfOptPolReport(mcf=mymcf1, optpol=myoptp,
-                            outputfile='Report_mcf_optpolicy'
-                            )
+my_report = McfOptPolReport(mcf=mymcf1, optpol=myoptp, outputfile='Report_mcf_optpolicy')
 my_report.report()
 
 
 print('End of computations.\n\nThanks for using ModifiedCausalForest and'
-      ' OptimalPolicy (beta). \n\nYours sincerely\nMCF \U0001F600')
+      ' OptimalPolicy (beta). \n\nYours sincerely\nMCF \U0001F600'
+      )

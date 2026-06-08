@@ -13,7 +13,7 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.9.0
+Version: 0.10.0
 
 This is an example to show how the fairness adjustments can be implemented.
 For more details on theory and methods, see Bearth, Lechner, Mareckova, and
@@ -28,10 +28,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from mcf.example_data_functions import example_data
-from mcf.mcf_print_stats_functions import print_f
-from mcf.optpolicy_evaluation_functions import dependence_allocation_variables
-from mcf.optpolicy_fair_add_functions import reshuffle_share_rows
+from mcf.example_data import example_data
+from mcf.mcf_print_stats import print_f
+from mcf.optpolicy_evaluation import dependence_allocation_variables
+from mcf.optpolicy_fair_add import reshuffle_share_rows
 from mcf.optpolicy_main import OptimalPolicy
 from mcf.reporting import McfOptPolReport
 
@@ -69,16 +69,15 @@ NO_FEATURES = 20         # Number of features. Will generate different types of
 
 NO_TREATMENTS = 3        # Number of treatments
 
-training_df, prediction_df, name_dict = example_data(
-    obs_y_d_x_iate=TRAIN_OBS,
-    obs_x_iate=PRED_OBS,
-    no_features=NO_FEATURES,
-    no_treatments=NO_TREATMENTS,
-    seed=12345,
-    type_of_heterogeneity='WagerAthey',
-    descr_stats=True,
-    correlation_x='high')
-
+training_df, prediction_df, name_dict = example_data(obs_y_d_x_iate=TRAIN_OBS,
+                                                     obs_x_iate=PRED_OBS,
+                                                     no_features=NO_FEATURES,
+                                                     no_treatments=NO_TREATMENTS,
+                                                     seed=12345,
+                                                     type_of_heterogeneity='WagerAthey',
+                                                     descr_stats=True,
+                                                     correlation_x='high',
+                                                     )
 if PREDDATA_IS_TRAINDATA:
     prediction_df = training_df
 
@@ -314,34 +313,33 @@ OTHER_MAX_SHARES = (1, 1, 1)  # Maximum share allowed for each treatment.
 # For convenience the parameters are collected and passed as a dictionary.
 # Of course, they can also be passed as single parameters (or not at all, in
 # which case default values are used).
-params = {
-    'fair_adjust_target': FAIR_ADJUST_TARGET,
-    'fair_consistency_test': FAIR_CONSISTENCY_TEST,
-    'fair_cont_min_values': FAIR_CONT_MIN_VALUES,
-    'fair_regression_method': FAIR_REGRESSION_METHOD,
-    'fair_protected_max_groups': FAIR_PROTECTED_MAX_GROUPS,
-    'fair_material_max_groups': FAIR_MATERIAL_MAX_GROUPS,
-    'fair_protected_disc_method': FAIR_PROTECTED_DISC_METHOD,
-    'fair_material_disc_method': FAIR_MATERIAL_DISC_METHOD,
-    'fair_type': FAIR_TYPE,
-    'gen_method': GEN_METHOD,
-    'gen_outfiletext': GEN_OUTFILETEXT,
-    'gen_outpath': GEN_OUTPATH,
-    'other_max_shares': OTHER_MAX_SHARES,
-    'pt_depth_tree_1': PT_DEPTH_TREE_1,
-    'pt_depth_tree_2': PT_DEPTH_TREE_2,
-    'var_d_name': VAR_D_NAME,
-    'var_polscore_desc_name': VAR_POLSCORE_DESC_NAME,
-    'var_polscore_name': VAR_POLSCORE_NAME,
-    'var_protected_name_ord': VAR_PROTECTED_NAME_ORD,
-    'var_protected_name_unord': VAR_PROTECTED_NAME_UNORD,
-    'var_material_name_ord': VAR_MATERIAL_NAME_ORD,
-    'var_material_name_unord': VAR_MATERIAL_NAME_UNORD,
-    'var_vi_x_name': VAR_VI_X_NAME,
-    'var_vi_to_dummy_name': VAR_VI_TO_DUMMY_NAME,
-    'var_x_name_ord': VAR_X_NAME_ORD,
-    'var_x_name_unord': VAR_X_NAME_UNORD,
-    }
+params = {'fair_adjust_target': FAIR_ADJUST_TARGET,
+          'fair_consistency_test': FAIR_CONSISTENCY_TEST,
+          'fair_cont_min_values': FAIR_CONT_MIN_VALUES,
+          'fair_regression_method': FAIR_REGRESSION_METHOD,
+          'fair_protected_max_groups': FAIR_PROTECTED_MAX_GROUPS,
+          'fair_material_max_groups': FAIR_MATERIAL_MAX_GROUPS,
+          'fair_protected_disc_method': FAIR_PROTECTED_DISC_METHOD,
+          'fair_material_disc_method': FAIR_MATERIAL_DISC_METHOD,
+          'fair_type': FAIR_TYPE,
+          'gen_method': GEN_METHOD,
+          'gen_outfiletext': GEN_OUTFILETEXT,
+          'gen_outpath': GEN_OUTPATH,
+          'other_max_shares': OTHER_MAX_SHARES,
+          'pt_depth_tree_1': PT_DEPTH_TREE_1,
+          'pt_depth_tree_2': PT_DEPTH_TREE_2,
+          'var_d_name': VAR_D_NAME,
+          'var_polscore_desc_name': VAR_POLSCORE_DESC_NAME,
+          'var_polscore_name': VAR_POLSCORE_NAME,
+          'var_protected_name_ord': VAR_PROTECTED_NAME_ORD,
+          'var_protected_name_unord': VAR_PROTECTED_NAME_UNORD,
+          'var_material_name_ord': VAR_MATERIAL_NAME_ORD,
+          'var_material_name_unord': VAR_MATERIAL_NAME_UNORD,
+          'var_vi_x_name': VAR_VI_X_NAME,
+          'var_vi_to_dummy_name': VAR_VI_TO_DUMMY_NAME,
+          'var_x_name_ord': VAR_X_NAME_ORD,
+          'var_x_name_unord': VAR_X_NAME_UNORD,
+          }
 if not APPLIC_PATH.exists():
     APPLIC_PATH.mkdir(parents=True)
 
@@ -354,12 +352,9 @@ myoptp_fair = OptimalPolicy(**params)
 # Training data: Build decision rule
 # Instead of the solve() method use the solvefair() method to get fairness
 # adjustments for scores and decision variables
-alloc_train_fair_dict = myoptp_fair.solvefair(training_df.copy(),
-                                              data_title='training'
-                                              )
+alloc_train_fair_dict = myoptp_fair.solvefair(training_df.copy(), data_title='training')
 # Evaluate the results using the training data
-myoptp_fair.evaluate(alloc_train_fair_dict['allocation_df'],
-                     training_df.copy(),
+myoptp_fair.evaluate(alloc_train_fair_dict['allocation_df'], training_df.copy(),
                      data_title='training'
                      )
 
@@ -367,23 +362,19 @@ myoptp_fair.evaluate(alloc_train_fair_dict['allocation_df'],
 # 'best_policy_score')
 if myoptp_fair.gen_cfg.method != 'best_policy_score':
     # Compute the new allocation
-    alloc_pred_fair_dict = myoptp_fair.allocate(
-        prediction_df.copy(), data_title='prediction'
-        )
+    alloc_pred_fair_dict = myoptp_fair.allocate(prediction_df.copy(), data_title='prediction')
     # Evaluate the new allocation
-    results_pred_fair_dict = myoptp_fair.evaluate(
-        alloc_pred_fair_dict['allocation_df'],
-        prediction_df.copy(),
-        data_title='prediction'
-        )
+    results_pred_fair_dict = myoptp_fair.evaluate(alloc_pred_fair_dict['allocation_df'],
+                                                  prediction_df.copy(),
+                                                  data_title='prediction'
+                                                  )
     outpath_fair = results_pred_fair_dict['outpath']
 else:
     results_pred_fair = outpath_fair = alloc_pred_fair_df = None
 
 # Final reporting and creation of pdf
 myoptp_fair.print_time_strings_all_steps()
-my_report = McfOptPolReport(optpol=myoptp_fair,
-                            outputfile='Report_OptP_')
+my_report = McfOptPolReport(optpol=myoptp_fair, outputfile='Report_OptP_')
 my_report.report()
 del my_report
 
@@ -397,13 +388,8 @@ if myoptp_fair.gen_cfg.method == 'best_policy_score':
 # 2.1.1 Create allocation without fairness corrections
 myoptp = OptimalPolicy(**params)
 myoptp.solve(training_df.copy(), data_title='training')
-alloc_pred_dict = myoptp.allocate(prediction_df.copy(),
-                                  data_title='prediction'
-                                  )
-myoptp.evaluate(alloc_pred_dict['allocation_df'],
-                prediction_df.copy(),
-                data_title='prediction'
-                )
+alloc_pred_dict = myoptp.allocate(prediction_df.copy(), data_title='prediction')
+myoptp.evaluate(alloc_pred_dict['allocation_df'], prediction_df.copy(), data_title='prediction')
 if myoptp_fair.gen_cfg.method != myoptp.gen_cfg.method:
     raise ValueError('Different allocation methods used in both allocations.')
 
@@ -417,24 +403,14 @@ match myoptp.gen_cfg.method:
 
 # 2.1.3 Choose training or predictiond data for comparison
 if TRAIN_DATA_WELFARE:  # Use training data for comparison
-    alloc_train_dict = myoptp.allocate(training_df.copy(),
-                                       data_title='training'
-                                       )
-    alloc_train_fair_dict = myoptp_fair.allocate(training_df.copy(),
-                                                 data_title='training fair'
-                                                 )
-    alloc_np = alloc_train_dict['allocation_df'][ALLOC_NAME].to_numpy(
-        ).reshape(-1)
-    alloc_fair_np = alloc_train_fair_dict['allocation_df'][ALLOC_NAME].to_numpy(
-        ).reshape(-1)
+    alloc_train_dict = myoptp.allocate(training_df.copy(), data_title='training')
+    alloc_train_fair_dict = myoptp_fair.allocate(training_df.copy(), data_title='training fair')
+    alloc_np = alloc_train_dict['allocation_df'][ALLOC_NAME].to_numpy().reshape(-1)
+    alloc_fair_np = alloc_train_fair_dict['allocation_df'][ALLOC_NAME].to_numpy().reshape(-1)
     data_eval_df = training_df
 else:                  # Use data not used for training for comparison
-    alloc_np = alloc_pred_dict['allocation_df'][ALLOC_NAME].to_numpy(
-        ).reshape(-1)
-    alloc_fair_np = (alloc_pred_fair_dict['allocation_df'][ALLOC_NAME]
-                     .to_numpy()
-                     .reshape(-1)
-                     )
+    alloc_np = alloc_pred_dict['allocation_df'][ALLOC_NAME].to_numpy().reshape(-1)
+    alloc_fair_np = alloc_pred_fair_dict['allocation_df'][ALLOC_NAME].to_numpy().reshape(-1)
     data_eval_df = prediction_df
 
 # 2.1.4 Find winners and losers
@@ -445,30 +421,21 @@ row_indices = np.arange(valuations_np.shape[0])
 welfare_np = valuations_np[row_indices, alloc_np]
 welfare_fair_np = valuations_np[row_indices, alloc_fair_np]
 welfare_df = pd.DataFrame(welfare_np.reshape(-1, 1), columns=('Welfare',))
-welfare_fair_df = pd.DataFrame(welfare_fair_np.reshape(-1, 1),
-                               columns=('Welfare_fair_alloc',)
-                               )
+welfare_fair_df = pd.DataFrame(welfare_fair_np.reshape(-1, 1), columns=('Welfare_fair_alloc',))
 # Collect protected variables
 protected_var = myoptp_fair.var_cfg.protected_ord_name
 protected_var.extend(myoptp_fair.var_cfg.protected_unord_name)
 
 # Check the dependence of fair and 'un'fair allocation on protected variables
-dependence_nonfair = dependence_allocation_variables(alloc_np,
-                                                     data_eval_df[protected_var]
-                                                     )
-dependence_fair = dependence_allocation_variables(alloc_fair_np,
-                                                  data_eval_df[protected_var]
-                                                  )
+dependence_nonfair = dependence_allocation_variables(alloc_np, data_eval_df[protected_var])
+dependence_fair = dependence_allocation_variables(alloc_fair_np, data_eval_df[protected_var])
 # Analyse who wins and who loses when allocation becames fairer
-winner_loser_dict = myoptp.winners_losers(
-            data_eval_df, welfare_fair_df,
-            welfare_reference_df=welfare_df,
-            outpath=WEIGHTPLOT_PATH,
-            title='Winners and Losers of Fairness Adjustments'
-            )
-
-myoptp.print_time_strings_all_steps(title='Comparison to unadjusted allocation.'
-                                    )
+winner_loser_dict = myoptp.winners_losers(data_eval_df, welfare_fair_df,
+                                          welfare_reference_df=welfare_df,
+                                          outpath=WEIGHTPLOT_PATH,
+                                          title='Winners and Losers of Fairness Adjustments',
+                                          )
+myoptp.print_time_strings_all_steps(title='Comparison to unadjusted allocation.')
 
 # 2.2 Further investigate the efficiency-fairness tradeoff
 #     Create plot with welfare comparisons for different levels of fairness
@@ -489,12 +456,11 @@ if params['var_protected_name_ord']:
 
 if params['var_protected_name_unord']:
     if not isinstance(params['var_protected_name_unord'], (list, tuple)):
-        params['var_protected_name_unord'] = [params['var_protected_name_unord']
-                                              ]
+        params['var_protected_name_unord'] = [params['var_protected_name_unord']]
         protected_name.extend(params['var_protected_name_unord'])
 
-prot_train_np = training_df[protected_name].to_numpy()
-prot_pred_np = prediction_df[protected_name].to_numpy()
+prot_train_np = training_df[protected_name].to_numpy(copy=True)
+prot_pred_np = prediction_df[protected_name].to_numpy(copy=True)
 
 # Define grid capturing strength of fairness
 grid = np.linspace(0, 1, NO_GRID_VALUES_FAIRNESS_PLOTS+1)
@@ -503,13 +469,9 @@ print('Weight of fairness in artifically created materially relevant '
       )
 # Define dataframe to store welfare and dependency measures
 measures = ['welfare']
-measures.extend([f"{i}{j}" for i, j
-                 in product(['Corr', 'CrV', 'BayF'], protected_name)]
-                )
+measures.extend([f"{i}{j}" for i, j in product(['Corr', 'CrV', 'BayF'], protected_name)])
 
-welfare_dependence_df = pd.DataFrame(np.nan, index=np.round(grid, 3),
-                                     columns=measures
-                                     )
+welfare_dependence_df = pd.DataFrame(np.nan, index=np.round(grid, 3), columns=measures)
 params_tradeoff = deepcopy(params)
 params_tradeoff['_int_with_output'] = False
 params_tradeoff['_int_output_no_new_dir'] = True
@@ -520,45 +482,34 @@ for grid_idx, fair_weight in enumerate(grid):
     prediction_df_loop = prediction_df.copy()
 
     # Reshuffle protected variable to make to make it less informative
-    training_df_loop[protected_name] = reshuffle_share_rows(
-        prot_train_np, 1-fair_weight, seed=1234
-        )
-    prediction_df_loop[protected_name] = reshuffle_share_rows(
-        prot_pred_np, 1-fair_weight, seed=1234
-        )
+    training_df_loop[protected_name] = reshuffle_share_rows(prot_train_np, 1-fair_weight, seed=1234)
+    prediction_df_loop[protected_name] = reshuffle_share_rows(prot_pred_np, 1-fair_weight, seed=1234
+                                                              )
     # Obtain new allocation with modified protected variable
     myoptp_loop = OptimalPolicy(**params_loop)
     myoptp_loop.solvefair(training_df_loop)
 
     # Use training or prediction data
-    data_eval_df = (training_df_loop
-                    if TRAIN_DATA_WELFARE else prediction_df_loop)
-    data_org_df = (training_df.copy()
-                   if TRAIN_DATA_WELFARE else prediction_df.copy())
+    data_eval_df = training_df_loop if TRAIN_DATA_WELFARE else prediction_df_loop
+    data_org_df = training_df.copy() if TRAIN_DATA_WELFARE else prediction_df.copy()
     alloc_dict = myoptp_loop.allocate(data_eval_df.copy())
 
     # Evaluations are based on (unmodified) policy scores
-    valuations_np = data_eval_df[myoptp.var_cfg.polscore_name
-                                 ].to_numpy()
+    valuations_np = data_eval_df[myoptp.var_cfg.polscore_name].to_numpy()
     row_indices = np.arange(valuations_np.shape[0])
-    values = valuations_np[row_indices, alloc_dict['allocation_df'].to_numpy(
-        ).reshape(-1)]
+    values = valuations_np[row_indices, alloc_dict['allocation_df'].to_numpy().reshape(-1)]
     welfare_dependence_df.iloc[grid_idx, 0] = np.round(np.mean(values), 3)
 
-    dep1 = dependence_allocation_variables(alloc_dict['allocation_df'].to_numpy(
-        ).reshape(-1),
-                                           data_org_df[protected_name])
+    dep1 = dependence_allocation_variables(alloc_dict['allocation_df'].to_numpy().reshape(-1),
+                                           data_org_df[protected_name]
+                                           )
     dep = [dep_m_df.iloc[0].tolist() for dep_m_df in dep1]
-    welfare_dependence_df.iloc[grid_idx, 1:] = [
-        round(i, 3) for dep2 in dep for i in dep2]
+    welfare_dependence_df.iloc[grid_idx, 1:] = [round(i, 3) for dep2 in dep for i in dep2]
 
     del myoptp_loop
 
 #    Preparations for plots
-liste = ['Fair',
-         myoptp_fair.fair_cfg.adjust_target,
-         myoptp_fair.fair_cfg.adj_type,
-         ]
+liste = ['Fair', myoptp_fair.fair_cfg.adjust_target, myoptp_fair.fair_cfg.adj_type,]
 if myoptp_fair.fair_cfg.adj_type == 'Quantiled':
     liste.extend(['Mat', myoptp_fair.fair_cfg.material_disc_method,
                   'Prot', myoptp_fair.fair_cfg.protected_disc_method,
@@ -574,24 +525,21 @@ label = params['gen_method']
 ax.plot(grid, welfare, label=label, color='b')
 ax.legend()
 
+WEIGHTPLOT_PATH.mkdir(parents=True, exist_ok=True)
 fig.savefig(WEIGHTPLOT_PATH / (titel + '.jpeg'), format='jpeg')
 fig.savefig(WEIGHTPLOT_PATH / (titel + '.pdf'), format='pdf')
 plt.show()
 plt.close()
 
-txt = ('\nWelfare and correlation with protected attribute for different '
-       'fairness levels.'
-       '\nWelfare is measured by '
-       f'{" ".join(myoptp.var_cfg.polscore_name)}.'
+txt = ('\nWelfare and correlation with protected attribute for different fairness levels.'
+       f'\nWelfare is measured by {" ".join(myoptp.var_cfg.polscore_name)}.'
        '\nWelfare for different levels of fairness: '
        f'{' '.join([str(round(w, 3)) for w in welfare])}'
        )
 txt += '\n' * 2 + str(welfare_dependence_df)
-txt += ('\n\n'
-        f'Comparative outputs (plot, tables) are stored in {WEIGHTPLOT_PATH}'
+txt += (f'\n\nComparative outputs (plot, tables) are stored in {WEIGHTPLOT_PATH}'
         f'\nDetails of (full) fairness adjustment are stored in {outpath_fair}'
-        '\nDetails of unadjusted assignment are stored in '
-        f'{winner_loser_dict["outpath"]}'
+        f'\nDetails of unadjusted assignment are stored in {winner_loser_dict["outpath"]}'
         )
 PRINT_FILE = WEIGHTPLOT_PATH / ('Fairlevels_' + GEN_OUTFILETEXT + '.txt')
 print_f(PRINT_FILE, txt)
@@ -599,7 +547,6 @@ print_f(PRINT_FILE, txt)
 print(txt)
 del myoptp, myoptp_fair
 
-print('End of example estimation.\n\nThanks for using OptimalPolicy with '
-      'Fairness correction.'
+print('End of example estimation.\n\nThanks for using OptimalPolicy with Fairness correction.'
       ' \n\nYours sincerely\nExperimental OptimalPolicy MCF module \U0001F600'
       )

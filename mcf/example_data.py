@@ -1,13 +1,7 @@
-"""
-Created on Wed Dec 21 15:37:16 2022.
-
-# -*- coding: utf-8 -*-
-@author: MLechner
-"""
 from typing import Any
 
 import numpy as np
-from numpy.typing import NDArray
+from numpy.typing import NDArray, DTypeLike
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -17,14 +11,17 @@ from scipy.stats import logistic, norm
 
 def example_data(obs_y_d_x_iate: int = 1000,
                  obs_x_iate: int = 1000,
-                 no_features: int = 20,
+                 no_features: int = 20, *,
                  no_treatments: int = 3,
                  type_of_heterogeneity: str = 'WagerAthey',
                  seed: int = 12345,
                  descr_stats: bool = True,
                  strength_iv: int = 1,
                  correlation_x: str = 'middle',
-                 no_effect=False,
+                 no_effect: bool = False,
+                 no_printing: bool = False,
+                 d_no_versions: int = 1,
+                 zero_tol: float = 1e-10,
                  ) -> tuple[pd.DataFrame, pd.DataFrame, dict]:
     """
     Create example data to be used with mcf estimation and optimal policy.
@@ -44,7 +41,7 @@ def example_data(obs_y_d_x_iate: int = 1000,
         Different types of heterogeneity broadly (but not exactly) following
         the specifications used in the simulations of Lechner and Mareckova
         (Comprehensive Causal Machine Learning, arXiv, 2024). Possible
-        types are 'linear', 'nonlinear', 'quadratic', 'WagerAthey'.
+        types are ``'linear'``, ``'nonlinear'``, ``'quadratic'``, ``'WagerAthey'``.
     seed : Integer, optional
         Seed of numpy random number generator object. The default is 12345.
     descr_stats :  Boolean, optional
@@ -53,10 +50,21 @@ def example_data(obs_y_d_x_iate: int = 1000,
         The larger this number is, the stronger the instrument will be.
         Default is 1.
     correlation_x : str, optinal
-        Allows three different levels of dependence between features ('low',
-        'middle', 'high'). Default is 'middle'.
+        Allows three different levels of dependence between features (``'low'``,
+        ``'middle'``, ``'high'``). Default is ``'middle'``.
     no_effect : Boolean, optional
         All IATEs are set to 0 if True.
+    no_printing : Boolean, optional
+        Avoids printing output. Default is False.
+    d_no_versions : Integer, optional
+        Number of exclusive versions of the treatments. They share the same
+        assignment process. If ``'d_versions'`` == 1,then there are no subtreatments
+        (standard case).
+        If d_versions > 1, then d_features must be 1.
+        Default is 1.   
+    zero_tol: float, optional
+        Default is 1e-10.
+        Zero tolerance (for floats)
 
     Returns
     -------
@@ -75,42 +83,49 @@ def example_data(obs_y_d_x_iate: int = 1000,
     if obs_x_iate is None:
         obs_x_iate = 1000
 
+    if not isinstance(d_no_versions, int):
+        raise TypeError('d_no_versions must be integer.')
+
+    d_no_versions = max(1, d_no_versions)
+
     if correlation_x not in ('low', 'middle', 'high'):
         raise ValueError('Illegal correlation level of features '
-                         f'{correlation_x} specified. Allowed are only "low", '
-                         '"middle", and "high".')
-    if type_of_heterogeneity not in ('linear', 'nonlinear', 'quadratic',
-                                     'WagerAthey'):
+                         f'{correlation_x} specified. Allowed are only "low", "middle", and "high".'
+                         )
+    if type_of_heterogeneity not in ('linear', 'nonlinear', 'quadratic', 'WagerAthey'):
         raise ValueError(f'Illegal heterogeneity: {type_of_heterogeneity} '
                          'specified. Allowed are only "linear", "nonlinear", '
-                         '"quadratic", and "WagerAthey"')
+                         '"quadratic", and "WagerAthey"'
+                         )
     k_cont = round(no_features/3)
     k_ord_cat = round(no_features/3)
     k_unord = no_features - k_cont - k_ord_cat
     k_all = (k_cont, k_ord_cat, k_unord)
     name_dict = {}
-    name_dict['d_name'] = 'treat'
+
+    name_dict['d_name'] = ['treat']
+    if d_no_versions > 1:
+        name_dict['d_name'].append('treat_version')
+
     name_dict['y_name'] = 'outcome'
-    name_dict['y_pot_name'] = ['y_pot' + str(i) for i in range(no_treatments)]
-    name_dict['y_pot_se_name'] = ['y_pot' + str(i) + '_se'
-                                  for i in range(no_treatments)]
-    name_dict['iate_name'] = ['iate' + str(i+1) + 'vs0'
-                              for i in range(no_treatments-1)]
-    name_dict['ite_name'] = ['ite' + str(i+1) + 'vs0'
-                             for i in range(no_treatments-1)]
     name_dict['zero_name'] = 'zero'
-    name_dict['ite0_name'] = 'ite0vs0'
-    name_dict['iate0_name'] = 'iate0vs0'
+    name_dict['one_name'] = 'one'
+
     name_dict['id_name'] = 'id'
+
     name_dict['cluster_name'] = 'cluster'
+
     name_dict['weight_name'] = 'weight'
+
     name_dict['x_name_ord'] = ['x_cont' + str(i) for i in range(k_cont)]
     name_dict['x_name_ord'].extend(['x_ord' + str(i) for i in range(k_ord_cat)])
     name_dict['x_name_unord'] = ['x_unord' + str(i) for i in range(k_unord)]
-    name_dict['inst_bin_name'] = ['binary_instrument',]
-    x_name = [*name_dict['x_name_ord'], *name_dict['x_name_unord']]
-    rng = np.random.default_rng(seed=seed)
 
+    name_dict['inst_bin_name'] = ['binary_instrument',]
+
+    x_name = [*name_dict['x_name_ord'], *name_dict['x_name_unord']]
+
+    rng = np.random.default_rng(seed=seed)
     # Features
     x_train = covariates_x(rng, k_all, obs_y_d_x_iate, correlation=correlation_x
                            )
@@ -121,18 +136,52 @@ def example_data(obs_y_d_x_iate: int = 1000,
     inst_pred = instrument(rng, obs_x_iate)
     # Treatment
     d_train = treatment_d(rng, no_treatments, k_all, x_train, inst_train,
-                          strength_iv=strength_iv, correlation_x=correlation_x)
+                          strength_iv=strength_iv, correlation_x=correlation_x,
+                          d_no_versions=d_no_versions, zero_tol=zero_tol,
+                          )
     d_pred = treatment_d(rng, no_treatments, k_all, x_pred, inst_pred,
-                         strength_iv=strength_iv, correlation_x=correlation_x)
+                         strength_iv=strength_iv, correlation_x=correlation_x,
+                         d_no_versions=d_no_versions, zero_tol=zero_tol,
+                         )
+    # Continuous treatments
+    if d_train.ndim == 1:
+        d_train_cont = (d_train * np.mean(x_train, axis=1)).reshape(-1, 1)
+    else:
+        d_train_cont = (d_train[:, 0] * np.mean(x_train, axis=1)).reshape(-1, 1)
+    if d_pred.ndim == 1:    
+        d_pred_cont = (d_pred * np.mean(x_pred, axis=1)).reshape(-1, 1)
+    else:
+        d_pred_cont = (d_pred[:, 0] * np.mean(x_pred, axis=1)).reshape(-1, 1)
+
+    d_train_cont[d_train_cont < 0] = 0
+    d_pred_cont[d_pred_cont < 0] = 0
+    name_dict['d_cont'] = 'treat_cont'
+
+    # Subtreatments lead to additional pot. outcomes
+    main_treatvals, versions = versions_per_treatment(d_train, zero_tol)
+    name_dict['y_pot_name'] = pot_eff_names(main_treatvals, versions, 'y_pot', '', 0)
+    name_dict['y_pot_se_name'] = pot_eff_names(main_treatvals, versions, 'y_pot', '_se', 0)
+    name_dict['iate_name'] = pot_eff_names(main_treatvals, versions, 'iate', 'vs0', 1)
+    name_dict['ite_name'] = pot_eff_names(main_treatvals, versions, 'ite', 'vs0', 1)
+    # No version for treatment 0 (as a convention in these example data)
+    name_dict['ite0_name'] = 'ite0vs0'
+    name_dict['iate0_name'] = 'iate0vs0'
 
     # Potential and observed outcomes
     y_pot_train, y_pot_se_train, iate_train, ite_train, y_train = get_outcomes(
         rng, x_train, d_train, k_all, type_of_heterogeneity,
-        plot_iate=descr_stats, no_effect=no_effect)
+        plot_iate=descr_stats, no_effect=no_effect,
+        main_treatvals=main_treatvals, versions=versions,
+        no_of_pots=len(name_dict['y_pot_name']),
+        zero_tol=zero_tol,
+        )
     y_pot_pred, y_pot_se_pred, iate_pred, ite_pred, _ = get_outcomes(
         rng, x_pred, d_pred, k_all, type_of_heterogeneity, plot_iate=False,
-        no_effect=no_effect)
-
+        no_effect=no_effect,
+        main_treatvals=main_treatvals, versions=versions,
+        no_of_pots=len(name_dict['y_pot_name']),
+        zero_tol=zero_tol,
+        )
     id_train = np.arange(obs_y_d_x_iate).reshape(-1, 1)
     id_pred = np.arange(obs_x_iate).reshape(-1, 1)
 
@@ -141,14 +190,17 @@ def example_data(obs_y_d_x_iate: int = 1000,
     weight_train = rng.uniform(0.5, 1.5, size=obs_y_d_x_iate).reshape(-1, 1)
     weight_pred = rng.uniform(0.5, 1.5, size=obs_x_iate).reshape(-1, 1)
 
-    train_np = np.concatenate(
-        (y_train, d_train, x_train, inst_train, y_pot_train, y_pot_se_train,
-         iate_train, ite_train, id_train, cluster_train, weight_train,
-         np.zeros((len(ite_train), 3))),
-        axis=1)
+    train_np = np.concatenate((y_train, d_train, d_train_cont, x_train, inst_train, y_pot_train,
+                               y_pot_se_train, iate_train, ite_train, id_train, cluster_train,
+                               weight_train, np.zeros((len(ite_train), 3)),
+                               np.ones((len(ite_train), 1)),
+                               ),
+                              axis=1,
+                              )
     train_df = pd.DataFrame(data=train_np,
                             columns=(name_dict['y_name'],
-                                     name_dict['d_name'],
+                                     *name_dict['d_name'],
+                                     name_dict['d_cont'],
                                      *x_name,
                                      *name_dict['inst_bin_name'],
                                      *name_dict['y_pot_name'],
@@ -161,14 +213,26 @@ def example_data(obs_y_d_x_iate: int = 1000,
                                      name_dict['zero_name'],
                                      name_dict['ite0_name'],
                                      name_dict['iate0_name'],
+                                     name_dict['one_name'],
                                      )
                             )
+    # Generate (incorrect) adhoc main potential outcomes for main treatments (not for treatment 0)
+    # Reasons: Such labels are needed for the version optimal policy example files as policy scores.
+    if d_no_versions > 1:
+        for main_idx in range(1, no_treatments):
+            main_name = name_dict['y_pot_name'][0][:-1] + str(main_idx)
+            k = len(main_name)
+            version_names = [s for s in name_dict['y_pot_name'] if s[:k] == main_name]
+            train_df[main_name] = train_df[version_names].mean(axis=1)
 
-    pred = np.concatenate((d_pred, x_pred, inst_pred, y_pot_pred, y_pot_se_pred,
-                           iate_pred, ite_pred, id_pred, cluster_pred,
-                           weight_pred, np.zeros((len(ite_pred), 3))),
+    # Prediction data
+    pred = np.concatenate((d_pred, d_pred_cont, x_pred, inst_pred, y_pot_pred, y_pot_se_pred,
+                           iate_pred, ite_pred, id_pred, cluster_pred, weight_pred,
+                           np.zeros((len(ite_pred), 3)), np.ones((len(ite_pred), 1)),
+                           ),
                           axis=1)
-    pred_df = pd.DataFrame(data=pred, columns=(name_dict['d_name'],
+    pred_df = pd.DataFrame(data=pred, columns=(*name_dict['d_name'],
+                                               name_dict['d_cont'],
                                                *x_name,
                                                *name_dict['inst_bin_name'],
                                                *name_dict['y_pot_name'],
@@ -181,18 +245,68 @@ def example_data(obs_y_d_x_iate: int = 1000,
                                                name_dict['zero_name'],
                                                name_dict['ite0_name'],
                                                name_dict['iate0_name'],
+                                               name_dict['one_name'],
                                                )
                            )
-    if descr_stats:
-        descriptive_stats(train_df, pred_df, name_dict, x_name=x_name)
+    if descr_stats and not no_printing:
+        descriptive_stats(train_df, pred_df, name_dict, x_name=x_name,
+                          main_treatvals=main_treatvals, versions=versions, zero_tol=zero_tol,
+                          )
+
     return train_df, pred_df, name_dict
 
+def versions_per_treatment(d_train: NDArray[np.integer], zero_tol: float = 1e-10,
+                           ) -> tuple[list[np.integer], list[list[np.integer] | None]]:
+    """Create a list that with the version information for each treatment."""
+    if d_train.ndim == 1 or d_train.shape[1] == 1:  # Only 1 column
+        d_main_values = list(np.unique(d_train))
+        return d_main_values, None   # No treatment versions
 
-def get_observed_outcome(y_pot: NDArray[Any],
-                         d_np: NDArray[Any]
-                         ) -> NDArray[Any]:
+    d_main_values = list(np.unique(d_train[:, 0]))
+    versions = [None] * len(d_main_values)
+    for d_main_idx, d_main_val in enumerate(d_main_values):
+        treat = np.isclose(d_train[:, 0], d_main_val, atol=zero_tol, rtol=zero_tol)
+        version_vals = list(np.unique(d_train[treat, 1]))
+        if len(version_vals) > 1:   # Otherwise, there are no versions
+            versions[d_main_idx] = version_vals
+
+    return d_main_values, versions
+
+
+def pot_eff_names(d_values: list[np.integer],
+                  versions: list[list[Any]] | None,
+                  str1: str,
+                  str2: str,
+                  start: int,
+                  ) -> str:
+    """Create name string for potential outcomes and effects."""
+    if versions is None:
+        return [str1 + str(val) + str2 for _, val in enumerate(d_values[start:], start=start)]
+    label_list = []
+    for main_idx, main_val in enumerate(d_values[start:], start=start):
+        version = versions[main_idx]
+        if version is None:
+            label_list.append(str1 + str(main_val) + str2)
+        else:
+            for sub_val in version:
+                label_list.append(str1 + str(main_val) + '_' + str(sub_val) + str2)
+
+    return label_list
+
+
+def get_name_sub_treat(d_name: str, no_treatments: int,) -> list[str]:
+    """Create a dictionary (key: treatment; value: list of names)."""
+    names = {0: None}  # Treatment 0 has no version nor features (no treatment)
+    for treat in range(1, no_treatments):
+        names[treat] = d_name + '_subtreat_' + str(treat)
+
+    return names
+
+
+def get_observed_outcome(y_pot: NDArray[Any], d_np: NDArray[np.integer]) -> NDArray[Any]:
     """Get the observed values from the potentials."""
     y_np = y_pot[np.arange(len(y_pot)), d_np[:, 0]].reshape(-1, 1)
+
     return y_np
 
 
@@ -205,65 +319,107 @@ def instrument(rng: np.random.Generator, obs: int) -> NDArray[np.int8]:
 
 def get_outcomes(rng: np.random.Generator,
                  x_np: NDArray[Any],
-                 d_np: NDArray[Any],
+                 d_np: NDArray[np.integer],
                  k_all: tuple[int, int, int],
-                 iate_type: str = 'WagerAthey',
+                 iate_type: str = 'WagerAthey', *,
                  plot_iate: bool = True,
-                 no_effect: bool = False
-                 ) -> tuple[NDArray[Any],
-                            NDArray[Any],
-                            NDArray[Any],
-                            NDArray[Any],
-                            NDArray[Any],
+                 no_effect: bool = False,
+                 main_treatvals: list[np.integer] | None = None,
+                 versions: list[np.integer] | None = None,
+                 no_of_pots: int = 2,
+                 zero_tol: float = 1e-10,
+                 ) -> tuple[NDArray[np.floating],
+                            NDArray[np.floating],
+                            NDArray[np.floating],
+                            NDArray[np.floating],
+                            NDArray[np.floating],
                             ]:
     """Simulate the outcome data."""
     k_cont, k_ord_cat, k_unord = k_all
-    obs, treat = len(x_np), len(np.unique(d_np))
+    obs, treat = len(x_np), no_of_pots
 
-    noise_y0 = rng.normal(loc=0, scale=1, size=(obs, 1))
-    noise_y1 = rng.normal(loc=0, scale=1, size=(obs, treat-1))
+    # Noise for all treatment arms
+    noise_pot_y = rng.normal(loc=0, scale=1, size=(obs, no_of_pots))
 
-    # Need type specific coefficeint
+    # Need type specific coefficients for some features
     x_cont = x_np[:, :k_cont]
     x_ord = x_np[:, k_cont:k_ord_cat+k_cont]
     x_unord = x_np[:, k_ord_cat+k_cont:k_ord_cat+k_cont+k_unord]
 
     coeff_cont, coeff_ord, coeff_unord = coefficients(rng, *k_all)
 
-    xb_np = (x_cont @ coeff_cont + x_ord @ coeff_ord + x_unord @ coeff_unord
-             ).reshape(-1, 1)
+    xb_np = (x_cont @ coeff_cont + x_ord @ coeff_ord + x_unord @ coeff_unord).reshape(-1, 1)
 
     xb_np = np.sin(xb_np).reshape(-1, 1)
     xb_np /= np.std(xb_np)
 
     iate_all = get_iate(rng, x_np[:, :k_cont], iate_type, no_effect=no_effect)
-    iate = np.repeat(iate_all, treat-1, axis=1)
+    iate = np.repeat(iate_all, treat-1, axis=1)  # Same effect all treatments
+    if not no_effect:
+        if versions is None:
+            iate += 0.5 * np.arange(iate.shape[1])   # Add constant to treatment
+        else:
+            iate += 0.1 * np.arange(iate.shape[1])   # Add constant to treatment
 
-    y_0 = xb_np + noise_y0
-    y_0_se = np.abs(noise_y0) / 2
-    y_1_se = np.abs(noise_y1) / 2
-    y_1 = xb_np + iate + noise_y1  # Same expected effects for all treatments
+    y_0 = xb_np + noise_pot_y[:, 0].reshape(-1, 1)
+    y_0_se = np.abs(noise_pot_y[:, 0].reshape(-1, 1)) / 2
+
+    noise1 = noise_pot_y[:, 1:].reshape(-1, 1) if no_of_pots == 2 else noise_pot_y[:, 1:]
+    y_1_se = np.abs(noise1) / 2
+    y_1 = xb_np + iate + noise1  # Same expected effects for all treatments
     ite = y_1 - y_0
     y_pot = np.concatenate((y_0, y_1), axis=1)
     y_pot_se = np.concatenate((y_0_se, y_1_se), axis=1)
 
     # Selecting the corresponding column values for the observed outcomes
-    y_obs = y_pot[np.arange(obs), d_np.flatten()].reshape(-1, 1)
+    y_obs = observation_rule(y_pot, d_np, main_treatvals, versions, zero_tol)
 
     if plot_iate:
-        plot_pot_iate(xb_np, iate, (y_0, y_1), (noise_y0, noise_y1))
+        plot_pot_iate(xb_np, iate, (y_0, y_1), noise_pot_y)
 
     return y_pot, y_pot_se, iate, ite, y_obs
+
+
+def observation_rule(y_pot: NDArray[np.floating],
+                     d_np: NDArray[np.integer],
+                     main_treatvals: list[np.integer] | None = None,
+                     versions: list[np.integer] | None = None,
+                     zero_tol: float = 1e-10,
+                     ) -> NDArray[np.floating]:
+    """Obtain observed treatment from potential outcomes."""
+    obs = y_pot.shape[0]
+    d_index = np.zeros(obs, dtype=np.int32)
+    if versions is None:
+        for treat_i, treat_val in enumerate(main_treatvals):
+            d_index[np.isclose(d_np.reshape(-1), treat_val, atol=zero_tol, rtol=zero_tol)] = treat_i
+    else:
+        counter = 0
+        for treat_i, treat_val in enumerate(main_treatvals):
+            version = versions[treat_i]
+            if version is None:
+                d_index[np.isclose(d_np[:,0], treat_val, atol=zero_tol, rtol=zero_tol)] = counter
+                counter += 1
+                continue    # Next treatment
+
+            for sub_val in version:
+                ok = (np.isclose(d_np[:,0], treat_val, atol=zero_tol, rtol=zero_tol)
+                      & np.isclose(d_np[:,1], sub_val, atol=zero_tol, rtol=zero_tol)
+                      )
+                d_index[ok] = counter
+                counter += 1
+
+    return y_pot[np.arange(obs), d_index].reshape(-1, 1)
 
 
 def plot_pot_iate(x_indx: NDArray[Any],
                   iate: NDArray[Any],
                   y_pot: NDArray[Any],
-                  noise: tuple[NDArray[Any], NDArray[Any],]
+                  noise: NDArray[np.floating],
                   ) -> None:
     """Plot heterogeneity."""
     y_0, y_1 = y_pot
-    noise_y0, noise_y1 = noise
+    noise_y0 = noise[:, 0].reshape(-1, 1)
+    noise_y1 = noise[:, 1:].reshape(-1, 1) if noise[:, 1:].shape[1] == 1 else noise[:, 1:]
     labels = (('IATE', 'IATE_Noise'), ('Y0', 'Y1', 'EY0|X', 'EY1|X'))
     dotsize = 3
     colors = ('b', 'r', 'g', 'black')
@@ -278,14 +434,11 @@ def plot_pot_iate(x_indx: NDArray[Any],
     _, ax1 = plt.subplots()
     _, ax2 = plt.subplots()
     ax1.plot(xb_s, iates, label=labels[0][0], c=colors[0], linewidth=1)
-    ax1.scatter(xb_s, y_1s-y_0s, label=labels[0][1], c=colors[1],
-                s=dotsize)
+    ax1.scatter(xb_s, y_1s-y_0s, label=labels[0][1], c=colors[1], s=dotsize)
     ax2.scatter(xb_s, y_0s, label=labels[1][0], c=colors[0], s=dotsize)
     ax2.scatter(xb_s, y_1s, label=labels[1][1], c=colors[1], s=dotsize)
-    ax2.plot(xb_s, y_0s-noise_y0s, label=labels[1][2], c=colors[2],
-             linewidth=1)
-    ax2.plot(xb_s, y_1s-noise_y1s, label=labels[1][3], c=colors[3],
-             linewidth=1)
+    ax2.plot(xb_s, y_0s-noise_y0s, label=labels[1][2], c=colors[2], linewidth=1)
+    ax2.plot(xb_s, y_1s-noise_y1s, label=labels[1][3], c=colors[3], linewidth=1)
     ax1.legend()
     ax2.legend()
     ax1.set_ylabel(label_y[0])
@@ -324,7 +477,6 @@ def get_iate(rng: np.random.Generator,
         case m:
             raise ValueError(f'Unknown iate_type: {m!r}')
 
-#    iate *= 1
     iate += 1
     if no_effect:
         iate *= 0
@@ -336,16 +488,12 @@ def coefficients(rng: np.random.Generator,
                  k_cont: int,
                  k_ord_cat: int | None = None,
                  k_unord: int | None = None
-                 ) -> tuple[NDArray[Any],
-                            NDArray[Any] | None,
-                            NDArray[Any] | None
-                            ]:
+                 ) -> tuple[NDArray[Any], NDArray[Any] | None, NDArray[Any] | None]:
     """Make coefficients for different variable types."""
     coeff_cont = np.linspace(1, 1/k_cont, k_cont)
-    coeff_ord = None if k_ord_cat is None else np.linspace(1, 1/k_ord_cat,
-                                                           k_ord_cat)
-    coeff_unord = None if k_unord is None else rng.normal(loc=0, scale=1,
-                                                          size=k_unord)
+    coeff_ord = None if k_ord_cat is None else np.linspace(1, 1/k_ord_cat, k_ord_cat)
+    coeff_unord = None if k_unord is None else rng.normal(loc=0, scale=1, size=k_unord)
+
     return coeff_cont, coeff_ord, coeff_unord
 
 
@@ -353,10 +501,12 @@ def treatment_d(rng: np.random.Generator,
                 no_treat: int,
                 k_all: tuple[int, int, int],
                 x_np: NDArray[Any],
-                inst_np: NDArray[np.int8],
+                inst_np: NDArray[np.int8], *,
                 strength_iv: int | float = 1,
-                correlation_x: str = 'middle'
-                ) -> NDArray[Any]:
+                correlation_x: str = 'middle',
+                d_no_versions: int = 1,
+                zero_tol: float = 1e-10,
+                ) -> tuple[NDArray[np.integer], NDArray[np.integer] | None]:
     """Create treatment variable."""
     noise = (rng.normal(loc=0, scale=1, size=(len(x_np), 1))
              + (inst_np - 0.5) * strength_iv)
@@ -367,8 +517,7 @@ def treatment_d(rng: np.random.Generator,
 
     coeff_cont, coeff_ord, coeff_unord = coefficients(rng, *k_all)
 
-    xb_np = (x_cont @ coeff_cont + x_ord @ coeff_ord + x_unord @ coeff_unord
-             ).reshape(-1, 1)
+    xb_np = (x_cont @ coeff_cont + x_ord @ coeff_ord + x_unord @ coeff_unord).reshape(-1, 1)
     if correlation_x == 'high':
         d_index = xb_np / np.std(x_np) + noise * 1.5
     else:
@@ -377,15 +526,36 @@ def treatment_d(rng: np.random.Generator,
     cuts = np.quantile(
         d_index, np.linspace(1-1/no_treat, 1/no_treat, no_treat-1))
     d_np = np.digitize(d_index, cuts)
+    if d_no_versions > 1:
+        # This uses the same convention as has been used when contructing the
+        # names
+        d_sub_np = np.zeros((d_np.shape[0], 1))
+        for treat in range(1, no_treat):
+            with_treat = np.isclose(d_np, treat, atol=zero_tol, rtol=zero_tol).reshape(-1)
+            obs = np.sum(np.int8(with_treat))
+            d_sub_np[with_treat, 0] = get_subtreat(rng, obs, d_no_versions)
+        d_np = np.concatenate((d_np, d_sub_np), axis=1)
 
-    return d_np
+    return np.int8(d_np)
+
+
+def get_subtreat(rng: np.random.Generator,
+                 obs: int,
+                 no_subtreat: int,
+                 dtype: DTypeLike = np.int8,
+                 ) -> NDArray[np.int8]:
+    """Return an (obs,no_subtreat) array with exactly one 1 per row and near-equal column totals."""
+    if obs < 0 or no_subtreat <= 0:
+        raise ValueError('Require obs >= 0 and no_subtreat > 0.')
+
+    return rng.integers(1, no_subtreat + 1, size=obs, dtype=dtype)
 
 
 def covariates_x(rng: np.random.Generator,
                  k_all: int,
                  obs: int,
                  correlation: str = 'middle'
-                 ) -> np.array:
+                 ) -> NDArray[Any]:
     """Randomly sample the covariates."""
     k_cont, k_ord_cat, k_unord = k_all
     k_uni = round(k_cont/2)
@@ -441,8 +611,11 @@ def covariates_x(rng: np.random.Generator,
 
 def descriptive_stats(train_df: pd.DataFrame,
                       pred_df: pd.DataFrame,
-                      name_dict: dict,
-                      x_name: list[str] = None
+                      name_dict: dict, *,
+                      x_name: list[str] = None,
+                      main_treatvals: list[np.integer]  | tuple[np.integer] = (0, 1,),
+                      versions: list[list[np.integer]] | None = None,
+                      zero_tol: float = 1e-10,
                       ) -> None:
     """Get descriptive statistics of data generating process."""
     width = 100
@@ -461,13 +634,32 @@ def descriptive_stats(train_df: pd.DataFrame,
         print((pred_df[x_name].corr() * 100).round().astype(int))
 
     iate_np = train_df[name_dict['iate_name']].to_numpy()
-    str1 = f'True ATE (prediction) {np.mean(iate_np):.3f} '
-    mean_y = train_df[[name_dict['y_name'], *name_dict['y_pot_name'],
-                       *name_dict['ite_name'], *name_dict['iate_name'],
-                       name_dict['d_name']]].groupby(
-                           [name_dict['d_name']]).mean()
-    count_d = train_df[name_dict['d_name']].value_counts(sort=False)
-    str2 = 'Mean of outcome in different treatment groups:\n'
+    ate_list = [str(i) for i in np.round(np.mean(iate_np, axis=0), 3)]
+    str1 = f'\nTrue ATE (prediction): {" ".join(ate_list)}'
+    name_list = [name_dict['y_name'], *name_dict['y_pot_name'],
+                 *name_dict['ite_name'], *name_dict['iate_name'],
+                 *name_dict['d_name']
+                 ]
+    mean_y = train_df[name_list].groupby([name_dict['d_name'][0]]).mean()
+    count_d = train_df[name_dict['d_name'][0]].value_counts(sort=False)
+    str2 = 'Mean of outcome in different (main) treatment groups:\n'
     print(str1, '\n')
+    print(str2, round(mean_y, 3), '\n\nObservations: ', count_d, '\n')
+    print('-' * width, '\n')
+    if versions is not None:
+        for main_idx, main_val in enumerate(main_treatvals):
+            data = train_df[np.isclose(train_df[name_dict['d_name'][0]], main_val,
+                                       atol=zero_tol, rtol=zero_tol,
+                                       )
+                            ]
+            print(f'\nMain Treatment: {main_val}')
+            if versions[main_idx] is None:
+                print('There are no versions of this treatment.')
+            else:
+                mean_y = data[name_list].groupby([name_dict['d_name'][1]]).mean()
+                count_d = data[name_dict['d_name'][1]].value_counts(sort=False)
+                str2 = 'Mean of outcome in different sub treatment groups:\n'
+                print(str2, round(mean_y, 3), '\n\nObservations: ', count_d, '\n')
+                print('-' * width, '\n')
     print(str2, round(mean_y, 3), '\n\nObservations: ', count_d, '\n')
     print('-' * width, '\n')

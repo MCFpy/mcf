@@ -5,6 +5,14 @@ Computational Speed and Ressources for Effect Estimation
 
 This section provides key considerations regarding computation and resource management. It includes speed- and resource-related information necessary for tuning the forest via grid search, setting parameter values to optimize runtime, and reducing RAM consumption.
 
+Parallel Processing
+~~~~~~~~~~~~~~~~~~~
+
+The Python package ``joblib`` is now available as an alternative to ``ray`` for CPU-based multiprocessing. This option is particularly beneficial for Windows users.
+
+Starting with **mcf 0.10.0**, ``ray`` support is limited to Python 3.12. In contrast, the **mcf** package now also supports Python 3.13 when using ``joblib``.
+
+By default, ``joblib`` is used on Windows systems, while ``ray`` remains the default on all other platforms.
 
 Forest Tuning via Grid Search
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

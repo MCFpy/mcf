@@ -16,7 +16,7 @@ The output text file provides additional information on the common support bound
 
 .. code-block:: python
 
-    from mcf.example_data_functions import example_data
+    from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
     
     # Generate example data using the built-in function `example_data()`
@@ -73,7 +73,7 @@ Examples
 
 .. code-block:: python
 
-    from mcf.example_data_functions import example_data
+    from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
     
     # Generate example data using the built-in function `example_data()`

@@ -26,7 +26,7 @@ The results of the balancing tests are part of the txt-file in the output folder
 
 .. code-block:: python
 
-    from mcf.example_data_functions import example_data
+    from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
     
     # Generate example data using the built-in function `example_data()`
@@ -45,7 +45,7 @@ Example
 
 .. code-block:: python
 
-    from mcf.example_data_functions import example_data
+    from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
     
     # Generate example data using the built-in function `example_data()`

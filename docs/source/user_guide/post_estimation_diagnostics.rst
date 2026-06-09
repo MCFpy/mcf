@@ -69,7 +69,7 @@ To analyze heterogeneity in different groups (clusters), you can conduct :math:`
 
 .. code-block:: python
 
-    from mcf.example_data_functions import example_data
+    from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
     from mcf.reporting import McfOptPolReport
     
@@ -157,7 +157,7 @@ Example
 
 .. code-block:: python
 
-    from mcf.example_data_functions import example_data
+    from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
     from mcf.reporting import McfOptPolReport
     

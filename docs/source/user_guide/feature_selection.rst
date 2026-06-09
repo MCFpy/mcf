@@ -25,7 +25,7 @@ The following table summarizes the parameters related to feature selection in th
 +---------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``fs_other_sample_share`` | If ``fs_other_sample`` is set to True, this determines the sample share used for feature selection. Default: 0.33. Only relevant if ``fs_yes`` is set to True.                                                                                                                                                                    |
 +---------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``fs_rf_threshold``       | Defines the threshold for a feature to be considered "irrelevant". This is measured as the percentage increase of the loss function when the feature is randomly permuted. Default: 1. Only relevant if ``fs_yes`` is set to True.                                                                                                |
+| ``fs_rel_vi_keep_if``       | Defines how the two thresholds (for the outcome regression and the propensity score) are combined. Possible choice are: 'y_relevant', 'y_or_d_relevant', 'y_and_d_relevant'. Default is 'y_or_d_relevant'.                                                                                               |
 +---------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 
 Please consult the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details.
@@ -49,6 +49,6 @@ Example
         fs_yes=True,
         fs_other_sample=True,
         fs_other_sample_share=0.1,
-        fs_rf_threshold=0.5
+        fs_rel_vi_keep_if=None
     )
        

@@ -20,7 +20,7 @@ For further information:
 Installation Guide
 ------------------
 
-The current **mcf** version is compatible with Python 3.12. For the installation you can proceed in different ways. 
+The current **mcf** version is compatible with Python 3.12 and 3.13. For the installation you can proceed in different ways. 
 
 You can install the package from PyPI using:
 
@@ -43,7 +43,7 @@ If you prefer the command line, install conda as described `here <https://docs.c
 
       conda activate mcf-env
 
-2. Install Python 3.12:
+2. Install your Python version:
 
   .. code-block:: bash
 
@@ -80,7 +80,7 @@ We use the :py:func:`~example_data_functions.example_data` function to generate 
 
 .. code-block:: python
 
-    from mcf.example_data_functions import example_data
+    from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
     from mcf.optpolicy_main import OptimalPolicy
     from mcf.reporting import McfOptPolReport
@@ -127,7 +127,7 @@ We use the :py:func:`~example_data_functions.example_data` function to generate 
         )
     
     # Learn an optimal policy rule using the predicted potential outcomes
-    solve_dict = my_optimal_policy.solve(training_df, data_title='training')
+    solve_dict, training_df = my_optimal_policy.solve(training_df, data_title='training')
     
     # Evaluate the optimal policy rule on the training data
     my_optimal_policy.evaluate(solve_dict['allocation_df'], training_df,

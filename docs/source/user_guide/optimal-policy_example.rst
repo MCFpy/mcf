@@ -89,13 +89,13 @@ After initializing a class instance, we use it to solve for an optimal allocatio
 .. code-block:: python
 
     # Solve, allocate, and evaluate methods.
-    alloc_train_df=myoptp.solve(
+    solve_dict, train_df=myoptp.solve(
         training_df, 
         data_title='training'
         )
     
     results_eva_train=myoptp.evaluate(
-        alloc_train_df['allocation_df'] ,
+        solve_dict['allocation_df'] ,
         training_df,
         data_title='training'
         )
@@ -222,13 +222,13 @@ Estimating a policy rule using the best-score method
 .. code-block:: python
 
     # Solve, allocate, and evaluate methods.
-    alloc_train_df=myoptp.solve(
+    solve_dict, train_df=myoptp.solve(
         training_df,
         data_title='training'
         )
     
     results_eva_train=myoptp.evaluate(
-        alloc_train_df['allocation_df'],
+        solve_dict['allocation_df'],
         training_df,
         data_title='training'
         )

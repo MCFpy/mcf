@@ -51,7 +51,7 @@ Example
 
 .. code-block:: python
 
-    from mcf.example_data_functions import example_data
+    from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
 
     # Generate artificial data 
@@ -75,7 +75,8 @@ Example
         p_qiate_no_of_quantiles=None,
         p_qiate_smooth=None,
         p_qiate_smooth_bandwidth=None,
-        p_qiate_bias_adjust=None
+        p_qiate_bias_adjust=None,
+        _int_low_memory_predict=False
     )
 
     mymcf.train(training_df)

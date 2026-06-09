@@ -3,7 +3,7 @@ Feature selection
 
 The estimation quality of a random forest deteriorates with the number of irrelevant features, because the probability of picking a split based on an irrelevant feature increases. For this reason, it makes sense to remove such features prior to estimation. A bonus of feature selection is that the computational speed increases as a result of a smaller feature space.
 
-The classes :py:class:`~mcf_main.ModifiedCausalForest` and :py:class:`~mcf_main.OptimalPolicy` provide you with the option to perform feature selection through the parameter ``fs_yes``. If set to True, feature selection is performed. Loosely speaking, the program estimates reduced forms for the treatment and the outcome using random forests and then drops features that have little power to predict the treatment **and** the outcome. 
+The classes :py:class:`~mcf_main.ModifiedCausalForest` and :py:class:`~optpolicy_main.OptimalPolicy` provide you with the option to perform feature selection through the parameter ``fs_yes``. If set to True, feature selection is performed. Loosely speaking, the program estimates reduced forms for the treatment and the outcome using random forests and then drops features that have little power to predict the treatment **and** the outcome. 
 
 Note that, an irrelevant feature is never dropped if
 

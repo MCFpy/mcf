@@ -13,7 +13,7 @@ This guide will walk you through using the **mcf** package to:
 Example data
 ^^^^^^^^^^^^^^^^
 
-First, we will use the :py:func:`~example_data_functions.example_data` function to generate synthetic datasets for training and prediction. This functions creates training, ``training_df``, and prediction, ``prediction_df``, DataFrames with a specified number of observations, features, and treatments, and allows for different heterogeneity types , i.e., ``linear``, ``nonlinear``, ``quadratic``, ``WagerAthey``. The function also returns a dictionary containing the names of variable groups, ``name_dict``. You can define some features of the generated data by using the following parameters:
+First, we will use the :py:func:`~example_data.example_data` function to generate synthetic datasets for training and prediction. This functions creates training, ``training_df``, and prediction, ``prediction_df``, DataFrames with a specified number of observations, features, and treatments, and allows for different heterogeneity types , i.e., ``linear``, ``nonlinear``, ``quadratic``, ``WagerAthey``. The function also returns a dictionary containing the names of variable groups, ``name_dict``. You can define some features of the generated data by using the following parameters:
 
 - ``obs_y_d_x_iate`` , the number of observations for the training data 
 - ``obs_x_iate`` , the number of observations for the prediction data
@@ -23,11 +23,11 @@ First, we will use the :py:func:`~example_data_functions.example_data` function 
 
 For more details, visit the :doc:`python_api`. 
 
-By default, the :py:func:`~example_data_functions.example_data` produces 1000 observations for both training and prediction, with 20 features, and 3 treatments. Let us change this slightly and generate 1500 training and prediction observations for 10 features and 3 treatments.
+By default, the :py:func:`~example_data.example_data` produces 1000 observations for both training and prediction, with 20 features, and 3 treatments. Let us change this slightly and generate 1500 training and prediction observations for 10 features and 3 treatments.
 
 .. code-block:: python
 
-    from mcf.example_data_functions import example_data
+    from mcf.example_data import example_data
     
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data(
@@ -49,7 +49,7 @@ as follows:
 
 .. code-block:: python
 
-    from mcf.example_data_functions import example_data
+    from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
     from mcf.optpolicy_main import OptimalPolicy
     from mcf.reporting import McfOptPolReport
@@ -294,9 +294,9 @@ To find the Optimal Policy Tree, we use the :py:meth:`~optpolicy_main.OptimalPol
 
 .. code-block:: python
 
-    solve_dict = my_optimal_policy.solve(training_df, data_title='training')
+    solve_dict, training_df = my_optimal_policy.solve(training_df, data_title='training')
 
-The returned DataFrame contains the optimal allocation rule for the training data.
+The returned object contains the optimal allocation rule for the training data.
 
 .. code-block:: python
 

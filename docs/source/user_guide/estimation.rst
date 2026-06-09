@@ -36,7 +36,7 @@ Another way to access the estimated :math:`\textrm{ATE's}` is through the output
 
 .. code-block:: python
 
-    from mcf.example_data_functions import example_data
+    from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
     
     # Generate example data using the built-in function `example_data()`

@@ -41,7 +41,7 @@ The output text file provides additional information on the common support bound
 Advanced options
 ----------------
 
-Common support criteria become more restrictive with an increasing number of treatments. The parameter ``cs_adjust_limits`` allows you to reduce this restrictiveness by offsetting the cut-off limits. The upper cut-off will be multiplied by :math:`1 + \text{cs_adjust_limits}` and the lower cut-off will be multiplied by :math:`1 - \text{cs_adjust_limits}`. By default ``cs\_adjust\_limits`` has a value of :math:`(\text{number of treatments} - 2) \times 0.05`.
+Common support criteria become more restrictive with an increasing number of treatments. The parameter ``cs_adjust_limits`` allows you to reduce this restrictiveness by offsetting the cut-off limits. The upper cut-off will be multiplied by :math:`1 + \text{cs\_adjust\_limits}` and the lower cut-off will be multiplied by :math:`1 - \text{cs\_adjust\_limits}`. By default ``cs\_adjust\_limits`` has a value of :math:`(\text{number of treatments} - 2) \times 0.05`.
 
 The parameter ``cs\_max\_del\_train`` allows you to specify a maximum share of observations in the training data set that are allowed to be dropped to enforce common support. If this threshold is exceeded, the program will terminate and raise a corresponding exception. By default, an exception will be raised if more than 50% of the observations are dropped. In this case, you should consider using a more balanced input data set.
 

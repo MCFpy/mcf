@@ -1,0 +1,6 @@
+﻿optpolicy\_main.OptimalPolicy.winners\_losers
+=============================================
+
+.. currentmodule:: optpolicy_main
+
+.. automethod:: OptimalPolicy.winners_losers

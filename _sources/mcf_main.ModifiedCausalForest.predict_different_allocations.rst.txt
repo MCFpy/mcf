@@ -1,0 +1,6 @@
+﻿mcf\_main.ModifiedCausalForest.predict\_different\_allocations
+==============================================================
+
+.. currentmodule:: mcf_main
+
+.. automethod:: ModifiedCausalForest.predict_different_allocations

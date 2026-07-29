@@ -144,7 +144,7 @@ Group average treatment effects are estimated by the :py:meth:`~mcf_main.Modifie
         var_d_name="treat",
         # Define binary variables as ordered for faster performance
         var_x_name_ord=["x_cont0", "x_cont1"],
-        # Specify the unordered heterogeneity variable 'female' for GATE estimation
+        # Specify the unordered heterogeneity variable for GATE estimation
         var_z_name_unord=["x_unord0"]
     )
     my_mcf.train(training_df)

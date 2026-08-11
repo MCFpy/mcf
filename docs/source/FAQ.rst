@@ -46,7 +46,7 @@ Usage
 
 - **Where can I find the results of the OptimalPolicy class?**
 
-  The results are stored mainly in two diccionaries which you can access once you have used the :py:meth:`~optpolicy_main.OptimalPolicy.evaluate` and :py:meth:`~optpolicy_main.OptimalPolicy.allocate` and :py:meth:`~optpolicy_main.OptimalPolicy.solve` methods. Additionally, you can access further results stored in your instance of the :py:class:`~optpolicy_main.OptimalPolicy` class where you can access multiple dictionaries containing additional results. 
+  The estimation results are stored in one or two dictionaries, which you can access once you have used the :py:meth:`~optpolicy_main.OptimalPolicy.evaluate` and :py:meth:`~optpolicy_main.OptimalPolicy.allocate` and :py:meth:`~optpolicy_main.OptimalPolicy.solve` methods. You can access further results stored in your instance of the :py:class:`~optpolicy_main.OptimalPolicy` class where you can access multiple dictionaries containing additional results. 
 
   For more examples you can check out the :ref:`Getting Started <getting-started>` or the :doc:`user_guide`.
 

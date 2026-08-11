@@ -19,7 +19,7 @@ The code below creates artificial example data for training and prediction.
 .. code-block:: python
 
     import os
-    from mcf.example_data_functions import example_data
+    from mcf.example_data import example_data
     from mcf.optpolicy_main import OptimalPolicy
     from mcf.reporting import McfOptPolReport
 

@@ -1,12 +1,4 @@
-from copy import copy
-from pathlib import Path
-from typing import TYPE_CHECKING
-
 from mcf import reporting_functions as rep
-
-if TYPE_CHECKING:
-    from mcf.mcf_main import ModifiedCausalForest
-    from mcf.optpolicy_main import OptimalPolicy, OptimalPolicyVersions
 
 
 class McfOptPolReport:
@@ -16,35 +8,27 @@ class McfOptPolReport:
     Parameters
     ----------
         mcf : Instance of the ModifiedCausalForest class or None, optional
-            Instance supplying estimation results and descriptive analyses for the report.
-            If several runs are stored, use the first effect prediction and the first analyse() run.
-            For predict_different_allocations(), use the latest stored run.
-            Default is None.
+            Contains all information needed for reports. The default is None.
 
         mcf_sense : Instance of the ModifiedCausalForest class or None, optional
             Contains all information from sensitivity analysis needed for
             reports. The default is None.
 
-        optpol : Instance of OptimalPolicy or OptimalPolicyVersions, or None, optional
-            Instance supplying optimal-policy specifications and results for the PDF.
-            For OptimalPolicy, include the evaluations stored by evaluate().
-            For OptimalPolicyVersions, summarize the fitted allocation rules. Final evaluations
-            returned by OptimalPolicyVersions.evaluate() are not included in the PDF; use the
-            returned results dictionary and, when enabled, the separate evaluation text output.
-            The default is None.
+        optpol : Instance of the OptimalPolicy or  OptimalPolicyVersions class or None, optional
+            Contains all information from the optimal policy analysis needed
+            for reports. The default is None.
 
-        outputpath : String, pathlib.Path, or None, optional
-            Directory in which :meth:`~McfOptPolReport.report` saves the PDF.
-            If None, the 'output' subdirectory of the current working directory is used.
-            The directory is created if it does not exist. The default is None.
+        outputpath : String, Pathlib object, or None, optional
+            Path to write the pdf file that is created with the
+            :meth:`~McfOptPolReport.report` method. If None, then an
+            '/out' subdirectory of the current working directory is used.
+            If the latter does not exist, it is created.
 
-        outputfile : String, pathlib.Path, or None, optional
-            Base filename of the PDF created by :meth:`~McfOptPolReport.report`.
-            If None, 'Report' is used. For a supplied filename or path, only the filename
-            stem is used; any directory component and the final extension are discarded.
-            The final filename is '<name>_YYYY_MM_DD_HH_MM_SS.pdf'.
-            The timestamp is taken when this McfOptPolReport instance is created.
-            The default is None.
+        outputfile : String or None, optional
+            Name of the pdf file that is created by the
+            :meth:`~McfOptPolReport.report` method. If None, 'Reporting' is
+            used as name. Any name will always appended by string that contains
+            the day and time (measured when the programme ends).
 
     Attributes
     ----------
@@ -53,57 +37,58 @@ class McfOptPolReport:
 
     <NOT-ON-API>
 
-    gen_cfg : ReportCfg dataclass
-        Parameters used to create and save reports.
+    gen_cfg : GenCfg dataclass
+        General parameters to compute reports.
 
-    mcf_o : ModifiedCausalForest or None
-        Instance supplying MCF estimation results.
+    mcf_o : Dictionary
+        Content from mcf estimation to compute reports.
 
-    opt_o : OptimalPolicy, OptimalPolicyVersions, or None
-        Instance supplying optimal-policy results.
+    opt_o : Dictionary
+        Content from optimal policy allocation to compute reports.
 
-    sens_o : ModifiedCausalForest or None
-        Instance supplying sensitivity-analysis results.
+    sens_o : Dictionary
+        Content from sensitivity analysis to compute reports.
+
+    blind_o : Dictionary
+        Content from partially blinded IATE estimation to compute reports.
 
     text : Dictionary
-        Container for generated report text.
+        Container for text to compute reports.
 
     mcf : Boolean
-        True when an mcf instance was supplied, regardless of which results it contains.
+        True if there is anything to report about mcf estimation.
 
     opt : Boolean
-        True when an optpol instance was supplied, regardless of which results it contains.
-
+        True if there is anything to report about optimal policy allocation.
+        
     sens : Boolean
-        True when an mcf_sense instance was supplied, regardless of which results it contains.
+        True if there is anything to report about sensitivity analysis.
 
-    iv : Boolean
-        Initially False. When report() processes an MCF instance, set to whether that instance
-        contains a non-None first-stage instrumental-variable model.
+    blind : Boolean.
+        True if there is anything to report about blinded IATE estimation.
+
+    iv : Boolean.
+        True if instrumental variable estimation is performed.
 
     </NOT-ON-API>
 
     """
+    
 
-
-    def __init__(self: 'McfOptPolReport', *,
-                 mcf: 'ModifiedCausalForest | None' = None,
-                 mcf_sense: 'ModifiedCausalForest | None' = None,
-                 optpol: 'OptimalPolicy | OptimalPolicyVersions | None' = None,
-                 outputpath: Path | str | None = None,
-                 outputfile: Path | str | None = None,
-                 ) -> None:
+    def __init__(self, *, mcf=None, mcf_sense=None, optpol=None, outputpath=None, outputfile=None):
         self.gen_cfg = rep.ReportCfg.from_args(outputfile, outputpath)
         self.mcf_o = mcf
         self.opt_o = optpol
         self.sens_o = mcf_sense
+        self.blind_o = None  # Underlying method deprecated. No reporting.
         self.mcf = self.mcf_o is not None
         self.opt = self.opt_o is not None
         self.sens = self.sens_o is not None
+        self.blind = self.blind_o is not None
         self.text = {}
         self.iv = False        # Instrumental variable estimation
 
-        self.version = '0.11.0'
+        self.version = '0.10.0'
 
     def report(self):
         """Create a PDF report save file to a user provided location.
@@ -111,7 +96,7 @@ class McfOptPolReport:
         Using instances of the
         :class:`~mcf_main.ModifiedCausalForest` and
         :class:`~optpolicy_main.OptimalPolicy` or
-        :class:`~optpolicy_main.OptimalPolicyVersions` classes.
+        :class:`~optpolicy_main.OptimalPolicyVersion` classes.
 
         Returns
         -------
@@ -119,19 +104,13 @@ class McfOptPolReport:
             Name and Location of file in which pdf output is saved.
 
         """
-        mcf_o = self.mcf_o
-        try:
-            if self.mcf:
-                self.mcf_o = copy(mcf_o)
-                self.mcf_o.report = mcf_o.report.copy()
-                self.iv = self.mcf_o.iv_mcf['firststage'] is not None
-            # Step one: Fill the dictionaries
-            rep.create_text(self)
+        if self.mcf:
+            self.iv = self.mcf_o.iv_mcf['firststage'] is not None
+        # Step one: Fill the dictionaries
+        rep.create_text(self)
 
-            # Step two: Connect the text and figures save as pdf
-            rep.create_pdf_file(self)
-            print(f'\nReport printed: {self.gen_cfg.outfilename}\n')
+        # Step two: Connect the text and figures save as pdf
+        rep.create_pdf_file(self)
+        print(f'\nReport printed: {self.gen_cfg.outfilename}\n')
 
-            return self.gen_cfg.outfilename
-        finally:
-            self.mcf_o = mcf_o
+        return self.gen_cfg.outfilename

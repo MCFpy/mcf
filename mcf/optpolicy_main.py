@@ -2,9 +2,11 @@ from copy import deepcopy
 from pathlib import Path
 from time import time
 
+import numpy as np
+from pandas import DataFrame
+
 from mcf.mcf_feature_selection import FsCfg
 from mcf.optpolicy_data import dataframe_checksum
-from mcf import optpolicy_evaluation as op_eval
 from mcf import optpolicy_init as op_init
 from mcf import optpolicy_methods as op_methods
 from mcf import optpolicy_version as op_version
@@ -17,138 +19,172 @@ class OptimalPolicy:
 
     Parameters
     ----------
-    dc_screen_covariates : Boolean (or None), optional
-        Check features.
-        Default (or None) is True.
-
     dc_check_perfectcorr : Boolean (or None), optional
-        Features that are perfectly correlated are deleted (1 of them).
-        Only relevant if ``'dc_screen_covariates'`` is True.
+        If True, mark a feature for removal during covariate screening when
+        its absolute Pearson correlation with an earlier feature in the
+        screening order is greater than 0.999.
+        Both positive and negative correlations are considered.
         Default (or None) is True.
 
-    dc_min_dummy_obs : Integer (or None), optional
-        Delete dummy variables that have less than ``'dc_min_dummy_obs'`` in one of their categories.
-        Only relevant if ``'dc_screen_covariates'`` is True.
+    dc_min_dummy_obs : Integer or float (or None), optional
+        During covariate screening, mark features with exactly two distinct
+        observed values for removal if either value occurs fewer times than
+        this threshold. The values need not be coded as 0 and 1.
+        None or values below 1 use 10; other values are rounded to an integer
+        using Python's round().
+        Set to 1 to disable this filter. Setting 0 uses the default threshold.
         Default (or None) is 10.
 
-    dc_clean_data : Boolean (or None), optional
-        Remove all missing & unnecessary variables.
-        Default (or None) is True.
-
     estrisk_value : Float or integer (or None), optional
-        The is k in the formula: 'policy\_score - k * standard\_error', used to adjust the scores for
-        estimation risk.
+        Finite multiplier k in 'policy_score - k * standard_error', used to adjust policy scores
+        for estimation risk. NaN and infinite values raise ValueError during initialization.
+        If computing the adjustment overflows floating-point arithmetic, adjustment raises
+        ValueError even when the multiplier, original scores and standard errors are finite.
         Default (or None) is 1.
 
-    fair_adjust_target :  String (or None), optional\
-        Target for the fairness adjustment.\
-        ``'scores'`` : Adjust policy scores.\
-        ``'xvariables'`` : Adjust decision variables.\
-        ``'scores_xvariables'`` : Adjust both decision variables and score.\
-        Default (or None) is 'xvariables'.
+    fair_adjust_target : String (or None), optional
+        Target of the fairness adjustment in :meth:`~OptimalPolicy.solvefair`.
+        ``'scores'`` adjusts policy scores; ``'xvariables'`` adjusts decision variables;
+        ``'scores_xvariables'`` adjusts both.
+        For ``'gen_method'`` == ``'best_policy_score'``, ``'xvariables'`` raises ValueError during
+        initialization. Use ``'scores'`` or ``'scores_xvariables'`` instead.
+        Default (or None): ``'scores'`` for ``'best_policy_score'``; ``'xvariables'`` otherwise.
 
-    fair_consistency_test : Boolean (or None), optional\
-        Test for internally consistency of fairness correction. When ``'fair_adjust_target'`` is
-        ``'scores'`` or ``'scores_xvariables'``, then the fairness corrections are applied
-        independently to every policy score (which usually is a potential outcome or an IATE(x) for
-        each treatment relative to some base treatment (i.e. comparing 1-0, 2-0, 3-0, etc.). Thus,
-        the IATE for the 2-1 comparison can be computed as IATE(2-0)-IATE(1-0). This tests compares
-        two ways to compute a fair score for the 2-1 (and all#  other comparisons) which should
-        give simular results:\
-        a) Difference of two fair (!) scores.\
-        b) Difference of corresponding scores, subsequently made fair.\
-        Note: Depending on the number of treatments, this test may be computationally more expensive
-        than the orginal fairness corrections.\
+    fair_consistency_test : Boolean (or None), optional
+        When 'fair_adjust_target' is 'scores' or 'scores_xvariables', compare two ways to adjust
+        each pairwise score difference: subtract the individually adjusted scores, or apply the
+        fairness adjustment directly to the original difference.
+        Scores are excluded if the sum of their original and adjusted standard deviations is at
+        most 1e-8. All pairs of the remaining scores are compared.
+        Report descriptive diagnostics: mean absolute discrepancy divided by the standard
+        deviation of the original score difference, share of matching signs and Pearson correlation.
+        These additional adjustments can cost more than the original fairness correction.
         Default (or None) is False.
 
-    fair_cont_min_values : Integer or float (or None),  optional
-         The methods used for fairness corrections depends on whether the variable is consider as
-         continuous or discrete. All unordered variables are considered being discrete, and all
-         ordered variables with more than ``'fair_cont_min_values'`` are considered as being discrete
-         as well. The default (or None) is 20.
+    fair_cont_min_values : Integer or float (or None), optional
+        Minimum number of distinct non-missing values for an ordered decision variable
+        to be treated as continuous when applying fairness corrections.
+        Ordered decision variables with fewer values are treated as discrete.
+        Unordered decision variables are always treated as discrete.
+        The threshold also determines whether protected variables are treated as continuous
+        when computing the reported fairness statistics.
+        Values of at least 1 are rounded to the nearest integer.
+        None or values below 1 use 20. The default is 20.
 
-    fair_material_disc_method : String (or None), optional\
-        Method on how to perform the discretization for materially relevant features.\
-        ``'NoDiscretization'`` : Variables are not changed. If one of the features has more
-        different values than ``'fair_material_max_groups'``, all materially relevant features will
-        formally be treated as continuous. The latter may become unreliable if their dimension is
-        not year small.\
-        ``'EqualCell'`` : Attempts to create equal cells for each variable.
-        Maybe be useful for a very small number of variables with few different values.\
-        ``'Kmeans'`` : Use Kmeans clustering algorithm to form homogeneous cells.\
-        Default (or None) is 'Kmeans'.
+    fair_material_disc_method : String (or None), optional
+        Method for preparing materially relevant features for quantile fairness corrections.
+        ``'NoDiscretization'``: Keep the original values and treat the features as continuous.
+        ``'EqualCell'``: Bin each feature with more than ``'fair_material_max_groups'``
+        distinct values into approximately equally populated groups, then combine the
+        resulting values into joint cells.
+        ``'Kmeans'``: Cluster the features jointly using ``'fair_material_max_groups'`` clusters.
+        Before applying the selected method, if the sum of the distinct-value counts
+        across materially relevant features is at most ``'fair_material_max_groups'``,
+        exact cells defined by observed feature combinations are used instead.
+        When adjusting decision variables for policy trees, ``'NoDiscretization'``
+        is replaced by ``'Kmeans'`` before this check.
+        The default (or None) is ``'Kmeans'``.
 
-    fair_protected_disc_method : String (or None), optional\
-        Method on how to perform the discretization for protected features.\
-        ``'NoDiscretization'`` : Variables are not changed. If one of the features has more
-        different values than ``'fair_protected_max_groups'``, all protected features will formally be
-        treated as continuous. The latter may become unreliable if their dimension is not very
-        small.\
-        ``'EqualCell'`` : Attempts to create equal cells for each variable.
-        Maybe be useful for a very small number of variables with few different values.\
-        ``'Kmeans'`` : Use Kmeans clustering algorithm to form homogeneous cells.\
-        Default (or None) is ``'Kmeans'``.
+    fair_protected_disc_method : String (or None), optional
+        Method for preparing protected features for quantile fairness corrections.
+        ``'NoDiscretization'``: Keep the original values and treat the features as continuous.
+        ``'EqualCell'``: Bin each feature with more than ``'fair_protected_max_groups'``
+        distinct values into approximately equally populated groups, then combine the
+        resulting values into joint cells.
+        ``'Kmeans'``: Cluster the features jointly using ``'fair_protected_max_groups'`` clusters.
+        Before applying the selected method, if the sum of the distinct-value counts
+        across protected features is at most ``'fair_protected_max_groups'``,
+        exact cells defined by observed feature combinations are used instead.
+        When adjusting decision variables for policy trees, ``'NoDiscretization'``
+        is replaced by ``'Kmeans'`` before this check.
+        The default (or None) is ``'Kmeans'``.
 
-    fair_material_max_groups : Integer (or None), optional\
-        Level of discretization of materially relavant variables (only if needed). Number of groups
-        of materially relavant features for cases when materially relavant variables are needed in
-        protected form. This is currently only necessary for ``'Quantilized'``.\
-        Its meaning depends on fair_material_disc_method:\
-        If ``'EqualCell'``: If more than 1 variable is included among the protected variables, this
-        restriction is applied to each variable.\
-        If ``'Kmeans'``: This is the number of clusters used by Kmeans.\
-        Default (or None) is 5.
+    fair_material_max_groups : Integer or float (or None), optional
+        Grouping parameter for materially relevant features in ``'Quantiled'`` fairness
+        corrections. Its meaning depends on ``'fair_material_disc_method'``.
+        With ``'EqualCell'``, it is the maximum number of groups per feature.
+        Observed combinations of these groups define joint cells, so the number of
+        joint cells can exceed this value.
+        With 'Kmeans', it is the requested number of clusters across all features, capped
+        at the number of distinct observed feature profiles.
+        If the sum of distinct-value counts across the features is at most this value,
+        exact cells are used instead of the selected discretization method.
+        Finite numeric values are rounded to the nearest integer and bounded below by 1.
+        NaN and infinite values raise ValueError. The default (or None) is 5.
 
-    fair_protected_max_groups : Integer (or None), optional\
-        Level of discretization of protected variables (only if needed). Number of groups of
-        protected features for cases when protected variables are needed in discretized form. This
-        is currently only necessary for ``'Quantilized'``.\
-        Its meaning depends on ``'fair_protected_disc_method'``: If ``'EqualCell'`` : If more than 1
-        variable is included among the protected variables, this restriction is applied to each
-        variable.\
-        If ``'Kmeans'`` : This is the number of clusters used by Kmeans.
-        Default (or None) is 5.
 
-    fair_regression_method : String (or None), optional\
-        Method choice when predictions from machine learning are needed for fairnesss corrections
-        (fair_type in (``'Mean'``, ``'MeanVar'``).\
+    fair_protected_max_groups : Integer or float (or None), optional
+        Grouping parameter for protected features in ``'Quantiled'`` fairness corrections.
+        Its meaning depends on ``'fair_protected_disc_method'``.
+        With ``'EqualCell'``, it is the maximum number of groups per feature.
+        Observed combinations of these groups define joint cells, so the number of
+        joint cells can exceed this value.
+        With 'Kmeans', it is the requested number of clusters across all features, capped
+        at the number of distinct observed feature profiles.
+        If the sum of distinct-value counts across the features is at most this value,
+        exact cells are used instead of the selected discretization method.
+        Finite numeric values are rounded to the nearest integer and bounded below by 1.
+        NaN and infinite values raise ValueError. The default (or None) is 5.
+
+
+    fair_regression_method : String (or None), optional
+        Regression method for 'Mean' and 'MeanVar' fairness corrections; see 'fair_type'.
         Available methods are ``'RandomForest'``, ``'RandomForestNminl5'``,
         ``'RandomForestNminls5'``, ``'SupportVectorMachine'``, ``'SupportVectorMachineC2'``,
         ``'SupportVectorMachineC4'``, ``'AdaBoost'``, ``'AdaBoost100'``, ``'AdaBoost200'``,
-        ``'GradBoost'``, ``'GradBoostDepth6'``, ``'GradBoostDepth12'``, ``'LASSO'``,
-        ``'NeuralNet'``, ``'NeuralNetLarge'``, ``'NeuralNetLarger'``, ``'Mean'``. If
-        ``'automatic'``, an optimal method will be chosen based on 5-fold cross-validation in the
-        training data. If a method is specified it will be used for all scores and all adjustments.
-        If ``'automatic'``, every policy score might be adjusted with a different method.
-        ``'Mean'`` is included for cases in which regression methods have no explanatory power.\
+        ``'GradBoost'``, ``'GradBoostDepth6'``, ``'GradBoostDepth12'``, ``'NeuralNet'``,
+        ``'NeuralNetLarge'``, ``'NeuralNetLarger'``, ``'Mean'``.
+        With ``'automatic'``, select a method separately for each regression used to adjust a policy
+        score or continuous decision variable. Selection can differ between mean and second-moment
+        regressions, and between regressions using all conditioning variables and those using only
+        materially relevant variables. Cross-validation uses min(5, n) folds, where n is the number
+        of observations used for the adjustment. An explicitly selected method is used for all
+        these regressions.
+        ``'Mean'`` is included for cases in which regression methods have no explanatory power.
         Default (or None) is ``'RandomForest'``.
 
-    fair_type : String (or None), optional\
-        Method to choose the type of correction for the policy scores.\
-        ``'Mean'`` :  Mean dependence of the policy score on protected var's is removed by
-        residualisation.\
-        ``'MeanVar'`` :  Mean dependence and heteroscedasticity is removed by residualisation and
-        rescaling.\
-        ``'Quantiled'`` : Removing dependence via (an empricial version of) the approach by Strack
-        and Yang (2024) using quantiles.\
-        ``'Mean'`` and ``'MeanVar'`` are only availabe for adjusting the score (not the decision
-        variables).\
-        See the paper by Bearth, Lechner, Mareckova, Muny (2024) for details on these methods.\
-        Default (or None) is ``'Quantiled'``.
+    fair_type : String (or None), optional
+        Method for fairness corrections of policy scores and decision variables.
+        ``'Mean'``: Adjust mean dependence on protected features by residualisation.
+        ``'MeanVar'``: Additionally adjust conditional variances by rescaling.
+        ``'Quantiled'``: Apply the quantile adjustment based on Strack and Yang (2024).
+        ``'Mean'`` and ``'MeanVar'`` are available for adjusting policy scores.
+        They can also adjust continuous decision variables when ``'gen_method'`` is
+        not ``'policy_tree'``.
+        Discrete decision variables always use ``'Quantiled'``.
+        When ``'gen_method'`` is ``'policy_tree'``, all decision-variable adjustments
+        use ``'Quantiled'``, regardless of this setting.
+        Decision variables are classified using their ordered/unordered status and
+        ``'fair_cont_min_values'``.
+        See Bearth, Lechner, Mareckova, Muny (2024) for details on these methods.
+        The default (or None) is ``'Quantiled'``.
 
     fs_yes : Boolean (or None), optional
-        Feature selection before building assignment rule: A feature is deleted if it is irrelevant
-        in the reduced forms for the policy score. Random forest regression is used.
-        Irrelevance is measured by variable importance measures based on randomly
-        permuting a single variable and checking its reduction in R2 compared to the test set
-        prediction based on the full model.
-        Exception: If the correlation of two variables to be deleted is larger than 0.5, one of the
-        two variables is kept.
-        Using feature selection is likely to reduce the computational cost of training.
+        If True, solve() selects decision variables before fitting 'policy_tree', 'policy tree old',
+        or 'bps_classifier'. The option is ignored by solve() for 'best_policy_score'.
+        With solvefair(), True raises NotImplementedError for every allocation method.
+        Subtract the first score in var_polscore_name from each remaining
+        score and fit a separate random forest for each resulting difference.
+        Use a classifier with accuracy scoring when a difference has fewer
+        than 10 distinct values in the fitting sample; otherwise use a
+        regressor with R2 scoring.
+        Measure importance by the loss in held-out prediction score after
+        permuting a feature; dummy columns of unordered features move together.
+        A feature qualifies for removal if its importance is at or below
+        fs_rel_vi_threshold for every score difference.
+        Remove at most one feature per iteration and refit before considering
+        another removal. Stop when no feature qualifies or at most two
+        original features remain.
         Default (or None) is False.
 
-    fs_rel_vi_threshold : Integer or Float (or None), optional
-        Feature selection: Threshold in terms of relative loss of variable importance (0-1).
+    fs_rel_vi_threshold : Integer or float (or None), optional
+        Threshold for feature importance in predicting policy-score
+        differences relative to the first policy score. A feature qualifies
+        for removal if its importance is at or below this threshold for
+        every such difference.
+        Values in (0, 1] are used directly; values in (1, 100] are divided
+        by 100. Thus 0.05 and 5 both give 0.05, while 1 remains 1.
+        None, nonpositive values and values above 100 use 0.
         Default (or None) is 0.
 
     fs_other_sample : Boolean (or None), optional
@@ -158,242 +194,335 @@ class OptimalPolicy:
         Default (or None) is True.
 
     fs_other_sample_share : Float (or None), optional
-        Feature selection: Share of sample used for feature selection (only relevant if
-        ``'fs_other_sample'`` is True).
+        Share of training observations reserved when feature selection runs
+        with fs_other_sample=True.
+        Use a value greater than 0 and at most 0.5. None, negative values
+        and values above 0.5 use 0.33.
+        A value of 0 passes initialization but raises ValueError when the
+        separate sample for feature selection is drawn.
+        To reuse the same observations for feature selection and subsequent
+        estimation, set fs_other_sample=False.
         Default (or None) is 0.33.
 
-    gen_method : String (or None), optional.\
-        Method to compute assignment algorithm (available methods: ``'best_policy_score'``,
-        ``'bps_classifier'``, ``'policy tree'``). ``'best_policy_score'`` conducts Black-Box
-        allocations, which are obtained by using the scores directly (potentially subject to
-        restrictions). When the Black-Box allocations are used for allocation of data not used for
-        training, the respective scores must be available.
-        ``'bps_classifier'`` uses the allocations obtained by ``'best_policy_score'`` and trains
-        classifiers. The output will be a decision rule that depends on features only and does not
-        require knowledge of the policy scores. The actual classifier used is selected among four
-        different classifiers offered by sci-kit learn, namely a simple neural network, two
-        classification random forests with minimum leaf size of 2 and 5, and ADDABoost. The
-        selection is made according to the out-of-sample performance on scikit-learns Accuracy
-        Score. The implemented ``'policy tree'`` 's are optimal trees, i.e. all possible trees are
-        checked if they lead to a better performance. If restrictions are specified, then this is
-        incorporated into treatment specific cost parameters. Many ideas of the implementation
-        follow Zhou, Athey, Wager (2022). If the provided policy scores fulfil their conditions
-        (i.e., they use a doubly robust double machine learning like score), then they also provide
-        attractive theoretical properties.\
-        Default (or None) is ``'best_policy_score'``.
+    gen_method : String (or None), optional
+        Method used to construct treatment allocations.
+        ``'best_policy_score'``: Allocate directly from policy scores, producing
+        additional allocation rules when treatment-share restrictions are active.
+        Policy scores are required when allocating new observations as well.
+        ``'bps_classifier'``: Train one classifier per allocation produced by
+        ``'best_policy_score'``. New observations are allocated using decision variables.
+        ``'policy_tree'``: Fit policy trees with depths and candidate splits controlled
+        by the ``pt_`` parameters. Candidate split searches may be approximated.
+        When two tree stages are enabled, they are optimized sequentially.
+        ``'policy tree old'``: Use the older policy-tree implementation.
+        For policy trees, treatment-share restrictions are incorporated through
+        calibrated treatment costs; the resulting tree may exceed the share limits.
+        The default (or None) is ``'best_policy_score'``.
 
-    gen_mp_parallel : Integer (or None), optional
-        Number of parallel processes (using ray on CPU). The smaller this value is, the slower the
-        programme, the smaller its demands on RAM. None : 80% of logical cores.
-        Default is None.
+    gen_mp_parallel : Integer or float (or None), optional
+        Requested number of workers for parallel computations such as policy-tree search.
+        Numeric values at most 1.5 select one worker; larger values are rounded
+        to the nearest integer.
+        None or a nonnumeric value selects 80% of logical CPU cores, rounded
+        to the nearest integer. This is also the default behavior.
+        Policy-tree parallelization uses ``'_int_mp_backend'``. If
+        ``'_int_mp_use_old_ray'`` is True, the older Ray implementation is used.
+        Setting this parameter to 1 runs the policy-tree search sequentially.
 
     gen_outfiletext : String (or None), optional
-        File for text output. (.txt) file extension will be automatically added.
-        Default (or None) is ``'txtFileWithOutput'``.
+        Base name for the detailed '<name>.txt' and condensed '<name>_Summary.txt' output files.
+        With '_int_with_output' enabled, initialization deletes existing files at these paths,
+        including when 'gen_output_type' is 0. See '_int_output_no_new_dir' for directory reuse.
+        Default (or None) is 'txtFileWithOutput'.
 
     gen_outpath : String or Pathlib object (or None), optional
-        Directory to where to put text output and figures. If it does not exist, it will be created.
-        None : Directory just below the directory where the programme is run.
+        Base directory for text output and figures.
+        For an explicitly supplied path, append a method subdirectory:
+        'BPS' for 'best_policy_score', 'PT' for 'policy_tree',
+        'PT_OLD' for 'policy tree old', or 'BPS_CLASSIF' for 'bps_classifier'.
+        With None, use 'output' below the current working directory,
+        without adding a method subdirectory.
+        Missing directories are created. Directory reuse and numeric
+        suffixes are controlled by _int_output_no_new_dir.
+        Only used when _int_with_output is enabled. Otherwise the stored output path is None.
         Default is None.
 
-    gen_output_type : Integer (or None), optional
-        Destination of the output.
-        0 : Terminal.
-        1 : File.
-        2 : File and terminal.
+    gen_output_type : Integer or float (or None), optional
+        Destination of standard text output: 0 for terminal, 1 for files, 2 for both.
+        Numeric values are converted with int(round(value)); the result must be 0, 1 or 2.
+        Other rounded values raise TypeError. Halfway values round to the nearest even integer.
+        '_int_with_output' set to False disables standard text output.
         Default (or None) is 2.
 
-    gen_variable_importance : Boolean
-        Compute variable importance statistics based on random forest classifiers.
+    gen_variable_importance : Boolean (or None), optional
+        Compute variable importance for predicting each allocation with a random forest classifier
+        during :meth:`~OptimalPolicy.evaluate`. Requires ``'_int_with_output'`` to be True.
+        Supply predictors through ``'var_vi_x_name'`` and/or ``'var_vi_to_dummy_name'``.
+        If neither list supplies variables, or any requested variable is missing from the evaluation
+        data, this analysis is skipped. The random reference allocation and allocations assigning
+        every observation to the same treatment are also skipped.
         Default (or None) is True.
 
-    other_costs_of_treat : List of floats (or None), optional
-        Treatment specific costs. These costs are directly subtracted from the policy scores.
-        Therefore, they should be measured in the same units as the scores.
-        Default value (or None) with constraints: It defaults to 0.
-        Default value (or None) without constraints: Costs will be automatically determined such as
-        to enforce constraints in the training data by finding cost values that lead to an
-        allocation (``'best_policy_score'``) that fulfils restrictions ``'other_max_shares'``.
-        Default (or None) is None.
+    other_costs_of_treat : List or tuple of floats (or None), optional
+        Treatment-specific costs, with one value per treatment in the same order as
+        ``'var_polscore_name'``. Costs are subtracted from the corresponding policy scores
+        and must therefore use the same units as those scores.
+        The default is None, which sets the base cost of every treatment to zero.
+        For policy trees with restrictions specified by ``'other_max_shares'``, additional
+        costs are calibrated from these base costs using individual best policy score allocations
+        in the training data. The adjusted costs are then used to fit the policy tree.
+        This calibration does not guarantee that the resulting tree satisfies the share limits.
 
-    other_costs_of_treat_mult : Float or tuple of floats (with as many elements as treatments)
-        (or None), optional.
-        Multiplier of automatically determined cost values. Use only when automatic costs violate
-        the constraints given by ``'other_max_shares'``. This allows to increase (>1) or decrease (<1) the
-        share of treated in particular treatment. None: (1, ..., 1).
-        Default (or None) is None.
+    other_costs_of_treat_mult : List or tuple of floats (or None), optional
+        Multipliers for the additional costs calibrated for policy trees with restrictions
+        specified by ``'other_max_shares'``.
+        Supply one finite, strictly positive value per treatment, in the same order as
+        ``'var_polscore_name'``. A scalar is not accepted.
+        For each treatment, the cost used is the base cost from ``'other_costs_of_treat'``
+        plus its multiplier times the additional calibrated cost.
+        Values above 1 increase a positive calibrated cost increment and discourage
+        allocation to that treatment; values between 0 and 1 reduce the increment.
+        A zero increment is unaffected by its multiplier.
+        The default is None, which uses a multiplier of 1 for every treatment.
 
-    other_max_shares : Tuple of float elements as treatments) (or None), optional
-        Maximum share allowed for each treatment.
-        Default (or None) is None.
+    other_max_shares : List or tuple of floats (or None), optional
+        Maximum treatment shares, with one value per treatment in the order of
+        ``'var_polscore_name'``. Values must be finite and between 0 and 1
+        inclusive, and their sum must be at least 1.
+        Integer capacities are computed as ``floor(n * share)``, where ``n`` is
+        the number of observations used by :meth:`~OptimalPolicy.solve`.
+        If the total capacity falls short by one observation, one extra slot is
+        assigned to a treatment with a positive share. Larger shortfalls raise
+        ``ValueError``.
+        The restricted ``'best_policy_score'`` rules use these integer capacities;
+        the unrestricted ``'bb'`` allocation is also returned.
+        For ``'bps_classifier'``, the restrictions apply to the constrained training
+        allocations; classifier predictions need not satisfy them.
+        Policy trees use calibrated costs and may exceed the requested shares.
+        The default is None, which uses 1 for every treatment.
 
-    pt_depth_tree_1 : Integer (or None), optional
-        Depth of 1st optimal tree.
-        Default is 3.
-        Note that tree depth is defined such that a depth of 1 implies 2 leaves, a depth of 3
-        implies 4 leaves, a depth of 3 implies 8 leaves, etc.
+    pt_depth_tree_1 : Integer or float (or None), optional
+        Maximum depth of the first policy tree, measured in splits from root to leaf.
+        Depths of 1, 2, and 3 allow at most 2, 4, and 8 leaves, respectively.
+        The fitted tree can be shallower or have fewer leaves.
+        The default is 3. None or values below 1 also use 3.
+        Other numeric inputs use an effective depth of ``int(round(value + 1)) - 1``.
 
-    pt_depth_tree_2 : Integer (or None), optional
-        Depth of 2nd optimal tree. This set is built within the strata obtained from the leaves of
-        the first tree. If set to 0, a second tree is not built. Default is 1 (together with the
-        default for ``'pt_depth_tree_1'`` this leads to a (not optimal) total tree of level of 4. Note
-        that tree depth is defined such that a depth of 1 implies 2 leaves, a depth of 2 implies 4
-        leaves, a depth of 3 implies 8 leaves, etc.
+    pt_depth_tree_2 : Integer or float (or None), optional
+        Maximum depth of each additional tree fitted within a leaf of the first tree.
+        Depth is measured in splits from the root of each additional tree.
+        Set to 0 to skip this second stage.
+        With the default depths of 3 and 1, the combined tree has at most 4 split levels
+        and 16 leaves. The stages are optimized sequentially, and the fitted tree
+        may be shallower or have fewer leaves.
+        The default is 1. None or negative values also use 1.
+        Other numeric inputs use an effective depth of ``int(round(value + 1)) - 1``.
 
     pt_enforce_restriction : Boolean (or None), optional
-        Enforces the imposed restriction (to some extent) during the computation of the policy tree.
-        This increases the quality of trees concerning obeying the restrictions, but can be very
-        time consuming. It will be automatically set to False if more than 1 policy tree is
-        estimated.
+        Apply additional feasibility checks and reward penalties for treatment-share restrictions
+        during tree search. Used by ``'policy_tree'`` and ``'policy tree old'`` when
+        ``'other_max_shares'`` restricts at least one treatment. These checks do not guarantee
+        that the final tree satisfies every share limit.
+        Automatically set to False when a second tree stage is enabled. Set ``'pt_depth_tree_2'``
+        to 0 when using this option.
         Default (or None) is False.
 
-    pt_eva_cat_mult : Integer (or None), optional
-        Changes the number of the evaluation points (``'pt_no_of_evalupoints'``) for the unordered
-        (categorical) variables to:
-            :math:`\\text{pt\_eva\_cat\_mult} \\times \\text{pt\_no\_of\_evalupoints}`
-        (available only for the method ``'policy tree'``).
-        Default (or None) is 2.
+    pt_eva_cat_mult : Integer or float (or None), optional
+        Multiplier controlling the maximum number of candidate splits for unordered
+        (categorical) features. Only used when ``'gen_method'`` is ``'policy_tree'``.
+        The candidate limit is the product of this multiplier and
+        ``'pt_no_of_evalupoints'``, truncated to an integer and bounded below by 1.
+        If the number of possible splits does not exceed this limit, all are considered.
+        The default is 1. Explicit None, nonnumeric input, or a value below 0.1 uses 2.
 
-    pt_no_of_evalupoints : Integer (or None), optional
-        No of evaluation points for continuous variables. The lower this  value, the faster the
-        algorithm, but it may also deviate more from the optimal splitting rule. This parameter is
-        closely related to the approximation parameter of Zhou, Athey, Wager (2022)(A) with
-        :math:`\\text{pt\_no\_of\_evalupoints} = \\text{number of observation} / \\text{A}`.
-        Only relevant if gen\_method is `policy tree`.
+    pt_no_of_evalupoints : Integer or float (or None), optional
+        Controls candidate split values for ordered features in ``'policy_tree'`` and
+        ``'policy tree old'``. Ordered features with at most this many distinct values retain all
+        values as candidates. With more distinct values, ``'policy_tree'`` selects a grid from
+        their sorted distinct values before the tree search; ``'policy tree old'`` selects
+        candidates within each node.
+        Also controls the candidate limit for unordered features; in ``'policy_tree'``, it is
+        multiplied by ``'pt_eva_cat_mult'``.
+        Smaller values reduce the search effort but can miss better splits.
+        None or numeric values below 5 select 100; other numeric values are rounded to an integer.
         Default (or None) is 100.
 
-    pt_min_leaf_size : Integer (or None), optional
-        Minimum leaf size. Leaves that are smaller than ``'pt_min_leaf_size'`` in the training data will
-        not be considered. A larger number reduces computation time and avoids some overfitting. None :
-        
-        .. math::
-           \min(0.1 \\times\\frac{\\text{number of training observations}}{\\text{number of leaves}},100)
-   
-        Only relevant if ``'gen_method'`` is ``'policy tree'``.
-        Default is None.
+    pt_min_leaf_size : Integer or float (or None), optional
+        Minimum leaf size used when searching for policy-tree splits.
+        Larger values can reduce computation time and limit overfitting.
+        With None or a negative value, the minimum is computed as
+        ``0.1 * n_train / 2 ** (d1 + d2)``, where ``n_train`` is the number
+        of observations used for training and ``d1`` and ``d2`` are the effective
+        split depths specified by ``'pt_depth_tree_1'`` and ``'pt_depth_tree_2'``.
+        The denominator is the maximum leaf count implied by these depths.
+        If treatment shares are restricted, this automatically computed value is
+        multiplied by the smallest positive maximum treatment share.
+        Supplied and automatically computed values are rounded to the nearest
+        integer and bounded below by 1.
+        When a second tree stage is enabled, the first-stage minimum is multiplied
+        by ``2 ** d2``; the second stage uses the unscaled minimum.
+        Only used for policy trees.
+        The default is None.
 
     pt_select_values_cat : Boolean (or None), optional
-        Approximation method for larger categorical variables. Since we search among optimal trees,
-        for categorical variables variables we need to check for all possible combinations of the
-        different values that lead to binary splits. Thus number could indeed be huge. Therefore,
-        we compare only :math:`\\text{pt\_no\_of\_evalupoints} \\times \\text{pt\_eva\_cat\_mult}`
-        different combinations. Method 1 (pt\_select\_values\_cat == True) does this by randomly
-        drawing values from the particular categorical variable and forming groups only using those
-        values. Method 2 (pt\_select\_values\_cat == False) sorts the values of the categorical
-        variables according to a values of the policy score as one would do for a standard random
-        forest. If this set is still too large, a random sample of the entailed combinations is
-        drawn. Method 1 is only available for the method ``'policy tree'``.
+        Selects how candidate splits for unordered features are approximated.
+        Only used when ``'gen_method'`` is ``'policy_tree'``.
+        If all distinct binary splits fit within the limit controlled by
+        ``'pt_no_of_evalupoints'`` and ``'pt_eva_cat_mult'``, all are considered.
+        When approximation is needed, True randomly selects a subset of categories
+        and forms candidate groups from that subset, subject to the same limit.
+        False orders categories by their mean policy-score differences and forms
+        candidate groups from these orderings. Excess candidates are removed;
+        additional random splits are added when too few candidates are obtained.
+        The default (or None) is False.
 
-    rnd_shares : Tuple of floats (or None), optional
-        Share of treatments of a stochastic assignment as computed by the
-        :meth:`~OptimalPolicy.evaluate` method. Sum of all elements must add to 1. This used only
-        used as a comparison in the evaluation of other allocations. None: Shares of treatments in
-        the allocation under investigation.
+    rnd_shares : List or tuple of floats (or None), optional
+        Treatment probabilities for the random comparison allocation generated by
+        :meth:`~OptimalPolicy.evaluate`.
+        Supply one finite, nonnegative probability per treatment, summing to 1.
+        With None, use the observed treatment shares in the evaluation data when
+        the variable specified by ``'var_d_name'`` is available. Otherwise, use
+        equal probabilities for all treatments.
+        These are sampling probabilities; realized treatment shares may differ.
+        The default is None.
+
+    var_bb_restrict_name : String or one-element list/tuple of strings (or None), optional
+        Name of a variable used to prioritize observations in an additional
+        allocation under the treatment-share limits in ``'other_max_shares'``.
+        Observations are processed in descending order of this variable. Each is
+        assigned the treatment with the highest policy score after subtracting
+        treatment costs among those with remaining capacity.
+        Used by ``'best_policy_score'`` and to construct training labels for an
+        additional classifier under ``'bps_classifier'``.
+        This additional allocation is created only if the variable is available
+        in the data and treatment shares are restricted.
+        The default is None.
+
+    var_d_name : String, list or tuple of strings (or None), optional
+        Name of the observed treatment variable, given as a string or a one-element list or tuple.
+        When present in evaluation data, it enables comparisons with the observed allocation and
+        separate results for observations whose treatment changes.
+        In training and evaluation data, values must be finite integer codes from 0 to K - 1,
+        where K is the number of policy scores. Codes follow the order of ``'var_polscore_name'``.
         Default is None.
 
-    var_bb_restrict_name : String (or None), optional
-        Name of variable related to a restriction in case of capacity constraints. If there is a
-        capacity constraint, preference will be given to observations with highest values of this
-        variable. Only relevant if gen_method is ``'best_policy_score'``.
+    var_id_name : String, list or tuple of strings (or None), optional
+        Name of the identifier in the data, supplied as a string or a one-element list or tuple.
         Default is None.
 
-    var_d_name : String (or None), optional
-        Name of (discrete) treatment. Needed in training data only if ``'changers'`` (different
-        treatment in allocation than observed treatment) are analysed and if allocation is compared
-        to observed allocation (in :meth:`~OptimalPolicy.evaluate` method).
+    var_polscore_desc_name : String, list or tuple (or None), optional
+        Names of additional treatment-specific scores used by :meth:`~OptimalPolicy.evaluate`.
+        Supply a flat sequence of names or nested lists/tuples, which are flattened.
+        Names are converted to lowercase and deduplicated before forming consecutive blocks of
+        K names, where K is the number of treatments. Each block defines one additional score set
+        and must follow the treatment order in 'var_polscore_name'.
+        A block is evaluated only if it contains K names and all its columns exist in the
+        evaluation data. Incomplete blocks and blocks with missing columns are skipped.
         Default is None.
 
-    var_effect_vs_0  : List/tuple of strings (or None), optional
-        Name of variables of effects of treatment relative to first treatment. Dimension is equal to
-        the number of treatments minus 1.
+    var_polscore_name : String, list or tuple of strings (or None), optional
+        Names of treatment-specific policy scores, usually estimated potential outcomes.
+        Their order defines treatment codes 0 to K - 1, where K is the number of scores.
+        Names must be supplied when creating the instance, before calling any method.
+        Default is None, but omitting the names or passing None currently raises TypeError during
+        initialization.
+
+    var_polscore_se_name : String, list or tuple of strings (or None), optional
+        Names of columns containing the standard errors of the policy scores.
+        Supply one name per entry in ``'var_polscore_name'``, in the same order.
+        Required by :meth:`~OptimalPolicy.estrisk_adjust`, which computes
+        'policy_score - estrisk_value * standard_error'.
+        Standard errors must be numeric, finite, and nonnegative.
+        After risk adjustment, :meth:`~OptimalPolicy.allocate` with
+        ``'gen_method'`` set to ``'best_policy_score'`` also uses these columns
+        if the prediction data do not already contain the adjusted score columns.
+        The default is None.
+
+    var_material_name_ord : String, list or tuple of strings (or None), optional
+        Materially relevant ordered variables used to condition fairness adjustments. Effects of the
+        protected variables captured by these variables are allowed. 'fair_adjust_target' selects
+        whether policy scores, decision variables or both are adjusted. These variables may also be
+        decision variables, but must not be included among the protected variables.
         Default is None.
 
-    var_effect_vs_0_se  : List/tuple of strings (or None), optional
-        Name of variables of standard errors of the effects of treatment relative to first
-        treatment. Dimension is equal to the number of treatments minus 1.
+    var_material_name_unord : String, list or tuple of strings (or None), optional
+        Materially relevant unordered variables used to condition fairness adjustments. Effects of
+        the protected variables captured by these variables are allowed. 'fair_adjust_target'
+        selects whether policy scores, decision variables or both are adjusted. These variables may
+        also be decision variables, but must not be included among the protected variables.
         Default is None.
 
-    var_id_name : (or None), optional
-        Name of identifier in data. Default is None.
-
-    var_polscore_desc_name : List/tuple of tuples of strings (or None), optional
-        Each tuple of dimension equal to the different treatments contains treatment specific
-        variables that are used to evaluate the effect of the allocation with respect to those
-        variables. This could be for example policy score not used in training, but which are
-        relevant nevertheless.
+    var_protected_name_ord : String, list or tuple of strings (or None), optional
+        Names of protected ordered variables used in fairness adjustments of policy scores, decision
+        variables or both, as selected by 'fair_adjust_target'. Adjustments are conditional on the
+        materially relevant variables. If included in ``'var_x_name_ord'``, these variables are
+        removed from that list.
         Default is None.
 
-    var_polscore_name : List or tuple of strings (or None), optional
-        Names of treatment specific variables to measure the value of individual treatments. This is
-        usually the estimated potential outcome or any other score related. This is required for the
-        :meth:`~OptimalPolicy.solve` method.
+    var_protected_name_unord : String, list or tuple of strings (or None), optional
+        Names of protected unordered variables used in fairness adjustments of policy scores,
+        decision variables or both, as selected by 'fair_adjust_target'. Adjustments are conditional
+        on the materially relevant variables. If included in ``'var_x_name_unord'``, these variables
+        are removed from that list.
         Default is None.
 
-    var_material_name_ord : List or tuple of strings (nor None), optional
-        Materially relavant ordered variables: An effect of the protected variables on the scores is
-        allowed, if captured by these variables (only). These variables may (or may not) be included
-        among the decision variables. These variables must (!) not be included among the protected
-        variables.
-        Default is None.
-
-    var_material_name_unord : List or tuple of strings (nor None), optional
-        Materially relavant unordered variables: An effect of the protected variables on the scores
-        is allowed, if captured by these variables (only). These variables may (or may not) be
-        included among the decision variables. These variables must (!) not be included among the
-        protected variables.
-        Default is None.
-
-    var_protected_ord_name : List or tuple of strings (nor None), optional
-        Names of protected ordered variables. Their influence on the policy scores will be removed
-        (conditional on the 'materially important' variables). These variables should NOT be
-        contained in decision variables, i.e., ``'var_x_name_ord'``. If they are included, they will be
-        removed and ``'var_x_name_ord'`` will be adjusted accordingly.
-        Default is None.
-
-    var_protected_unord_name : List or tuple of strings (nor None), optional
-        Names of protected unordered variables. Their influence on the policy scores will be removed
-        (conditional on the 'materially important' variables). These variables should NOT be
-        contained in decision variables, i.e., ``'var_x_name_unord'``. If they are included, they will be
-        removed and ``'var_x_name_unord'`` will be adjusted accordingly.
-        Default is None.
-
-    var_vi_x_name : List or tuple of strings or None, optional
+    var_vi_x_name : String, list or tuple of strings or None, optional
         Names of variables for which variable importance is computed.
         Default is None.
 
-    var_vi_to_dummy_name : List or tuple of strings or None, optional
+    var_vi_to_dummy_name : String, list or tuple of strings or None, optional
         Names of variables for which variable importance is computed. These variables will be broken
         up into dummies.
         Default is None.
 
-    var_x_name_ord : Tuple of strings (or None), optional
-        Name of ordered variables (including dummy variables) used to build policy tree and
-        classifier. They are also used to characterise the allocation.
-        Default is None.
+    var_x_name_ord : String, list or tuple of strings (or None), optional
+        Names of ordered decision variables, including dummy variables, used to build policy trees
+        or allocation classifiers. They are also used to describe allocations.
+        For 'policy_tree', 'policy tree old' and 'bps_classifier', at least one decision variable
+        must be supplied through this parameter or 'var_x_name_unord'.
+        Default is None, which supplies no ordered decision variables.
 
-    var_x_name_unord : Tuple of strings (or None), optional
-        Name of unordered variables used to build policy tree and classifier. They are also used to
-        characterise the allocation.
-        Default is None.
+    var_x_name_unord : String, list or tuple of strings (or None), optional
+        Names of unordered decision variables used to build policy trees or allocation classifiers.
+        They are also used to describe allocations.
+        For 'policy_tree', 'policy tree old' and 'bps_classifier', use integer-coded categories with
+        at least three distinct values in the training data retained after initial cleaning.
+        Specify binary variables through 'var_x_name_ord' instead.
+        The requirement for at least one decision variable is described under 'var_x_name_ord'.
+        Default is None, which supplies no unordered decision variables.
 
-    _int_dpi : Integer (or None), optional
-        dpi in plots. Internal variable, change default only if you know what you do.
+    _int_dpi : Integer or float (or None), optional
+        Requested resolution in dots per inch for saved figures. Numeric values are rounded to
+        integers; None and values below 10 use 500.
+        Policy-tree JPEGs may use a lower resolution to limit image dimensions and pixel count.
+        Policy-tree PDFs remain vector graphics.
         Default (or None) is 500.
         Internal variable, change default only if you know what you do.
         
-    _int_fontsize : Integer (or None), optional
-        Font for legends, from 1 (very small) to 7 (very large). Internal variable, change default
-        only if you know what you do.
-        Default (or None) is 2.
+    _int_fontsize : Integer, float or string (or None), optional
+        Font size for plot legends. Numeric values strictly between 0.5 and 7.5 are rounded
+        to an index from 1 to 7. None and numeric values outside this range use index 2.
+        Indices 1 to 7 correspond to ``'xx-small'``, ``'x-small'``, ``'small'``, ``'medium'``,
+        ``'large'``, ``'x-large'`` and ``'xx-large'``. These strings can also be supplied directly.
+        Other strings raise ValueError.
+        Default (or None) is 2 (``'x-small'``).
         Internal variable, change default only if you know what you do.
 
-    _int_output_no_new_dir: Boolean
-        Do not create a new directory when the path already exists.
+    _int_output_no_new_dir : Boolean (or None), optional
+        Reuse an existing output directory when True, even if it is nonempty.
+        With False or None, reuse an empty directory; for a nonempty one,
+        search for an unused or empty directory with a numeric suffix.
+        Missing directories are created in either case.
+        Only relevant when output is enabled.
+        During initialization, existing text output and summary files with
+        the configured names are deleted from the selected directory.
         Default (or None) is False.
         Internal variable, change default only if you know what you do.
 
-    _int_report : Boolean, optional
-        Provide information for McfOptPolReports to construct informative reports.
+    _int_show_plots : Boolean (or None), optional
+        Show policy-tree and Qini figures interactively.
+        If False, suppress interactive display while retaining figure files and policy-tree figures
+        in PDF reporting. Only used when _int_with_output is True.
         Default (or None) is True.
         Internal variable, change default only if you know what you do.
 
@@ -403,13 +532,19 @@ class OptimalPolicy:
         Internal variable, change default only if you know what you do.
 
     _int_with_output : Boolean (or None), optional
-        Print output on file and/or screen.
+        Enable standard text output and output-dependent diagnostics,
+        figures and report information. Text output follows gen_output_type.
+        False disables verbose output and leaves output paths unset during initialization.
+        It also disables the variable-importance analysis requested by gen_variable_importance.
+        evaluate_multiple() requires this option to be enabled.
         Default (or None) is True.
         Internal variable, change default only if you know what you do.
 
-    _int_xtr_parallel : Boolean (or None), optional.
-        Parallelize to a larger degree to make sure all CPUs are busy for most of the time.
-        Only used for 'policy tree' and only used if ``'_int_parallel_processing'`` > 1 (or None)
+    _int_xtr_parallel : Boolean (or None), optional
+        Divide each ordered feature's candidate values for the first split into up to four tasks.
+        False uses one task per feature. Unordered features use one task in either case.
+        Used for ``'gen_method'`` == ``'policy_tree'`` when ``'gen_mp_parallel'`` exceeds 1.
+        Works with the legacy Ray implementation and with the configured execution backend.
         Default (or None) is True.
         Internal variable, change default only if you know what you do.
 
@@ -419,29 +554,49 @@ class OptimalPolicy:
         Internal variable, change default only if you know what you do.
 
     _int_mp_backend : String (or None), optional
-        Backend to be used for parallelisation. Possible values ``'ray'`` or ``'joblib'`` or ``'sequential'``.
-        Only relevant if int_mp_use_old_ray is False.
-        The default for Windows is ``'joblib'``, else ``'ray'``.
+        Backend used for policy-tree parallelization. Available values are
+        ``'ray'``, ``'joblib'`` and ``'sequential'``.
+        Only used when ``'_int_mp_use_old_ray'`` is False.
+        The default is None. This selects ``'joblib'`` on Windows or when Ray
+        cannot be imported. Otherwise, None selects ``'ray'``.
         Internal variable, change default only if you know what you do.
 
-    _int_mp_batches: Integer (or None), optional
-        Number of batches used when running multiprocessing (all backends).
-        Only relevant if ``'int_mp_use_old_ray'`` is False.
-        Default is 20.
+    _int_mp_batches : Integer, float or string (or None), optional
+        Requested maximum number of task batches for parallel policy-tree search.
+        Numeric values must be at least 1; floats are truncated to integers.
+        ``'automatic'`` or None selects batch sizes from the number of tasks,
+        workers and the backend. Other strings are not accepted.
+        Minimum batch sizes depend on the worker count and backend, so the
+        actual number of batches can be smaller than requested.
+        Only used when ``'_int_mp_use_old_ray'`` is False.
+        The default is ``'automatic'``.
         Internal variable, change default only if you know what you do.
 
-    _int_mp_memmap_min_bytes: Integer (or None), optional
-        Minimum size of objects required to use memory maps in joblib.
-        Only relevant if ``'int_mp_use_old_ray'`` is False.
-        Default is 4 * 1024 * 1024.
+    _int_mp_memmap_min_bytes : Integer or float (or None), optional
+        Threshold in bytes for memory-mapping eligible shared NumPy arrays
+        with the 'joblib' backend when _int_mp_use_old_ray is False.
+        An array is mapped when its nbytes is at least this threshold.
+        Arrays with dtype object are excluded.
+        Nonnegative Python integers and floats are accepted; floats are
+        truncated to integers. None, negative values and other input types
+        use 4 * 1024 * 1024 bytes.
+        A value of 0 removes the size threshold for eligible arrays.
+        Default is 4 * 1024 * 1024 bytes (4 MiB).
         Internal variable, change default only if you know what you do.
 
-    _int_mp_memmap_dir: str or Path object (or None), optional
-       Tempory path to store memory maps. To be removed when  finished.
-       Only relevant if ``'int_mp_use_old_ray'`` is False.
-       Default is Path.cwd() / 'joblibtemp'.
-       Internal variable, change default only if you know what you do.
-
+    _int_mp_memmap_dir : str or Path object (or None), optional
+        Base directory for temporary files used by the 'joblib' backend.
+        Only relevant if _int_mp_use_old_ray is False.
+        Strings are converted to Path objects; Path objects are kept.
+        None and other input types use Path.cwd() / 'joblibtemp' at
+        initialization.
+        Each executor creates a unique subdirectory beneath this directory
+        and attempts to remove that subdirectory at shutdown.
+        The base directory is removed only if the executor created it and
+        it is empty. A directory that already existed is retained.
+        Cleanup failures issue warnings and may leave temporary files.
+        Default is Path.cwd() / 'joblibtemp', evaluated at module import.
+        Internal variable, change default only if you know what you do.
 
     Attributes
     ----------
@@ -450,14 +605,14 @@ class OptimalPolicy:
 
     <NOT-ON-API>
 
-    dc_cfg : DCCfg dataclass
+    dc_cfg : DataCleanCfg dataclass
         Parameters used in data cleaning.
 
-    estrisk_cfg : EstRisk dataclass
+    estriskcfg : EstRiskCfg dataclass
         Parameters used to account for estimation uncertainty in policy scores.
 
     fair_cfg : FairCfg dataclass
-        Parameters used in fairness adjustment of scores.
+        Parameters used in fairness adjustment of policy scores and decision variables.
 
     gen_cfg : GenCfg dataclass
         General parameters used in various parts of the programme.
@@ -477,8 +632,8 @@ class OptimalPolicy:
     rnd_cfg : RndCfg dataclass
         Shares for random allocation.
 
-    time_strings : String
-        Detailed information on how long the different methods needed.
+    time_strings : Dictionary
+        Maps computation-step labels to stored timing summaries.
 
     var_cfg : VarCfg dataclass
         Variable names.
@@ -494,10 +649,9 @@ class OptimalPolicy:
     """
 
     def __init__(self, *,
-                 dc_check_perfectcorr=True, dc_clean_data=True, dc_min_dummy_obs=10,
-                 dc_screen_covariates=True,
+                 dc_check_perfectcorr=True, dc_min_dummy_obs=10,
                  estrisk_value=1,
-                 fair_adjust_target='xvariables', fair_consistency_test=False,
+                 fair_adjust_target=None, fair_consistency_test=False,
                  fair_cont_min_values=20, fair_material_disc_method='Kmeans',
                  fair_material_max_groups=5, fair_regression_method='RandomForest',
                  fair_protected_disc_method='Kmeans', fair_protected_max_groups=5,
@@ -512,25 +666,27 @@ class OptimalPolicy:
                  pt_eva_cat_mult=1, pt_no_of_evalupoints=100, pt_min_leaf_size=None,
                  pt_select_values_cat=False,
                  rnd_shares=None,
-                 var_bb_restrict_name=None, var_d_name=None, var_effect_vs_0=None,
-                 var_effect_vs_0_se=None, var_id_name=None, var_material_name_ord=None,
+                 var_bb_restrict_name=None, var_d_name=None,
+                 var_id_name=None, var_material_name_ord=None,
                  var_material_name_unord=None, var_polscore_desc_name=None, var_polscore_name=None,
                  var_polscore_se_name=None, var_protected_name_ord=None,
                  var_protected_name_unord=None, var_vi_x_name=None, var_vi_to_dummy_name=None,
                  var_x_name_ord=None, var_x_name_unord=None,
-                _int_dpi=500, _int_fontsize=2, _int_output_no_new_dir=False, _int_report=True,
+                _int_dpi=500, _int_fontsize=2, _int_output_no_new_dir=False,
                 _int_with_numba=True, _int_with_output=True, _int_xtr_parallel=True,
                 _int_mp_use_old_ray=False,
                 _int_mp_backend=None, _int_mp_batches='automatic',
                 _int_mp_memmap_min_bytes=4*1024*1024,
                 _int_mp_memmap_dir=Path.cwd() / 'joblibtemp',
+                _int_show_plots: bool | None = True,
                 ):
-        self.__version__ = '0.10.0'
+        self.__version__ = '0.11.0'
 
         self.int_cfg = op_init.IntCfg.from_args(cuda=False,
                                                 output_no_new_dir=_int_output_no_new_dir,
-                                                report=_int_report, with_numba=_int_with_numba,
+                                                with_numba=_int_with_numba,
                                                 with_output=_int_with_output,
+                                                show_plots=_int_show_plots,
                                                 xtr_parallel=_int_xtr_parallel,
                                                 dpi=_int_dpi, fontsize=_int_fontsize,
                                                 mp_use_old_ray=_int_mp_use_old_ray,
@@ -547,9 +703,7 @@ class OptimalPolicy:
                                                 new_outpath=not self.int_cfg.output_no_new_dir,
                                                 )
         self.dc_cfg = op_init.DataCleanCfg.from_args(check_perfectcorr=dc_check_perfectcorr,
-                                                     clean_data=dc_clean_data,
                                                      min_dummy_obs=dc_min_dummy_obs,
-                                                     screen_covariates=dc_screen_covariates,
                                                      )
         self.pt_cfg = op_init.PtCfg.from_args(depth_tree_1=pt_depth_tree_1,
                                               depth_tree_2=pt_depth_tree_2,
@@ -568,8 +722,6 @@ class OptimalPolicy:
 
         self.var_cfg = op_init.VarCfg.from_args(bb_restrict_name=var_bb_restrict_name,
                                                 d_name=var_d_name,
-                                                effect_vs_0=var_effect_vs_0,
-                                                effect_vs_0_se=var_effect_vs_0_se,
                                                 id_name=var_id_name,
                                                 polscore_desc_name=var_polscore_desc_name,
                                                 material_ord_name=var_material_name_ord,
@@ -621,6 +773,10 @@ class OptimalPolicy:
         """
         Allocate observations to treatment state.
 
+        For 'policy_tree', 'policy tree old' and 'bps_classifier', first run solve() or solvefair()
+        on this instance to fit the allocation rule. With 'best_policy_score', allocate() computes
+        allocations directly from the supplied policy scores and does not require prior training.
+
         Parameters
         ----------
         data_df : DataFrame
@@ -631,12 +787,17 @@ class OptimalPolicy:
             This string is used as title in outputs. The default is ''.
 
         fair_adjust_decision_vars : Boolean, optional
-            If True, it will fairness-adjust the decision variables even when
-            fairness adjustments have not been used in training.
-            If False, no fairness adjustments of decision variables. However,
-            if fairness adjustments of decision variables have already been used
-            in training, then these variables will also be fairness adjusted in
-            the allocate method, independent of the value of ``fair_adjust_decision_vars``.
+            Controls recomputation of decision-variable fairness adjustments.
+            Use True only after :meth:`~OptimalPolicy.solvefair` with
+            ``'fair_adjust_target'`` set to ``'xvariables'`` or ``'scores_xvariables'``.
+            True recomputes adjusted variables and replaces existing columns with those names.
+            With False, available adjusted variables are reused; missing adjusted decision variables
+            required by the trained rule are computed automatically. Best-policy-score allocation
+            does not require decision variables, so False does not trigger their adjustment.
+            If all current policy-score columns are supplied, earlier risk and fairness inputs are
+            unnecessary for best-policy-score allocation unless True requests variable adjustment.
+            On an instance that has not used :meth:`~OptimalPolicy.solvefair`,
+            this option has no effect.
             The default is False.
 
         Returns
@@ -644,9 +805,13 @@ class OptimalPolicy:
         results : Dictionary.
             Contains the results. This dictionary has the following structure:
             'allocation_df' : DataFrame
-                data_df with optimal allocation appended.
-            'outpath' : Path
-                Location of directory in which output is saved.
+                Treatment allocations, with one row per observation used for allocation
+                and one column per allocation rule. Entries are treatment codes.
+                Column names depend on the allocation method and restrictions.
+                The input features and policy scores are not included.
+            'outpath' : Path or None
+                Directory in which output is saved.
+                None if _int_with_output is False.
 
         """
         allocation_df, self.gen_cfg.outpath = op_methods.allocate_method(
@@ -661,15 +826,34 @@ class OptimalPolicy:
         """
         Evaluate allocation with potential outcome data.
 
+        Run :meth:`~OptimalPolicy.solve` or :meth:`~OptimalPolicy.solvefair` on this instance first.
+        With 'gen_method' == 'best_policy_score', :meth:`~OptimalPolicy.allocate` also initializes
+        the instance for evaluation.
+
         Parameters
         ----------
         allocation_df : DataFrame
             Optimal allocation as outputed by the
             :meth:`~OptimalPolicy.solve`, :meth:`~OptimalPolicy.solvefair`,
             and :meth:`~OptimalPolicy.allocate` methods.
+            Names 'random', 'observed' and 'best ATE' are used for automatic reference allocations.
+            A ValueError is raised if a supplied column name conflicts with a reference generated
+            for this call.
 
         data_df : DataFrame
-            Additional information that can be linked to allocation_df.
+            Evaluation variables for the observations in ``allocation_df``. Both DataFrames must
+            have the same number of rows in the same observation order. Rows are paired by
+            position; index labels and identifier columns are not used to align them.
+            Welfare uses the complete set of current 'var_polscore_name' columns when available.
+            After fairness or estimation-risk adjustment, missing current scores trigger a fallback
+            to the last complete available treatment block in 'var_polscore_desc_name'.
+            If neither is available, primary welfare measures are omitted; allocation shares and
+            available descriptive statistics are still reported.
+            After solvefair(), also include every variable in 'var_protected_name_ord' and
+            'var_protected_name_unord'. These columns are required for fairness diagnostics, even
+            when '_int_with_output' is False. Pearson correlations are reported only for numeric
+            protected columns; nonnumeric categories receive NaN for this measure. Categorical
+            dependence measures are still computed when the distinct-value threshold permits them.
 
         data_title : String, optional
             This string is used as title in outputs. The default is ''.
@@ -679,9 +863,21 @@ class OptimalPolicy:
 
         Returns
         -------
-        results_all_dic : Dictory
-            'results_dic': Collected results of evaluation with self-explanatory keys.
-            'outpath': Output path.
+        results_all_dic : Dictionary
+            'results_dic': Dictionary with one entry per population and allocation rule.
+                Keys are 'All <allocation>' and, when observed treatments are available,
+                'Switchers <allocation>'. Switchers receive a different treatment from their
+                observed treatment; this subset is specific to each allocation rule.
+                Reference allocations are added automatically: 'random', 'observed' when available,
+                and 'best ATE' when welfare scores are available. 'best ATE' assigns everyone the
+                treatment with the highest mean policy score minus its treatment cost.
+                Each entry contains 'treatment share' and 'number of observations'. When welfare
+                scores are available, gross mean welfare is stored under the same key as the outer
+                entry, and net mean welfare under 'welfare net of costs'. Additional score summaries
+                and fairness diagnostics are included when applicable.
+            'outpath' : Path or None
+                Directory in which output is saved.
+                None if _int_with_output is False.
 
         """
         results_dic, self.gen_cfg.outpath = op_methods.evaluate_method(
@@ -693,16 +889,28 @@ class OptimalPolicy:
 
     def evaluate_multiple(self, allocations_dic, data_df):
         """
-        Evaluate several allocations simultaneously.
+        Evaluate several allocations simultaneously and write comparison output.
+
+        Requires '_int_with_output' to be True. Otherwise, raises ValueError before evaluation.
+
+        Run :meth:`~OptimalPolicy.solve` or :meth:`~OptimalPolicy.solvefair` on this instance first.
+        With 'gen_method' == 'best_policy_score', :meth:`~OptimalPolicy.allocate` also initializes
+        the instance for evaluation.
 
         Parameters
         ----------
         allocations_dic : Dictionary
-            Contains dataframes with specific allocations.
+            Maps allocation names (strings) to one-column DataFrames or Series of treatment codes.
+            Each value describes one allocation and must contain one entry per row of ``data_df``.
+            Codes must be finite integers from 0 to K - 1, in the order of ``'var_polscore_name'``,
+            where K is the number of treatments.
 
-        data_df : DataFrame.
-            Data with the relevant information about potential outcomes which
-            will be used to evaluate the allocations.
+        data_df : DataFrame
+            Policy-score data for evaluating the allocations. Every allocation must have the same
+            row order as this DataFrame; rows are matched by position, without index alignment.
+            Requires a complete treatment block of policy scores. Selection follows evaluate():
+            use current scores, or the descriptive-score fallback after fairness or estimation-risk
+            adjustment. If neither is available, this method raises ValueError.
 
         Returns
         -------
@@ -714,20 +922,33 @@ class OptimalPolicy:
         """
         if not self.gen_cfg.with_output:
             raise ValueError('To use this method, allow output to be written.')
-        potential_outcomes_np = data_df[self.var_cfg.polscore_name]
-        op_eval.evaluate_multiple(self, allocations_dic, potential_outcomes_np)
+
+        self.gen_cfg.outpath = op_methods.evaluate_multiple_self(self, allocations_dic, data_df)
         results_dic = {'outpath': self.gen_cfg.outpath}
 
         return results_dic
 
     def estrisk_adjust(self, data_df, data_title=''):
         """
-        Adjust policy score for estimation risk.
+        Adjust policy scores for estimation risk and select them for subsequent policy learning.
+
+        The instance uses the returned 'estrisk_scores_names' as its active policy-score names.
+        Pass the returned 'data_estrisk_df' to solve() or solvefair() to use these adjusted scores.
+        For 'gen_method' == 'best_policy_score', allocate() also creates adjusted scores when they
+        are absent, using the original scores and their standard errors.
+        Repeated calls use the original score names saved by the first successful call and replace
+        existing '_estrisk' columns. They do not subtract the risk adjustment a second time.
+        A failed call leaves the instance's risk-adjustment state unchanged.
 
         Parameters
         ----------
-        data_df : Dataframe
-            Input data.
+        data_df : DataFrame
+            Data containing the original policy scores and their standard errors in matching
+            order. Values must be numeric and finite, with nonnegative standard errors.
+            Names formed by adding '_estrisk' to score names must not coincide with any original
+            configured input variable name; conflicting names raise ValueError. Rename the input
+            column and its keyword entry. Repeated calls may replace previously generated scores.
+            Column names are converted to lowercase in the returned data.
 
         data_title : String, optional
             This string is used as title in outputs. The default is ''.
@@ -737,11 +958,15 @@ class OptimalPolicy:
         results_dic : Dictionary.
             Contains the results. This dictionary has the following structure:
             'data_estrisk_df' : DataFrame
-                Input data with additional fairness adjusted scores.
+                Input data with additional policy scores adjusted for estimation risk:
+                policy_score - estrisk_value * standard_error.
+                The added column names have the suffix '_estrisk'.
+                The row index is reset to consecutive integers starting at zero.
             'estrisk_scores_names' : List of strings.
                 Names of adjusted scores.
-            'outpath' : Path
-                Location of directory in which output is saved.
+            'outpath' : Path or None
+                Directory in which output is saved.
+                None if _int_with_output is False.
 
         """
         (data_estrisk_df, estrisk_scores_names, self.gen_cfg.outpath
@@ -757,7 +982,19 @@ class OptimalPolicy:
         Solve for optimal allocation rule with fairness adjustments.
 
         Follows the suggestions of Bearth, Lechner, Muny, Mareckova (2025, arXiV).
-        It has the same syntax and is used in the same way as the solve method.
+        It accepts the same arguments as :meth:`~OptimalPolicy.solve`.
+        The return value is a single dictionary containing 'allocation_df',
+        'result_dic', and 'outpath'.
+        Repeated calls use the variable names and adjustment settings saved on the first call.
+        Supply the corresponding input columns again; existing fairness-adjusted columns are
+        replaced rather than adjusted a second time. The latest call replaces the cached training
+        data used for decision-variable adjustment during allocate(). If estrisk_adjust() was used
+        before the first call, these input policy scores are the risk-adjusted scores.
+        Generated column names must not coincide with another configured input variable name.
+        Such conflicts raise ValueError; rename the conflicting input column and its keyword entry.
+        When both scores and decision variables are adjusted, use separately named input columns for
+        these roles; sharing a name would also share the adjusted column and raises ValueError.
+
 
         Parameters
         ----------
@@ -771,12 +1008,16 @@ class OptimalPolicy:
         results_all_dict : Dictionary.
             Contains the results. This dictionary has the following structure:
             'allocation_df' : DataFrame
-                data_df with optimal allocation appended.
+                Treatment allocations, with one row per observation used for allocation
+                and one column per allocation rule. Entries are treatment codes.
+                Column names depend on the allocation method and restrictions.
+                The input features and policy scores are not included.
             'result_dic' : Dictionary
                 Contains additional information about trained allocation rule.
                 Only complete when keyword _int_with_output is True.
-            'outpath' : Path
-                Location of directory in which output is saved.
+            'outpath' : Path or None
+                Directory in which output is saved.
+                None if _int_with_output is False.
 
         """
         (allocation_df, result_dic, self.gen_cfg.outpath
@@ -790,6 +1031,10 @@ class OptimalPolicy:
     def solve(self, data_df, data_title=''):
         """
         Solve for optimal allocation rule.
+        Training preparation keeps the required columns and removes rows with missing
+        values in those columns. This cleaning is always performed.
+        Covariate screening runs automatically for 'policy_tree', 'policy tree old'
+        and 'bps_classifier'. It is skipped for 'best_policy_score'.        
 
         Parameters
         ----------
@@ -803,14 +1048,23 @@ class OptimalPolicy:
         results_all_dict : Dictionary.
             Contains the results. This dictionary has the following structure:
             'allocation_df' : DataFrame
-                data_df with optimal allocation appended.
+                Treatment allocations, with one row per observation used for allocation
+                and one column per allocation rule. Entries are treatment codes.
+                Column names depend on the allocation method and restrictions.
+                The input features and policy scores are not included.
             'result_dic' : Dictionary
                 Contains additional information about trained allocation rule.
                 Only complete when keyword _int_with_output is True.
-            'outpath' : Path
-                Location of directory in which output is saved.
-        data_df: Pandas DataFrame.
-            Input data that is used to train the assignment algorithm.
+            'outpath' : Path or None
+                Directory in which output is saved.
+                None if _int_with_output is False.
+        data_df : DataFrame
+            Second item of the returned tuple. Contains the input data for the observations used to
+            train the allocation rule. Rows removed during preparation or reserved for feature
+            selection are excluded. Rows align with 'allocation_df', and the index is reset to
+            consecutive integers starting at zero.
+            Input columns are retained, with names converted to lowercase. An identifier column may
+            be added during preparation.
 
         """
         allocation_df, result_dic, self.gen_cfg.outpath, data_df = op_methods.solve_method(
@@ -823,7 +1077,20 @@ class OptimalPolicy:
         return results_all_dic, data_df
 
     def print_time_strings_all_steps(self, title='', line_length=100):
-        """Print an overview over the time needed in all steps of programme."""
+        """Print the computation-time summaries currently stored on this instance.
+
+        Parameters
+        ----------
+        title : String, optional
+            Text appended to the summary heading. Default is ''.
+        line_length : Integer, optional
+            Number of '=' characters in the heading's separator line. It does not wrap the text.
+            Default is 100.
+
+        Returns
+        -------
+        None
+        """
         txt = '\n' + '=' * line_length + '\nSummary of computation times of all steps '
         txt += title
         print_mcf(self.gen_cfg, txt, summary=True)
@@ -832,19 +1099,27 @@ class OptimalPolicy:
             val_all += val
         print_mcf(self.gen_cfg, val_all, summary=True)
 
-    def winners_losers(self,
-                       data_df,
-                       welfare_df, *,
-                       welfare_reference_df: int = 0,
-                       outpath: None = None,
-                       title: str = ''
-                       ):
+    def winners_losers(self: 'OptimalPolicy',
+                       data_df: DataFrame,
+                       welfare_df: DataFrame, *,
+                       welfare_reference_df: DataFrame | None = None,
+                       outpath: str | Path | None = None,
+                       title: str = '',
+                       ) -> dict[str, DataFrame | Path | None]:
         """
         Compare the winners and loser.
 
-        k-means is used to cluster groups of individuals that are similar
-        in gains and losses from two user-provided allocations. The groups are described by the
-        policy scores as well as the decision, protected, and materially relevant variables.
+        Cluster observations by their welfare change relative to the reference allocation.
+        Only welfare changes enter the clustering; policy scores and decision, protected and
+        materially relevant variables are used to describe the resulting groups.
+        Actual and reference welfare, and their differences, must be numeric and finite.
+        Invalid values raise ValueError before a cluster-label column is added to data_df.
+        For varying welfare changes, try 2 through min(8, n - 1, u) clusters, where n is the number
+        of observations and u the number of distinct changes. Merge clusters containing fewer than
+        1% of observations with their nearest remaining cluster, then select the candidate with the
+        highest valid average silhouette score. The retained number of clusters can be smaller.
+        Varying changes require at least three observations. A ValueError is raised if no candidate
+        clustering has a valid silhouette score.
 
         Parameters
         ----------
@@ -852,13 +1127,22 @@ class OptimalPolicy:
             Variables used for descriptions.
 
         welfare_df : DataFrame
-            Welfare of the allocations.
+            Welfare under the allocation being evaluated. Must contain exactly one
+            column and the same number of observations as ``data_df``, in the same
+            row order. Rows are matched by position.
 
-        welfare_reference_df : DataFrame, optional
-            Welfare of the reference allocation. The default is 0.
+        welfare_reference_df : DataFrame (or None), optional
+            Welfare under the reference allocation. If supplied, must contain exactly
+            one column and match the number and row order of observations in
+            ``data_df`` and ``welfare_df``.
+            The default is None, which uses zero reference welfare for every observation.
 
-        outpath : String or None, optional
-            Path used to save the outputs.
+        outpath : String or Path (or None), optional
+            Directory for this call's text output. An explicit directory
+            is created if needed and used with the configured text-file
+            basenames.
+            None reuses the instance's configured text-file paths.
+            The default is None.
 
         title : String, optional
             Title used in the statistics. The default is ''.
@@ -868,9 +1152,29 @@ class OptimalPolicy:
         results_dict : Dictionary.
             Contains the results. This dictionary has the following structure:
             'data_plus_cluster_number_df' : DataFrame
-                Cluster number ('cluster_no') is added to data_df.
-            'outpath' : Path
-                Location of directory in which output is saved.
+                ``data_df`` with a cluster-label column named
+                ``'Welfare_change_cluster_<welfare>_minus_<reference>'``.
+                ``<welfare>`` and ``<reference>`` are the column names from
+                ``welfare_df`` and ``welfare_reference_df``; the reference name
+                is ``'zero'`` when ``welfare_reference_df`` is None.
+                Labels start at 0 and increase with the cluster's mean welfare change.
+                If welfare changes are constant, every observation receives label 0.
+                The supplied ``data_df`` is modified in place.
+            'outpath' : Path or None
+                Supplied directory converted to Path, or the existing
+                self.gen_cfg.outpath when outpath is None.
+                Assigned to self.gen_cfg.outpath on successful return.
+                Can be None when welfare changes do not vary and no
+                output directory is configured.
+
+        Notes
+        -----
+        Clustering descriptions are written to both text output files,
+        even when gen_output_type is 0. Initialize with _int_with_output=True
+        to configure the required text-file paths. An explicit outpath
+        also needs their configured filenames.
+        If welfare changes do not vary, the method returns before writing
+        text. With outpath=None, this case can also run with output disabled.
 
         """
         data_plus_cluster_number_df, self.gen_cfg.outpath = op_methods.winners_losers_method(
@@ -887,34 +1191,72 @@ class OptimalPolicyVersions:
     """
     Optimal policy learning when there are versions in some of the main treatments.
 
+    Run :meth:`~OptimalPolicyVersions.solve` on this instance before using
+    :meth:`~OptimalPolicyVersions.allocate` or :meth:`~OptimalPolicyVersions.evaluate`.
+    This also applies to 'best_policy_score': solve() creates the underlying OptimalPolicy model.
+
     Parameters
     ----------
-    policyscores_dict : Dictionary of lists/tuple of strings or Nones
-        This dictionary contains the information about the policy scores for the main treatments
-        (they are the keys of this dict) and the policy scores of the corresponding versions of the
-        respective main treatment (as items of this dict). If there is only a single version of the
-        respective main treatment, the corresponding value should be set to zero.
-        This dictionary must always be provided, there is no default value.
+    policyscores_dict : Dictionary
+        Nonempty dictionary mapping policy score names for main treatments to the
+        names of their version scores.
+        Each key must be a string. Its value must be None, a string, or a nonempty
+        list or tuple of strings.
+        None uses the key itself as the only score for that main treatment.
+        A string specifies one version score; a list or tuple specifies one or more.
+        Main treatments follow dictionary order, and versions follow the order of their scores.
+        Version-score names must be distinct across all main treatments, ignoring case, and must
+        not be '0'. With 'policy_tree', the same rule applies separately to the main-score keys.
+        A main-score key may also identify one version score. For distinct treatments with
+        identical scores, use separate columns with distinct names.
+        Invalid score-name combinations raise ValueError in solve().
+        This argument must be provided; the dictionary itself cannot be None.
 
-    depth_version_tree : Integer or list/tuple of integers (or None), optional
-        Depth of the tree build for treatment versions for each main treatment with more than one
-        version. This must either be a list/tuple of integers with length equal of the number
-        of the main treatments (and in the same order as the main treatments in policyscores_dict),
-        or an integer (or None). If it is one integer (or None) the same depth-level is applied to
-        to all main treatments.
-        This keywords is only relevant of policy trees are used (a combination of different methods
-        for the main treatments and their versions is currently not implemented).
-        Default (or None) is 2.
+    depth_version_tree : Integer, float, list or tuple of numbers (or None), optional
+        Maximum depth of the version trees for main treatments with multiple versions.
+        Used when 'gen_method' in 'params_optpol' is 'policy_tree'.
+        A scalar applies to all main treatments. A list or tuple must contain one
+        value per main treatment, in the key order of 'policyscores_dict', including
+        main treatments with only one version.
+        Every supplied value must lie between 2 and 10 inclusive before rounding.
+        Float values are rounded to the nearest integer.
+        For each version tree, this value overrides 'pt_depth_tree_1', and
+        'pt_depth_tree_2' is set to 0, so no second tree stage is fitted.
+        The default (or None) is 2 for every main treatment.
 
     params_optpol : Dictionary (or None), optional
-        All keywords of the initialisation of the OptimalPolicy class.
-        Default is None (this implies setting all keywords to their default values)
+        Keyword arguments for the underlying OptimalPolicy instances. Unspecified settings use
+        their defaults. ``'var_polscore_name'`` is set internally from ``'policyscores_dict'``.
+        If supplied, ``'other_costs_of_treat'`` needs one value per main treatment, in dictionary
+        order; each version inherits its main treatment's cost.
+        For ``'gen_method'`` == ``'policy_tree'``, supplied ``'other_max_shares'`` and
+        ``'other_costs_of_treat_mult'`` values also refer to main treatments. Version trees have
+        unrestricted shares and cost multipliers of 1; their depths follow ``'depth_version_tree'``.
+        With other methods, these two parameters use one value per treatment version, in the
+        flattened score order of ``'policyscores_dict'``.
+        For 'policy_tree', 'var_d_name' in this dictionary refers to observed main treatments and
+        is ignored by version trees. Set this class's 'var_d_name' to provide the observed main
+        treatment/version pair for final evaluation.
+        ``'fs_yes'`` set to True raises NotImplementedError with ``'policy_tree'``.
+        For 'policy_tree', final treatment-version evaluation ignores supplied 'rnd_shares'.
+        Its random reference allocation uses observed treatment-version shares when available;
+        otherwise, it uses equal probabilities across all treatment versions.
+        Default is None, which uses ``'best_policy_score'`` with the applicable default settings.
 
-    var_d_name = list of strings, optinal
-        Treatment information. 1st element contains the name of the main treatments, 2nd element 
-        contains the name of the subtreatments. If not None, this information will be used to
-        evaluate the allocations.
-        Default is None.
+    var_d_name : List or tuple of two strings (or None), optional
+        Names of the columns containing observed main treatments and their versions,
+        in that order. Used by :meth:`~OptimalPolicyVersions.evaluate` when both
+        columns are available in the evaluation data.
+        Main treatments must be coded 0, 1, ... in the key order of
+        ``'policyscores_dict'``. Versions must be coded 0, 1, ... separately
+        within each main treatment, following the order of its policy-score names.
+        For a main treatment with a single version, the version code must be 0.
+        Values must be finite integers. Each pair is converted internally to a
+        single treatment-version code for evaluating the observed allocation.
+        With 'policy_tree' and any main treatment having multiple versions, both columns are
+        required for this comparison. A main-treatment column supplied through 'params_optpol'
+        is not sufficient.
+        The default is None.
 
 
     Attributes
@@ -939,7 +1281,7 @@ class OptimalPolicyVersions:
                  params_optpol=None, policyscores_dict=None,
                  var_d_name=None,
                  ):
-        self.__version__ = '0.10.0'
+        self.__version__ = '0.11.0'
         self.version_cfg = op_init.VersionCfg.from_args(policyscores_dict=policyscores_dict,
                                                         depth_version_tree=depth_version_tree,
                                                         params_optpol=params_optpol,
@@ -949,7 +1291,10 @@ class OptimalPolicyVersions:
         self.time_strings = {}
         self.report = {'opt_versions': True}
 
-    def allocate(self, data_df, data_title='', fair_adjust_decision_vars=False):
+    def allocate(self: 'OptimalPolicyVersions',
+                 data_df: DataFrame,
+                 data_title: str = '',
+                 ) -> dict[str, DataFrame | Path | None]:
         """
         Allocate observations to treatment state.
 
@@ -962,28 +1307,26 @@ class OptimalPolicyVersions:
         data_title : String, optional
             This string is used as title in outputs. The default is ''.
 
-        fair_adjust_decision_vars : Boolean, optional
-            If True, it will fairness-adjust the decision variables even when fairness adjustments
-            have not been used in training. If False, no fairness adjustments of decision variables.
-            However, if fairness adjustments of decision variables have already been used
-            in training, then these variables will also be fairness adjusted in the allocate method,
-            independent of the value of ``fair_adjust_decision_vars``.
-            The default is False.
-
         Returns
         -------
         results : Dictionary.
             Contains the results. This dictionary has the following structure:
             'allocation_df' : DataFrame
-                data_df with optimal allocation appended.
-            'outpath' : Path
-                Location of directory in which output is saved.
+                Allocations to treatment versions, with one row per observation used for
+                allocation and one column per allocation rule.
+                Entries are integer codes starting at zero. Main treatments follow the
+                order of keys in 'policyscores_dict'; their versions follow the order of
+                the corresponding score names. Codes run consecutively across all main
+                treatments. A main treatment without separate versions occupies one code.
+                The input features and policy scores are not included.
+            'outpath' : Path or None
+                Directory in which output is saved.
+                None if params_optpol sets _int_with_output to False.
 
         """
         return op_version.allocate_version(self,
                                            data_df,
                                            data_title=data_title,
-                                           fair_adjust_decision_vars=fair_adjust_decision_vars,
                                            )
 
     def evaluate(self, allocation_df, data_df, data_title='', seed=12434):
@@ -993,12 +1336,20 @@ class OptimalPolicyVersions:
         Parameters
         ----------
         allocation_df : DataFrame
-            Optimal allocation as outputed by the
-            :meth:`~OptimalPolicy.solve`, :meth:`~OptimalPolicy.solvefair`,
-            and :meth:`~OptimalPolicy.allocate` methods.
+            Treatment-version allocations, for example the 'allocation_df' returned by
+            :meth:`~OptimalPolicyVersions.solve` or :meth:`~OptimalPolicyVersions.allocate`.
+            Each column represents one allocation rule. Codes run from 0 to K - 1, where K counts
+            all treatment versions. Main treatments follow the order in 'policyscores_dict';
+            within each main treatment, follow the order of its version-score names.
+            A main treatment without separate versions occupies one code.
+            Names 'random', 'observed' and 'best ATE' are used for automatic reference allocations.
+            A ValueError is raised if a supplied column name conflicts with a reference generated
+            for this call.
 
         data_df : DataFrame
-            Additional information that can be linked to allocation_df.
+            Evaluation variables for the observations in ``allocation_df``. Both DataFrames must
+            have the same number of rows in the same observation order. Rows are paired by
+            position; index labels and identifier columns are not used to align them.
 
         data_title : String, optional
             This string is used as title in outputs. The default is ''.
@@ -1009,15 +1360,27 @@ class OptimalPolicyVersions:
         Returns
         -------
         results_all_dic : Dictionary
-            'results_dic': Collected results of evaluation with self-explanatory keys.
-            'outpath': Output path.
+            'results_dic': Dictionary with one entry per population and allocation rule.
+                Keys are 'All <allocation>' and, when observed treatments are available,
+                'Switchers <allocation>'. Switchers receive a different treatment from their
+                observed treatment; this subset is specific to each allocation rule.
+                Reference allocations are added automatically: 'random', 'observed' when available,
+                and 'best ATE' when welfare scores are available. 'best ATE' assigns everyone the
+                treatment with the highest mean policy score minus its treatment cost.
+                Each entry contains 'treatment share' and 'number of observations'. When welfare
+                scores are available, gross mean welfare is stored under the same key as the outer
+                entry, and net mean welfare under 'welfare net of costs'. Additional score summaries
+                and fairness diagnostics are included when applicable.
+            'outpath' : Path or None
+                Directory in which output is saved.
+                None if params_optpol sets _int_with_output to False.
 
         """
         return op_version.evaluate_version(self,
                                            allocation_df,
                                            data_df,
                                            data_title=data_title,
-                                           seed=seed
+                                           seed=seed,
                                            )
 
     def solve(self, data_df, data_title=''):
@@ -1036,14 +1399,34 @@ class OptimalPolicyVersions:
         results_all_dict : Dictionary.
             Contains the results. This dictionary has the following structure:
             'allocation_df' : DataFrame
-                data_df with optimal allocation appended.
-            'result_dic' : Dictionary
-                Contains additional information about trained allocation rule.
-                Only completed when keyword _int_with_output is True.
-            'outpath' : Path
-                Location of directory in which output is saved.
-        data_df: DataFrame.
-             Input data that is used for training allocation rule.
+                Allocations to treatment versions, with one row per observation used for
+                allocation and one column per allocation rule.
+                Entries are integer codes starting at zero. Main treatments follow the
+                order of keys in 'policyscores_dict'; their versions follow the order of
+                the corresponding score names. Codes run consecutively across all main
+                treatments. A main treatment without separate versions occupies one code.
+                The input features and policy scores are not included.
+            'result_dic' : Dictionary or list
+                Additional information about the fitted allocation rules.
+                For 'policy_tree', a list with the 'result_dic' of the main tree first,
+                followed by one entry per main treatment, in 'policyscores_dict' order.
+                Each subsequent entry is the 'result_dic' of its version tree, or None
+                if no version tree was fitted.
+                For other methods, the underlying OptimalPolicy instance's
+                'result_dic' dictionary.
+                Contents depend on the allocation method and output settings.
+            'outpath' : Path or None
+                Directory in which output is saved.
+                None if params_optpol sets _int_with_output to False.
+
+        data_df : DataFrame
+            Second item of the returned tuple. Contains the retained training observations, in the
+            same row order as 'allocation_df', with an index starting at zero.
+            Rows removed during preparation are excluded. For 'policy_tree', this includes removals
+            in version trees. For other methods, any separate feature-selection sample is also
+            excluded.
+            Input columns are retained, with names converted to lowercase. An identifier column may
+            be added during preparation.
 
         """
         start_time = time()
@@ -1082,6 +1465,7 @@ class OptimalPolicyVersions:
             results_all_dic_list = [results_all_dic_main,]
 
             # Iterate over main treatments
+            dropped_version_indices = []
             for idx, _ in enumerate(params_v):
                 _ = op_version.print_title_for_version_tree(idx,
                                                             tree_yes_v[idx],
@@ -1090,14 +1474,22 @@ class OptimalPolicyVersions:
                                                             )
                 if tree_yes_v[idx]:
                     optp_vers = OptimalPolicy(**params_v[idx])
-                    optp_vers, old_index, data_version = op_version.prepare_version_for_solve(
-                        optp_vers, gen_cfg_print, data_v[idx]
-                        )
+
+                    (optp_vers, old_index, data_version, row_name,
+                     ) = op_version.prepare_version_for_solve(optp_vers, gen_cfg_print, data_v[idx])
+
                     results_all_dic_vers, data_version = optp_vers.solve(data_version,
-                                                                         data_title=title_v[idx]
+                                                                         data_title=title_v[idx],
                                                                          )
-                    # Put old indices back into allocation file
-                    results_all_dic_vers['allocation_df'].index = old_index
+                    kept_positions = data_version[row_name].to_numpy(dtype=np.int64, copy=False)
+                    kept_old_index = old_index.take(kept_positions)
+
+                    dropped_old_index = old_index.difference(kept_old_index)
+                    if len(dropped_old_index):
+                        dropped_version_indices.extend(dropped_old_index.tolist())
+
+                    results_all_dic_vers['allocation_df'].index = kept_old_index
+
                 else:
                     optp_vers = results_all_dic_vers = None
                 results_all_dic_list.append(results_all_dic_vers)
@@ -1106,11 +1498,35 @@ class OptimalPolicyVersions:
             results_all_dic = op_version.combine_results_all_dic(
                 results_all_dic_list, policy_scores_main_version, gen_cfg=optp_main.gen_cfg,
                 )
+            if dropped_version_indices:
+                dropped_version_indices = sorted(set(dropped_version_indices))
+
+                results_all_dic['allocation_df'] = (results_all_dic['allocation_df']
+                                                    .drop(index=dropped_version_indices)
+                                                    .reset_index(drop=True)
+                                                    )
+                data_df = data_df.drop(index=dropped_version_indices).reset_index(drop=True)
             self.gen_cfg_print = gen_cfg_print
+
         else:
             # All treatment versions will be treated symmetrically
-            self.version_cfg.params_optpol['var_polscore_name'] = self.policy_scores_all
-            self.optp = OptimalPolicy(**self.version_cfg.params_optpol)
+            params_optpol = deepcopy(self.version_cfg.params_optpol)
+            params_optpol['var_polscore_name'] = self.policy_scores_all
+
+            costs_main = params_optpol.get('other_costs_of_treat')
+            if costs_main is not None:
+                version_counts = [len(scores) for scores in policy_scores_main_version]
+                if len(costs_main) != len(version_counts):
+                    raise ValueError('For OptimalPolicyVersions, other_costs_of_treat must '
+                                     'contain one value per main treatment.'
+                                     )
+                params_optpol['other_costs_of_treat'] = np.repeat(
+                    np.asarray(costs_main, dtype=float),
+                    version_counts,
+                    ).tolist()
+
+            self.optp = OptimalPolicy(**params_optpol)
+
             results_all_dic, data_df = self.optp.solve(data_df, data_title=data_title)
             if self.optp.gen_cfg.with_output:
                 print_mcf(self.optp.gen_cfg, txt_descr, summary=True)
@@ -1123,14 +1539,27 @@ class OptimalPolicyVersions:
         key, time_str = op_version.timestr_version(self.gen_cfg_print,
                                                    start_time,
                                                    title=time_title,
-                                                   data_title=data_title
+                                                   data_title=data_title,
                                                    )
         self.time_strings[key] = time_str
 
         return results_all_dic, data_df
 
     def print_time_strings_all_steps(self, title='', line_length=100):
-        """Print an overview over the time needed in all steps of programme."""
+        """Print the computation-time summaries currently stored on this instance.
+
+        Parameters
+        ----------
+        title : String, optional
+            Text appended to the summary heading. Default is ''.
+        line_length : Integer, optional
+            Number of '=' characters in the heading's separator line. It does not wrap the text.
+            Default is 100.
+
+        Returns
+        -------
+        None
+        """
         txt = '\n' + '=' * line_length + '\nSummary of computation times of all steps '
         txt += title
         print_mcf(self.gen_cfg_print, txt, summary=True)

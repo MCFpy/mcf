@@ -20,7 +20,19 @@ For further information:
 Installation Guide
 ------------------
 
-The current **mcf** version is compatible with Python 3.12 and 3.13. For the installation you can proceed in different ways. 
+Choose your Python version before creating the environment. For **mcf 0.11.0**:
+
+- To use Ray, choose Python 3.12 on Windows, or Python 3.12 or 3.13 on Linux and macOS.
+- To use **mcf** without Ray, choose Python 3.14 and use joblib for parallel processing.
+
+MCF supports parallel processing with joblib and Ray. With automatic selection,
+MCF uses joblib when Ray is unavailable and for smaller adjusted training
+samples on Windows. Otherwise, it uses Ray. The precise selection rule is
+documented under ``_int_mp_backend`` in the
+:py:class:`API <mcf_main.ModifiedCausalForest>`. Further guidance is available in
+:ref:`computational-speed`.
+
+For the installation you can proceed in different ways.
 
 You can install the package from PyPI using:
 
@@ -43,7 +55,7 @@ If you prefer the command line, install conda as described `here <https://docs.c
 
       conda activate mcf-env
 
-2. Install your Python version:
+2. Install your chosen Python version. For example, for Python 3.12:
 
   .. code-block:: bash
 
@@ -76,83 +88,110 @@ Alternative ways of installing packages are shown in the Packages Page of the An
 Usage Example
 -------------
 
-We use the :py:func:`~example_data_functions.example_data` function to generate synthetic datasets for training and prediction to showcase an application of the :py:class:`~mcf_main.ModifiedCausalForest`. 
+We use the :py:func:`~example_data_functions.example_data` function to generate
+synthetic data for a combined effect-estimation and policy-learning example.
+First, we train a :py:class:`~mcf_main.ModifiedCausalForest`. We then use its
+estimated potential outcomes as scores for learning and evaluating a policy
+tree with :py:class:`~optpolicy_main.OptimalPolicy`.
+
+The example keeps three samples separate:
+
+- ``train_mcf_df`` is used to train the forest.
+- ``pred_mcf_train_pt_df`` is used to predict scores and learn the policy tree.
+- ``evaluate_pt_df`` is used to evaluate the learned policy on observations
+  used neither to train the forest nor to learn the policy tree.
+
+The dataframe names follow the public example
+`mcf_optpol_combined.py <https://github.com/MCFpy/mcf/blob/main/examples/mcf_optpol_combined.py>`_.
+The shorter workflow below uses one forest without cross-fitting. It illustrates
+one outcome, discrete treatments and the default local centering.
 
 .. code-block:: python
+
+    from pathlib import Path
 
     from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
     from mcf.optpolicy_main import OptimalPolicy
     from mcf.reporting import McfOptPolReport
-    
-    # Generate example data using the built-in function `example_data()`
-    training_df, prediction_df, name_dict = example_data()
-    
-    # Create an instance of the Modified Causal Forest model
-    my_mcf = ModifiedCausalForest(
-        var_y_name="outcome",  # Outcome variable
-        var_d_name="treat",    # Treatment variable
-        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],  # Ordered covariates
-        var_x_name_unord=["x_unord0"],  # Unordered covariate
-        _int_show_plots=False  # Disable plots for faster performance
+
+    # Generate forest-training data and a separate prediction sample.
+    train_mcf_df, prediction_df, name_dict = example_data(
+        obs_y_d_x_iate=3000, obs_x_iate=3000
     )
-    
-    # Train the Modified Causal Forest on the training data
-    my_mcf.train(training_df)
-    # Predict treatment effects using the model on prediction data
-    results = my_mcf.predict(prediction_df)
-    
-    # Access the Average Treatment Effect (ATE)
-    ate_array = results.get('ate')
-    print("Average Treatment Effect (ATE):\n", ate_array)
-    
-    # Access the Standard Error of the ATE
-    ate_se_array = results.get('ate_se')
-    print("\nStandard Error of ATE:\n", ate_se_array)
-    
-    # Access the Individualized Treatment Effects (IATE)
-    iate_array = results.get('iate')
-    print("\nIndividualized Treatment Effects (IATE):\n", iate_array)
-    
-    # Access the DataFrame of Individualized Treatment Effects
-    iate_df = results.get('iate_data_df')
-    print("\nDataFrame of Individualized Treatment Effects:\n", iate_df)
-    
-    # Create an instance of the OptimalPolicy class
-    my_optimal_policy = OptimalPolicy(
-        var_d_name="treat",
-        var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
-        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
-        var_x_name_unord=["x_unord0"]
-        )
-    
-    # Learn an optimal policy rule using the predicted potential outcomes
-    solve_dict, training_df = my_optimal_policy.solve(training_df, data_title='training')
-    
-    # Evaluate the optimal policy rule on the training data
-    my_optimal_policy.evaluate(solve_dict['allocation_df'], training_df,
-                                               data_title='training')
-    
-    # Allocate observations to treatment state using the prediction data
-    alloc_pred_df = my_optimal_policy.allocate(prediction_df, data_title='prediction')
-    
-    # Evaluate allocation with potential outcome data
-    my_optimal_policy.evaluate(alloc_pred_df['allocation_df'], prediction_df,
-                                              data_title='prediction')
-    
-    # Produce a PDF-report that summarises the results
-    my_report = McfOptPolReport(mcf=my_mcf,
-                                optpol=my_optimal_policy,
-                                outputfile='mcf_report')
-    my_report.report()
 
+    # Split prediction data into policy-learning and evaluation samples.
+    prediction_df = prediction_df.sample(frac=1, random_state=42)
+    split = len(prediction_df) // 2
+    pred_mcf_train_pt_df = prediction_df.iloc[:split].copy()
+    evaluate_pt_df = prediction_df.iloc[split:].copy()
 
+    out = Path.cwd() / 'mcf_tutorial'
 
-**Note (2)**, to check the version of the **mcf** module used to create an instance, you can additionally run the following code:
+    # Train the forest.
+    mcf = ModifiedCausalForest(
+        var_y_name='outcome', var_d_name='treat',
+        var_x_name_ord=['x_cont0', 'x_cont1', 'x_ord1'],
+        var_x_name_unord=['x_unord0'],
+        gen_outpath=out / 'effects', _int_show_plots=False
+    )
+    mcf.train(train_mcf_df)
+
+    # Predict potential outcomes for policy learning.
+    train_results = mcf.predict(pred_mcf_train_pt_df)
+    data_train_pt = train_results['iate_data_df'].copy()
+    score_names = train_results['iate_names_dic'][0][
+        'names_y_pot_uncenter'
+    ]
+
+    # Learn the policy tree using estimated, uncentered potential outcomes.
+    policy = OptimalPolicy(
+        gen_method='policy_tree', var_d_name='treat',
+        var_polscore_name=score_names,
+        var_x_name_ord=['x_cont0', 'x_cont1', 'x_ord1'],
+        pt_depth_tree_1=2, pt_depth_tree_2=0,
+        gen_outpath=out / 'policy', _int_show_plots=False
+    )
+    fit, data_train_pt = policy.solve(data_train_pt)
+    policy.evaluate(fit['allocation_df'], data_train_pt)
+
+    # Predict scores and evaluate the policy on the separate sample.
+    test_results = mcf.predict(evaluate_pt_df)
+    oos_df = test_results['iate_data_df'].copy()
+    allocation = policy.allocate(oos_df)
+    evaluation = policy.evaluate(allocation['allocation_df'], oos_df)
+
+    # Produce a PDF report.
+    report = McfOptPolReport(
+        mcf=mcf, optpol=policy, outputpath=out, outputfile='Tutorial'
+    )
+    pdf_path = report.report()
+
+The policy scores are estimated potential outcomes on the original outcome
+scale, selected from the prediction metadata in treatment order. The policy
+uses these estimates rather than the simulated true potential outcomes.
+Evaluation on the separate sample therefore assesses the policy using estimated
+scores.
+
+.. note::
+
+    Data preparation and common-support restrictions can remove observations.
+    Use the data returned by ``predict()`` and ``solve()`` as shown above to
+    keep scores, allocations and retained observations aligned. If no
+    observations remain, stop and revise the data or specification before
+    continuing with policy learning or evaluation.
+
+    The MCF part of the report uses the first stored prediction, which is the
+    policy-training prediction in this example. Policy evaluation results are
+    stored by the policy object.
+
+**Note (2)**, to check the version of the **mcf** module used to create an instance,
+you can additionally run the following code:
 
 .. code-block:: python
-    
-    print(my_mcf.__version__)
+
+    print(mcf.__version__)
+
 
 
 Source code and contributing

@@ -27,6 +27,215 @@ Changelog
 
     Note the absence of the tilde '~' in this case. 
 
+
+Version 0.11.0
+--------------
+
+General remarks
+~~~~~~~~~~~~~~~
+
+- Version 0.11.0 revises forest splitting and filling rules, extends treatment-version score estimation, and corrects estimation and reporting. API descriptions and examples have been reviewed. Unused keywords have been removed; calls that pass them must be updated.
+
+:py:class:`~mcf_main.ModifiedCausalForest` class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- The part of the common-support procedure that uses predicted probabilities from a ``RandomForestClassifier`` now uses ``min_samples_leaf=5`` instead of the default value of 1. This should lead to somewhat smoother predicted probabilities.
+
+- Corrected reference-sample construction for BGATEs and CBGATEs to prevent excessive runtimes with continuous or many-valued heterogeneity variables. The base sample now contains ``min(N, max(50, floor(N * s / m)))`` observations, where ``N`` is the number of available prediction rows, ``s`` is ``p_bgate_sample_share``, and ``m`` is the number of evaluation points. The same sample is reused across evaluation points. This applies to standard and low-memory prediction.
+
+Detailed changes:
+
+- Deleted keywords
+
+  - ``_int_red_largest_group_train``, ``_int_mp_vim_type``, ``_int_seed_sample_split``, ``_int_report``
+
+    These unused constructor keywords and their configuration fields and forwarding have been removed. They should be removed from application code; no replacement keywords are needed. Report information continues to be collected when ``_int_with_output`` is enabled.
+
+- New keywords
+
+  - ``cf_mce_type`` : String (or None), optional
+
+    Definition of MCE when ``cf_mce_vart`` is 1 or 3.
+
+    ``'covariance'``: Covariance of matched outcomes, centred at their matched-sample means.
+
+    ``'cross_error'``: Mean product of matched-outcome errors, centred at the observed treatment-specific leaf means, as in Lechner and Mareckova (2024).
+
+    Default (or None) is ``'cross_error'``.
+
+  - ``cf_alpha_reg_type`` : String (or None), optional
+
+    Defines whether the alpha split-balance restriction applies to the pooled sample or separately to each treatment group.
+
+    ``'treatment'``: Each daughter must contain at least an alpha share of each parent treatment group, rounded up to an integer and subject to the treatment-specific minimum leaf size.
+
+    ``'pooled'``: Apply the alpha restriction to the total observation count in each daughter.
+
+    Default (or None) is ``'treatment'`` for discrete treatments and ``'pooled'`` for continuous treatments. Explicit ``'treatment'`` is not supported for continuous treatments. Stored configurations without this setting retain ``'pooled'``.
+
+  - ``cf_subsample_power_eval`` : Float or Integer (or None), optional
+
+    Exponent governing the number of observations used to fill each tree. Valid range is 0.85 to 1, inclusive. The construction-sample exponent remains 0.85. Values above 0.85 make the filling sample grow independently of the construction sample.
+
+    Default (or None) is 0.90. With the default filling factor of 2, the scale is ``4**(2/3)``, approximately 2.519842. This preserves the default full-filling threshold of version 0.10.0 when the construction and filling samples have equal sizes.
+
+    Counts are rounded and bounded by the available filling observations in each forest chunk and estimation round. Power 1 with filling factor 2 uses all filling observations. Set to 0.85 to use the filling rule of version 0.10.0. Stored configurations without this setting retain 0.85.
+
+  - ``gen_tv_addscores`` : Boolean, optional
+
+    Add main-treatment and version-specific prognostic and propensity scores to the mcf-weighted OLS / ridge regressions used for treatment-version estimation.
+
+    Main-treatment score models use all variables used to build the forest. Global version-specific score models use the variables specified in ``var_x_name_tv``; local version-score models also use selected main-treatment scores.
+
+    With ``gen_tv_addscores=True``, IATEs also use global version-specific scores when ``gen_tv_score_version_local=False`` and ``gen_tv_score_type`` includes ``'prop_version'`` or ``'prog_version'``. Global score models are reused across IATE predictions.
+
+    Default is False.
+
+  - ``gen_tv_score_type`` : String, list or tuple of strings (or None), optional
+
+    Select propensity and/or prognostic scores for versions and/or main treatments. Possible options are ``'prop_version'``, ``'prog_version'``, ``'prop_main'``, and ``'prog_main'``; a single score or any combination can be included.
+
+    Main scores use all forest covariates. Global version scores use ``var_x_name_tv``; local version scores also use selected main-treatment scores. Only relevant when ``gen_tv_addscores`` is True.
+
+    Default (or None) is ``('prop_version', 'prop_main')``.
+
+  - ``gen_tv_score_version_local`` : Boolean (or None), optional
+
+    If True, fit version-specific scores separately for each aggregate effect; IATE version regressions omit version-specific scores. If False, fit score models on the tree-building sample and reuse their predictions for aggregate effects and IATEs. Main-treatment scores are unaffected.
+
+    Only relevant if ``gen_tv_addscores`` is True and ``gen_tv_score_type`` includes ``'prop_version'`` or ``'prog_version'``.
+
+    Default (or None) is False.
+
+  - ``gen_tv_score_estimator`` : String or None, optional
+
+    Estimator for regression-based prognostic scores. Possible choices are ``'RandomForest'``, ``'RandomForestNminl5'``, ``'RandomForestNminls5'``, ``'SupportVectorMachine'``, ``'SupportVectorMachineC2'``, ``'SupportVectorMachineC4'``, ``'AdaBoost'``, ``'AdaBoost100'``, ``'AdaBoost200'``, ``'GradBoost'``, ``'GradBoostDepth6'``, ``'GradBoostDepth12'``, ``'NeuralNet'``, ``'NeuralNetLarge'``, ``'NeuralNetLarger'``, and ``'Mean'``.
+
+    ``'Mean'`` uses the sample mean. With ``'automatic'``, the estimator with the lowest cross-validated mean squared error is selected separately for each score regression. ``gen_tv_score_cv_k`` sets the number of folds.
+
+    Propensity scores use ``RandomForestClassifier``. Prognostic scores for outcomes with fewer than 10 distinct values also use ``RandomForestClassifier``.
+
+    Default (or None) is ``'RandomForest'``.
+
+  - ``gen_tv_score_cv_k`` : Integer or float (or None), optional
+
+    Fold count for automatic prognostic regression selection and local score cross-fitting. Group sizes limit the effective count. Global propensity and classifier-based prognostic scores do not use this setting. Numeric values are rounded; values below two select the default.
+
+    Default value (or None) depends on the size of the training sample (``N``):
+
+    - ``N < 100'000``: 5
+    - ``100'000 <= N < 250'000``: 4
+    - ``250'000 <= N < 500'000``: 3
+    - ``500'000 <= N``: 2
+
+  - ``fs_mse_for_classifier`` : Boolean (or None), optional
+
+    If True, variable importance statistics are computed as the MSE of ``y`` minus its predicted probability, instead of using the accuracy score.
+
+    Default is True.
+
+- Changed definition of keywords
+
+  - ``cf_alpha_reg_min`` and ``cf_alpha_reg_max``
+
+    Valid values now cover ``0 <= alpha < 0.5``, replacing the previous upper limit of 0.4. The default numerical alpha remains 0.10 (minimum 0.05, maximum 0.15, grid size 1).
+
+  - ``cf_subsample_factor_eval``
+
+    False now directly requests all available filling observations. The existing numeric convention below 0.01 also requests full filling. None or True resolves to factor 2.
+
+    With ``cf_subsample_power_eval > 0.85``, factor 2 gives the calibrated filling scale and factor 1 halves the uncapped count. The construction multiplier does not affect this rule.
+
+    With ``cf_subsample_power_eval = 0.85``, the factor multiplies the construction share, preserving the filling rule of version 0.10.0.
+
+  - ``cf_m_random_poisson``
+
+    Poisson randomization now applies at every positive nominal number of candidate variables, including small candidate counts. The default remains True.
+
+  - ``var_x_name_always_in_ord`` and ``var_x_name_always_in_unord``
+
+    Always-in variables retain priority, including when only one candidate is selected. If the candidate count is at most the number of always-in variables, candidates are drawn uniformly from the always-in set without replacement. Otherwise, all always-in variables are included and the remaining candidates are drawn from the other variables.
+
+    This rule applies to both fixed and Poisson candidate counts.
+
+  - ``cf_random_thresholds``
+
+    If the initial search finds no admissible split, all available variables and all supported thresholds are retried before declaring the node terminal. The fallback retains the treatment minima, alpha restrictions, and categorical ordering used by the split search.
+
+- Corrections
+
+  - The selected ``cf_mce_type`` is now used consistently in splitting, out-of-bag evaluation, tuning, and variable importance.
+
+  - Corrected the direction of the penalty-only criterion when ``cf_mce_vart = 3``. The criterion now favours splits that predict treatment, for both ``'mse_d'`` and ``'diff_d'``.
+
+  - Approximately constant outcomes stop splitting only when the node objective uses no active treatment penalty. Treatment information can therefore still justify a split when the outcome is constant. The existing outcome-constancy tolerances are retained.
+
+  - Terminal leaves with no filling observations are now included in completeness checks and eligible sibling merging. Reported empty-leaf shares reflect the resulting tree state.
+
+  - Filling checks for continuous treatments now consistently distinguish the control group from positive treatment doses when checking whether a terminal leaf is complete.
+
+  - Corrected local centring when construction and filling samples are exchanged for the additional estimation round. With cross-fitting, each round fits its centring models on its own construction sample and uses the corresponding residuals and predictions when restoring potential-outcome levels.
+
+  - Weighted point estimates are retained when too few observations are available to estimate a variance. Unavailable variances are reported as NaN instead of replacing a defined point estimate by zero and returning an artificial variance. CPU and CUDA agree.
+
+  - Corrected CUDA neighbour-count bounds in standard-error estimation to match the CPU rule.
+
+  - ``_int_keep_w0 = True`` now includes omitted zero-weight observations in IATE standard-error calculations on CPU and CUDA, including continuous-treatment interpolation. Outcome, residual, and cluster information remains aligned. The default remains False.
+
+  - Discrete treatment labels with gaps are now recoded internally to consecutive integers starting at zero. For example, 1, 4, 5 and -5, -2, 4 become 0, 1, 2. Ordinary prediction reuses the stored mapping from the original labels and rejects labels not observed in training.
+
+- Other changes
+
+  - Forest output reports the selected alpha-balance, candidate-variable, and filling rules.
+
+  - Monte Carlo programmes forward the new settings and distinguish revised forest rules in output and checkpoint names. Missing stored settings retain the historical MCE definition (``'covariance'``), alpha balance (``'pooled'``), and filling exponent (0.85), as applicable.
+
+  - Removed an obsolete QIATE keyword from Monte Carlo estimator construction.
+
+:py:class:`~optpolicy_main.OptimalPolicy` class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Deleted keywords
+
+  - ``dc_clean_data``, ``dc_screen_covariates``, ``var_effect_vs_0``, ``var_effect_vs_0_se``, ``_int_report``
+
+    These unused constructor keywords and their configuration fields and forwarding have been removed.
+
+    Data cleaning remains automatic; covariate screening runs for trees and classifiers. Policy scores and their standard errors use ``var_polscore_name`` and ``var_polscore_se_name``. Report information continues to be collected when ``_int_with_output`` is enabled.
+
+    Obsolete arguments should be removed from application code. The data-cleaning and screening keywords of :py:class:`~mcf_main.ModifiedCausalForest` are unaffected.
+
+- New default values
+
+  - ``pt_min_leaf_size``
+
+    The maximum value of 100 has been removed. The value now depends only on sample size and tree depth.
+
+- New keyword
+
+  - ``_int_show_plots`` : Boolean (or None), optional
+
+    Show policy-tree and Qini figures interactively.
+
+    If False, suppress interactive display while retaining figure files and policy-tree figures in PDF reporting. Only used when ``_int_with_output`` is True.
+
+    Default (or None) is True. Internal variable, change default only if you know what you do.
+
+:py:class:`~optpolicy_main.OptimalPolicyVersions` class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Deleted the unused ``fair_adjust_decision_vars`` keyword from :py:meth:`~optpolicy_main.OptimalPolicyVersions.allocate` and its internal forwarding. The corresponding keyword of :py:meth:`~optpolicy_main.OptimalPolicy.allocate` remains available.
+
+- Clarified main-treatment/version score ordering, allocation codes, required training, version-tree depths, and the interpretation of costs and capacity restrictions. Final version evaluations are returned in dictionaries and separate text output; the PDF summarizes the fitted allocation rules.
+
+:py:class:`~mcfoptpolreport_main.McfOptPolReport` class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Removed unused attributes and report-generation code for the discontinued partially blinded IATE method.
+
+- Clarified which stored prediction, analysis, allocation-inference, and policy-evaluation results enter the PDF, together with output-directory and filename handling.
+
+
 Version 0.10.0
 --------------
 

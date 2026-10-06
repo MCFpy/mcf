@@ -1,110 +1,17 @@
-Modified Causal Forests
-=======================
+.. _getting-started:
 
-Welcome to the documentation of **mcf**, the Python package implementing the Modified Causal Forest introduced by `Lechner (2018) <https://doi.org/10.48550/arXiv.1812.09487>`_. This package allows you to estimate heterogeneous treatment effects for binary and multiple treatments from experimental or observational data. Additionally, it allows to learn optimal policy allocations.
+Getting started
+===============
 
-If you're new to the **mcf** package, we recommend following these steps:
+This guide shows how to estimate heterogeneous treatment effects, learn a policy
+tree from those estimates, and inspect the results.
 
-- `Installation Guide`_: Learn about the installation procedure for your system.
-- `Usage Example`_: Explore a simple example to see how to apply the **mcf** to your data.
-- :doc:`getting_started`: Dive into a more detailed example.
+Example data
+------------
 
-For further information:
-
-- :doc:`user_guide`: Explore further features of the package and example scripts.
-- :doc:`python_api`: Get to know the details on how to interact with the package.
-- :doc:`algorithm_reference`: Learn about the technical background of the methods applied in the package.
-
-.. _installation-guide:
-
-Installation Guide
-------------------
-
-Choose your Python version before creating the environment. For **mcf 0.11.0**:
-
-- To use Ray, choose Python 3.12 on Windows, or Python 3.12 or 3.13 on Linux and macOS.
-- To use **mcf** without Ray, choose Python 3.14 and use joblib for parallel processing.
-
-MCF supports parallel processing with joblib and Ray. With automatic selection,
-MCF uses joblib when Ray is unavailable and for smaller adjusted training
-samples on Windows. Otherwise, it uses Ray. The precise selection rule is
-documented under ``_int_mp_backend`` in the
-:py:class:`API <mcf_main.ModifiedCausalForest>`. Further guidance is available in
-:ref:`computational-speed`.
-
-For the installation you can proceed in different ways.
-
-You can install the package from PyPI using:
-
-.. code-block:: bash
-
-    pip install mcf
-
-For a smooth experience without conflicts with other packages, use a virtual environment based on conda. You can manage conda environments either via the command line or a graphical interface. 
-The command line offers a compatible solution for all operating systems, making it our recommended choice. However, the graphical interface is more user-friendly. As an alternative, you may also create a new virtual environment directly from the ``environment.yml`` file available in our GitHub repository.
-
-If you prefer the command line, install conda as described `here <https://docs.conda.io/projects/conda/en/latest/user-guide/install/>`__. Next open your Anaconda Prompt (Windows) or terminal (macOS and Linux) and do the following:
-
-1. Set up and activate a conda environment named *mcf-env*:
-
-  .. code-block:: bash
-
-      conda create -n mcf-env
-
-  .. code-block:: bash
-
-      conda activate mcf-env
-
-2. Install your chosen Python version. For example, for Python 3.12:
-
-  .. code-block:: bash
-
-      conda install Python="3.12"
-
-3. Install **mcf** in this environment using pip:
-
-  .. code-block:: bash
-
-      pip install mcf
-
-If you prefer a graphical interface, do the following:
-
-1. Download Anaconda Distribution including Anaconda Navigator from the Anaconda Documentation `here <https://www.anaconda.com/docs/main>`__ and install the software on your device.
-
-2. Set up an environment as described in the Environments Page of the Anaconda Documentation and make sure you choose the compatible Python version indicated at the beginning of this installation guide.
-
-3. Install the **mcf** package by using pip install in your IDE console:
-
-  .. code-block:: bash
-
-      pip install mcf
-
-Alternative ways of installing packages are shown in the Packages Page of the Anaconda Documentation. It is recommended to prioritize ``conda install`` for package installations before using ``pip install``.
-
-**Note (1)**, if you plan to use Spyder as your IDE on a Windows machine, make sure to execute ``conda install spyder`` before proceeding with ``pip install mcf``. This reduces the risk of errors during installation.
-
-.. _usage-example:
-
-Usage Example
--------------
-
-We use the :py:func:`~example_data_functions.example_data` function to generate
-synthetic data for a combined effect-estimation and policy-learning example.
-First, we train a :py:class:`~mcf_main.ModifiedCausalForest`. We then use its
-estimated potential outcomes as scores for learning and evaluating a policy
-tree with :py:class:`~optpolicy_main.OptimalPolicy`.
-
-The example keeps three samples separate:
-
-- ``train_mcf_df`` is used to train the forest.
-- ``pred_mcf_train_pt_df`` is used to predict scores and learn the policy tree.
-- ``evaluate_pt_df`` is used to evaluate the learned policy on observations
-  used neither to train the forest nor to learn the policy tree.
-
-The dataframe names follow the public example
-`mcf_optpol_combined.py <https://github.com/MCFpy/mcf/blob/main/examples/mcf_optpol_combined.py>`_.
-The shorter workflow below uses one forest without cross-fitting. It illustrates
-one outcome, discrete treatments and the default local centering.
+The :py:func:`~example_data.example_data` function generates synthetic data and
+returns variable names in ``name_dict``. The sample sizes, number of features,
+number of treatments and type of heterogeneity can be chosen through its arguments.
 
 .. code-block:: python
 
@@ -115,36 +22,112 @@ one outcome, discrete treatments and the default local centering.
     from mcf.optpolicy_main import OptimalPolicy
     from mcf.reporting import McfOptPolReport
 
-    # Generate forest-training data and a separate prediction sample.
     train_mcf_df, prediction_df, name_dict = example_data(
         obs_y_d_x_iate=3000, obs_x_iate=3000
     )
-
-    # Split prediction data into policy-learning and evaluation samples.
     prediction_df = prediction_df.sample(frac=1, random_state=42)
     split = len(prediction_df) // 2
     pred_mcf_train_pt_df = prediction_df.iloc[:split].copy()
     evaluate_pt_df = prediction_df.iloc[split:].copy()
-
     out = Path.cwd() / 'mcf_tutorial'
 
-    # Train the forest.
+The forest, policy learning and final evaluation use separate samples.
+
+Estimating heterogeneous treatment effects
+------------------------------------------
+
+Specify the outcome, treatment and ordered or unordered features when creating a
+:py:class:`~mcf_main.ModifiedCausalForest`. Binary features belong in the ordered
+list. Use numeric, nonmissing input data; see :doc:`user_guide/data_cleaning`.
+
+.. code-block:: python
+
     mcf = ModifiedCausalForest(
         var_y_name='outcome', var_d_name='treat',
         var_x_name_ord=['x_cont0', 'x_cont1', 'x_ord1'],
         var_x_name_unord=['x_unord0'],
         gen_outpath=out / 'effects', _int_show_plots=False
     )
-    mcf.train(train_mcf_df)
+    training_results = mcf.train(train_mcf_df)
+    results = mcf.predict(pred_mcf_train_pt_df)
 
-    # Predict potential outcomes for policy learning.
-    train_results = mcf.predict(pred_mcf_train_pt_df)
-    data_train_pt = train_results['iate_data_df'].copy()
-    score_names = train_results['iate_names_dic'][0][
-        'names_y_pot_uncenter'
-    ]
+``train()`` returns the processed construction and filling samples as ``tree_df``
+and ``fill_y_df``, along with common-support information and ``path_output``.
 
-    # Learn the policy tree using estimated, uncentered potential outcomes.
+Frequently used parameters
+--------------------------
+
+- ``cf_boot`` controls the number of trees.
+- ``p_atet`` requests average effects by observed treatment status.
+- ``var_z_name_cont``, ``var_z_name_ord`` and ``var_z_name_unord`` identify
+  heterogeneity variables for group effects.
+- ``p_gatet`` requests group effects by treatment status.
+- ``var_y_tree_name`` selects the outcome used for constructing the forest.
+- ``var_id_name`` identifies individual observations.
+
+See :doc:`user_guide/estimation` and the :py:class:`API <mcf_main.ModifiedCausalForest>`
+for the available settings.
+
+Accessing results
+-----------------
+
+``predict()`` returns one dictionary. Unrequested treatment effect families and standard
+errors are ``None``, and a key's presence does not mean that an estimate was computed.
+Use the returned labels to identify treatment comparisons:
+
+.. code-block:: python
+
+    print(results['ate_effect_list'])
+    print(results['ate'])
+    print(results['ate_se'])
+
+For example, for treatments 0, 1 and 2, the comparisons are 1 versus 0, 2 versus 0 and 2 versus 1.
+
+The returned dataframe contains the predicted potential outcomes and the estimated IATEs.
+
+.. code-block:: python
+
+    data_train_pt = results['iate_data_df'].copy()
+    estimate_names = results['iate_names_dic'][0]
+    iate_df = data_train_pt[estimate_names['names_iate']]
+    score_names = estimate_names['names_y_pot_uncenter']
+    potential_outcomes_df = data_train_pt[score_names]
+
+Here, uncentered potential outcomes are available because the example uses the
+default local centering and one outcome. ``iate_names_dic`` is a tuple: element 0
+covers all computed comparisons; element 1 restricts effect names to comparisons
+with the first treatment.
+
+The ``iate`` array stored in the results dictionary has shape ``(N, Y, C, 2)`` – retained observations, outcomes,
+treatment comparisons, and effect type. Its last axis contains IATEs at index 0
+and IATE-minus-ATE at index 1; the latter is ``NaN`` when not requested.
+``iate_data_df`` can be ``None`` when ``p_iate`` is disabled or dataframe return
+is disabled through the output settings. See ``_int_with_output`` and
+``_int_return_iate_sp`` in the API.
+
+
+Post-estimation
+---------------
+
+Use :py:meth:`~mcf_main.ModifiedCausalForest.analyse` for descriptive analysis
+of estimated IATEs:
+
+.. code-block:: python
+
+    diagnostics = mcf.analyse(results)
+
+This requires the keyword argument ``post_est_stats``, enabled output, and an IATE dataframe. With
+k-means clustering enabled it returns augmented results; otherwise it returns
+``None`` while other enabled analyses still run. These diagnostics describe
+estimated heterogeneity; see :doc:`user_guide/post_estimation_diagnostics`.
+
+Learning an optimal policy rule
+-------------------------------
+
+The policy scores below are the estimated potential outcomes from ``predict()``.
+
+.. code-block:: python
+
     policy = OptimalPolicy(
         gen_method='policy_tree', var_d_name='treat',
         var_polscore_name=score_names,
@@ -153,97 +136,52 @@ one outcome, discrete treatments and the default local centering.
         gen_outpath=out / 'policy', _int_show_plots=False
     )
     fit, data_train_pt = policy.solve(data_train_pt)
-    policy.evaluate(fit['allocation_df'], data_train_pt)
+    train_evaluation = policy.evaluate(fit['allocation_df'], data_train_pt)
 
-    # Predict scores and evaluate the policy on the separate sample.
+A depth-two tree has at most four leaves. Setting the second depth to zero
+turns off the second tree stage. Choose the complexity according to the application;
+see :doc:`user_guide/optimal-policy_example`.
+
+``solve()`` returns a results dictionary and the retained training dataframe.
+Evaluate its allocations on that returned dataframe: evaluation matches rows
+by position, not by index or identifier. Allocation codes follow the order of
+``var_polscore_name``. Observed treatment codes must use the same order.
+
+Apply the rule to the separate evaluation sample:
+
+.. code-block:: python
+
     test_results = mcf.predict(evaluate_pt_df)
     oos_df = test_results['iate_data_df'].copy()
     allocation = policy.allocate(oos_df)
     evaluation = policy.evaluate(allocation['allocation_df'], oos_df)
 
-    # Produce a PDF report.
+
+Accessing and customizing output location
+------------------------------------------
+
+Use ``gen_outpath`` to choose each object's output directory. The resolved **mcf**
+path is available as ``mcf.gen_cfg.outpath`` or ``results['path_output']``.
+Enabled outputs include detailed and condensed text files, result tables and
+figures. A PDF requires an explicit report call and has its own output directory:
+
+.. code-block:: python
+
     report = McfOptPolReport(
         mcf=mcf, optpol=policy, outputpath=out, outputfile='Tutorial'
     )
     pdf_path = report.report()
+    print(pdf_path)
 
-The policy scores are estimated potential outcomes on the original outcome
-scale, selected from the prediction metadata in treatment order. The policy
-uses these estimates rather than the simulated true potential outcomes.
-Evaluation on the separate sample therefore assesses the policy using estimated
-scores.
+Without an explicit ``outputpath``, the PDF is saved in the ``output``
+subdirectory of the current working directory. The report summarizes
+selected estimation, analysis and policy-evaluation results saved by the
+objects passed to it.
 
-.. note::
-
-    Data preparation and common-support restrictions can remove observations.
-    Use the data returned by ``predict()`` and ``solve()`` as shown above to
-    keep scores, allocations and retained observations aligned. If no
-    observations remain, stop and revise the data or specification before
-    continuing with policy learning or evaluation.
-
-    The MCF part of the report uses the first stored prediction, which is the
-    policy-training prediction in this example. Policy evaluation results are
-    stored by the policy object.
-
-**Note (2)**, to check the version of the **mcf** module used to create an instance,
-you can additionally run the following code:
-
-.. code-block:: python
-
-    print(mcf.__version__)
-
-
-
-Source code and contributing
------------------------------
-
-The Python source code is available on `GitHub <https://github.com/MCFpy/mcf>`_. 
-If you have questions, want to report bugs, or have feature requests, please use the `issue tracker <https://github.com/MCFpy/mcf/issues>`__.
-
-References
+Next steps
 ----------
-**Conceptual foundation**:
 
-- Lechner M (2018). **Modified Causal Forests for Estimating Heterogeneous Causal Effects**. `Read Paper <https://doi.org/10.48550/arXiv.1812.09487>`__
-- Lechner M, Mareckova J (2022). **Modified Causal Forest**. `Read Paper <https://doi.org/10.48550/arXiv.2209.03744>`__
-- Lechner M, Bearth N (2024). **Causal Machine Learning for Moderation Effects**. `Read Paper <https://arxiv.org/abs/2401.08290>`__
-
-**Algorithm demonstrations**:
-
-- Bodory H, Busshoff H, Lechner M (2022). **High Resolution Treatment Effects Estimation: Uncovering Effect Heterogeneities with the Modified Causal Forest**. *Entropy*. 24(8):1039. `Read Paper <https://doi.org/10.3390/e24081039>`__
-- Bodory H, Mascolo F, Lechner M (2024). **Enabling Decision Making with the Modified Causal Forest: Policy Trees for Treatment Assignment**. *Algorithms*. 17(7):318. `Read Paper <https://doi.org/10.3390/a17070318>`__
-
-**Simulations**:
-
-- Lechner M, Mareckova J (2024). **Comprehensive Causal Causal Machine Learning**. `Read Paper <https://doi.org/10.48550/arXiv.2405.10198>`__
-
-**Applications in diverse fields**:
-
-- Audrino F, Chassot J, Huang C, Knaus M, Lechner M, Ortega JP (2024). **How does post-earnings announcement affect firms’ dynamics? New evidence from causal machine learning**. *Journal of Financial Econometrics*. 22(3), 575–604. `Read paper <https://academic.oup.com/jfec/article/22/3/575/6640191>`__
-
-- Burlat H (2024). **Everybody’s got to learn sometime? A causal machine learning evaluation of training programmes for jobseekers in France**. *Labour Economics*. In Press. Paper 102573. `Read paper <https://doi.org/10.1016/j.labeco.2024.102573>`__
-
-- Cockx B, Michael L, Joost B (2023). **Priority to unemployed immigrants? A causal machine learning evaluation of training in Belgium**. *Labour Economics*. 80(102306). `Read paper <https://www.sciencedirect.com/science/article/pii/S0927537122001968>`__
-
-- Handouyahia A, Rikhi T, Awad G, Aouli E (2024). **Heterogeneous causal effects of labour market programs: A machine learning approach**. *Proceedings of Statistics Canada Symposium 2022*. `Read paper <https://www150.statcan.gc.ca/n1/pub/11-522-x/2022001/article/00017-eng.pdf>`__
-
-- Heiniger S, Koeniger W, Lechner M (2024). **The heterogeneous response of real estate prices during the Covid-19 pandemic**. *Journal of the Royal Statistical Society Series A: Statistics in Society*, 00, 1–24. `Read paper <https://doi.org/10.1093/jrsssa/qnae078>`__
-
-- Hodler R, Lechner M, and Raschky P (2023). **Institutions and the Resource Course: New Insights from Causal Machine Learning**. *PLoS ONE*. 18(6): e0284968. `Read paper <https://doi.org/10.1371/journal.pone.0284968>`__
-
-- Zhu M (2023). **The Effect of Political Participation of Chinese Citizens on Government Satisfaction: Based on Modified Causal Forest**. *Procedia Computer Science*. 221, 1044–1051. `Read paper <https://linkinghub.elsevier.com/retrieve/pii/S187705092300844X>`__
-
-License
--------
-
-**mcf** is distributed under the `MIT License <https://github.com/MCFpy/mcf?tab=MIT-1-ov-file#readme>`__.
-
-.. toctree::
-   :hidden:
-
-   getting_started.rst
-   user_guide.rst
-   algorithm_reference.rst
-   python_api.rst
-   FAQ.rst
-   changelog.rst
+- The :doc:`user_guide` explains additional features and links to example scripts,
+  including ``mcf_optpol_combined.py`` for cross-fitting.
+- The :doc:`python_api` documents arguments and return values.
+- The :doc:`algorithm_reference` explains the methods.

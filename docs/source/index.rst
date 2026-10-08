@@ -20,16 +20,7 @@ For further information:
 Installation Guide
 ------------------
 
-Choose your Python version before creating the environment. Depending on your operating system and whether you prefer using Ray or Joblib for parallel processing, the following configurations are possible:
-
-- **Ray**: install Python 3.12 on Windows, or Python 3.13 on Linux or Mac.
-- **Joblib**: install Python 3.14 on any operating system.
-
-By default, **mcf** uses Joblib when Ray is unavailable and for smaller adjusted training
-samples on Windows (<250'000). Otherwise, it uses Ray. Further guidance is available in
-:ref:`computational-speed`.
-
-For the installation you can proceed in different ways.
+The current **mcf** version is compatible with Python 3.12 and 3.13. For the installation you can proceed in different ways. 
 
 You can install the package from PyPI using:
 
@@ -37,32 +28,32 @@ You can install the package from PyPI using:
 
     pip install mcf
 
-For a smooth experience without conflicts with other packages, use a virtual environment based on conda. You can manage conda environments either via the command line or a graphical interface.
+For a smooth experience without conflicts with other packages, use a virtual environment based on conda. You can manage conda environments either via the command line or a graphical interface. 
 The command line offers a compatible solution for all operating systems, making it our recommended choice. However, the graphical interface is more user-friendly. As an alternative, you may also create a new virtual environment directly from the ``environment.yml`` file available in our GitHub repository.
 
 If you prefer the command line, install conda as described `here <https://docs.conda.io/projects/conda/en/latest/user-guide/install/>`__. Next open your Anaconda Prompt (Windows) or terminal (macOS and Linux) and do the following:
 
 1. Set up and activate a conda environment named *mcf-env*:
 
-.. code-block:: bash
+  .. code-block:: bash
 
-    conda create -n mcf-env
+      conda create -n mcf-env
 
-.. code-block:: bash
+  .. code-block:: bash
 
-    conda activate mcf-env
+      conda activate mcf-env
 
-2. Install your chosen Python version. For example, for Python 3.12:
+2. Install your Python version:
 
-.. code-block:: bash
+  .. code-block:: bash
 
-  conda install Python="3.12"
+      conda install Python="3.12"
 
 3. Install **mcf** in this environment using pip:
 
-.. code-block:: bash
+  .. code-block:: bash
 
-  pip install mcf
+      pip install mcf
 
 If you prefer a graphical interface, do the following:
 
@@ -72,114 +63,102 @@ If you prefer a graphical interface, do the following:
 
 3. Install the **mcf** package by using pip install in your IDE console:
 
-.. code-block:: bash
+  .. code-block:: bash
 
-  pip install mcf
+      pip install mcf
 
 Alternative ways of installing packages are shown in the Packages Page of the Anaconda Documentation. It is recommended to prioritize ``conda install`` for package installations before using ``pip install``.
 
-.. note::
-
-    If you plan to use Spyder as your IDE on a Windows machine, make sure to
-    execute ``conda install spyder`` before proceeding with ``pip install mcf``.
-    This reduces the risk of errors during installation.
-
+**Note (1)**, if you plan to use Spyder as your IDE on a Windows machine, make sure to execute ``conda install spyder`` before proceeding with ``pip install mcf``. This reduces the risk of errors during installation.
 
 .. _usage-example:
 
 Usage Example
 -------------
 
-We use the :py:func:`~example_data.example_data` function to generate
-synthetic data for a combined effect-estimation and policy-learning example.
-First, we train a :py:class:`~mcf_main.ModifiedCausalForest`. We then use its
-estimated potential outcomes as scores for learning and evaluating a policy
-tree with :py:class:`~optpolicy_main.OptimalPolicy`.
-
-The example keeps three samples separate:
-
-- ``train_mcf_df`` is used to train the forest.
-- ``pred_mcf_train_pt_df`` is used to predict scores and learn the policy tree.
-- ``evaluate_pt_df`` is used to evaluate the learned policy on observations
-  used neither to train the forest nor to learn the policy tree.
-
+We use the :py:func:`~example_data_functions.example_data` function to generate synthetic datasets for training and prediction to showcase an application of the :py:class:`~mcf_main.ModifiedCausalForest`. 
 
 .. code-block:: python
-
-    from pathlib import Path
 
     from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
     from mcf.optpolicy_main import OptimalPolicy
     from mcf.reporting import McfOptPolReport
-
-    # Generate forest-training data and a separate prediction sample.
-    train_mcf_df, prediction_df, name_dict = example_data(
-        obs_y_d_x_iate=3000, obs_x_iate=3000
+    
+    # Generate example data using the built-in function `example_data()`
+    training_df, prediction_df, name_dict = example_data()
+    
+    # Create an instance of the Modified Causal Forest model
+    my_mcf = ModifiedCausalForest(
+        var_y_name="outcome",  # Outcome variable
+        var_d_name="treat",    # Treatment variable
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],  # Ordered covariates
+        var_x_name_unord=["x_unord0"],  # Unordered covariate
+        _int_show_plots=False  # Disable plots for faster performance
     )
+    
+    # Train the Modified Causal Forest on the training data
+    my_mcf.train(training_df)
+    # Predict treatment effects using the model on prediction data
+    results = my_mcf.predict(prediction_df)
+    
+    # Access the Average Treatment Effect (ATE)
+    ate_array = results.get('ate')
+    print("Average Treatment Effect (ATE):\n", ate_array)
+    
+    # Access the Standard Error of the ATE
+    ate_se_array = results.get('ate_se')
+    print("\nStandard Error of ATE:\n", ate_se_array)
+    
+    # Access the Individualized Treatment Effects (IATE)
+    iate_array = results.get('iate')
+    print("\nIndividualized Treatment Effects (IATE):\n", iate_array)
+    
+    # Access the DataFrame of Individualized Treatment Effects
+    iate_df = results.get('iate_data_df')
+    print("\nDataFrame of Individualized Treatment Effects:\n", iate_df)
+    
+    # Create an instance of the OptimalPolicy class
+    my_optimal_policy = OptimalPolicy(
+        var_d_name="treat",
+        var_polscore_name=['y_pot0', 'y_pot1', 'y_pot2'],
+        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
+        var_x_name_unord=["x_unord0"]
+        )
+    
+    # Learn an optimal policy rule using the predicted potential outcomes
+    solve_dict, training_df = my_optimal_policy.solve(training_df, data_title='training')
+    
+    # Evaluate the optimal policy rule on the training data
+    my_optimal_policy.evaluate(solve_dict['allocation_df'], training_df,
+                                               data_title='training')
+    
+    # Allocate observations to treatment state using the prediction data
+    alloc_pred_df = my_optimal_policy.allocate(prediction_df, data_title='prediction')
+    
+    # Evaluate allocation with potential outcome data
+    my_optimal_policy.evaluate(alloc_pred_df['allocation_df'], prediction_df,
+                                              data_title='prediction')
+    
+    # Produce a PDF-report that summarises the results
+    my_report = McfOptPolReport(mcf=my_mcf,
+                                optpol=my_optimal_policy,
+                                outputfile='mcf_report')
+    my_report.report()
 
-    # Split prediction data into policy-learning and evaluation samples.
-    prediction_df = prediction_df.sample(frac=1, random_state=42)
-    split = len(prediction_df) // 2
-    pred_mcf_train_pt_df = prediction_df.iloc[:split].copy()
-    evaluate_pt_df = prediction_df.iloc[split:].copy()
 
-    out = Path.cwd() / 'mcf_tutorial'
 
-    # Train the forest.
-    mcf = ModifiedCausalForest(
-        var_y_name='outcome', var_d_name='treat',
-        var_x_name_ord=['x_cont0', 'x_cont1', 'x_ord1'],
-        var_x_name_unord=['x_unord0'],
-        gen_outpath=out / 'effects', _int_show_plots=False
-    )
-    mcf.train(train_mcf_df)
+**Note (2)**, to check the version of the **mcf** module used to create an instance, you can additionally run the following code:
 
-    # Predict potential outcomes for policy learning.
-    train_results = mcf.predict(pred_mcf_train_pt_df)
-    data_train_pt = train_results['iate_data_df'].copy()
-    score_names = train_results['iate_names_dic'][0][
-        'names_y_pot_uncenter'
-    ]
-
-    # Learn the policy tree using estimated, uncentered potential outcomes.
-    policy = OptimalPolicy(
-        gen_method='policy_tree', var_d_name='treat',
-        var_polscore_name=score_names,
-        var_x_name_ord=['x_cont0', 'x_cont1', 'x_ord1'],
-        pt_depth_tree_1=2, pt_depth_tree_2=0,
-        gen_outpath=out / 'policy', _int_show_plots=False
-    )
-    fit, data_train_pt = policy.solve(data_train_pt)
-    policy.evaluate(fit['allocation_df'], data_train_pt)
-
-    # Predict scores and evaluate the policy on the separate sample.
-    test_results = mcf.predict(evaluate_pt_df)
-    oos_df = test_results['iate_data_df'].copy()
-    allocation = policy.allocate(oos_df)
-    evaluation = policy.evaluate(allocation['allocation_df'], oos_df)
-
-    # Produce a PDF report.
-    report = McfOptPolReport(
-        mcf=mcf, optpol=policy, outputpath=out, outputfile='Tutorial'
-    )
-    pdf_path = report.report()
-
-.. note::
-
-    To check the version of the **mcf** module used to create an instance,
-    you can additionally run the following code:
-
-    .. code-block:: python
-
-        print(mcf.__version__)
-
+.. code-block:: python
+    
+    print(my_mcf.__version__)
 
 
 Source code and contributing
 -----------------------------
 
-The Python source code is available on `GitHub <https://github.com/MCFpy/mcf>`_.
+The Python source code is available on `GitHub <https://github.com/MCFpy/mcf>`_. 
 If you have questions, want to report bugs, or have feature requests, please use the `issue tracker <https://github.com/MCFpy/mcf/issues>`__.
 
 References
@@ -197,7 +176,7 @@ References
 
 **Simulations**:
 
-- Lechner M, Mareckova J (2024). **Comprehensive Causal Machine Learning**. `Read Paper <https://doi.org/10.48550/arXiv.2405.10198>`__
+- Lechner M, Mareckova J (2024). **Comprehensive Causal Causal Machine Learning**. `Read Paper <https://doi.org/10.48550/arXiv.2405.10198>`__
 
 **Applications in diverse fields**:
 

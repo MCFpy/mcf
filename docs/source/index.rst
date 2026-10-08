@@ -22,9 +22,8 @@ Installation Guide
 
 Choose your Python version before creating the environment. Depending on your operating system and whether you prefer using Ray or Joblib for parallel processing, the following configurations are possible:
 
-- For Windows users, install Python 3.12 to use Ray.
-- For non-Windows users (Linux or Mac), install Python 3.13 to use Ray.
-- For any OS, install Python 3.14 to use Joblib.
+- **Ray**: install Python 3.12 on Windows, or Python 3.13 on Linux or Mac.
+- **Joblib**: install Python 3.14 on any operating system.
 
 By default, **mcf** uses Joblib when Ray is unavailable and for smaller adjusted training
 samples on Windows. Otherwise, it uses Ray. Further guidance is available in
@@ -45,25 +44,25 @@ If you prefer the command line, install conda as described `here <https://docs.c
 
 1. Set up and activate a conda environment named *mcf-env*:
 
-  .. code-block:: bash
+.. code-block:: bash
 
-      conda create -n mcf-env
+    conda create -n mcf-env
 
-  .. code-block:: bash
+.. code-block:: bash
 
-      conda activate mcf-env
+    conda activate mcf-env
 
 2. Install your chosen Python version. For example, for Python 3.12:
 
-  .. code-block:: bash
+.. code-block:: bash
 
-      conda install Python="3.12"
+  conda install Python="3.12"
 
 3. Install **mcf** in this environment using pip:
 
-  .. code-block:: bash
+.. code-block:: bash
 
-      pip install mcf
+  pip install mcf
 
 If you prefer a graphical interface, do the following:
 
@@ -73,9 +72,9 @@ If you prefer a graphical interface, do the following:
 
 3. Install the **mcf** package by using pip install in your IDE console:
 
-  .. code-block:: bash
+.. code-block:: bash
 
-      pip install mcf
+  pip install mcf
 
 Alternative ways of installing packages are shown in the Packages Page of the Anaconda Documentation. It is recommended to prioritize ``conda install`` for package installations before using ``pip install``.
 

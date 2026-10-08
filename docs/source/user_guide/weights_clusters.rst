@@ -1,69 +1,65 @@
-Sampling weights and clustering 
+Sampling weights and clustering
 ===============================
 
 Sampling weights
 ----------------
 
-You can provide sampling weights for each observation in your data set. To estimate a Modified Causal Forest with sampling weights, you need to set the ``gen_weighted`` parameter to ``True`` and provide the name of the variable containing the sampling weights in the ``var_w_name`` parameter.
+Set ``gen_weighted`` and provide ``var_w_name`` to use sampling weights.
+The weight column is required in both training and prediction data. These weights
+are distinct from the forest weights used to estimate potential outcomes.
 
 Clustering
 ----------
 
-If your data set contains clusters, you can provide the name of the variable containing the cluster identifier through the ``var_cluster_name`` parameter.
+Set ``p_cluster_std`` and supply ``var_cluster_name`` for cluster-robust
+standard errors. ``gen_panel_data`` also enables clustered inference and
+requires a cluster identifier. A row identifier (``var_id_name``) identifies an
+observation; a cluster identifier groups related observations, such as repeated
+measurements of the same person.
 
-In case your data has a panel structure, your data set is also clustered, namely at the level of the individual. In this case you can provide the name of the variable containing the individual identifier through the ``var_cluster_name`` parameter.
-
-The clusters are by default used to draw the random samples when growing the forest. You can control this behaviour through the ``gen_panel_in_rf`` parameter. To compute clustered standard errors, you need to set the ``gen_panel_data`` parameter to True.
+With panel mode enabled, ``gen_panel_in_rf`` samples clusters within each
+tree's construction subsample. The initial construction/filling split and forest
+chunking still operate on rows, so clusters do not necessarily remain intact
+through every split. Bootstrap defaults depend on clustering; see
+:doc:`../algorithm_reference/inference`.
 
 Parameter overview
 ------------------
 
-The following table summarizes the parameters related to sampling weights and clustering in the class :py:class:`~mcf_main.ModifiedCausalForest`:
+.. list-table::
+   :widths: 30 70
+   :header-rows: 1
 
-+----------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
-| Parameter            | Description                                                                                                                                 |
-+======================+=============================================================================================================================================+
-| ``var_w_name``       | Name of the variable holding the sampling weight of each observation.                                                                       |
-+----------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
-| ``gen_weighted``     | If True, sampling weights from ``var_w_name`` will be used. Default: False.                                                                 |
-+----------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
-| ``var_cluster_name`` | Name of the variable holding the cluster identifier.                                                                                        |
-+----------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
-| ``gen_panel_data``   | If True, clustered standard errors based on ``var_cluster_name`` are computed. Default: False.                                              |
-+----------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
-| ``gen_panel_in_rf``  | If True, clusters are used to draw the random samples when building the forest. Default: True. Only relevant if ``gen_panel_data`` is True. |
-+----------------------+---------------------------------------------------------------------------------------------------------------------------------------------+
+   * - Parameter
+     - Purpose
+   * - ``var_w_name``, ``gen_weighted``
+     - Sampling-weight column and activation.
+   * - ``var_id_name``
+     - Observation identifier.
+   * - ``var_cluster_name``, ``p_cluster_std``
+     - Cluster identifier and cluster-robust inference.
+   * - ``gen_panel_data``
+     - Enables panel mode and cluster-robust inference.
+   * - ``gen_panel_in_rf``
+     - Cluster sampling within trees when panel mode is enabled.
 
-Please consult the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details.
+Example
+-------
 
-Examples
---------
+This configuration fragment assumes your data contain ``row_id`` and
+``person_id``, it does not create these identifiers.
 
 .. code-block:: python
 
-    from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
-    
-    # Generate example data using the built-in function `example_data()`
-    training_df, prediction_df, name_dict = example_data()
-    
+
     my_mcf = ModifiedCausalForest(
-        var_y_name="outcome",
-        var_d_name="treat",
-        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
-        # Parameters for sampling weights:
-        var_w_name="weight",
-        gen_weighted=True
+        var_y_name='outcome', var_d_name='treat',
+        var_x_name_ord=['age', 'income'],
+        var_id_name='row_id', var_cluster_name='person_id',
+        p_cluster_std=True
     )
     
-    
-    my_mcf = ModifiedCausalForest(
-        var_y_name="outcome",
-        var_d_name="treat",
-        var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
-        # Parameters for clustering:
-        var_cluster_name="cluster",
-        gen_panel_data=True,
-        gen_panel_in_rf=True
-    )
-        
+For sampling weights, additionally set ``gen_weighted`` and
+``var_w_name='weight'`` and supply that column in both datasets.
+See the :py:class:`API <mcf_main.ModifiedCausalForest>` for supported combinations.

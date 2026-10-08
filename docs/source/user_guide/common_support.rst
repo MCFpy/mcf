@@ -3,71 +3,103 @@
 Common support
 ==============
 
-Common support is crucial in estimating heterogeneous treatment effects. Loosely speaking, it requires that the distributions of the covariates overlap across all treatment arms. The :py:class:`~mcf_main.ModifiedCausalForest` class provides several options to check for and enforce common support.
+Common support requires overlap across treatment groups. The
+:py:class:`~mcf_main.ModifiedCausalForest` checks estimated treatment
+probabilities before effect estimation and removes observations outside the
+selected support. This changes the population to which the results apply.
 
-Common support checks and adjustments are performed before any causal effects are estimated. You can control the type of common support adjustment with the parameter ``cs_type`` of the class :py:class:`~mcf_main.ModifiedCausalForest`. If you set ``cs_type`` to 0, there is no common support adjustment.
+- ``cs_type=0`` disables the adjustment.
+- ``cs_type=1`` (default) intersects treatment-group probability ranges.
+- ``cs_type=2`` retains a row only when every treatment probability lies in
+  ``[cs_min_p, 1 - cs_min_p]``. Both endpoints are included.
 
-If you set ``cs_type`` to 1 or 2, common support is enforced based on propensity scores that are estimated with classification forests [1]_. The Modified Causal Forest will then remove all observations whose propensity scores lie outside certain cut-off probabilities. For a value of 1, which is the default, the cut-off probabilities are determined automatically by the **mcf** package. For a value of 2, you can specify the cut-off probabilities yourself using the parameter ``cs_min_p``: Any observation with a propensity score :math:`P(D = m| X)` of less than or equal to ``cs_min_p`` - for at least one treatment arm - will be removed from the data set.
-
-When common support adjustments are enabled, the **mcf** package will display standard common support plots to help you understand the distribution of propensity scores across treatment arms. These plots are also saved in in the subfolder ``plots_common_support`` of the output folder that the **mcf** package generates. You can find the location of this folder by accessing the ``outpath`` entry of the ``gen_dict`` attribute of your Modified Causal Forest.
-
-The output text file provides additional information on the common support bounds. For each treatment (excluding the first treatment arm, as the propensity scores sum to one across all treatments), it reports the upper and lower limits of the propensity scores. The cut-off values, defined as the smallest upper bound and the largest lower bound across treatments, are determined from the training dataset and then applied consistently to the dataset used for predicting the effects.
-
-
-.. code-block:: python
-
-    from mcf.example_data import example_data
-    from mcf.mcf_main import ModifiedCausalForest
-    
-    # Generate example data using the built-in function `example_data()`
-    training_df, prediction_df, name_dict = example_data()
-    
-    my_mcf = ModifiedCausalForest(
-        var_y_name="outcome",
-        var_d_name="treat",
-        var_x_name_ord="x_cont0",
-        cs_type=1
-    )
-
-    # Learn where the output is saved
-    my_mcf.gen_cfg.outpath
-
-
-------
-
-.. [1] Out of bag predictions are used to avoid overfitting.
-
+Probability models use classification forests. With ``lc_cs_cv=True``, construction
+predictions are cross-fitted; filling and prediction observations use the average
+of the fitted fold models. Alternatively, ``lc_cs_cv=False`` reserves a separate
+sample for fitting these models.
 
 Advanced options
 ----------------
 
-Common support criteria become more restrictive with an increasing number of treatments. The parameter ``cs_adjust_limits`` allows you to reduce this restrictiveness by offsetting the cut-off limits. The upper cut-off will be multiplied by :math:`1 + \text{cs\_adjust\_limits}` and the lower cut-off will be multiplied by :math:`1 - \text{cs\_adjust\_limits}`. By default ``cs_adjust_limits`` has a value of :math:`(\text{number of treatments} - 2) \times 0.05`.
+For type 1, let :math:`L_{gj}` and :math:`U_{gj}` be the
+:math:`(1-q)` and :math:`q` quantiles of probability :math:`p_j(X)` within
+observed treatment group :math:`g`, where ``cs_quantil=q``. For :math:`q=1`,
+use the group minima and maxima. With ``cs_adjust_limits=a``, the bounds are
 
-The parameter ``cs_max_del_train`` allows you to specify a maximum share of observations in the training data set that are allowed to be dropped to enforce common support. If this threshold is exceeded, the program will terminate and raise a corresponding exception. By default, an exception will be raised if more than 50% of the observations are dropped. In this case, you should consider using a more balanced input data set.
+.. math::
 
-The parameter ``cs_quantil`` allows you to deviate from the default cut-off probabilities when ``cs_type`` is set to 1, which are based on min-max rules. If ``cs_quantil`` is set to a value of less than 1, the respective quantile is used to determine the upper and lower cut-off probabilities: Concretely, observations will be dropped if for at least one treatment :math:`m` the propensity score :math:`P(D = m| X)` lies outside the interval :math:`[q_{\text{cs\_quantil}}, q_{1-\text{cs\_quantil}}]`, where :math:`q_{\alpha}` denotes the :math:`\alpha`-quantile of the propensity scores :math:`\{P(D_i = m| X_i)\}_{i=1}^n`.
+    \mathrm{lower}_j &= \max_g \operatorname{clip}((1-a)L_{gj},0,1), \\
+    \mathrm{upper}_j &= \min_g \operatorname{clip}((1+a)U_{gj},0,1).
+
+For example, ``cs_quantil=0.95`` uses the 5th and 95th percentiles of each
+estimated treatment probability, calculated separately within each observed
+treatment group. These bounds are widened using ``cs_adjust_limits``.
+The common-support interval then runs from the largest lower bound to
+the smallest upper bound across treatment groups.
+
+With ``cs_type=1``, this check uses the estimated probabilities of all
+treatments except the first. With ``cs_type=2``, every estimated treatment
+probability must lie between ``cs_min_p`` and ``1 - cs_min_p``, including
+the endpoints.
+
+``cs_max_del_train`` sets the maximum proportion of observations that
+may be removed by the common-support adjustment in the training data.
+This limit is checked separately for the sample used to construct the
+trees and the sample used to fill their leaves with outcomes.
+
+For example, a value of 0.5 stops estimation if more than 50% of either
+sample is removed. In that case, inspect the data and the overlap between
+treatment groups before changing the common-support settings.
+
+This limit does not apply to prediction data. Prediction observations
+outside the estimated common support are still removed, but their removal
+share is not restricted by ``cs_max_del_train``.
 
 Parameter overview
 ------------------
 
-Below is an overview of the above mentioned parameters related to common support adjustments in the class :py:class:`~mcf_main.ModifiedCausalForest`:  
+.. list-table::
+   :widths: 30 70
+   :header-rows: 1
 
-+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Parameter            | Description                                                                                                                                                                                                                                                                            |
-+======================+========================================================================================================================================================================================================================================================================================+
-| ``cs_type``          | If set to 0, there is no common support adjustment. For a value of 1, common support is enforced by automatically chosen cut-off probabilities. For a value of 2, you can specify the cut-off probabilities yourself using the parameter ``cs_min_p``. Default: 1.                     |
-+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``cs_min_p``         | Only relevant if ``cs_type`` is set to 2. Observations are removed if for at least one treatment the propensity score is less then or equal to ``cs_min_p``. Default: 0.01.                                                                                                            |
-+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``cs_adjust_limits`` | Only relevant if ``cs_type`` is set to 1     . The upper cut-off is multiplied by :math:`1 + \text{cs\_adjust\_limits}` and the lower cut-off is multiplied by :math:`1 - \text{cs\_adjust\_limits}`. Default: :math:`(\text{number of treatments} - 2) \times 0.05`.                      |
-+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``cs_max_del_train`` | Only relevant if ``cs_type`` is set to 1 or 2. Raises an exception if the share of observations that are dropped to enforce common support exceeds ``cs_max_del_train``. Default: 0.5.                                                                                                 |
-+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``cs_quantil``       | Only relevant if ``cs_type`` is set to 1. If ``cs_quantil`` is set to a value less than 1, the respective quantile is used to determine the upper and lower cut-off probabilities. If set to 1, the cut-off probabilities are chosen automatically based on min-max rules. Default: 1. |
-+----------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+   * - Parameter
+     - Purpose
+   * - ``cs_type``
+     - No adjustment (0), intersected group ranges (1), or fixed bounds (2).
+   * - ``cs_min_p``
+     - Lower bound for type 2; the upper bound is one minus this value. Default: 0.01.
+   * - ``cs_quantil``
+     - Type-1 quantile setting. Default: 1 (minima/maxima).
+   * - ``cs_adjust_limits``
+     - Relaxes type-1 ranges before intersection.
+   * - ``cs_max_del_train``
+     - Maximum training deletion share, checked in each sample. Default: 0.5.
 
-Please consult the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details.
+Inspecting retained observations
+--------------------------------
 
+The following fragment uses an initialized ``my_mcf`` and prepared training and
+prediction data. It learns support rules without building a forest:
+
+.. code-block:: python
+
+    my_mcf.train(training_df, exit_after_commonsupport=True)
+    support = my_mcf.predict(prediction_df, exit_after_commonsupport=True)
+    retained_df = support['inputdata_on_support']
+
+``inputdata_on_support`` contains the observations remaining after data
+preparation and the common-support adjustment. When output is enabled,
+the returned probability tables include an ``on_support`` column indicating
+which observations passed the common-support check. Observations removed
+during earlier data preparation are not included in these tables.
+
+When you also estimate treatment effects, ``iate_data_df`` contains the
+remaining prediction observations together with their estimated effects
+and potential outcomes. This dataframe is available only when IATE
+estimation and dataframe output are enabled.
+
+See :py:meth:`~mcf_main.ModifiedCausalForest.train` and
+:py:meth:`~mcf_main.ModifiedCausalForest.predict` for the returned table names.
 Examples
 ------------------
 
@@ -75,19 +107,19 @@ Examples
 
     from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
-    
+
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()
-    
-    
+
+
     my_mcf = ModifiedCausalForest(
             var_y_name="outcome",
             var_d_name="treat",
             var_x_name_ord=["x_cont0", "x_cont1"],
             # Turn common support adjustments off:
             cs_type=0)
-        
-    
+
+
     my_mcf = ModifiedCausalForest(
         var_y_name="outcome",
         var_d_name="treat",
@@ -99,8 +131,8 @@ Examples
         cs_adjust_limits=0.1,
         # Raise an exception if more than 25% of the observations are dropped:
         cs_max_del_train=0.25)
-        
-        
+
+
     my_mcf = ModifiedCausalForest(
         var_y_name="outcome",
         var_d_name="treat",

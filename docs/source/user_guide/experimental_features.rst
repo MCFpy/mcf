@@ -1,43 +1,47 @@
 Experimental features
 =====================
 
-All features in this section are experimental and thus not yet fully documented and tested. Please open an issue `here <https://github.com/MCFpy/mcf/issues>`__ if you encounter any problems or have any questions.
+This section describes advanced and experimental features. 
+Consult the method-specific API before combining them. Please open an issue `here <https://github.com/MCFpy/mcf/issues>`__ if you encounter any problems or have any questions.
 
 Balancing Tests
 ---------------
 
 Treatment effects may be subject to selection bias if the distribution of the confounding features differs across treatment arms. The class :py:class:`~mcf_main.ModifiedCausalForest` provides the option to conduct balancing tests to assess whether the feature distributions are equal across treatment arms after adjustment by the Modified Causal Forest. The balancing tests are based on the estimation of average treatment effects (:math:`\text{ATE's}`) with user-specified features as outcomes. If the features are balanced across treatment arms, the estimated :math:`\text{ATE's}` should be close to zero.
 
-The Modified Causal Forest runs balancing tests for the features specified in the parameters ``var_x_name_balance_test_ord`` and ``var_x_name_balance_test_unord`` if the parameter ``p_bt_yes`` is set to True. See also the table below. 
+The Modified Causal Forest runs balancing tests for the features specified in the parameters ``var_x_name_balance_test_ord`` and ``var_x_name_balance_test_unord`` if the parameter ``p_bt_yes`` is set to True. See also the table below.
 
-+------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Parameter                    | Description                                                                                                                                           |
-+==============================+=======================================================================================================================================================+
-| ``p_bt_yes``                 | If True, balancing tests for the features specified in ``var_x_name_balance_test_ord`` and ``var_x_name_balance_test_unord`` are conducted. The default is True.|
-+------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``var_x_name_balance_test_ord``   | Only relevant if ``p_bt_yes`` is True. Ordered features for which balancing tests are conducted.                                                      |
-+------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``var_x_name_balance_test_unord`` | Only relevant if ``p_bt_yes`` is True. Unordered features for which balancing tests are conducted.                                                    |
-+------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------+
+.. list-table::
+   :widths: 30 70
+   :header-rows: 1
+
+   * - Parameter
+     - Purpose
+   * - ``p_bt_yes``
+     - Enable balancing tests.
+   * - ``var_x_name_balance_test_ord``
+     - Ordered variables used as balancing-test outcomes.
+   * - ``var_x_name_balance_test_unord``
+     - Unordered variables used as balancing-test outcomes.
 
 Please consult the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details.
 
-The results of the balancing tests are part of the txt-file in the output folder that the **mcf** package generates. You can find the location of this folder by accessing the `"outpath"` entry of the `gen_dict` attribute of your Modified Causal Forest:
+The results of the balancing tests are part of the txt-file in the output folder that the **mcf** package generates. You can find the location of this folder by accessing the `"outpath"` entry of the ``gen_cfg`` attribute of your Modified Causal Forest:
 
 .. code-block:: python
 
     from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
-    
+
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()
-    
+
     my_mcf = ModifiedCausalForest(
         var_y_name="outcome",
         var_d_name="treat",
         var_x_name_ord="x_cont0"
         )
-    
+
     my_mcf.gen_cfg.outpath
 
 Example
@@ -47,11 +51,11 @@ Example
 
     from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
-    
+
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()
-    
-    my_mcf = ModifiedCausalForest(
+
+    params = dict(
         var_y_name="outcome",
         var_d_name="treat",
         var_x_name_ord=["x_cont0", "x_cont1", "x_ord1"],
@@ -61,38 +65,46 @@ Example
         var_x_name_balance_test_ord=["x_cont0", "x_cont1", "x_ord1"],
         var_x_name_balance_test_unord=["x_unord0"]
     )
-    
+
+    my_mcf = ModifiedCausalForest(**params)
     my_mcf.train(training_df)
     results = my_mcf.predict(prediction_df)
+
+    # sensitivity() needs a new, untrained instance with the same settings.
+    my_mcf_sens = ModifiedCausalForest(**params)
+    sensitivity_results = my_mcf_sens.sensitivity(
+        training_df, prediction_df, results=results
+    )
 
 
 Sensitivity checks
 ------------------
 
-The method :py:meth:`~mcf_main.ModifiedCausalForest.sensitivity` of the :class:`~mcf_main.ModifiedCausalForest` class contains some simulation-based tools to check how well the Modified Causal Forest works in removing selection bias and how sensitive the results are with respect to potentially missing confounding covariates (i.e., those related to treatment and potential outcomes).
+:py:meth:`~mcf_main.ModifiedCausalForest.sensitivity` provides a simulation-based
+diagnostic. The implemented ``basic`` scenario estimates treatment probabilities,
+selects a reference treatment population and simulates placebo treatments.
+Effects are known to be zero in this scenario, so estimated deviations from zero
+help assess the procedure in that simulated setting. Replications reduce
+simulation noise. This does not identify or bound arbitrary unobserved confounding.
 
-A paper by Armendariz-Pacheco, Lechner, and Mareckova (2024) will discuss and investigate the different methods in detail. So far, please note that all methods are simulation based.
+The following fragment uses an existing **mcf** object and data:
 
-The sensitivity checks consist of the following steps:
+.. code-block:: python
 
-1. Estimate all treatment probabilities.
-2. Remove all observations from treatment states other than one (largest treatment or user-determined).
-3. Use estimated probabilities to simulate treated observations, respecting the original treatment shares (pseudo-treatments).
-4. Estimate the effects of pseudo-treatments. The true effects are known to be zero, so the deviation from 0 is used as a measure of result sensitivity.
+    sensitivity_results = my_mcf.sensitivity(
+        training_df, prediction_df, results=results
+    )
 
-Steps 3 and 4 may be repeated, and results averaged to reduce simulation noise.
-
-Please consult the API for details on how to use the :py:meth:`~mcf_main.ModifiedCausalForest.sensitivity` method.
-
+``results`` is required; pass ``None`` if no prior results are to be used. When
+supplied results contain an IATE dataframe and name metadata, those rows take
+precedence over ``prediction_df``. Feature selection is not supported by this
+sensitivity procedure. See the method API for compatible settings.
 
 GPU Support
 -----------
 
-The mcf package can leverage GPU processing power via CUDA, NVIDIA’s parallel computing platform.
-
-GPU acceleration can be enabled by setting the ``cuda``-related argument in the API to ``True`` (default: ``False``).
-
-.. note::
-
-   This feature is currently experimental. Using an incompatible or incorrect CUDA version may lead to unexpected behavior or errors.
-
+Set ``_int_cuda=True`` to request GPU processing. This requires CUDA-capable
+PyTorch and may fall back to the CPU when CUDA is unavailable. The IATE GPU path
+also requires low-memory prediction and bias adjustment to be disabled, and fewer
+than 16 selected IATE workers. Availability does not guarantee a speed improvement;
+see the :py:class:`API <mcf_main.ModifiedCausalForest>` for current restrictions.

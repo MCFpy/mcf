@@ -1,0 +1,6 @@
+﻿example\_data.example\_data
+===========================
+
+.. currentmodule:: example_data
+
+.. autofunction:: example_data

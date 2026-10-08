@@ -1,0 +1,6 @@
+﻿optpolicy\_main.OptimalPolicy.evaluate\_multiple
+================================================
+
+.. currentmodule:: optpolicy_main
+
+.. automethod:: OptimalPolicy.evaluate_multiple

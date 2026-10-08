@@ -1,0 +1,6 @@
+﻿optpolicy\_main.OptimalPolicyVersions.allocate
+==============================================
+
+.. currentmodule:: optpolicy_main
+
+.. automethod:: OptimalPolicyVersions.allocate

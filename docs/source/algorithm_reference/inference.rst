@@ -1,50 +1,55 @@
 Inference
 =========
 
-The **mcf** offers three ways of conducting inference.
+Weights-based inference
+-----------------------
 
-Weights-based Inference Procedure 
----------------------------------
-This is the default method in the program. It is particularly useful to gain information on the precision of estimators that have a representation as weighted averages of the outcomes. The variance of the treatment effect estimator is estimated based on a variance decomposition made up of two components:
+The default inference uses the representation of effect estimates as weighted
+averages of outcomes. It combines the expectation of conditional variance with
+the variance of conditional expectation, conditioning on forest weights.
+Conditional moments are estimated by k-nearest neighbors (default) or
+Nadaraya-Watson kernel regression.
 
-- Expectation of the conditional variance
-- Variance of the conditional expectation, given the weights
+With ``p_cond_var=False``, variance is estimated directly from weighted outcomes
+rather than conditional moments. See `Lechner and Mareckova, Comprehensive
+Causal Machine Learning <https://arxiv.org/abs/2405.10198v2>`_ for the theoretical
+context and its assumptions.
 
-This decomposition accounts for heteroscedasticity in the weights. The conditional means and variances are estimated non-parametrically, either by the Nadaraya-Watson kernel estimator or by the k-Nearest Neighbor (k-NN) estimator (default). See `Lechner (2018) <https://doi.org/10.48550/arXiv.1812.09487>`_ for more details.
-
-Variance of Treatment Effect Estimates 
---------------------------------------
-This method estimates the variance of treatment effect estimates as the sum of the variance of weighted outcomes in the respective treatment states. A drawback of this inference method is that it implicitly assumes homoscedasticity in the weights for each treatment state.
-
-Bootstrap Algorithm 
+Bootstrap inference
 -------------------
-This method uses a bootstrap algorithm to obtain inference by computing standard errors. Our algorithm bootstraps the equally weighted weights and then renormalizes them.
 
+The weight-based bootstrap resamples observations or clusters and renormalizes
+weights. It does not retrain an entire forest in every replication.
+``p_se_boot_ate``, ``p_se_boot_gate``, ``p_se_boot_iate`` and ``p_se_boot_qiate``
+control the corresponding inference.
 
-**Note:** Because of the weighting representation, inference can readily be used to account for clustering, which is a common feature in economics data.
+Use ``p_cluster_std`` with ``var_cluster_name`` for clustered inference; see
+:doc:`../user_guide/weights_clusters`. When efficiency improvements are enabled through ``gen_ate_eff``,
+``gen_gate_eff``, ``gen_iate_eff`` or ``gen_qiate_eff``, the variance
+calculation depends on the type of treatment effect being estimated.
+See :doc:`../user_guide/estimation` for details.
 
-Parameters 
-------------------------
+Parameters
+----------
 
-Below you find a list of the main parameters which are related to the inference procedure of the **mcf**. Please consult the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details or additional parameters. 
-
-.. list-table:: 
+.. list-table::
    :widths: 30 70
    :header-rows: 1
 
    * - Parameter
-     - Description
-   * - ``p_se_boot_ate``
-     - Bootstrap of standard errors for ATE. Accepts an integer or Boolean (or None). If True, the number of bootstrap replications is set to 199. Default is None, which sets the number of replications to 199 if p_cluster_std is True, and False otherwise.
-   * - ``p_se_boot_gate``
-     - Bootstrap of standard errors for GATE. Specify either a Boolean or an integer. If True, the number of bootstrap replications is set to 199. Default is None, which sets the number of replications to 199 if p_cluster_std is True, and False otherwise.
-   * - ``p_se_boot_iate``
-     - Bootstrap of standard errors for IATE. Accepts an integer or Boolean (or None). If True, the number of bootstrap replications is set to 199. Default is None, which sets the number of replications to 199 if p_cluster_std is True, and False otherwise.
+     - Purpose
    * - ``p_cond_var``
-     - Determines if conditional mean and variances are used. Accepts True or False. If True, conditional mean and variances are used; if False, variance estimation is direct. Default (or None) is True.
+     - Use conditional moments (default True).
    * - ``p_knn``
-     - Specifies the k-NN method. If True, k-NN estimation is used; if False, Nadaraya-Watson estimation is employed. Nadaraya-Watson estimation provides a better approximation of the variance, while k-NN is faster, especially for larger datasets. Default (or None) is True.
+     - Use k-nearest neighbors (True) or Nadaraya-Watson (False).
+   * - ``p_se_boot_ate``, ``p_se_boot_gate``
+     - Weight-based bootstrap for average and group effects.
+   * - ``p_se_boot_iate``, ``p_se_boot_qiate``
+     - Weight-based bootstrap for individual and quantile effects.
+   * - ``p_ci_level``
+     - Pointwise confidence level used in effect plots.
 
+See the :py:class:`API <mcf_main.ModifiedCausalForest>` for details.
 
 Example
 ~~~~~~~
@@ -53,10 +58,10 @@ Example
 
    from mcf.example_data import example_data
    from mcf.mcf_main import ModifiedCausalForest
-   
+
    # Generate example data using the built-in function `example_data()`
    training_df, prediction_df, name_dict = example_data()
-   
+
    my_mcf = ModifiedCausalForest(
        var_y_name="outcome",
        var_d_name="treat",
@@ -68,7 +73,6 @@ Example
        # Specifies k-NN method
        p_knn=True
    )
-   
+
    my_mcf.train(training_df)
    results = my_mcf.predict(prediction_df)
-

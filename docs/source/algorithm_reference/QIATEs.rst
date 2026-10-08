@@ -1,50 +1,47 @@
 QIATEs
 ======
 
-The **Quantile Individualized Average Treatment Effect (QIATE)** was introduced in 
-Kutz and Lechner (2025).
-
 Definition
--------------
+----------
+
+A Quantile Individualized Average Treatment Effect (QIATE) is a quantile of the
+conditional mean treatment-effect function across the target population:
 
 .. math::
 
-   QIATE(\alpha; d, d', x) := q^{\alpha}(\text{IATE}(d, d', x)) \\
-   = q^{\alpha} \left( \mathbb{E}[Y(d) - Y(d') \mid X = x] \right).
+    \tau_{m,l}(x) &= E[Y^m-Y^l\mid X=x], \\
+    \operatorname{QIATE}(q;m,l)
+    &= \inf\{t:\Pr(\tau_{m,l}(X)\leq t)\geq q\}.
 
-Here,
-
-.. math::
-
-   \text{IATE}(d, d', x) = \mathbb{E}[Y(d) - Y(d') \mid X = x]
-
-denotes the IATE contrasting treatments 
-:math:`d` and :math:`d'` for individual :math:`i`.  
-
-:math:`q^\alpha := \inf \{ z \in \mathbb{R} \mid F(z) \geq \alpha \}` is the 
-:math:`\alpha`-th quantile of a cumulative distribution function :math:`F` of a 
-random variable :math:`Z`, such that :math:`F(z) = P(Z \leq z)`.
+The distribution is over :math:`X` in the prediction population; at a fixed :math:`x`, the conditional mean effect is a scalar.
 
 Interpretation
------------------
+--------------
 
-The QIATE estimates the :math:`\alpha`-th quantile of the IATE distribution, focusing 
-on the part of treatment effect variation that can be explained by observed characteristics 
-(*the actionable component of heterogeneity*).  
-This enables researchers to investigate how treatment effects differ across the explainable 
-part of the distribution.
+QIATEs describe heterogeneity in mean effects explained by observed features.
+They are neither quantiles of unobserved realized individual effects nor
+differences between marginal potential-outcome quantiles.
 
 Implementation
------------------
+--------------
 
-The QIATE is implemented as follows:
+Estimated IATEs are sorted separately for each outcome and treatment
+comparison. With ``p_qiate_smooth=True``, QIATE estimation combines
+observations with similar ranks using kernel weights. Without smoothing,
+it uses the observation closest to the requested quantile.
+``p_qiate_bias_adjust`` controls a separate adjustment for ranking bias.
 
-#. Estimate the IATE using the **mcf**.
-#. Sort the estimated :math:`\widehat{IATE}` and determine their relative position or 
-   rank :math:`z \in [0,1]`.
-#. For each relative position :math:`z_i` estimate the QIATE as a continuous GATE.  
-   To account for uncertainty in the ranking we smooth the weights using 
-   **Nadaraya–Watson kernel regression**.
+``p_qiate_no_of_quantiles`` sets the number of evenly spaced quantile
+levels to estimate. The median is included when this number is odd.
+You can inspect the selected levels using ``mymcf.p_cfg.qiate_quantiles``.
+
+- ``p_qiate_m_mqiate`` returns QIATE(q) minus QIATE(0.5) as ``qiate_mmed``,
+  with ``qiate_mmed_se`` when requested.
+- ``p_qiate_m_opp`` returns QIATE(q) minus QIATE(1-q) as ``qiate_mopp``,
+  with ``qiate_mopp_se``, including levels above 0.5.
+
+QIATEs require discrete treatments, ``_int_low_memory_predict=False``,
+``p_ba=False`` and no treatment versions.
 
 Example
 -------
@@ -54,9 +51,9 @@ Example
     from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
 
-    # Generate artificial data 
+    # Generate artificial data
     training_df, prediction_df, name_dict = example_data(
-        no_treatments=2, 
+        no_treatments=2,
         obs_y_d_x_iate=2000,
         obs_x_iate=2000,
         no_effect=False
@@ -69,6 +66,7 @@ Example
         var_x_name_unord=name_dict['x_name_unord'],
         # QIATE specific parameters
         p_qiate=True,
+        p_ba=False,
         p_qiate_se=True,
         p_qiate_m_mqiate=True,
         p_qiate_m_opp=True,
@@ -84,3 +82,8 @@ Example
 
 
 
+
+    print(mymcf.p_cfg.qiate_quantiles)
+    print(results['qiate'])
+    print(results['qiate_mmed'])
+    print(results['qiate_mopp'])

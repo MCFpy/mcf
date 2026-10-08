@@ -31,17 +31,17 @@ Optimal Policy
 Example scripts
 ---------------
 
-We provide several example scripts in our `example folder <https://github.com/MCFpy/mcf/tree/main/examples>`_ on GitHub. Below you also find the direct links to these scripts. 
+We provide several example scripts in our `example folder <https://github.com/MCFpy/mcf/tree/main/examples>`_ on GitHub. Below you also find the direct links to these scripts.
 
 **Modified Causal Forest**
 
 - `Minimal example <https://github.com/MCFpy/mcf/blob/main/examples/mcf_min_parameters.py>`__
-- `Minimal example that uses the same data for training and prediction <https://github.com/MCFpy/mcf/blob/main/examples/mcf_training_prediction_data_same.py>`__
+- `Example predicting on the retained filling sample from training <https://github.com/MCFpy/mcf/blob/main/examples/mcf_training_prediction_data_same.py>`__
 - `Full example with all parameters used <https://github.com/MCFpy/mcf/blob/main/examples/mcf_all_parameters.py>`__
 - `Example to show how to obtain prediction data on common support when multiple training data are used <https://github.com/MCFpy/mcf/blob/main/examples/mcf_commonsupport.py>`__
 - `Example to show how the mcf with BGATE estimation can be implemented <https://github.com/MCFpy/mcf/blob/main/examples/mcf_bgate.py>`__
-- `Example to show how the qiates of mcf can be computed <https://github.com/MCFpy/mcf/blob/main/examples/mcf_qiate.py>`__
-- `Example to show how IV estimation can be implemented (soon to be documented) <https://github.com/MCFpy/mcf/blob/main/examples/mcf_iv.py>`__
+- `Example to show how QIATEs can be computed <https://github.com/MCFpy/mcf/blob/main/examples/mcf_qiate.py>`__
+- `Instrumental-variable example (see the short IV overview) <https://github.com/MCFpy/mcf/blob/main/examples/mcf_iv.py>`__
 
 **Optimal Policy**
 
@@ -50,3 +50,5 @@ We provide several example scripts in our `example folder <https://github.com/MC
 - `Full example with all parameters used <https://github.com/MCFpy/mcf/blob/main/examples/optpolicy_all_parameters.py>`__
 - `Example to show how to use the adjustments for policy score uncertainty <https://github.com/MCFpy/mcf/blob/main/examples/optpolicy_estimation_uncertainty.py>`__
 - `Example to show how fairness adjustments can be implemented <https://github.com/MCFpy/mcf/blob/main/examples/optpolicy_fairness.py>`__
+
+- `Treatment-version policy example <https://github.com/MCFpy/mcf/blob/main/examples/optpolicy_versions.py>`__

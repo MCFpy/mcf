@@ -20,13 +20,13 @@ For further information:
 Installation Guide
 ------------------
 
-Choose your Python version before creating the environment:
+Choose your Python version before creating the environment. Depending on your operating system and whether you prefer using Ray or Joblib for parallel processing, the following configurations are possible:
 
-- Choose Python 3.12 to use Ray for parallel processing.
-- Choose Python 3.14 to use Joblib.
+- For Windows users, install Python 3.12 to use Ray.
+- For non-Windows users (Linux or Mac), install Python 3.13 to use Ray.
+- For any OS, install Python 3.14 to use Joblib.
 
-**mcf** supports parallel processing with Joblib and Ray. By default,
-**mcf** uses Joblib when Ray is unavailable and for smaller adjusted training
+By default, **mcf** uses Joblib when Ray is unavailable and for smaller adjusted training
 samples on Windows. Otherwise, it uses Ray. Further guidance is available in
 :ref:`computational-speed`.
 
@@ -38,7 +38,7 @@ You can install the package from PyPI using:
 
     pip install mcf
 
-For a smooth experience without conflicts with other packages, use a virtual environment based on conda. You can manage conda environments either via the command line or a graphical interface. 
+For a smooth experience without conflicts with other packages, use a virtual environment based on conda. You can manage conda environments either via the command line or a graphical interface.
 The command line offers a compatible solution for all operating systems, making it our recommended choice. However, the graphical interface is more user-friendly. As an alternative, you may also create a new virtual environment directly from the ``environment.yml`` file available in our GitHub repository.
 
 If you prefer the command line, install conda as described `here <https://docs.conda.io/projects/conda/en/latest/user-guide/install/>`__. Next open your Anaconda Prompt (Windows) or terminal (macOS and Linux) and do the following:
@@ -81,8 +81,8 @@ Alternative ways of installing packages are shown in the Packages Page of the An
 
 .. note::
 
-    If you plan to use Spyder as your IDE on a Windows machine, make sure to 
-    execute ``conda install spyder`` before proceeding with ``pip install mcf``. 
+    If you plan to use Spyder as your IDE on a Windows machine, make sure to
+    execute ``conda install spyder`` before proceeding with ``pip install mcf``.
     This reduces the risk of errors during installation.
 
 
@@ -91,7 +91,7 @@ Alternative ways of installing packages are shown in the Packages Page of the An
 Usage Example
 -------------
 
-We use the :py:func:`~example_data_functions.example_data` function to generate
+We use the :py:func:`~example_data.example_data` function to generate
 synthetic data for a combined effect-estimation and policy-learning example.
 First, we train a :py:class:`~mcf_main.ModifiedCausalForest`. We then use its
 estimated potential outcomes as scores for learning and evaluating a policy
@@ -171,17 +171,17 @@ The example keeps three samples separate:
     To check the version of the **mcf** module used to create an instance,
     you can additionally run the following code:
 
-.. code-block:: python
+    .. code-block:: python
 
-    print(mcf.__version__)
+        print(mcf.__version__)
 
 
 
 Source code and contributing
 -----------------------------
 
-The Python source code is available on `GitHub <https://github.com/**mcf**py/mcf>`_. 
-If you have questions, want to report bugs, or have feature requests, please use the `issue tracker <https://github.com/**mcf**py/mcf/issues>`__.
+The Python source code is available on `GitHub <https://github.com/MCFpy/mcf>`_.
+If you have questions, want to report bugs, or have feature requests, please use the `issue tracker <https://github.com/MCFpy/mcf/issues>`__.
 
 References
 ----------
@@ -198,7 +198,7 @@ References
 
 **Simulations**:
 
-- Lechner M, Mareckova J (2024). **Comprehensive Causal Causal Machine Learning**. `Read Paper <https://doi.org/10.48550/arXiv.2405.10198>`__
+- Lechner M, Mareckova J (2024). **Comprehensive Causal Machine Learning**. `Read Paper <https://doi.org/10.48550/arXiv.2405.10198>`__
 
 **Applications in diverse fields**:
 
@@ -219,7 +219,7 @@ References
 License
 -------
 
-**mcf** is distributed under the `MIT License <https://github.com/**mcf**py/mcf?tab=MIT-1-ov-file#readme>`__.
+**mcf** is distributed under the `MIT License <https://github.com/MCFpy/mcf?tab=MIT-1-ov-file#readme>`__.
 
 .. toctree::
    :hidden:

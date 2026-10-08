@@ -1,33 +1,56 @@
 Data cleaning
 =============
 
-The class :py:class:`~mcf_main.ModifiedCausalForest` has several data cleaning options to improve the estimation quality of your Modified Causal Forest. Below, you find a table with the relevant parameters and a brief description: 
+All supplied columns must be numeric and contain no missing values.
+Otherwise, training or prediction stops with an error identifying the
+affected columns. This also applies to unused columns, so remove them
+before passing your data to **mcf**. The check runs before the cleaning step,
+regardless of the setting of ``dc_clean_data``.
 
-+--------------------------+--------------------------------------------------------------------------------------------------------------------------------------------+
-| Parameter                | Description                                                                                                                                | 
-+==========================+============================================================================================================================================+
-| ``dc_clean_data``        | If True, all observations with missing values are dropped. Variables not required in the analysis are also removed. Default: True.         | 
-+--------------------------+--------------------------------------------------------------------------------------------------------------------------------------------+
-| ``dc_screen_covariates`` | If True, covariates are screened and cleaned. Specifically, features without variation are dropped. Default: True.                         |
-+--------------------------+--------------------------------------------------------------------------------------------------------------------------------------------+
-| ``dc_check_perfectcorr`` | If ``dc_screen_covariates`` is True, covariates perfectly correlated with others are removed. Default: True.                               |
-+--------------------------+--------------------------------------------------------------------------------------------------------------------------------------------+
-| ``dc_min_dummy_obs``     | If ``dc_screen_covariates`` is True, binary (dummy) covariates with less than ``dc_min_dummy_obs`` zeroes or ones are removed. Default: 10.|
-+--------------------------+--------------------------------------------------------------------------------------------------------------------------------------------+
+For discrete treatments, **mcf** internally converts the treatment categories
+to consecutive integers starting at zero. If treatment information is
+required for prediction, use the same treatment labels as in the training
+data. For policy evaluation, treatment codes must instead correspond to
+the order of the policy scores specified in ``var_polscore_name``.
 
-Please consult the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details.
+Unordered features require at least three distinct training values. Put binary
+features in ``var_x_name_ord``. Heterogeneity variables in ``var_z_name_*`` are added to the
+corresponding forest-feature lists automatically.
 
-Example 
--------
+Parameter overview
+------------------
+
+.. list-table::
+   :widths: 30 70
+   :header-rows: 1
+
+   * - Parameter
+     - Description
+   * - ``dc_clean_data``
+     - Drops missing observations and unused variables at the cleaning stage; prior validation still applies. Default: True.
+   * - ``dc_screen_covariates``
+     - Screens features, including those without variation. Default: True.
+   * - ``dc_check_perfectcorr``
+     - Screens near-duplicates using absolute Pearson correlation above 0.999. Protected variables may remain. Default: True.
+   * - ``dc_min_dummy_obs``
+     - Minimum count for either value of a binary feature, not only literal 0/1. Use 1 to disable this filter; 0 restores the default of 10.
+
+See the :py:class:`API <mcf_main.ModifiedCausalForest>` for details.
+
+Example
+--------
+
+The following block illustrates a configuration; call ``train()`` and
+``predict()`` as in :doc:`/getting_started` to obtain estimates.
 
 .. code-block:: python
 
     from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
-    
+
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()
-    
+
     my_mcf = ModifiedCausalForest(
         var_y_name="outcome",
         var_d_name="treat",
@@ -38,4 +61,3 @@ Example
         dc_check_perfectcorr=False,
         dc_min_dummy_obs=100
     )
-      

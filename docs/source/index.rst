@@ -26,7 +26,7 @@ Choose your Python version before creating the environment. Depending on your op
 - **Joblib**: install Python 3.14 on any operating system.
 
 By default, **mcf** uses Joblib when Ray is unavailable and for smaller adjusted training
-samples on Windows (>250'000). Otherwise, it uses Ray. Further guidance is available in
+samples on Windows (<250'000). Otherwise, it uses Ray. Further guidance is available in
 :ref:`computational-speed`.
 
 For the installation you can proceed in different ways.

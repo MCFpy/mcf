@@ -158,9 +158,8 @@ The combined example in :doc:`../user_guide` illustrates this method. Train the 
 Estimate a policy tree under uncertainty
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The method ``estrisk_adjust`` allows accounting for estimation error in the policy scores. Generally, the idea implemented follows the paper *Policy Learning With Confidence* by Chernozhukov, Lee, Rosen, and Sun (arXiv, 2025). However, since several approximations are used in the algorithm, the method will not have the direct confidence-level-related interpretations suggested by these authors. To use ``estrisk_adjust``, it is necessary to provide the standard errors of the policy scores. ``estrisk_adjust`` adjusts the policy scores for estimation error by subtracting multiples of the standard errors from these scores. Once the scores are adjusted, standard procedures can be used to obtain optimal decisions. An example script demonstrating the use of this method, including the keywords for providing standard errors of the scores and their multiples, is provided in the User Guide.
-
-
+The method ``estrisk_adjust`` allows accounting for estimation error in the policy scores. Generally, the idea implemented follows the paper
+*Policy Learning With Confidence* by Chernozhukov, Lee, Rosen, and Sun `(arXiv, 2025) <https://arxiv.org/abs/2502.04501>`_.
 
 The following fragment assumes ``score_names`` and ``score_se_names`` identify
 matching treatment columns in your data. Use a fresh instance for each

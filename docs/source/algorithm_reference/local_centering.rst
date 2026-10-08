@@ -17,27 +17,27 @@ where:
 - :math:`\hat{y}_{-i}(X_i)` is an estimate of the conditional outcome expectation :math:`E[Y_i | X_i = x]`, given the realised :math:`x` of the feature vector :math:`X_i`, and computed without using the observation :math:`i`.
 
 Implementation
----------------
-Centered outcomes are obtained by subtracting the predicted from the observed outcomes.
-The local centering procedure in the **mcf** applies the method from the sklearn.ensemble module `RandomForestRegressor <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html#:~:text=A%20random%20forest%20regressor.,accuracy%20and%20control%20over%2Dfitting.>`_ to compute the predicted outcomes :math:`\hat{y}_{-i}(X_i)` for each observation :math:`i` non-parametrically. The predicted outcomes are computed in distinct subsets by cross-validation with the number of folds specified by ``lc_cs_cv_k``. 
+--------------
 
-By default ``lc_yes`` is set to ``True`` and runs the described local centering procedure. To overrule it, set ``lc_yes`` to ``False``. 
+Centered outcomes subtract fitted conditional means from observed outcomes.
+``lc_estimator='RandomForest'`` is the default; other estimators and automatic
+selection are available. ``lc_yes=True`` enables centering.
 
-As an alternative, two separate data sets can be generated for running the local centering procedure with ``lc_cs_cv``. In this case, the first data set is used for training a Random Forest, again by applying the RandomForestRegressor method. The the size of this first dataset can be defined in ``lc_cs_share``. The second dataset is used to compute the predicted and centered outcomes :math:`\hat{y}_{-i}(X_i)` and :math:`\tilde{Y}_i`. Furthermore, this second data set is divided into mutually exclusive data sets for feature selection (optionally), tree building, and effect estimation.
+With ``lc_cs_cv=True``, construction-sample predictions are cross-fitted using
+``lc_cs_cv_k`` folds. Filling and prediction observations use the fitted models.
+With ``lc_cs_cv=False``, ``lc_cs_share`` reserves a separate sample for model
+fitting that is excluded from subsequent forest estimation.
 
-Below, the table below provides a brief description of the relevant keyword arguments for local centering:
+Uncentered potential outcomes are expressed on the original outcome scale
+and can be used as policy scores. In the single-outcome example, their
+column names are available in
+``results['iate_names_dic'][0]['names_y_pot_uncenter']``.
+When efficiency improvements are enabled, the corresponding local
+centering models are used to restore the outcome levels.
 
-+-------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Argument          | Description                                                                                                                                                        |
-+-------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``lc_yes``        | Activates local centering. Default is True                                                                                                                         |
-+-------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``lc_cs_cv``      | Data for local centering & common support adjustment. True: Crossvalidation. False: Random sample not used for forest building. Default is True.                   |
-+-------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``lc_cs_share``   | Data for local centering & common support adjustment. Share of trainig data (if lc_cs_cv is False). Default is 0.25.                                               |
-+-------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``lc_cs_cv_k``    | Number of folds in cross-validation (if lc_cs_cv is True). This is dependent on the size of the training sample and ranges from 2 to 5.                            |
-+-------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+See the :py:class:`API <mcf_main.ModifiedCausalForest>` for estimator choices
+and resolved settings.
+
 
 Example
 ~~~~~~~
@@ -46,11 +46,11 @@ Example
 
    from mcf.example_data import example_data
    from mcf.mcf_main import ModifiedCausalForest
-   
+
    # Generate example data using the built-in function `example_data()`
    training_df, prediction_df, name_dict = example_data()
-   
-   
+
+
    my_mcf = ModifiedCausalForest(
        var_y_name="outcome",
        var_d_name="treat",
@@ -62,6 +62,6 @@ Example
        # Number of folds in cross-validation
        lc_cs_cv_k = 5
    )
-   
+
    my_mcf.train(training_df)
    results = my_mcf.predict(prediction_df)

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 from copy import deepcopy
 from pathlib import Path

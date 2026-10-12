@@ -1294,7 +1294,7 @@ class OptimalPolicyVersions:
     def allocate(self: 'OptimalPolicyVersions',
                  data_df: DataFrame,
                  data_title: str = '',
-                 ) -> dict[str, DataFrame | Path | None]:
+                 ) -> dict:
         """
         Allocate observations to treatment state.
 

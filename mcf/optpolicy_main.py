@@ -1102,10 +1102,10 @@ class OptimalPolicy:
     def winners_losers(self: 'OptimalPolicy',
                        data_df: DataFrame,
                        welfare_df: DataFrame, *,
-                       welfare_reference_df: None = None,
+                       welfare_reference_df=None,
                        outpath: str | Path | None = None,
                        title: str = '',
-                       ) -> dict[str, DataFrame | Path | None]:
+                       ) -> dict:
         """
         Compare the winners and loser.
 

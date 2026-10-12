@@ -1107,7 +1107,7 @@ class OptimalPolicy:
                        welfare_reference_df: Optional[DataFrame] = None,
                        outpath: str | Path | None = None,
                        title: str = '',
-                       ) -> dict[str, DataFrame | Path | None]:
+                       ) -> dict[str, Union[DataFrame, Path, None]]:
         """
         Compare the winners and loser.
 

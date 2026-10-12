@@ -1,3 +1,5 @@
+from typing import Optional
+
 from copy import deepcopy
 from pathlib import Path
 from time import time
@@ -1102,7 +1104,7 @@ class OptimalPolicy:
     def winners_losers(self: 'OptimalPolicy',
                        data_df: DataFrame,
                        welfare_df: DataFrame, *,
-                       welfare_reference_df: DataFrame | None = None,
+                       welfare_reference_df: Optional[DataFrame] = None,
                        outpath: str | Path | None = None,
                        title: str = '',
                        ) -> dict[str, DataFrame | Path | None]:

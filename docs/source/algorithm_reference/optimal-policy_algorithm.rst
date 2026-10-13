@@ -8,8 +8,8 @@ To address this, the mcf introduces the :py:class:`~optpolicy_main.OptimalPolicy
 
 To determine an optimal policy allocation, you can choose between three methods:
 
-- **Policy Tree**: This method bases on a tree-search algorithm, designed to construct an optimal policy tree.
-- **Best Policy Score**: This method conducts allocations by directly using the policy scores.
+- **Policy Tree**: Bases on a tree-search algorithm, designed to construct an optimal policy tree.
+- **Best Policy Score**: Conducts allocations by directly using the policy scores.
 - **Best Policy Score Classifier**: Learns to predict the treatment assignments
   obtained by the best-policy-score method from the decision variables.
   It can then assign treatments to new observations without requiring

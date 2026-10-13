@@ -7,7 +7,7 @@ def read(fname):
 setup(
   name = 'mcf',
   packages = ['mcf'],
-  version = '0.10.4',
+  version = '0.11.0',
   license='MIT',
   description = 'Modified Causal Forest in Python',
   author = 'mlechner',

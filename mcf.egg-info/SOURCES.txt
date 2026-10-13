@@ -70,6 +70,7 @@ mcf/optpolicy_print.py
 mcf/optpolicy_pt.py
 mcf/optpolicy_pt_add.py
 mcf/optpolicy_pt_eff.py
+mcf/optpolicy_tree_plot.py
 mcf/optpolicy_version.py
 mcf/reporting.py
 mcf/reporting_content.py

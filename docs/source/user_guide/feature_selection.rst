@@ -1,48 +1,63 @@
 Feature selection
-======================================
+=================
 
-The estimation quality of a random forest deteriorates with the number of irrelevant features, because the probability of picking a split based on an irrelevant feature increases. For this reason, it makes sense to remove such features prior to estimation. A bonus of feature selection is that the computational speed increases as a result of a smaller feature space.
+Removing irrelevant features can improve prediction and reduce computation.
+Set ``fs_yes`` to enable sequential feature selection. At each step, the
+procedure removes at most one eligible original feature, refits the auxiliary
+models and reassesses importance. It stops when none qualifies or at most two
+original features remain.
 
-The classes :py:class:`~mcf_main.ModifiedCausalForest` and :py:class:`~optpolicy_main.OptimalPolicy` provide you with the option to perform feature selection through the parameter ``fs_yes``. If set to True, feature selection is performed. Loosely speaking, the program estimates reduced forms for the treatment and the outcome using random forests and then drops features that have little power to predict the treatment **and** the outcome. 
+Modified Causal Forest
+----------------------
 
-Note that, an irrelevant feature is never dropped if
+Auxiliary forests predict the selected tree outcome and treatment. Importance is
+the loss in held-out prediction performance after permuting a feature. Regression
+uses R-squared; classification uses probability MSE by default.
 
-- the variable is required for the estimation of :math:`\textrm{GATE's}`, :math:`\textrm{BGATE's}` or :math:`\textrm{CBGATE's}`
-- the variable is specified in the parameters ``var_x_name_remain_ord`` or ``var_x_name_remain_unord`` of your :py:class:`~mcf_main.ModifiedCausalForest`
-- the correlation between two variables to be deleted is bigger than 0.5. In this case, one of the two variables is kept.
+``fs_rel_vi_threshold_y`` and ``fs_rel_vi_threshold_d`` control removal thresholds.
+The default ``fs_rel_vi_keep_if='y_or_d_relevant'`` keeps a feature relevant to
+either target, so both must be unimportant for removal. ``'y_and_d_relevant'``
+can remove a feature when either criterion is weak; ``'y_relevant'`` uses only
+the outcome criterion. ``fs_mse_for_classifier`` selects probability MSE;
+explicit ``None`` selects accuracy.
+
+Always-in, remain, grouping and BGATE-balancing variables are protected by **mcf**.
+Use ``var_x_name_remain_ord`` or ``var_x_name_remain_unord`` to protect required
+confounders. Predictive relevance is not a test of causal identification.
+
+Optimal Policy
+--------------
+
+Selection uses each policy-score difference relative to the first score. A
+feature qualifies for removal only when its importance is at or below
+``fs_rel_vi_threshold`` for every difference. Continuous targets use held-out
+R-squared; targets with few distinct values use classifier accuracy.
+
+Selection applies to tree and classifier learning. The best-score method
+ignores it; ``solvefair()`` and the versioned policy-tree path do not support it.
+The protected-variable rules of the **mcf** should not be assumed to apply to policy learning.
 
 Parameter overview
 ------------------
 
-The following table summarizes the parameters related to feature selection in the class :py:class:`~mcf_main.ModifiedCausalForest`:
+``fs_other_sample`` reserves observations for feature selection and excludes
+them from subsequent fitting. ``fs_other_sample_share`` controls the share.
+For policy learning, evaluate training allocations on the dataframe returned by
+``solve()``. The class-specific APIs describe thresholds and defaults:
+:py:class:`ModifiedCausalForest <mcf_main.ModifiedCausalForest>` and
+:py:class:`OptimalPolicy <optpolicy_main.OptimalPolicy>`.
 
-+---------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Parameter                 | Description                                                                                                                                                                                                                                                                                                                       |
-+===========================+===================================================================================================================================================================================================================================================================================================================================+
-| ``fs_yes``                | If True, feature selection is performed. Default: False.                                                                                                                                                                                                                                                                          |
-+---------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``fs_other_sample``       | If True, a random sample from the training data is used to perform feature selection. This sample will subsequently not be used to train the Modified Causal Forest. If False, the same data is used for feature selection and to estimate the Modified Causal Forest. Default: True. Only relevant if ``fs_yes`` is set to True. |
-+---------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``fs_other_sample_share`` | If ``fs_other_sample`` is set to True, this determines the sample share used for feature selection. Default: 0.33. Only relevant if ``fs_yes`` is set to True.                                                                                                                                                                    |
-+---------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``fs_rel_vi_keep_if``     | Defines how the two thresholds for the outcome regression and the propensity score are combined. Possible choices are:                                                                                                                                                                                                            |
-|                           | y_relevant, y_or_d_relevant (default), y_and_d_relevant.                                                                                                                                                                                                                                                                          |
-+---------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-
-
-Please consult the :py:class:`API <mcf_main.ModifiedCausalForest>` for more details.
-
-Example 
--------
+Example
+--------
 
 .. code-block:: python
 
     from mcf.example_data import example_data
     from mcf.mcf_main import ModifiedCausalForest
-    
+
     # Generate example data using the built-in function `example_data()`
     training_df, prediction_df, name_dict = example_data()
-    
+
     my_mcf = ModifiedCausalForest(
         var_y_name="outcome",
         var_d_name="treat",
@@ -51,6 +66,12 @@ Example
         fs_yes=True,
         fs_other_sample=True,
         fs_other_sample_share=0.1,
-        fs_rel_vi_keep_if=None
+        fs_rel_vi_keep_if='y_or_d_relevant'
     )
-       
+
+
+    my_mcf.train(training_df)
+    print(my_mcf.var_cfg.x_name_ord)
+    print(my_mcf.var_cfg.x_name_unord)
+
+The output records the sequential selection and retained features.

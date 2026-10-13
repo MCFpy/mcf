@@ -10,15 +10,14 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.10.0
+Version: 0.11.0
 
-This is an example to show how IV estimation can be implemented relying on
-defaults. Note that usually in applications it is very likely to be appropriate
-to deviate from some of the default specifications.
+Estimate IV effects with a binary treatment and a binary instrument.
+Compare local aggregation of individual effects with global LATE estimation.
+Other settings use API defaults, except full-weight prediction required for IV.
 
 """
 from pathlib import Path
-import warnings
 
 from mcf.example_data import example_data
 from mcf.mcf_main import ModifiedCausalForest
@@ -33,7 +32,7 @@ training_df, prediction_df, name_dict = example_data(no_treatments=2,
                                                      obs_y_d_x_iate=OBS_TRAINING,
                                                      obs_x_iate=OBS_PREDICTION,
                                                      strength_iv=10,
-                                                     no_effect=True,                                                     
+                                                     no_effect=True,
                                                      )
 # ------------------ Parameters of the ModifiedCausalForest -------------------
 APPLIC_PATH = Path.cwd() / 'example/output'
@@ -41,7 +40,7 @@ APPLIC_PATH = Path.cwd() / 'example/output'
 CF_BOOT = None
 
 VAR_D_NAME = name_dict['d_name']          # Name of treatment variable
-#   Note: Currently, treatment variables are restricted to be binary (IV only)
+#   IV requires two treatment values; training recodes the main treatment internally.
 
 VAR_Y_NAME = name_dict['y_name']          # Name of outcome variable
 
@@ -50,7 +49,7 @@ VAR_X_NAME_ORD = name_dict['x_name_ord']
 VAR_X_NAME_UNORD = name_dict['x_name_unord']
 
 VAR_IV_NAME = name_dict['inst_bin_name']  # Name of instrumental variable
-#   Note: Currently, instrumental variables are restricted to be binary
+#   Instrument values must be exactly 0 or 1; other encodings are rejected.
 
 VAR_Z_NAME_CONT = name_dict['x_name_ord'][:2]
 
@@ -62,24 +61,15 @@ VAR_Z_NAME_UNORD = name_dict['x_name_unord'][:2]
 
 
 P_IV_AGGREGATION_METHOD = None
-#    Defines method used to obtain aggregated effects.
-#    Possible values are local', 'global', ('local', 'global',)
-#    'local':        LIATEs will be computed and aggregated to obtain
-#                    LGATEs, LBGATEs, LATEs, etc..
-#                    This estimator is "internally consistent".
-#    'global':       LATEs (only) will be directly computed as
-#                    the ratio of reduced form and first stage predictions.
-#                    This estimator is not necessarily "internally consistent".
-#     For the differences in assumptions and properties of the two approaches
-#     see Lechner and Mareckova (2025).
-#     Default is ('local', 'global',).
+# 'local': aggregate LIATEs into LATEs and requested group effects.
+# 'global': compute LATE as the ratio of aggregate reduced-form/first-stage effects.
+# Requested LIATEs use local first-stage scaling with either selection.
+# None selects both. For one method, use 'local' or 'global' as a string;
+# single-element lists/tuples are not accepted. Group effects require 'local'.
 
 # -----------------------------------------------------------------------------
-if not APPLIC_PATH.exists():
-    APPLIC_PATH.mkdir(parents=True)
+APPLIC_PATH.mkdir(parents=True, exist_ok=True)
 
-# Modules may send many irrelevant warnings: Globally ignore them
-warnings.filterwarnings('ignore')
 # -----------------------------------------------------------------------------
 mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
                              var_d_name=VAR_D_NAME,
@@ -94,16 +84,20 @@ mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
                              p_iv_aggregation_method=P_IV_AGGREGATION_METHOD,
                              _int_low_memory_predict=False,
                              )
+# IV requires sparse forest weights (the default) and low-memory prediction disabled.
 mymcf.train_iv(training_df)
+# Unselected aggregation methods return an empty dictionary.
 results_global, results_local = mymcf.predict_iv(prediction_df)
 
+# Pass one result dictionary at a time to analyse().
 if results_global:
     mymcf.analyse(results_global)
 
 if results_local:
     mymcf.analyse(results_local)
 
-my_report = McfOptPolReport(mcf=mymcf)
+my_report = McfOptPolReport(mcf=mymcf,
+                             outputpath=(results_global or results_local)['path_output'])
 
 my_report.report()
 

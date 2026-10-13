@@ -157,7 +157,7 @@ def find_no_of_workers(maxworkers: int,
     return workers
 
 
-def no_of_boot_splits_fct(size_of_object_mb: int | float, workers: int) -> int:
+def no_of_boot_splits_fct(size_of_object_mb: int | float, workers: int) -> tuple[int, str]:
     """
     Compute size of chunks for MP.
 
@@ -188,11 +188,10 @@ def no_of_boot_splits_fct(size_of_object_mb: int | float, workers: int) -> int:
     txt = ('\nAutomatic determination of tree batches'
            f'\nSize of object:   {round(size_of_object_mb, 2):6} MB '
            f'\nNumber of workers {workers:2} No of splits: {no_of_splits:2}'
-           '\nSize of chunk:  {round(chunck_size_mb, 2):6} MB '
+           f'\nSize of chunk:  {round(chunck_size_mb, 2):6} MB '
            f'\nRAM total: {total:6} MB,  used: {used:6} MB, '
            f'available: {available:6} MB, free: {free:6} MB'
            )
-
     return no_of_splits, txt
 
 

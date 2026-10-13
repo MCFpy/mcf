@@ -10,14 +10,14 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.10.0
+Version: 0.11.0
 
-This is an example to show how a minimal specification of the mcf can be
-implemented that uses the same data from training and prediction.
+Train an MCF and predict for its retained outcome-filling sample.
+These observations come from the training data; this is not an independent
+test sample or prediction for every original training row.
 
 """
 from pathlib import Path
-import warnings
 
 from mcf.example_data import example_data
 from mcf.mcf_main import ModifiedCausalForest
@@ -37,13 +37,11 @@ VAR_D_NAME = 'treat'   # Name of treatment variable
 VAR_Y_NAME = 'outcome'         # Name of outcome variable
 VAR_X_NAME_ORD = ('x_cont0',)
 VAR_X_NAME_UNORD = ('x_unord0',)
-# Using VAR_X_NAME_UNORD or VAR_X_NAME_ORD only is sufficient
+# At least one feature list is required. Binary features belong in VAR_X_NAME_ORD;
+# unordered features need at least three distinct training categories.
 # -----------------------------------------------------------------------------
-if not Path.exists(APPLIC_PATH):
-    APPLIC_PATH.mkdir(parents=True)
+APPLIC_PATH.mkdir(parents=True, exist_ok=True)
 
-# Modules may send many irrelevant warnings: Globally ignore them
-warnings.filterwarnings('ignore')
 # -----------------------------------------------------------------------------
 mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
                              var_d_name=VAR_D_NAME,
@@ -53,11 +51,14 @@ mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
                              )
 results_train = mymcf.train(training_df)
 
+# train() returns the processed construction and filling samples separately.
+# Use the filling sample, after preparation and common-support trimming.
 results = mymcf.predict(results_train['fill_y_df'])
 
-results_with_cluster_id_df = mymcf.analyse(results)
+# analyse() returns a dictionary with cluster labels under the default settings.
+results_with_clusters = mymcf.analyse(results)
 
-my_report = McfOptPolReport(mcf=mymcf, outputpath=APPLIC_PATH)
+my_report = McfOptPolReport(mcf=mymcf, outputpath=results['path_output'])
 my_report.report()
 
 print('End of computations.'

@@ -12,6 +12,7 @@ from itertools import combinations
 from math import log10, isnan
 from os import listdir
 from pathlib import Path
+from textwrap import fill
 from typing import Any, TYPE_CHECKING
 import warnings
 
@@ -41,13 +42,15 @@ def make_gate_figures_discr(titel: str,
                             z_type: int, *,
                             effects: NDArray[Any],
                             stderr: NDArray[Any],
+                            effect_label: str,
+                            reference_label: str,
                             int_cfg: 'IntCfg',
                             p_cfg: 'PCfg',
                             ate: FloatScalar = 0,
                             ate_se: FloatScalar | None = None,
                             gate_type: str = 'GATE',
                             z_smooth: bool = False,
-                            gatet_yes: bool = False,
+                            display_title: str | None = None,
                             x_values_unord_org: dict | None = None,
                             ) -> Path:
     """Generate the figures for GATE results (discrete treatments).
@@ -74,45 +77,12 @@ def make_gate_figures_discr(titel: str,
     titel_f = titel.replace(' ', '')
     titel_f = titel_f.replace('-', 'M')
     titel_f = titel_f.replace('.', '')
-    label_m, gate_str, ate_label = '', '', ''
 
     file_name_jpeg, file_name_pdf, file_name_csv = gate_fig_file_helper(p_cfg, gate_type, titel_f)
 
-    if ate_se is None:
-        gate_str_y = 'Effect - average'
-        match gate_type:
-            case 'GATE':
-                gate_str = 'GATE-ATE'
-                label_m = 'GATET-ATET' if gatet_yes else 'GATE-ATE'
-            case 'CBGATE':
-                gate_str = 'CBGATE-avg.(CBGATE)'
-                label_m = 'CBGATE-avg.(CBGATE)'
-            case 'BGATE':
-                gate_str = 'BGATE-avg.(BGATE)'
-                label_m = 'BGATE-avg.(BGATE)'
-            case _:
-                raise ValueError(f'unknown gate_type={gate_type!r}')
-        label_y = 'Effect - average'
-        ate_label = '_nolegend_'
-    else:
-        gate_str_y = 'Effect'
-        match gate_type:
-            case 'GATE':
-                label_m = 'GATET' if gatet_yes else 'GATE'
-                ate_label = 'ATE'
-                gate_str = 'GATE'
-            case 'CBGATE':
-                label_m = 'CBGATE'
-                ate_label = 'avg.(CBGATE)'
-                gate_str = 'CBGATE'
-            case 'BGATE':
-                label_m = 'BGATE'
-                ate_label = 'avg.(BGATE)'
-                gate_str = 'BGATE'
-            case _:
-                raise ValueError(f'unknown gate_type={gate_type!r}')
-        label_y = 'Effect'
-
+    label_m = gate_str = effect_label
+    ate_label = reference_label
+    gate_str_y = label_y = 'Effect - average' if ate_se is None else 'Effect'
     ate *= np.ones((len(z_values), 1))
     if isinstance(z_type, (list, tuple, np.ndarray)):
         z_type = z_type[0]
@@ -120,36 +90,37 @@ def make_gate_figures_discr(titel: str,
     upper, lower = effects + stderr * cint, effects - stderr * cint
     if ate_se is not None:
         ate_upper, ate_lower = ate + ate_se * cint, ate - ate_se * cint
-    label_ci = f'{p_cfg.ci_level:2.0%}-CI'
+    ci_level = f'{p_cfg.ci_level:.0%}'
+    label_ci_effect = f'{label_m}: {ci_level} pointwise CI'
+    label_ci_reference = f'{ate_label}: {ci_level} CI'
     file_name_f_jpeg = None
     if (z_type == 0) and (len(z_values) > int_cfg.no_filled_plot):
         if z_smooth:
             file_name_f_jpeg, file_name_f_pdf, _ = gate_fig_file_helper(p_cfg, gate_type,
-                                                                        titel_f + 'fill'
+                                                                        titel_f + 'fill',
                                                                         )
             figs, axs = plt.subplots()
             axs.plot(z_values, effects, label=label_m, color='b')
-            axs.fill_between(z_values, upper, lower, alpha=0.3, color='b', label=label_ci)
+            axs.fill_between(z_values, upper, lower, alpha=0.3, color='b', label=label_ci_effect)
             line_ate = '-r'
             if ate_se is not None:
                 axs.fill_between(z_values, ate_upper.reshape(-1), ate_lower.reshape(-1),
-                                 alpha=0.3, color='r', label=label_ci
+                                 alpha=0.3, color='r', label=label_ci_reference,
                                  )
-                label_ate = 'ATE'
+                label_ate = ate_label
             else:
                 label_ate = '_nolegend_'
             axs.plot(z_values, ate, line_ate, label=label_ate)
             axs.set_ylabel(label_y)
-            axs.legend(loc=int_cfg.legend_loc, shadow=True,
-                       fontsize=int_cfg.fontsize)
-            titel_tmp = titel[:-4] + ' ' + titel[-4:]
-            titel_tmp = titel_tmp.replace('vs', ' vs ')
-            axs.set_title(titel_tmp)
+            axs.legend(loc=int_cfg.legend_loc, shadow=True, fontsize=int_cfg.fontsize)
+            titel_tmp = titel.replace('vs', ' vs ') if display_title is None else display_title
+            axs.set_title(titel_tmp, fontsize=int_cfg.fontsize)
             axs.set_xlabel(z_name_)
+            figs.tight_layout()
             mcf_sys.delete_file_if_exists(file_name_f_jpeg)
             mcf_sys.delete_file_if_exists(file_name_f_pdf)
-            figs.savefig(file_name_f_jpeg, dpi=int_cfg.dpi)
-            figs.savefig(file_name_f_pdf, dpi=int_cfg.dpi)
+            figs.savefig(file_name_f_jpeg, dpi=int_cfg.dpi, bbox_inches='tight')
+            figs.savefig(file_name_f_pdf, dpi=int_cfg.dpi, bbox_inches='tight')
             if int_cfg.show_plots:
                 plt.show()
             plt.close()
@@ -164,24 +135,21 @@ def make_gate_figures_discr(titel: str,
         axe.plot(connect_x, connect_y, 'b-', linewidth=0.7)
     axe.plot(z_values, effects, e_line + 'b', label=gate_str)
     axe.set_ylabel(gate_str_y)
-    label_u = f'Upper {p_cfg.ci_level:2.0%}-CI'
-    label_l = f'Lower {p_cfg.ci_level:2.0%}-CI'
-    axe.plot(z_values, upper, u_line + 'b', label=label_u)
-    axe.plot(z_values, lower, l_line + 'b', label=label_l)
+    axe.plot(z_values, upper, u_line + 'b', label=label_ci_effect)
+    axe.plot(z_values, lower, l_line + 'b', label='_nolegend_')
     axe.plot(z_values, ate, '-' + 'r', label=ate_label)
     if ate_se is not None:
-        axe.plot(z_values, ate_upper, '--' + 'r', label=label_u)
-        axe.plot(z_values, ate_lower, '--' + 'r', label=label_l)
-    axe.legend(loc=int_cfg.legend_loc, shadow=True,
-               fontsize=int_cfg.fontsize)
-    titel_tmp = titel[:-4] + ' ' + titel[-4:]
-    titel_tmp = titel_tmp.replace('vs', ' vs ')
-    axe.set_title(titel_tmp)
+        axe.plot(z_values, ate_upper, '--' + 'r', label=label_ci_reference)
+        axe.plot(z_values, ate_lower, '--' + 'r', label='_nolegend_')
+    axe.legend(loc=int_cfg.legend_loc, shadow=True, fontsize=int_cfg.fontsize)
+    titel_tmp = titel.replace('vs', ' vs ') if display_title is None else display_title
+    axe.set_title(titel_tmp, fontsize=int_cfg.fontsize)
     axe.set_xlabel(z_name_)
+    fig.tight_layout()
     mcf_sys.delete_file_if_exists(file_name_jpeg)
     mcf_sys.delete_file_if_exists(file_name_pdf)
-    fig.savefig(file_name_jpeg, dpi=int_cfg.dpi)
-    fig.savefig(file_name_pdf, dpi=int_cfg.dpi)
+    fig.savefig(file_name_jpeg, dpi=int_cfg.dpi, bbox_inches='tight')
+    fig.savefig(file_name_pdf, dpi=int_cfg.dpi, bbox_inches='tight')
     if int_cfg.show_plots:
         plt.show()
     else:
@@ -252,7 +220,7 @@ def make_gate_figures_cont(titel: str,
                           'CBGATE': 'avg(CBGATE)',
                           'BGATE': 'avg(BGATE)'
                           }
-            gate_str = gt if ate is None else f'{gt}-{suffix_map[gt]}'
+            gate_str = gt if ate is not None else f'{gt}-{suffix_map[gt]}'
         case _:
             file_name_jpeg = file_name_pdf = gate_str = None
 
@@ -570,23 +538,22 @@ def tables(params: dict) -> None:
         d_f.to_csv(directory_table)
 
 
-def gate_effects_print(
-        mcf_: 'ModifiedCausalForest', *,
-        effect_dic: dict,
-        effect_m_ate_dic: dict,
-        gate_est_dic: dict,
-        ate: NDArray[Any],
-        ate_se: NDArray[Any] | None,
-        gate_type: str = 'GATE',
-        iv: bool = False,
-        special_txt: str | None = None
-        ) -> tuple[list[FloatScalar],
-                   list[FloatScalar | None], list[FloatScalar | None],
-                   list[FloatScalar | None],
-                   list[Path]
-                   ]:
+def gate_effects_print(mcf_: 'ModifiedCausalForest', *,
+                       effect_dic: dict,
+                       effect_m_ate_dic: dict,
+                       gate_est_dic: dict,
+                       ate: NDArray[Any],
+                       ate_se: NDArray[Any] | None,
+                       gate_type: str = 'GATE',
+                       iv: bool = False,
+                       special_txt: str | None = None
+                       ) -> tuple[list[FloatScalar],
+                                  list[FloatScalar | None], list[FloatScalar | None],
+                                  list[FloatScalar | None],
+                                  list[Path]
+                                  ]:
     """Compute effects and print them."""
-    p_cfg, int_cfg, gen_cfg = mcf_.p_cfg, mcf_.int_cfg, mcf_.gen_cfg
+    int_cfg, gen_cfg = mcf_.int_cfg, mcf_.gen_cfg
     ate_type = 'LATE' if iv else 'ATE'
     var_x_type = copy(mcf_.var_x_type)
     y_pot_all, y_pot_var_all = effect_dic['y_pot'], effect_dic['y_pot_var']
@@ -606,6 +573,13 @@ def gate_effects_print(
     continuous = gate_est_dic['continuous']
     d_values_dr = gate_est_dic['d_values_dr']
     treat_comp_label = gate_est_dic['treat_comp_label']
+    treat_comp_display: list[str] = []
+    if gen_cfg.with_output and not continuous:
+        labels_by_code = mcf_ps.treatment_label_map(mcf_)
+        for comparison in treat_comp_label:
+            left, right = comparison.split('vs')
+            treat_comp_display.append(f'{labels_by_code[left]} vs {labels_by_code[right]}')
+
     no_of_out, var_cfg = gate_est_dic['no_of_out'], gate_est_dic['var_cfg']
     var_x_values, p_cfg = gate_est_dic['var_x_values'], gate_est_dic['p_cfg']
     ref_pop_lab = gate_est_dic['ref_pop_lab']
@@ -635,6 +609,8 @@ def gate_effects_print(
             y_pot_var = deepcopy(y_pot_var_all[z_name_j])
             txt_weight = txt_all[z_name_j] if gate_type == 'GATE' else ''
             txt = ''
+            if gen_cfg.gate_eff and z_name_j == 0:
+                txt += mcf_ps.print_efficiency_se_info()
             if m_ate_yes:
                 y_pot_m_ate = deepcopy(y_pot_m_ate_all[z_name_j])
                 y_pot_m_ate_var = deepcopy(y_pot_m_ate_var_all[z_name_j])
@@ -693,14 +669,14 @@ def gate_effects_print(
                             z_values_org = None
                         txt += mcf_ps.print_effect_z(
                             ret_gate, ret_gate_mate, z_values, gate_type, ate_type,
-                            iv=iv, print_output=False,
+                            iv=iv,
                             gates_minus_previous=p_cfg.gates_minus_previous,
                             z_values_org=z_values_org,
                             gen_tv_cfg_yes=mcf_.gen_tv_cfg.yes,
                             )
                         txt += '\n' + mcf_ps.print_se_info(p_cfg.cluster_std, p_cfg.se_boot_gate)
                         if not p_cfg.gates_minus_previous:
-                            txt += mcf_ps.print_minus_ate_info(gen_cfg.weighted, print_it=False)
+                            txt += mcf_ps.print_minus_ate_info(gen_cfg.weighted)
             if gen_cfg.with_output:
                 for a_idx, a_lab in enumerate(ref_pop_lab):
                     gatet_yes = not a_idx == 0
@@ -723,13 +699,35 @@ def gate_effects_print(
                                 z_values_f = var_x_values[z_name].copy()
 
                                 if not continuous and effects is not None:
+                                    plot_effect = ('GATET' if gatet_yes and gate_type == 'GATE'
+                                                   else gate_type
+                                                   )
+                                    plot_reference = ('ATET' if gatet_yes and gate_type == 'GATE'
+                                                      else 'ATE'
+                                                      )
+                                    plot_effect = iv_lab + plot_effect
+                                    plot_reference = iv_lab + plot_reference
+                                    if e_idx == 1:
+                                        if gate_type != 'GATE':
+                                            plot_reference = f'avg.({plot_effect})'
+                                        plot_effect = f'{plot_effect}-{plot_reference}'
+                                        plot_reference = '_nolegend_'
+                                    ref_display = 'All' if a_idx == 0 else f'T{a_lab}'
+                                    title_parts = (f'{plot_effect}: {treat_comp_display[t_idx]}',
+                                                   f'Outcome: {o_lab}; grouped by: {z_name_}',
+                                                   f'Reference population: {ref_display}',
+                                                   )
+                                    display_title = '\n'.join(fill(part, width=70)
+                                                             for part in title_parts)
                                     figure_disc = make_gate_figures_discr(
                                         e_lab + ' ' + z_name_ + ' ' + a_lab + ' ' + o_lab + ' '
                                         + t_lab,
                                         z_name, z_values_f, z_type,
                                         effects=effects, stderr=ste, int_cfg=int_cfg, p_cfg=p_cfg,
+                                        effect_label=plot_effect, reference_label=plot_reference,
+                                        display_title=display_title,
                                         ate=ate_f, ate_se=ate_f_se, gate_type=gate_type,
-                                        z_smooth=z_smooth, gatet_yes=gatet_yes,
+                                        z_smooth=z_smooth,
                                         x_values_unord_org=gate_est_dic['var_x_values_unord_org']
                                         )
                                 if continuous and t_idx == len(treat_comp_label)-1:
@@ -747,8 +745,8 @@ def gate_effects_print(
                                         x_values_unord_org=gate_est_dic['var_x_values_unord_org'],
                                         )
                                 figure_file = figure_disc if figure_cont is None else figure_cont
-                                d_values = d_values_dr if continuous else gen_cfg.d_values
-                                vs0 = continuous or int(t_lab[-1]) == int(d_values[0])
+                                reference_label = str(d_values_dr[0])
+                                vs0 = continuous or t_lab.endswith('vs' + reference_label)
                                 if a_idx == 0 and vs0 and ((m_ate_yes and e_idx == 1)
                                                            or (not m_ate_yes and e_idx == 0)
                                                            ):
@@ -766,8 +764,7 @@ def gate_effects_print(
                 else:
                     mcf_ps.print_mcf(gen_cfg, txt_weight + txt, summary=False)
                     mcf_ps.print_mcf(gen_cfg, txt, summary=True, non_summary=False)
-            if gen_cfg.with_output:
-                txt += '-' * 100
+
     finally:
         warnings.filters = old_filters
     # warnings.resetwarnings()

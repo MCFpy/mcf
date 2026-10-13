@@ -10,12 +10,11 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.10.0
+Version: 0.11.0
 
-This is an example to show how the mcf with BGATE estimation can be implemented
-relying on defaults for parameters not related to the BGATE. Note that usually
-in application it is very likely to be appropriate to deviate from some of the
-default specifications.
+Compare GATEs, BGATEs and CBGATEs along x_cont1. The first BGATE balances x_cont2;
+the second also balances x_cont0, reusing the same trained forest.
+Other estimation settings use their defaults; adapt them to the application.
 
 Related paper: Nora Bearth & Michael Lechner (2025): Causal Machine Learning
                for Moderation Effects, Journal of Business & Economic Statistics
@@ -23,7 +22,6 @@ Related paper: Nora Bearth & Michael Lechner (2025): Causal Machine Learning
 
 """
 from pathlib import Path
-import warnings
 
 from mcf.example_data import example_data
 from mcf.mcf_general_sys import save_load
@@ -32,34 +30,29 @@ from mcf.reporting import McfOptPolReport
 
 
 # ------------------ NOT parameters of the ModifiedCausalForest ---------------
-#  Define data to be used in this example
+# Base directory for estimation output and the saved trained forest.
+# Each PDF is saved in its prediction run's output directory.
 APPLIC_PATH = Path.cwd() / 'example/output'
-DATPATH = APPLIC_PATH / 'data'
-TRAINDATA = 'data_y_d_x_1000.csv'
-#  Training data must contain outcome, treatment and features.
-
-PREDDATA = 'data_x_1000.csv'
-#  Training data must contain features. Treated effects on the treated
-#  additionally require treatment information.
 
 # ------------------ Parameters of the ModifiedCausalForest -------------------
-
-VAR_D_NAME = 'treat'            # Name of treatment variable
-VAR_Y_NAME = 'outcome'          # Name of outcome variable
+VAR_D_NAME = 'treat'            # Treatment variable
+VAR_Y_NAME = 'outcome'          # Outcome variable
 VAR_X_NAME_ORD = ('x_cont0', 'x_cont1', 'x_cont2')
-VAR_Z_NAME = 'x_cont1'
-VAR_X_NAME_BALANCE_BGATE_1 = 'x_cont2'
-VAR_X_NAME_BALANCE_BGATE_2 = ('x_cont2', 'x_cont0')  # Alternative balancing variables
-# -----------------------------------------------------------------------------
-if not APPLIC_PATH.exists():
-    APPLIC_PATH.mkdir(parents=True)
-# ---------------------- Generate artificial data ------------------------------
 
+# Continuous heterogeneity variable: discretized effects plus smoothed estimates by default.
+VAR_Z_NAME = 'x_cont1'
+
+# BGATEs keep the distribution of these features constant across values of VAR_Z_NAME.
+VAR_X_NAME_BALANCE_BGATE_1 = 'x_cont2'
+VAR_X_NAME_BALANCE_BGATE_2 = ('x_cont2', 'x_cont0')
+# CBGATEs balance all other forest features, here x_cont0 and x_cont2, in both runs.
+
+APPLIC_PATH.mkdir(parents=True, exist_ok=True)
+
+# ---------------------- Generate artificial data ------------------------------
 training_df, prediction_df, name_dict = example_data()
 
-# Modules may sent many irrelevant warnings: Globally ignore them
-warnings.filterwarnings('ignore')
-# -----------------------------------------------------------------------------
+# ---------------------- Train and save the forest -----------------------------
 mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
                              var_d_name=VAR_D_NAME,
                              var_y_name=VAR_Y_NAME,
@@ -68,27 +61,32 @@ mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
                              p_cbgate=True, p_bgate=True,
                              var_x_name_balance_bgate=VAR_X_NAME_BALANCE_BGATE_1,
                              )
-mymcf.train(training_df)  # Returns not used here
+mymcf.train(training_df)  # The returned training dictionary is not needed here.
 
-# Save instance before predict for later use with different conditioning set
-# (see the MCF_ALL_PARAMETERS example for an alternative way to do this).
+# new_keywords is accepted only before the first predict() call on a trained instance.
+# Save that state now and reload it for the alternative specification below.
+# The mcf_all_parameters example uses deepcopy() instead of saving to disk.
 save_load(APPLIC_PATH / 'mymcf.pickle', object_to_save=mymcf, save=True, output=True)
 
+# ---------------------- First balancing specification -------------------------
 results = mymcf.predict(prediction_df)
-results_with_cluster_id_df = mymcf.analyse(results)
-my_report = McfOptPolReport(mcf=mymcf)
+# With default k-means enabled, analyse() returns a results dictionary with cluster labels
+# in 'iate_data_df'. With k-means disabled, it returns None while other analyses still run.
+results_with_clusters = mymcf.analyse(results)
+my_report = McfOptPolReport(mcf=mymcf, outputpath=results['path_output'])
 my_report.report()
 
-# Second round of BGATE estimation with same forests but a different BGATE
-# conditioning set
-
-# Load the trained instance
+# ---------------------- Second balancing specification ------------------------
+# Reload the trained state before its first prediction; no retraining is needed.
+# Supply updated names as a list/tuple, even for one variable. They must be among the
+# retained training features; screening or feature selection may remove unprotected features.
+# This update changes BGATE balancing only; CBGATEs still balance all other features.
 mymcf2 = save_load(APPLIC_PATH / 'mymcf.pickle', save=False, output=True)
 results2 = mymcf2.predict(prediction_df,
                           new_keywords={'var_x_name_balance_bgate': VAR_X_NAME_BALANCE_BGATE_2}
                           )
-results2_with_cluster_id_df = mymcf2.analyse(results2)
-my_report2 = McfOptPolReport(mcf=mymcf2)
+results2_with_clusters = mymcf2.analyse(results2)
+my_report2 = McfOptPolReport(mcf=mymcf2, outputpath=results2['path_output'])
 my_report2.report()
 
 

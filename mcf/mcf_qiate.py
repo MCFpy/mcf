@@ -12,6 +12,7 @@ Contains additional functions needed for computing the QIATE.
 from itertools import compress
 from os import remove
 from pathlib import Path
+from textwrap import fill
 from typing import Any, TYPE_CHECKING
 import warnings
 
@@ -20,10 +21,15 @@ from numpy.typing import NDArray
 import matplotlib.pyplot as plt
 try:
     import ray
-except ImportError:
+except (ImportError, OSError):
     ray = None
 import pandas as pd
 from scipy.stats import norm
+from scipy.interpolate import PchipInterpolator
+try:
+    from tqdm.auto import tqdm
+except ImportError:
+    tqdm = None
 
 from mcf import mcf_ate
 from mcf import mcf_estimation as mcf_est
@@ -32,7 +38,9 @@ from mcf import mcf_print_stats as mcf_ps
 from mcf import mcfoptp_parallel_backend_ray_classical as mcf_ray
 from mcf.mcf_estimation_generic import bandwidth_nw_rule_of_thumb
 from mcf.mcf_estimation_generic import kernel_proc
-from mcf.mcf_general import bound_norm_weights, bound_norm_weights_not_one, progress_clean_memory
+from mcf.mcf_general import (bound_norm_weights, bound_norm_weights_not_one, progress_clean_memory,
+                             tqdm_setup,
+                             )
 from mcf.mcf_weight import sparse_row_indices_weights
 from mcf.mcfoptp_parallel_backend_forest_executor import (forest_executor_with_shared,
                                                           map_task_batches,
@@ -62,6 +70,8 @@ def qiate_est(mcf_: 'ModifiedCausalForest',
     gen_cfg, int_cfg = mcf_.gen_cfg, mcf_.int_cfg
     p_cfg, var_cfg, p_ba_cfg = mcf_.p_cfg, mcf_.var_cfg, mcf_.p_ba_cfg
     zero_tol = int_cfg.zero_tol
+    output_yes = gen_cfg.with_output and gen_cfg.verbose and with_output
+    use_tqdm, output_clean = tqdm_setup(tqdm, output_yes)
 
     if gen_cfg.with_output and gen_cfg.verbose and with_output:
         print('\nComputing QIATE')
@@ -100,10 +110,10 @@ def qiate_est(mcf_: 'ModifiedCausalForest',
      ) = initialise_pot_qiate(no_of_q_values, len(iate_q_key_dic), no_of_out)
     # 3rd dimension of y_pot contains both POs of QIATE for respective
     # comparisons
-    w_qiate, w_qiate_unc, w_censored, w_median = initialise_weights_qiate(no_of_q_values,
-                                                                          len(iate_q_key_dic),
-                                                                          n_y, no_of_out
-                                                                          )
+    w_qiate, w_qiate_unc, w_censored, _ = initialise_weights_qiate(no_of_q_values,
+                                                                   len(iate_q_key_dic), n_y,
+                                                                   no_of_out,
+                                                                   )
     # Optimisations concerning the use of the weights matrix and ray.
     files_to_delete, _, weights_all, maxworkers, txt = optimize_initialize_mp_qiate(weights_all,
                                                                                     gen_cfg,
@@ -136,7 +146,7 @@ def qiate_est(mcf_: 'ModifiedCausalForest',
         qiate_weights_q = parameters_diff = None
     # 1st step-(ii): Compute weights of quantile difference
     if p_cfg.qiate_m_mqiate:
-        _, _, _, _, _, _, w_median, _, _, _ = qiate_q(0.5, 0, data, weights_all,
+        _, _, _, _, _, _, _, w_median, _, _ = qiate_q(0.5, 0, data, weights_all,
                                                       iate_q=iate_q,
                                                       qiate_weights_q=qiate_weights_q,
                                                       pot_q=None, dics=dics,
@@ -161,7 +171,7 @@ def qiate_est(mcf_: 'ModifiedCausalForest',
         if maxworkers == 1:
             for q_idx, q_value in enumerate(q_values):
                 qiate_weights_q = w_qiate[q_idx], w_qiate_unc[q_idx], w_censored[q_idx], None, None
-                (_, _, _, _, _, _, w_mopp_list[q_idx], _, _, _
+                (_, _, _, _, _, _, _, w_mopp_list[q_idx], _, _
                  ) = qiate_q(q_value, q_idx, data, weights_all,
                              **kw_args,
                              qiate_weights_q=qiate_weights_q,
@@ -185,21 +195,29 @@ def qiate_est(mcf_: 'ModifiedCausalForest',
                 w_qiate0 = w_qiate.copy()
                 w_qiate_unc0 = w_qiate_unc.copy()
                 w_censored0 = w_censored.copy()
-                while len(still_running) > 0:
-                    finished, still_running = ray.wait(still_running, num_returns=1)
-                    finished_res = ray.get(finished)
-                    for results_fut_idx in finished_res:
-                        q_idx = results_fut_idx[8]
-                        w_qiate0, w_qiate_unc0, w_censored0 = assign_w_q(w_qiate0, w_qiate_unc0,
-                                                                         w_censored0,
-                                                                         results_fut_idx,
-                                                                         q_idx
-                                                                         )
-                        w_mopp_list[q_idx] = w_qiate0[q_idx].copy()
-                        progress_clean_memory(output=gen_cfg.with_output and gen_cfg.verbose,
-                                              current_idx=idx, total=no_of_q_values,
-                                              )
-                        idx += 1
+                pbar = tqdm(total=no_of_q_values,
+                            desc='QIATE weights') if use_tqdm else None
+                try:
+                    while len(still_running) > 0:
+                        finished, still_running = ray.wait(still_running, num_returns=1)
+                        finished_res = ray.get(finished)
+                        for results_fut_idx in finished_res:
+                            q_idx = results_fut_idx[8]
+                            w_qiate0, w_qiate_unc0, w_censored0 = assign_w_q(
+                                w_qiate0, w_qiate_unc0, w_censored0,
+                                results_fut_idx, q_idx,
+                                )
+                            w_mopp_list[q_idx] = w_qiate_unc0[q_idx].copy()
+                            if pbar is not None:
+                                pbar.update()
+                            progress_clean_memory(output=output_clean,
+                                                  current_idx=idx,
+                                                  total=no_of_q_values,
+                                                  )
+                            idx += 1
+                finally:
+                    if pbar is not None:
+                        pbar.close()
             else:
                 ray_err_txt = 'Ray does not start in QIATE estimation.'
                 fail_txt = 'Failed to make executor in QIATE estimation.'
@@ -225,21 +243,26 @@ def qiate_est(mcf_: 'ModifiedCausalForest',
                     w_qiate_unc0 = w_qiate_unc.copy()
                     w_censored0 = w_censored.copy()
 
-                    for results_fut_idx in map_task_batches(executor=executor, tasks=tasks,
-                                                            int_cfg=int_cfg, maxworkers=maxworkers,
-                                                            min_worker_waves = (
-                                                                4 if int_cfg.mp_backend == 'joblib'
-                                                                else 1
-                                                                ),
-                                                            ):
+                    result_iter = map_task_batches(executor=executor,
+                                                   tasks=tasks,
+                                                   int_cfg=int_cfg,
+                                                   maxworkers=maxworkers,
+                                                   min_worker_waves=(
+                                                       4 if int_cfg.mp_backend == 'joblib' else 1
+                                                       ),
+                                                   )
+                    if use_tqdm:
+                        result_iter = tqdm(result_iter, total=len(q_values), desc='QIATE weights')
+
+                    for results_fut_idx in result_iter:
                         q_idx = results_fut_idx[8]
                         w_qiate0, w_qiate_unc0, w_censored0 = assign_w_q(w_qiate0, w_qiate_unc0,
                                                                          w_censored0,
                                                                          results_fut_idx, q_idx,
                                                                          )
-                        w_mopp_list[q_idx] = w_qiate0[q_idx].copy()
+                        w_mopp_list[q_idx] = w_qiate_unc0[q_idx].copy()
 
-                        progress_clean_memory(output=gen_cfg.with_output and gen_cfg.verbose,
+                        progress_clean_memory(output=output_clean,
                                               current_idx=idx, total=len(q_values),
                                               )
                         idx += 1
@@ -315,33 +338,47 @@ def qiate_est(mcf_: 'ModifiedCausalForest',
                                                  qiate_weights_q=(w_qiate_dim, w_qiate_unc_dim,
                                                                   w_censored_dim, w_median,
                                                                   w_mopp_list[no_of_q_values - 1
-                                                                              - q_idx],),
+                                                                              - q_idx],
+                                                                  ),
                                                  weights_only=False,
                                                  **kw_args,
                                                  )
                              for q_idx, q_value in enumerate(q_values)
                              ]
             idx = 1
-            while len(still_running) > 0:
-                finished, still_running = ray.wait(still_running, num_returns=1)
-                finished_res = ray.get(finished)
-                for results_fut_idx in finished_res:
-                    q_idx = results_fut_idx[8]
-                    (y_pot, y_pot_var, y_pot_mmed, y_pot_mmed_var, y_pot_mopp, y_pot_mopp_var
-                     ) = assign_pot_q(y_pot, y_pot_var,
-                                      y_pot_mmed=y_pot_mmed, y_pot_mmed_var=y_pot_mmed_var,
-                                      y_pot_mopp=y_pot_mopp, y_pot_mopp_var=y_pot_mopp_var,
-                                      results_fut_q=results_fut_idx, q_idx=q_idx,
-                                      qiate_m_mqiate=p_cfg.qiate_m_mqiate,
-                                      qiate_m_opp=p_cfg.qiate_m_opp,
-                                      )
-                    w_qiate, w_qiate_unc, w_censored = assign_w_q(w_qiate, w_qiate_unc, w_censored,
-                                                                  results_fut_idx, q_idx
-                                                                  )
-                    progress_clean_memory(output=gen_cfg.with_output and gen_cfg.verbose,
-                                          current_idx=idx, total=no_of_q_values,
-                                          )
-                    idx += 1
+            pbar = tqdm(total=no_of_q_values, desc='QIATE') if use_tqdm else None
+            try:
+                while len(still_running) > 0:
+                    finished, still_running = ray.wait(still_running, num_returns=1)
+                    finished_res = ray.get(finished)
+                    for results_fut_idx in finished_res:
+                        q_idx = results_fut_idx[8]
+                        (y_pot, y_pot_var, y_pot_mmed, y_pot_mmed_var,
+                         y_pot_mopp, y_pot_mopp_var) = assign_pot_q(
+                             y_pot, y_pot_var,
+                             y_pot_mmed=y_pot_mmed,
+                             y_pot_mmed_var=y_pot_mmed_var,
+                             y_pot_mopp=y_pot_mopp,
+                             y_pot_mopp_var=y_pot_mopp_var,
+                             results_fut_q=results_fut_idx,
+                             q_idx=q_idx,
+                             qiate_m_mqiate=p_cfg.qiate_m_mqiate,
+                             qiate_m_opp=p_cfg.qiate_m_opp,
+                             )
+                        w_qiate, w_qiate_unc, w_censored = assign_w_q(
+                            w_qiate, w_qiate_unc, w_censored,
+                            results_fut_idx, q_idx,
+                            )
+                        if pbar is not None:
+                            pbar.update()
+                        progress_clean_memory(output=output_clean,
+                                              current_idx=idx,
+                                              total=no_of_q_values,
+                                              )
+                        idx += 1
+            finally:
+                if pbar is not None:
+                    pbar.close()
             *_, finished_res, finished = mcf_ray.ray_del_refs(f1=finished_res, f2=finished,
                                                               mp_ray_del=int_cfg.mp_ray_del,
                                                               )
@@ -372,13 +409,18 @@ def qiate_est(mcf_: 'ModifiedCausalForest',
                          for q_idx, q_value in enumerate(q_values)
                          ]
                 idx = 1
-                for results_fut_idx in map_task_batches(executor=executor, tasks=tasks,
-                                                        int_cfg=int_cfg, maxworkers=maxworkers,
-                                                        min_worker_waves = (
-                                                            4 if int_cfg.mp_backend == 'joblib'
-                                                            else 1
-                                                            ),
-                                                        ):
+                result_iter = map_task_batches(executor=executor,
+                                               tasks=tasks,
+                                               int_cfg=int_cfg,
+                                               maxworkers=maxworkers,
+                                               min_worker_waves=(4 if int_cfg.mp_backend == 'joblib'
+                                                                 else 1
+                                                                 ),
+                                               )
+                if use_tqdm:
+                    result_iter = tqdm(result_iter, total=len(q_values), desc='QIATE')
+
+                for results_fut_idx in result_iter:
                     q_idx = results_fut_idx[8]
                     (y_pot, y_pot_var, y_pot_mmed, y_pot_mmed_var, y_pot_mopp, y_pot_mopp_var,
                      ) = assign_pot_q(y_pot, y_pot_var,
@@ -391,7 +433,7 @@ def qiate_est(mcf_: 'ModifiedCausalForest',
                     w_qiate, w_qiate_unc, w_censored = assign_w_q(w_qiate, w_qiate_unc, w_censored,
                                                                   results_fut_idx, q_idx,
                                                                   )
-                    progress_clean_memory(output=gen_cfg.with_output and gen_cfg.verbose,
+                    progress_clean_memory(output=output_clean,
                                           current_idx=idx, total=no_of_q_values,
                                           )
                     idx += 1
@@ -481,7 +523,9 @@ def qiate_q(q_value: list[float] | NDArray[np.floating | float],
             iv: bool = False,
             weights_only: bool = False,
             zero_tol: float = 1e-10,
-            ):
+            ) -> tuple[Any, Any, Any, Any, Any, Any,
+                       NDArray[Any], NDArray[Any], Any, NDArray[Any],
+                       ]:
     """Compute QIATEs and their variances."""
     # Unpack variables
     y_dat, cl_dat, w_dat, d_p, w_p = data
@@ -534,7 +578,18 @@ def qiate_q(q_value: list[float] | NDArray[np.floating | float],
         w_p_q = [[w_p[relevant_data_q[comparison][out_idx]]
                   for out_idx in range(no_of_out)]
                  for comparison in range(no_of_comp)]
+    if p_cfg.choice_based_sampling:
+        if d_p is None:
+            raise ValueError('Choice-based sampling requires prediction treatments d_p.')
+        d_p_main = np.asarray(d_p)
+        if d_p_main.ndim > 1:
+            d_p_main = d_p_main[:, 0]
 
+        d_p_q = [[d_p_main[relevant_data_q[comparison][out_idx]]
+                  for out_idx in range(no_of_out)] for comparison in range(no_of_comp)
+                 ]
+    else:
+        d_p_q = None
     # Types and dimension of important variables
     # - QIATE Weights (for potential outcomes):
     # -- w_qiate_q, w_qiate_unc_q: 4D arr (no_of_comparisons, 2, n_y, no_of_out)
@@ -552,23 +607,16 @@ def qiate_q(q_value: list[float] | NDArray[np.floating | float],
     # - w_q:  1D of float (relevant n_p obs) - kernel weights in n_p
 
     # Step 1: Aggregate weights
-    comp_list = list(iate_q_key_dic)
     for out_idx in range(no_of_out):               # Outcomes
         for comp_idx in range(no_of_comp):         # Comparisons
             if int_cfg.weight_as_sparse:
                 n_x = weights_q[comp_idx][out_idx][0].shape[0]
             else:
                 n_x = len(weights_q[comp_idx][out_idx])
-            comp_key = comp_list[comp_idx]
             for n_idx in range(n_x):               # relevant n_p observations
                 for t_idx in range(2):             # Both relevant treatments
                     w_q_add = np.zeros((n_y))
                     if int_cfg.weight_as_sparse:
-                        # weight_i = weights_q[comp_idx][out_idx][t_idx][n_idx, :]
-                        # w_index = weight_i.col
-                        # weight_i = weights_q[comp_idx][out_idx][t_idx].getrow(n_idx).tocsr()
-                        # w_index = weight_i.indices.copy()
-                        # w_i = weight_i.data.copy()
                         w_mat = weights_q[comp_idx][out_idx][t_idx]
                         w_index, w_i = sparse_row_indices_weights(w_mat, n_idx)
                     else:  # Ind weights > 0
@@ -580,24 +628,23 @@ def qiate_q(q_value: list[float] | NDArray[np.floating | float],
                     if abs(w_i_sum) > zero_tol and not 1-sum_tol < w_i_sum < 1+sum_tol:
                         w_i = w_i / w_i_sum
                     if gen_cfg.weighted:
-                        w_i = w_i * w_p_q[n_idx]
+                        w_i = w_i * w_p_q[comp_idx][out_idx][n_idx]
                     w_i = w_i * w_q[comp_idx][out_idx][n_idx]
                     if p_cfg.choice_based_sampling:
-                        treat = iate_q_key_dic[comp_key][t_idx]
-                        # i_pos = i_d_val[d_p[n_idx] == d_values[treat]]
-                        i_pos = i_d_val[np.isclose(d_p[n_idx], d_values[treat],
-                                                   atol=zero_tol, rtol=zero_tol
-                                                   )
-                                        ]
-                        w_q_add[w_index] = w_i * t_probs[int(i_pos)]
+                        d_value = d_p_q[comp_idx][out_idx][n_idx]
+                        i_pos = i_d_val[np.isclose(d_value, d_values, atol=zero_tol, rtol=zero_tol)]
+                        if i_pos.size != 1:
+                            raise ValueError('Could not uniquely identify treatment '
+                                             f'{d_value!r} in d_values.'
+                                             )
+                        w_q_add[w_index] = w_i * t_probs[int(i_pos[0])]
                     else:
                         w_q_add[w_index] = w_i.copy()
                     w_qiate_q[comp_idx, t_idx, :, out_idx] += w_q_add
 
     # Step 2: Get potential outcomes for particular q_value
             sum_w_qiate_q = np.sum(w_qiate_q, axis=2)
-            # TODO: Is Bias adjustment needed or are the weights already bias
-            # adjusted? If needed, wo?
+            # regression bias adjustment is unsupported for QIATE.
             for t_idx in range(2):
                 w_median_ = w_median[comp_idx, t_idx, :, out_idx] if w_median is not None else None
                 w_opp_ = w_opp[comp_idx, t_idx, :, out_idx] if w_opp is not None else None
@@ -607,7 +654,6 @@ def qiate_q(q_value: list[float] | NDArray[np.floating | float],
                  ) = w_qiate_func(sum_w_qiate_q[comp_idx, t_idx, out_idx],
                                   w_qiate_q[comp_idx, t_idx, :, out_idx],
                                   w_censored_q[comp_idx, t_idx, out_idx],
-                                  w_qiate_unc_q[comp_idx, t_idx, :, out_idx],
                                   w_mmed=w_median_, w_mopp=w_opp_,
                                   compute_w_diff_med=qiate_m_mqiate,
                                   compute_w_diff_opp=qiate_m_opp,
@@ -619,40 +665,40 @@ def qiate_q(q_value: list[float] | NDArray[np.floating | float],
                     ret = mcf_est.weight_var(
                         w_qiate_q[comp_idx, t_idx, :, out_idx],
                         y_dat[:, out_idx], cl_dat, p_cfg,
-                        residual_dat=None,
-                        weighted=gen_cfg.weighted, weights=w_dat, bootstrap=p_cfg.se_boot_qiate,
+                        residual_dat=None, bootstrap=p_cfg.se_boot_qiate,
                         keep_all=int_cfg.keep_w0, se_yes=p_cfg.qiate_se,
                         normalize=not iv,
                         zero_tol=int_cfg.zero_tol, sum_tol = int_cfg.sum_tol,
                         seed=123345, min_obs=5,
                         )
                     y_pot_q[comp_idx, t_idx, out_idx] = ret[0]
-                    y_pot_var_q[comp_idx, t_idx, out_idx] = ret[1]
+                    if p_cfg.qiate_se:
+                        y_pot_var_q[comp_idx, t_idx, out_idx] = ret[1]
 
                     if qiate_m_mqiate:
                         ret2 = mcf_est.weight_var(w_diff_med, y_dat[:, out_idx], cl_dat, p_cfg,
-                                                  residual_dat=None,
-                                                  weighted=gen_cfg.weighted, normalize=False,
-                                                  weights=w_dat, bootstrap=p_cfg.se_boot_qiate,
+                                                  residual_dat=None, normalize=False,
+                                                  bootstrap=p_cfg.se_boot_qiate,
                                                   keep_all=int_cfg.keep_w0,
                                                   se_yes=p_cfg.qiate_se,
                                                   zero_tol=int_cfg.zero_tol,
                                                   sum_tol=int_cfg.sum_tol, seed=123345, min_obs=5,
                                                   )
                         y_pot_mmed_q[comp_idx, t_idx, out_idx] = ret2[0]
-                        y_pot_mmed_var_q[comp_idx, t_idx, out_idx] = ret2[1]
+                        if p_cfg.qiate_se:
+                            y_pot_mmed_var_q[comp_idx, t_idx, out_idx] = ret2[1]
 
                     if qiate_m_opp:
                         ret2 = mcf_est.weight_var(w_diff_opp, y_dat[:, out_idx], cl_dat, p_cfg,
-                                                  residual_dat=None, weighted=gen_cfg.weighted,
-                                                  normalize=False, weights=w_dat,
+                                                  residual_dat=None, normalize=False,
                                                   bootstrap=p_cfg.se_boot_qiate,
                                                   keep_all=int_cfg.keep_w0, se_yes=p_cfg.qiate_se,
                                                   zero_tol=int_cfg.zero_tol,
                                                   sum_tol=int_cfg.sum_tol, seed=123345, min_obs=5,
                                                   )
                         y_pot_mopp_q[comp_idx, t_idx, out_idx] = ret2[0]
-                        y_pot_mopp_var_q[comp_idx, t_idx, out_idx] = ret2[1]
+                        if p_cfg.qiate_se:
+                            y_pot_mopp_var_q[comp_idx, t_idx, out_idx] = ret2[1]
 
     if weights_only:
         return (None, None, None, None, None, None, w_qiate_q, w_qiate_unc_q, q_value_idx,
@@ -711,8 +757,7 @@ def assign_w_q(w_qiate: NDArray[Any],
 
 def w_qiate_func(sum_w_qiate: NDArray[Any],
                  w_qiate_q: NDArray[Any],
-                 w_censored_q: NDArray[Any],
-                 w_qiate_unc_q: NDArray[Any], *,
+                 w_censored_q: NDArray[Any], *,
                  w_mmed: NDArray[Any],
                  w_mopp: NDArray[Any],
                  compute_w_diff_med: bool,
@@ -748,14 +793,17 @@ def w_qiate_func(sum_w_qiate: NDArray[Any],
 
 def get_w_rel_q(iate_q_np: NDArray[Any],
                 iate_q_key_dic: dict,
-                q_val: NDArray[Any] | list,
+                q_val: float | np.floating,
                 weights_all_ref: Any, *,
                 no_of_outcomes: int = 1,
-                bandwidth: int = 1,
+                bandwidth: float | np.floating | None = 1,
                 kernel_str: str = 'epanechikov',
                 w_is_csr: bool = False,
                 zero_tol: float = 1e-10,
-                ) -> tuple[list[list], list[list], list[list]]:
+                ) -> tuple[list[list[Any]],
+                           list[list[NDArray[np.bool_]]],
+                           list[list[NDArray[Any]]]
+                           ]:
     """Get relevant observations and their weights."""
     # Get neighbouring observation (comparison specific)
     no_of_comparisons = len(iate_q_key_dic)
@@ -780,7 +828,7 @@ def get_w_rel_q(iate_q_np: NDArray[Any],
                 # If no smoothing use observations closest to quantil
                 w_q_val = np.zeros_like(arg)
                 no_closest = 1
-                for idx in range(no_closest):
+                for _ in range(no_closest):
                     idx = np.argmin(abs(arg))
                     w_q_val[idx] = 1
                     arg[idx] += 1e100
@@ -788,7 +836,14 @@ def get_w_rel_q(iate_q_np: NDArray[Any],
                 w_q_val = kernel_proc(arg / bandwidth, kernel)
 
             relevant_data_points = w_q_val > zero_tol
-            w_q_val = w_q_val[relevant_data_points]   # Shorten vector
+
+            if not np.any(relevant_data_points):
+                closest_idx = int(np.argmin(np.abs(arg)))
+                w_q_val = np.zeros_like(arg)
+                w_q_val[closest_idx] = 1.0
+                relevant_data_points = w_q_val > zero_tol
+
+            w_q_val = w_q_val[relevant_data_points]
             w_q_val = w_q_val / np.sum(w_q_val) * len(w_q_val)
 
             if w_is_csr:
@@ -833,9 +888,11 @@ def initialise_pot_qiate(no_of_qval: int,
                                     ]:
     """Initialise variables that store the potential outcomes."""
     y_pot = np.empty((no_of_qval, no_of_comparisons, 2, no_of_out))
-    y_pot_var = np.empty_like(y_pot)
-    y_pot_mmed, y_pot_mmed_var = np.empty_like(y_pot), np.empty_like(y_pot)
-    y_pot_mopp, y_pot_mopp_var = np.empty_like(y_pot), np.empty_like(y_pot)
+    y_pot_var = np.zeros_like(y_pot)
+    y_pot_mmed = np.empty_like(y_pot)
+    y_pot_mmed_var = np.zeros_like(y_pot)
+    y_pot_mopp = np.empty_like(y_pot)
+    y_pot_mopp_var = np.zeros_like(y_pot)
 
     return y_pot, y_pot_var, y_pot_mmed, y_pot_mmed_var, y_pot_mopp, y_pot_mopp_var
 
@@ -879,22 +936,6 @@ def optimize_initialize_mp_qiate(weights_all: Any,
     if gen_cfg.with_output and gen_cfg.verbose and with_output:
         print('Number of parallel processes (QIATE): ', maxworkers, flush=True)
 
-    # if maxworkers > 1:
-    #     if ray is None or ray_qiate_mp is None:
-    #         raise ImportError('int_cfg.mp_use_old_ray=True, but ray is not installed. '
-    #                           'Install ray or use the new backend with mp_use_old_ray=False.'
-    #                           )
-    #     if not ray.is_initialized():
-    #         mcf_ray.init_ray_with_fallback(maxworkers, gen_cfg,
-    #                                        mem_object_store=int_cfg.mem_object_store_3,
-    #                                        mem_object_store_2=int_cfg.mem_object_store_2,
-    #                                        ray_err_txt
-    #                                            ='Ray does not start up in QIATE estimation.'
-    #                                        )
-    #     mcf_ray.print_object_store(gen_cfg, int_cfg.mem_object_store_3)
-    #     weights_all_ref = mcf_ray.ray_put_all(weights_all)
-    # else:
-    #     weights_all_ref = weights_all
     if maxworkers > 1 and int_cfg.mp_use_old_ray:
         if ray is None or ray_qiate_mp is None:
             raise ImportError('int_cfg.mp_use_old_ray=True, but ray is not installed. '
@@ -902,13 +943,21 @@ def optimize_initialize_mp_qiate(weights_all: Any,
                               )
 
         if not ray.is_initialized():
-            mcf_ray.init_ray_with_fallback(maxworkers, gen_cfg,
-                                           mem_object_store=int_cfg.mem_object_store_3,
-                                           mem_object_store_2=int_cfg.mem_object_store_2,
-                                           ray_err_txt='Ray does not start up in QIATE estimation.',
-                                           )
-        mcf_ray.print_object_store(gen_cfg, int_cfg.mem_object_store_3)
-        weights_all_ref = mcf_ray.ray_put_all(weights_all)
+            ray_is_running, maxworkers = mcf_ray.init_ray_with_fallback(
+                maxworkers, gen_cfg,
+                mem_object_store=int_cfg.mem_object_store_3,
+                mem_object_store_2=int_cfg.mem_object_store_2,
+                ray_err_txt='Ray does not start up in QIATE estimation.',
+                )
+        else:
+            ray_is_running = True
+
+        if ray_is_running:
+            mcf_ray.print_object_store(gen_cfg, int_cfg.mem_object_store_3)
+            weights_all_ref = mcf_ray.ray_put_all(weights_all)
+        else:
+            maxworkers = 1
+            weights_all_ref = weights_all
     else:
         weights_all_ref = weights_all
 
@@ -919,7 +968,7 @@ def assign_data(weights_dic: dict,
                 gen_cfg: 'GenCfg',
                 p_cfg: dict,
                 ) -> tuple[NDArray[Any], Any, NDArray[Any] | None, NDArray[Any] | None]:
-    """Assign variables from weight_dic dictionary."""
+    """Assign variables from weights_dic dictionary."""
     y_dat = weights_dic['y_dat_np']
     weights_all = weights_dic['weights']
     w_dat = weights_dic['w_dat_np'] if gen_cfg.weighted else None
@@ -1126,27 +1175,25 @@ def delta_quantile_adjustment(est_q: NDArray[Any],
 
 def qiate_effects_print(mcf_: 'ModifiedCausalForest',
                         effect_dic: dict,
-                        effect_m_med_dic: dict,
-                        effect_m_opp_dic: dict,
+                        effect_m_med_dic: dict | None,
+                        effect_m_opp_dic: dict | None,
                         qiate_est_dic: dict, *,
                         special_txt: str | None = None
                         ) -> tuple[NDArray[Any], NDArray[Any] | None,
-                                   NDArray[Any], NDArray[Any] | None,
-                                   NDArray[Any], NDArray[Any] | None,
-                                   list[Path]
-                                   ]:
-    """Compute effects of QIATEs and print them."""
+                                   NDArray[Any] | None, NDArray[Any] | None,
+                                   NDArray[Any] | None, NDArray[Any] | None,
+                                   list[Path]]:
+    """Compute QIATE results, print statistics, and generate figures."""
     continuous = False
     p_cfg, int_cfg, gen_cfg = mcf_.p_cfg, mcf_.int_cfg, mcf_.gen_cfg
-    # x_value_unord_org = mcf_.data_train_dict['unique_values_dict']
     q_values = p_cfg.qiate_quantiles
     no_of_qval = len(q_values)
-    mid_value = round(no_of_qval / 2)
+    mid_value = int(np.argmin(np.abs(q_values - 0.5)))
     y_pot, y_pot_var = effect_dic['y_pot'], effect_dic['y_pot_var']
 
     m_med_yes = effect_m_med_dic is not None
     m_opp_yes = effect_m_opp_dic is not None
-    figure_list = []
+    figure_list: list[Path] = []
 
     if m_med_yes:
         y_pot_m_med = effect_m_med_dic['y_pot']
@@ -1161,328 +1208,348 @@ def qiate_effects_print(mcf_: 'ModifiedCausalForest',
         y_pot_m_opp = y_pot_m_opp_var = None
 
     if special_txt is not None:
-        mcf_ps.print_mcf(mcf_.gen_cfg, '\n' + '=' * 100 + special_txt,
-                         summary=True, non_summary=False)
-    # Get parameters and info computed in 'gate_est'
-    treat_comp_labels = (qiate_est_dic['treat_comp_label'],      # True label
-                         qiate_est_dic['iate_q_key_dic'].keys())  # Key
+        mcf_ps.print_mcf(gen_cfg, '\n' + '=' * 100 + special_txt, summary=True, non_summary=False)
+
+    treat_comp_labels = qiate_est_dic['treat_comp_label']
+    seq_dic = qiate_est_dic['iate_q_key_dic']
     no_of_out, var_cfg = qiate_est_dic['no_of_out'], qiate_est_dic['var_cfg']
     p_cfg = qiate_est_dic['p_cfg']
-    effect_type_label = ('QIATE', 'QIATE(q) - QIATE(0.5)',
-                         'QIATE(q) - QIATE(1-q)', 'Distribution')
+    effect_type_label = 'QIATE', 'QIATE(q) - QIATE(0.5)', 'QIATE(q) - QIATE(1-q)', 'Distribution'
+
+    qiate = np.empty((no_of_qval, no_of_out, len(treat_comp_labels)))
+    qiate_se = np.empty_like(qiate) if p_cfg.qiate_se else None
+    qiate_mmed = np.empty_like(qiate) if m_med_yes else None
+    qiate_mmed_se = np.empty_like(qiate) if m_med_yes and p_cfg.qiate_se else None
+    qiate_mopp = np.empty_like(qiate) if m_opp_yes else None
+    qiate_mopp_se = np.empty_like(qiate) if m_opp_yes and p_cfg.qiate_se else None
+
+    txt = ''
+    if gen_cfg.with_output and gen_cfg.qiate_eff and p_cfg.qiate_se:
+        txt += mcf_ps.print_efficiency_se_info()
 
     old_filters = warnings.filters.copy()
     warnings.filterwarnings('error', category=RuntimeWarning)
-
-    qiate = np.empty((no_of_qval, no_of_out, len(treat_comp_labels[0])))
-    qiate_se = np.empty_like(qiate)
-    qiate_mmed, qiate_mmed_se = np.empty_like(qiate), np.empty_like(qiate)
-    qiate_mopp, qiate_mopp_se = np.empty_like(qiate), np.empty_like(qiate)
-    txt = ''
     try:
-        # -- 4D array:   y_pot,        (no_of_qval, no_of_comparisons, 2, no_of_out)
         for o_idx in range(no_of_out):
             if gen_cfg.with_output:
                 txt += '\n' + '-' * 100 + f'\nOutcome variable: {var_cfg.y_name[o_idx]}      '
-
-            if gen_cfg.with_output:
                 txt += 'Reference population: All'
                 txt += '\n' + '- ' * 50
+
             ret_qiate = [None for _ in range(no_of_qval)]
-            ret_qiate_mmed = [None for _ in range(no_of_qval)]
-            ret_qiate_mopp = [None for _ in range(no_of_qval)]
+            ret_qiate_mmed = [None for _ in range(no_of_qval)] if m_med_yes else None
+            ret_qiate_mopp = [None for _ in range(no_of_qval)] if m_opp_yes else None
+
             for q_idx, _ in enumerate(q_values):
                 ret = mcf_est.effect_from_potential(y_pot[q_idx][:, :, o_idx],
                                                     y_pot_var[q_idx][:, :, o_idx],
                                                     gen_cfg.d_values, continuous=continuous,
-                                                    sequential=True,
-                                                    sequential_dic=qiate_est_dic['iate_q_key_dic']
+                                                    sequential=True, sequential_dic=seq_dic,
+                                                    se_yes=p_cfg.qiate_se
                                                     )
                 ret_qiate[q_idx] = ret
                 qiate[q_idx, o_idx, :] = ret[0]
-                qiate_se[q_idx, o_idx, :] = ret[1]
+                if p_cfg.qiate_se:
+                    qiate_se[q_idx, o_idx, :] = ret[1]
 
                 if m_med_yes:
                     ret = mcf_est.effect_from_potential(y_pot_m_med[q_idx][:, :, o_idx],
                                                         y_pot_m_med_var[q_idx][:, :, o_idx],
                                                         gen_cfg.d_values, continuous=continuous,
-                                                        sequential=True,
-                                                        sequential_dic
-                                                            =qiate_est_dic['iate_q_key_dic']
+                                                        sequential=True, sequential_dic=seq_dic,
+                                                        se_yes=p_cfg.qiate_se,
                                                         )
                     ret_qiate_mmed[q_idx] = ret
                     qiate_mmed[q_idx, o_idx, :] = ret[0]
-                    qiate_mmed_se[q_idx, o_idx, :] = ret[1]
-                else:
-                    qiate_mmed = qiate_mmed_se = ret_qiate_mmed = None
+                    if p_cfg.qiate_se:
+                        qiate_mmed_se[q_idx, o_idx, :] = ret[1]
 
                 if m_opp_yes:
                     ret = mcf_est.effect_from_potential(y_pot_m_opp[q_idx][:, :, o_idx],
                                                         y_pot_m_opp_var[q_idx][:, :, o_idx],
                                                         gen_cfg.d_values, continuous=continuous,
-                                                        sequential=True,
-                                                        sequential_dic
-                                                            =qiate_est_dic['iate_q_key_dic']
+                                                        sequential=True, sequential_dic=seq_dic,
+                                                        se_yes=p_cfg.qiate_se,
                                                         )
                     ret_qiate_mopp[q_idx] = ret
                     qiate_mopp[q_idx, o_idx, :] = ret[0]
-                    qiate_mopp_se[q_idx, o_idx, :] = ret[1]
-                else:
-                    qiate_mopp = qiate_mopp_se = ret_qiate_mopp = None
+                    if p_cfg.qiate_se:
+                        qiate_mopp_se[q_idx, o_idx, :] = ret[1]
 
             if gen_cfg.with_output:
-                txt += ('\nQuantile Individualized Average Treatment Effects\n'
-                        + '- ' * 50)
+                txt += '\nQuantile Individualized Average Treatment Effects\n' + '- ' * 50
                 txt += f'\nOutcome: {var_cfg.y_name[o_idx]} Ref. pop.: All\n'
                 txt += mcf_ps.print_effect_z(ret_qiate, ret_qiate_mmed, q_values, 'QIATE', 'ATE',
-                                             print_output=False, gates_minus_previous=False,
-                                             qiate=True,
+                                             gates_minus_previous=False, qiate=True,
                                              gmopp_r=ret_qiate_mopp, z_values_org=None,
                                              gen_tv_cfg_yes=mcf_.gen_tv_cfg.yes,
                                              )
-                txt += '\n' + mcf_ps.print_se_info(p_cfg.cluster_std, p_cfg.se_boot_gate)
-                txt += mcf_ps.print_minus_ate_info(gen_cfg.weighted, print_it=False)
-        med_f = med_f_se = None
+                if p_cfg.qiate_se:
+                    txt += '\n' + mcf_ps.print_se_info(p_cfg.cluster_std, p_cfg.se_boot_qiate)
+                txt += mcf_ps.print_minus_ate_info(gen_cfg.weighted)
+
         if gen_cfg.with_output:
             for o_idx, o_lab in enumerate(var_cfg.y_name):
-                for t_idx, t_lab in enumerate(treat_comp_labels[0]):
+                for t_idx, t_lab in enumerate(treat_comp_labels):
                     for e_idx, e_lab in enumerate(effect_type_label):
-                        figure_disc = figure_cont = None
+                        figure_disc = None
                         if e_idx == 0:
                             effects = qiate[:, o_idx, t_idx]
-                            ste = qiate_se[:, o_idx, t_idx]
+                            ste = qiate_se[:, o_idx, t_idx] if p_cfg.qiate_se else None
                             med_f = qiate[mid_value, o_idx, t_idx]
-                            med_f_se = qiate_se[mid_value, o_idx, t_idx]
+                            med_f_se = qiate_se[mid_value, o_idx, t_idx] if p_cfg.qiate_se else 0.0
                             cdf_pdf = False
                         elif e_idx == 1:
                             med_f, med_f_se = 0, None
                             if m_med_yes:
                                 effects = qiate_mmed[:, o_idx, t_idx]
-                                ste = qiate_mmed_se[:, o_idx, t_idx]
+                                ste = qiate_mmed_se[:, o_idx, t_idx] if p_cfg.qiate_se else None
                             else:
                                 effects = ste = None
                             cdf_pdf = False
                         elif e_idx == 2:
+                            med_f, med_f_se = 0, None
                             if m_opp_yes:
                                 effects = qiate_mopp[:, o_idx, t_idx]
-                                middle = round((len(effects) - 1) / 2)
-                                qiate_mopp[middle, o_idx, t_idx] = 0
-                                qiate_mopp_se[middle, o_idx, t_idx] = 0.001
-                                ste = qiate_mopp_se[:, o_idx, t_idx]
+                                ste = qiate_mopp_se[:, o_idx, t_idx] if p_cfg.qiate_se else None
                             else:
                                 effects = ste = None
                             cdf_pdf = False
                         else:
                             effects = qiate[:, o_idx, t_idx]
-                            ste = qiate_se[:, o_idx, t_idx]
+                            ste = qiate_se[:, o_idx, t_idx] if p_cfg.qiate_se else None
                             med_f, med_f_se = 0, None
                             cdf_pdf = True
 
-                        if not continuous and effects is not None and e_idx != 2:
-                            figure_disc = make_qiate_figures_discr(
-                                e_lab + ' ' + ' ' + o_lab + ' ' + t_lab, q_values, effects, ste,
-                                int_cfg=int_cfg, p_cfg=p_cfg, med= med_f, med_se=med_f_se,
-                                cdf_pdf=cdf_pdf)
+                        if not continuous and effects is not None:
+                            left, right = t_lab.split('vs')
+                            effect_label = 'QIATE(q)' if e_idx == 0 else e_lab
+                            title_effect = ('Distribution from QIATEs' if cdf_pdf
+                                            else effect_label)
+                            title_parts = (f'{title_effect}: T{left} vs T{right}',
+                                           f'Outcome: {o_lab}; reference population: All',
+                                           )
+                            display_title = '\n'.join(fill(part, width=70)
+                                                     for part in title_parts)
+                            file_title = e_lab + ' ' + ' ' + o_lab + ' ' + t_lab
+                            figure_disc = make_qiate_figures_discr(file_title, q_values,
+                                                                   effects, ste,
+                                                                   gen_cfg=gen_cfg,
+                                                                   int_cfg=int_cfg,
+                                                                   p_cfg=p_cfg,
+                                                                   effect_label=effect_label,
+                                                                   med=med_f, med_se=med_f_se,
+                                                                   cdf_pdf=cdf_pdf,
+                                                                   display_title=display_title
+                                                                   )
+                        reference_label = str(gen_cfg.d_values[0])
+                        vs0 = t_lab.endswith('vs' + reference_label)
+                        if vs0 and e_idx != 2 and ( (m_med_yes and e_idx == 1)
+                                                   or (not m_med_yes and e_idx == 0)
+                                                   ):
+                            if figure_disc is not None:
+                                figure_list.append(figure_disc)
 
-                        figure_file = figure_disc if figure_cont is None else figure_cont
-                        # vs0 = int(t_lab[-1]) == int(gen_cfg.d_values[0])
-                        vs0 = np.isclose(int(t_lab[-1]), gen_cfg.d_values[0],
-                                         atol=int_cfg.zero_tol, rtol=int_cfg.zero_tol,
-                                         )
-                        if vs0 and e_idx != 2 and (
-                                ((m_med_yes and e_idx == 1) or (not m_med_yes and e_idx == 0))):
-                            figure_list.append(figure_file)
-
-        if gen_cfg.with_output:
             txt += '-' * 100
             mcf_ps.print_mcf(gen_cfg, txt, summary=True, non_summary=True)
     finally:
         warnings.filters = old_filters
 
-    return (qiate, qiate_se, qiate_mmed, qiate_mmed_se, qiate_mopp, qiate_mopp_se, figure_list)
+    return qiate, qiate_se, qiate_mmed, qiate_mmed_se, qiate_mopp, qiate_mopp_se, figure_list
 
 
 def make_qiate_figures_discr(titel: str,
-                             q_values: list,
+                             q_values: list[float] | NDArray[Any],
                              effects: NDArray[Any],
                              stderr: NDArray[Any] | None, *,
+                             gen_cfg: 'GenCfg',
                              int_cfg: 'IntCfg',
                              p_cfg: 'PCfg',
+                             effect_label: str,
                              med: int | float | None = 0,
                              med_se: int | float | None = None,
-                             cdf_pdf: bool = False
+                             cdf_pdf: bool = False,
+                             display_title: str | None = None
                              ) -> Path | None:
-    """Generate the figures for QIATE results (discrete treatments).
-
-    Parameters
-    ----------
-    titel : String. (Messy) title of plot and basis for files.
-    q_vals : List. Values of z-variables.
-    effects : 1D Numpy array. Effects for all z-values.
-    stderr : 1D Numpy array. Standard errors for all effects.
-    int_cfg : Instance of Dataclass. Parameters.
-    p_cfg : PCfg dataclass. Parameters.
-    Additional keyword parameters.
-    """
-    titel_f = titel.replace(' ', '')
-    titel_f = titel_f.replace('-', 'M')
-    titel_f = titel_f.replace('.', '')
+    """Plot QIATE results or their reconstructed distribution and export plot data."""
+    titel_f = titel.replace(' ', '').replace('-', 'M').replace('.', '')
+    titel_tmp = (titel.replace('vs', ' vs ') if display_title is None
+                 else display_title)
 
     file_name_jpeg = p_cfg.paths['qiate_fig_pfad_jpeg'] / f'{titel_f}.jpeg'
     file_name_pdf = p_cfg.paths['qiate_fig_pfad_pdf'] / f'{titel_f}.pdf'
     file_name_csv = p_cfg.paths['qiate_fig_pfad_csv'] / f'{titel_f}plotdat.csv'
-
-    with_se = not np.all((stderr - 0.001) < 1e-8)
-    if cdf_pdf:
-        qiate_str_y = 'Distribution'
-        qiate_str, label_y = 'cdf_pdf', 'pdf & cdf'
-        label_cdf, label_pdf = 'cdf', 'pdf'
-        med_label = '_nolegend_'
-        pdf_smooth, cdf, values = make_cdf_pdf(effects, q_values)
-        stderr, med, med_se = 0, None, None
-
-    else:
-        if med_se is None:
-            qiate_str_y = 'QIATE(q) - QIATE(0.5)'
-            qiate_str = 'QIATE(q)-QIATE(0.5)'
-            label_m, label_y = 'QIATE(q)-QIATE(0.5)', 'QIATE(q)-QIATE(0.5)'
-            med_label = '_nolegend_'
-        else:
-            qiate_str_y = 'QIATE(q)'
-            label_m = 'QIATE(q)'
-            med_label, qiate_str, label_y = 'QIATE(0.5)', 'QIATE(q)', 'QIATE(q)'
-        med = med * np.ones((len(q_values), 1))
-
-        cint = norm.ppf(p_cfg.ci_level + 0.5 * (1 - p_cfg.ci_level))
-        upper, lower = effects + stderr * cint, effects - stderr * cint
-        label_ci = f'{p_cfg.ci_level:2.0%}-CI'
-        if med is not None and med_se is not None:
-            med_upper, med_lower = med + med_se * cint, med - med_se * cint
-
-    figs, axs = plt.subplots()
-
     file_name_f_jpeg = p_cfg.paths['qiate_fig_pfad_jpeg'] / f'{titel_f}fill.jpeg'
     file_name_f_pdf = p_cfg.paths['qiate_fig_pfad_pdf'] / f'{titel_f}fill.pdf'
+
+    q_values_np = np.asarray(q_values).reshape(-1)
+    effects = np.asarray(effects).reshape(-1)
+
     if cdf_pdf:
-        axs.plot(values, cdf, color='b', label=label_cdf)
-        axs.plot(values, pdf_smooth, color='r', label=label_pdf)
-    else:
-        axs.plot(q_values, effects, label=label_m, color='b')
-        if with_se:
-            axs.fill_between(q_values, upper, lower, alpha=0.3, color='b', label=label_ci)
-        line_med = '-r'
-        if med is not None:
-            label_med = 'QIATE(0.5)'
-            if med_se is not None and with_se:
-                axs.fill_between(q_values, med_upper.reshape(-1), med_lower.reshape(-1),
-                                 alpha=0.3, color='r', label=label_ci,
-                                 )
-        else:
-            label_med = '_nolegend_'
-        axs.plot(q_values, med, line_med, label=label_med)
-    axs.set_ylabel(label_y)
-    axs.legend(loc=int_cfg.legend_loc, shadow=True,
-               fontsize=int_cfg.fontsize)
-    titel_tmp = titel[:-4] + ' ' + titel[-4:]
-    titel_tmp = titel_tmp.replace('vs', ' vs ')
-    axs.set_title(titel_tmp)
-    if cdf_pdf:
-        axs.set_xlabel('IATEs')
-    else:
-        axs.set_xlabel('Quantiles')
-    mcf_sys.delete_file_if_exists(file_name_f_jpeg)
-    mcf_sys.delete_file_if_exists(file_name_f_pdf)
-    figs.savefig(file_name_f_jpeg, dpi=int_cfg.dpi)
-    figs.savefig(file_name_f_pdf, dpi=int_cfg.dpi)
+        try:
+            pdf_smooth, cdf, values = make_cdf_pdf(effects, q_values_np)
+        except ValueError as exc:
+            for file_name in (file_name_jpeg, file_name_pdf, file_name_csv,
+                              file_name_f_jpeg, file_name_f_pdf):
+                mcf_sys.delete_file_if_exists(file_name)
+            txt = f'\nDistribution plot omitted: {titel}\nReason: {exc}\n'
+            mcf_ps.print_mcf(gen_cfg, txt, summary=True)
+            return None
 
-    if int_cfg.show_plots:
-        plt.show()
-    plt.close()
+        figs, (axs_cdf, axs_pdf) = plt.subplots(2, 1, sharex=True, figsize=(7, 6),
+                                               constrained_layout=True)
+        axs_cdf.plot(values, cdf, color='b')
+        axs_cdf.set_ylabel('CDF')
+        axs_cdf.set_ylim(0, 1)
+        axs_pdf.plot(values, pdf_smooth, color='r')
+        axs_pdf.set_ylabel('Density')
+        axs_pdf.set_ylim(0, 1.05 * float(np.max(pdf_smooth)))
+        axs_pdf.set_xlabel('Treatment effect')
+        figs.suptitle(titel_tmp, fontsize=int_cfg.fontsize)
 
-    if not cdf_pdf and with_se:
-        e_line, u_line, l_line = '_-', 'v-', '^-'
-        connect_y, connect_x = np.empty(2), np.empty(2)
-        fig, axe = plt.subplots()
-
-        for idx, i_lab in enumerate(q_values):
-            connect_y[0], connect_y[1] = upper[idx], lower[idx]
-            connect_x[0], connect_x[1] = i_lab, i_lab
-            axe.plot(connect_x, connect_y, 'b-', linewidth=0.7)
-        axe.plot(q_values, effects, e_line + 'b', label=qiate_str)
-        axe.set_ylabel(qiate_str_y)
-        label_u = f'Upper {p_cfg.ci_level:2.0%}-CI'
-        label_l = f'Lower {p_cfg.ci_level:2.0%}-CI'
-        axe.plot(q_values, upper, u_line + 'b', label=label_u)
-        axe.plot(q_values, lower, l_line + 'b', label=label_l)
-        axe.plot(q_values, med, '-' + 'r', label=med_label)
-        if med_se is not None:
-            axe.plot(q_values, med_upper, '--' + 'r', label=label_u)
-            axe.plot(q_values, med_lower, '--' + 'r', label=label_l)
-        axe.legend(loc=int_cfg.legend_loc, shadow=True, fontsize=int_cfg.fontsize)
-        titel_tmp = titel[:-4] + ' ' + titel[-4:]
-        titel_tmp = titel_tmp.replace('vs', ' vs ')
-        axe.set_title(titel_tmp)
-        axe.set_xlabel('Quantiles')
-        mcf_sys.delete_file_if_exists(file_name_jpeg)
-        mcf_sys.delete_file_if_exists(file_name_pdf)
-        fig.savefig(file_name_jpeg, dpi=int_cfg.dpi)
-        fig.savefig(file_name_pdf, dpi=int_cfg.dpi)
+        mcf_sys.delete_file_if_exists(file_name_f_jpeg)
+        mcf_sys.delete_file_if_exists(file_name_f_pdf)
+        figs.savefig(file_name_f_jpeg, dpi=int_cfg.dpi, bbox_inches='tight')
+        figs.savefig(file_name_f_pdf, dpi=int_cfg.dpi, bbox_inches='tight')
         if int_cfg.show_plots:
             plt.show()
-        plt.close()
+        plt.close(figs)
 
-        # Write values to file
-        effects = effects.reshape(-1, 1)
-        upper, lower = upper.reshape(-1, 1), lower.reshape(-1, 1)
-        q_values_np = np.array(q_values, copy=True).reshape(-1, 1)
-        if med_se is not None:
-            med_upper = med_upper.reshape(-1, 1)
-            med_lower = med_lower.reshape(-1, 1)
-            effects_et_al = np.concatenate((upper, effects, lower, med, med_upper, med_lower,
-                                            q_values_np),
-                                           axis=1,
-                                           )
-            cols = ['upper', 'QIATE(q)', 'lower', 'QIATE(0.5)', 'med_upper', 'med_lower', 'q_values'
-                    ]
-        else:
-            cols = ['upper', 'QIATE(q)', 'lower', 'QIATE(0.5)', 'q_values']
-            effects_et_al = np.concatenate((upper, effects, lower, med, q_values_np), axis=1)
-        datasave = pd.DataFrame(data=effects_et_al, columns=cols)
+        datasave = pd.DataFrame({'values': np.asarray(values).reshape(-1),
+                                'cdf': np.asarray(cdf).reshape(-1),
+                                'pdf': np.asarray(pdf_smooth).reshape(-1)}
+                                )
         mcf_sys.delete_file_if_exists(file_name_csv)
         datasave.to_csv(file_name_csv, index=False)
+        return file_name_f_jpeg
 
-    file_name = file_name_jpeg if file_name_f_jpeg is None else file_name_f_jpeg
+    with_se = stderr is not None
+    med_label = '_nolegend_' if med_se is None else 'QIATE(0.5)'
+    med_curve = None if med is None else med * np.ones(len(q_values_np))
+    ci_level = f'{p_cfg.ci_level:.0%}'
+    label_ci_effect = f'{effect_label}: {ci_level} pointwise CI'
+    label_ci_reference = f'{med_label}: {ci_level} CI'
+    med_upper: NDArray[Any] | None = None
+    med_lower: NDArray[Any] | None = None
 
-    return file_name
+    if with_se:
+        stderr = np.asarray(stderr).reshape(-1)
+        cint = norm.ppf(p_cfg.ci_level + 0.5 * (1 - p_cfg.ci_level))
+        upper = effects + stderr * cint
+        lower = effects - stderr * cint
+        if med_curve is not None and med_se is not None:
+            med_upper = med_curve + med_se * cint
+            med_lower = med_curve - med_se * cint
+
+    figs, axs = plt.subplots()
+    axs.plot(q_values_np, effects, label=effect_label, color='b')
+    if with_se:
+        axs.fill_between(q_values_np, upper, lower, alpha=0.3, color='b',
+                         label=label_ci_effect)
+    if med_curve is not None:
+        if with_se and med_se is not None:
+            axs.fill_between(q_values_np, med_upper, med_lower, alpha=0.3, color='r',
+                             label=label_ci_reference)
+        axs.plot(q_values_np, med_curve, '-r', label=med_label)
+
+    axs.set_ylabel(effect_label)
+    axs.legend(loc=int_cfg.legend_loc, shadow=True, fontsize=int_cfg.fontsize)
+    axs.set_title(titel_tmp, fontsize=int_cfg.fontsize)
+    axs.set_xlabel('Quantiles')
+    figs.tight_layout()
+    mcf_sys.delete_file_if_exists(file_name_f_jpeg)
+    mcf_sys.delete_file_if_exists(file_name_f_pdf)
+    figs.savefig(file_name_f_jpeg, dpi=int_cfg.dpi, bbox_inches='tight')
+    figs.savefig(file_name_f_pdf, dpi=int_cfg.dpi, bbox_inches='tight')
+    if int_cfg.show_plots:
+        plt.show()
+    plt.close(figs)
+
+    if with_se:
+        fig, axe = plt.subplots()
+        for idx, q_value in enumerate(q_values_np):
+            axe.plot([q_value, q_value], [upper[idx], lower[idx]], 'b-', linewidth=0.7)
+
+        axe.plot(q_values_np, effects, '_-b', label=effect_label)
+        axe.plot(q_values_np, upper, 'v-b', label=label_ci_effect)
+        axe.plot(q_values_np, lower, '^-b', label='_nolegend_')
+        if med_curve is not None:
+            axe.plot(q_values_np, med_curve, '-r', label=med_label)
+            if med_se is not None:
+                axe.plot(q_values_np, med_upper, '--r', label=label_ci_reference)
+                axe.plot(q_values_np, med_lower, '--r', label='_nolegend_')
+
+        axe.set_ylabel(effect_label)
+        axe.legend(loc=int_cfg.legend_loc, shadow=True, fontsize=int_cfg.fontsize)
+        axe.set_title(titel_tmp, fontsize=int_cfg.fontsize)
+        axe.set_xlabel('Quantiles')
+        fig.tight_layout()
+        mcf_sys.delete_file_if_exists(file_name_jpeg)
+        mcf_sys.delete_file_if_exists(file_name_pdf)
+        fig.savefig(file_name_jpeg, dpi=int_cfg.dpi, bbox_inches='tight')
+        fig.savefig(file_name_pdf, dpi=int_cfg.dpi, bbox_inches='tight')
+        if int_cfg.show_plots:
+            plt.show()
+        plt.close(fig)
+
+    plot_values = {}
+    if with_se:
+        plot_values['upper'] = upper
+    plot_values[effect_label] = effects
+    if with_se:
+        plot_values['lower'] = lower
+    if med_curve is not None:
+        reference_name = 'zero_reference' if med_se is None else 'QIATE(0.5)'
+        plot_values[reference_name] = med_curve
+        if with_se and med_se is not None:
+            plot_values['med_upper'] = med_upper
+            plot_values['med_lower'] = med_lower
+    plot_values['q_values'] = q_values_np
+
+    datasave = pd.DataFrame({name: np.asarray(values).reshape(-1)
+                            for name, values in plot_values.items()})
+    mcf_sys.delete_file_if_exists(file_name_csv)
+    datasave.to_csv(file_name_csv, index=False)
+
+    return file_name_f_jpeg
 
 
 def make_cdf_pdf(values: NDArray[Any],
-                 q_values: NDArray[Any]
-                 ) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any]]:
-    """Use data from a cdf to approximate a pdf."""
-    cdf = q_values.copy()
-    pdf = np.zeros_like(q_values)
-    area = 0
-    for q_idx, q_val in enumerate(q_values):
-        if q_idx == 0:
-            p_delta = q_val
-            values_delta = np.abs(values[1] - values[0])
-        else:
-            p_delta = q_val - q_values[q_idx-1]
-            values_delta = np.abs(values[q_idx] - values[q_idx-1])
-        if values_delta == 0:
-            values_delta = 0.01   # Step in cdf, pdf is infinity
-        pdf[q_idx] = p_delta / values_delta
+                 q_values: NDArray[Any] | list[float]
+                 ) -> tuple[NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]]:
+    """Reconstruct a CDF and continuous density over the supplied quantile range.
 
-        area += pdf[q_idx] * p_delta
-    pdf /= area
+    The density integrates to q_values[-1] - q_values[0] on this range.
+    Tails are not extrapolated, and quantile estimates are not rearranged.
+    """
+    values = np.asarray(values, dtype=np.float64)
+    quantiles = np.asarray(q_values, dtype=np.float64)
+    if values.ndim != 1 or quantiles.ndim != 1 or values.shape != quantiles.shape:
+        raise ValueError('Effect values and quantile probabilities must be matching 1D arrays.')
+    if values.size < 2:
+        raise ValueError('At least two quantile estimates are required.')
+    if not np.all(np.isfinite(values)) or not np.all(np.isfinite(quantiles)):
+        raise ValueError('Effect values and quantile probabilities must be finite.')
+    if np.any((quantiles < 0) | (quantiles > 1)) or np.any(np.diff(quantiles) <= 0):
+        raise ValueError('Quantile probabilities must increase strictly within [0, 1].')
+    if np.any(values[1:] < values[:-1]):
+        raise ValueError('Crossing QIATE estimates do not define an increasing quantile curve.')
+    if np.any(values[1:] == values[:-1]):
+        raise ValueError('Tied QIATE estimates do not define a continuous density.')
 
-    # Smooth pdf with moving average
-    number = max(round(len(pdf) / 100 * 10), 1)
-    pdf_smooth = np.convolve(pdf, np.ones(number) / number, mode='same')
-    # Adjustments for bounding points
-    for idx in range(number):
-        pdf_smooth[idx] = np.mean(pdf[:idx+1])
-        pdf_smooth[-idx-1] = np.mean(pdf[-idx-1:])
+    try:
+        with np.errstate(over='raise', divide='raise', invalid='raise'):
+            cdf_interp = PchipInterpolator(values, quantiles, extrapolate=False)
+            # Include every original knot and resolve each interval separately.
+            intervals = np.linspace(values[:-1], values[1:], 33, axis=1)
+            grid = np.append(intervals[:, :-1].reshape(-1), values[-1])
+            cdf = cdf_interp(grid)
+            pdf = cdf_interp.derivative()(grid)
+    except FloatingPointError as error:
+        raise ValueError('Density reconstruction is numerically unstable.') from error
+    if not np.all(np.isfinite(cdf)) or not np.all(np.isfinite(pdf)):
+        raise ValueError('Density reconstruction produced non-finite values.')
 
-    return pdf_smooth, cdf, values
+    # A monotone interpolant has a nonnegative derivative; remove round-off negatives.
+    pdf = np.maximum(pdf, 0.0)
+    return pdf, cdf, grid

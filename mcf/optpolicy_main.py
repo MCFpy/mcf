@@ -1102,10 +1102,10 @@ class OptimalPolicy:
     def winners_losers(self: 'OptimalPolicy',
                        data_df: DataFrame,
                        welfare_df: DataFrame, *,
-                       welfare_reference_df=None,
+                       welfare_reference_df = None,   # : DataFrame | None = None,
                        outpath: str | Path | None = None,
                        title: str = '',
-                       ) -> dict:
+                       ) -> dict:      # dict[str, DataFrame | Path | None]:
         """
         Compare the winners and loser.
 
@@ -1294,7 +1294,7 @@ class OptimalPolicyVersions:
     def allocate(self: 'OptimalPolicyVersions',
                  data_df: DataFrame,
                  data_title: str = '',
-                 ) -> dict:
+                 ) -> dict:      # dict[str, DataFrame | Path | None]:
         """
         Allocate observations to treatment state.
 

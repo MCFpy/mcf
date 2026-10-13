@@ -7,6 +7,7 @@ Contains classes and methods needed for mcf and optimal policy reporting.
 @author: MLechner
 """
 from bisect import bisect
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -24,7 +25,12 @@ if TYPE_CHECKING:
 
 def general(rep_o: 'McfOptPolReport') -> str:
     """Provide basic information."""
-    def basic_helper(outpath, outfiletext, outfilesummary, titel, mcf=False):
+    def basic_helper(outpath: Path | str | None,
+                     outfiletext: Path | str | None,
+                     outfilesummary: Path | str | None,
+                     titel: str,
+                     mcf: bool = False,
+                     ) -> str:
         """Create method-specific output string."""
         help_txt = '\n\n' + titel + f'\nAll outputs: {outpath}'
         if mcf:
@@ -54,12 +60,6 @@ def general(rep_o: 'McfOptPolReport') -> str:
                             rep_o.sens_o.gen_cfg.outfiletext,
                             rep_o.sens_o.gen_cfg.outfilesummary,
                             pre_titel + 'SENSITIVITY ANALYSIS'
-                            )
-    if rep_o.blind_o is not None:
-        txt += basic_helper(rep_o.blind_o.gen_cfg.outpath,
-                            rep_o.blind_o.gen_cfg.outfiletext,
-                            rep_o.blind_o.gen_cfg.outfilesummary,
-                            pre_titel + 'BLINDED IATEs'
                             )
     if rep_o.opt_o is not None:
         if isinstance(rep_o.opt_o, OptimalPolicyVersions):
@@ -94,7 +94,8 @@ def general(rep_o: 'McfOptPolReport') -> str:
                 'Athey (2018). Their estimator has been changed in several dimensions which are '
                 'described in Lechner (2018). The main changes relate to the objective function as '
                 'well as to the aggreation of effects. Lechner and Mareckova (2025a) provide the '
-                "MCF's asymptotic guarantees for the case of unconfoundedness. Based on asymptotic "
+                'MCF\'s asymptotic guarantees for the case of unconfoundedness. '
+                'Based on asymptotic '
                 'theory and a large simulation study, they also compare the MCF to other '
                 'approaches like the Generalized Random Forest (GRF, Athey, Tibshirani, Wager, 2019'
                 ') and Double Machine Learning (DML, Chernozhukov, Chetverikov, Demirer, Duflo, '
@@ -114,7 +115,7 @@ def general(rep_o: 'McfOptPolReport') -> str:
                 '\n- Athey, S., S. Wager (2019): Estimating Treatment Effects '
                 'with Causal Forests: An Application,  Observational Studies, 5, 21-35.'
                 'Audrino, F., J. Chassot, C. Huang, M. Knaus, M. Lechner, and J.P. Ortega (2024): '
-                "How does post-earnings announcement sentiment affect firms' dynamics? New "
+                'How does post-earnings announcement sentiment affect firms\' dynamics? New '
                 'evidence from causal machine learning, Journal of Financial Econometrics, 22, '
                 '1184, 575-604.'
                 '\n- Bearth, N., and M. Lechner (2025): Causal Machine '
@@ -172,20 +173,18 @@ def general(rep_o: 'McfOptPolReport') -> str:
         txt += ('\n\nSENSITIVITY'
                 + '\nSensitivity analysis is currently experimental and not (yet) documented here.'
                 )
-    if rep_o.blind_o is not None:
-        txt += ('\n\nBLIND IATEs'
-                + '\nThe blinding of IATEs is currently experimental and not (yet) documented here.'
-                )
     if rep_o.opt_o is not None:
         txt += ('\nThe optimal policy module offers three (basic) algorithms that can be used to '
                 'exploit fine grained knowledge about effect heterogeneity to obtain decision '
                 'rules. The current version is implemented for discrete treatments only. '
                 '\nThere is also an option for different fairness adjustments, as well as an '
                 'option to take into account estimation risk.'
-                '\n\nThe BEST_POLICY_SCORE algorithm is based on assigning the treatment that has '
-                'the highest impact at the unit (e.g., individual) level. If the treatment '
-                'heterogeneity is known (not estimated), this will lead to the best possible '
-                'result. This algorithm is computationally not burdensome. However, it will not be '
+                '\n\nThe BEST_POLICY_SCORE algorithm starts by assigning each unit to the '
+                'treatment with the highest policy score net of treatment costs. Without '
+                'binding treatment-share constraints, this maximizes the mean policy score '
+                'net of costs. When restrictions are specified, additional restricted '
+                'allocations are constructed using several allocation rules. '
+                'This algorithm is computationally not burdensome. However, it will not be '
                 'easy to understand how the implied rules depends on the features of the unit. Its '
                 'statistical properties are also not clear (for estimated treatment '
                 'heterogeneity) and there is a certain danger of overfitting, which could lead to '
@@ -196,8 +195,9 @@ def general(rep_o: 'McfOptPolReport') -> str:
                 'allocation of (new) observations is fast because it does not require to recompute '
                 'the policy score (as it is the case with the BEST_POLICY_SCORE algorithm). The '
                 'specific classifier is selected among four different classifiers from '
-                'scikit-learn, namely a simple neural network, two classification random forests '
-                'with minimum leaf size of 2 and 5, and ADDABoost. The selection is made '
+                'scikit-learn: a neural network, AdaBoost, and two classification random forests. '
+                'Both forests use a minimum leaf size of 2; their minimum sample counts required '
+                'to split an internal node are 2 and 5. The selection is made '
                 'according to the out-of-sample performance of the Accuracy Score of scikit-learn.'
                 '\n\nThe POLICY TREE algorithm builds optimal shallow decision trees. While these '
                 'trees are unlikely to lead to gloablly optimal allocations, and are '
@@ -277,8 +277,9 @@ def sensitivity(sens_o: 'ModifiedCausalForest', empty_lines_end: int) -> str:
             '(although it appears to work fine in tests so far). In the future, it will be '
             'expanded and improved. '
             )
-    if 'sens_txt_ate' in sens_o.report:
-        txt += '\n\nRESULTS: ATE\n' + sens_o.report['sens_txt_ate']
+    sens_txt_ate = sens_o.report.get('sens_txt_ate')
+    if sens_txt_ate is not None and not sens_o.report.get('sens_ate_tables'):
+        txt += '\n\nRESULTS: ATE\n' + sens_txt_ate
     if sens_o.report['sens_plots_iate'] is not None:
         txt += '\n\nRESULTS: Plots of estimated and placebo IATEs\n'
 
@@ -289,16 +290,21 @@ def mcf_general(mcf_o: 'ModifiedCausalForest', empty_lines_end: int, iv: bool) -
     """Collect general mcf information."""
     mtot = mcf_o.cf_cfg.mtot  # 1 standard
     prog_score = mcf_o.cf_cfg.match_nn_prog_score
-    matching = 'Prognostic Score' if prog_score else 'Mahalanobis Distance'
+    if prog_score:
+        matching = ('Prognostic-score matching is requested. If the number of matching '
+                    'variables after dummy encoding is less than twice the number of groups '
+                    'being matched, Mahalanobis matching on the covariates is used.'
+                    )
+    else:
+        matching = 'Nearest neighbour matching uses Mahalanobis distance on the covariates.'
+
     txt = '\nMETHOD\n'
     if iv:
         txt += ('The instrumental variable method is used. MCFs are run for the first stage and '
                 'the reduced form.\n'
                 )
     if mtot == 1:
-        txt += ('The standard MCF method used for forest building. '
-                f'Nearest neighbour matching is performed using the {matching}.'
-                )
+        txt += 'The standard MCF method is used for forest building. ' + matching
     else:
         txt += 'Nonstandard method for training the MCF is used. ARE YOU SURE THIS WAS ON PURPOSE?'
 
@@ -346,9 +352,9 @@ def mcf_general(mcf_o: 'ModifiedCausalForest', empty_lines_end: int, iv: bool) -
         txt += '\n\nPanel data used.'
 
     effects = add_effects(mcf_o.p_cfg, mcf_o.gen_cfg)
-    txt += f'\n\nEFFECTS ESTIMATED\n{", ".join(effects)}'
+    txt += f'\n\nEFFECTS CONFIGURED\n{", ".join(effects)}'
 
-    if mcf_o.var_cfg.z_name_ord or mcf_o.var_cfg.x_name_unord:
+    if mcf_o.var_cfg.z_name_unord or mcf_o.var_cfg.x_name_unord:
         txt += '\n' * 2 + 'NOTE on unordered variables: '
         txt += ('\nOne-hot-encoding (dummy variables) is not used as it is expected to perform '
                 'poorly with trees: It may lead to splits of one category versus all other '
@@ -367,10 +373,10 @@ def mcf_iate_analyse(mcf_o: 'ModifiedCausalForest',
     txt = '\n' * 2 + 'This section contains parts of the descriptive analysis  of the '
     txt += 'LIATEs. ' if iv else 'IATEs. '
     txt += ('More detailed tables and figures are contained in the output files and directories. '
-            'These additional results include variable importance plots from a regression random '
-            'forest as well as and linear regression results. Both estimators use the estimated '
-            'IATEs as dependent variables and the confounders and heterogeneity variables as '
-            'features. '
+            'When enabled, additional outputs include variable importance statistics from '
+            'regression random forests and results from regression trees. These analyses use '
+            'the estimated effects as dependent variables and the available confounders and '
+            'heterogeneity variables as features. '
             )
     if iv:
         txt += ('\nFigures relate to the distributions of the LIATEs as well '
@@ -414,7 +420,8 @@ def mcf_iate_part1(mcf_o: 'ModifiedCausalForest',
     txt += 'LIATEs, ' if iv else 'IATEs, '
     txt += 'like their distribution, and their relations to the features.'
 
-    txt += '\n' * 2 + 'RESULTS' + '\n' + mcf_o.report['iate_text']
+    if not mcf_o.report.get('iate_tables'):
+        txt += '\n' * 2 + 'RESULTS' + '\n' + mcf_o.report['iate_text']
 
     return txt + '\n' * empty_lines_end
 
@@ -463,10 +470,12 @@ def mcf_ate_proc(mcf_o: 'ModifiedCausalForest',
                  ) -> tuple[str, list | tuple, list | tuple | None, int]:
     """Create text and table for ate estimation."""
     p_cfg = mcf_o.p_cfg
-    if p_cfg.se_boot_ate or p_cfg.cluster_std:
-        txt = '\n' * 2 + 'METHOD'
-        txt = f'\nBootstrap standard error with {p_cfg.se_boot_ate} replications. '
-    txt = '\n' * 2 + 'RESULT '
+    txt = ''
+    if p_cfg.se_boot_ate:
+        txt += ('\n\nMETHOD'
+                f'\nBootstrap standard errors with {p_cfg.se_boot_ate} replications. '
+                )
+    txt += '\n' * 2 + 'RESULT '
     tables_results_extra = None
     if iv:
         tables_results_local = tables_results_global = None
@@ -512,6 +521,9 @@ def mcf_ate_proc(mcf_o: 'ModifiedCausalForest',
 
 def mcf_welfare_alloc(mcf_o: 'ModifiedCausalForest', empty_lines_end: int) -> str:
     """Create text and table for welfare estimation of different allocations."""
+    if mcf_o.report.get('alloc_welfare_tables'):
+        return '\n' * empty_lines_end
+
     return mcf_o.report['alloc_welfare_allocations'] + '\n' * empty_lines_end
 
 
@@ -552,11 +564,15 @@ def build_ate_table(mcf_o: 'ModifiedCausalForest',
     # 3D numpy arrays, outcome, treatment population, 3rd element compariosn
     table_list = []
     for o_idx in range(ate.shape[0]):
-        ate_1d = np.round(ate[o_idx, 0, :].flatten().reshape(-1, 1), 3)
-        ate_se_1d = np.round(ate_se[o_idx, 0, :].flatten().reshape(-1, 1), 3)
-        t_val = np.round(np.abs(ate_1d / ate_se_1d), 2)
-        p_val = np.round(t.sf(t_val, 1000000) * 2 * 100, 2)
-        p_stars = [p_star_string(val/100) for val in p_val]
+        ate_1d = ate[o_idx, 0, :].reshape(-1, 1)
+        ate_se_1d = ate_se[o_idx, 0, :].reshape(-1, 1)
+        t_val = np.abs(ate_1d / ate_se_1d)
+        p_val = t.sf(t_val, 1000000) * 2
+        p_stars = [p_star_string(float(val)) for val in p_val.ravel()]
+        ate_1d = np.round(ate_1d, 3)
+        ate_se_1d = np.round(ate_se_1d, 3)
+        t_val = np.round(t_val, 2)
+        p_val = np.round(p_val * 100, 2)
         col1_name = 'Difference' if alloc else 'Effect'
         table1_df = pd.DataFrame(data=np.concatenate((ate_1d, ate_se_1d, t_val, p_val), axis=1),
                                  index=ate_effect_list,
@@ -604,15 +620,19 @@ def mcf_results(mcf_o: 'ModifiedCausalForest',
         txt += 'Thus a high internal consistency is preserved.'
     else:
         if iv:
-            txt += ('LIATE. Thus a high internal consistency is preserved in the sense that LIATEs '
-                    'will aggregate to LGATEs, which in turn will aggregate to LATEs.'
+            txt += ('LIATE when local IV aggregation is used. This produces LGATEs and '
+                    'averaged local complier effects. '
+                    '\nGlobal IV aggregation divides reduced-form weights by the aggregate '
+                    'first-stage effect within each forest fold. The resulting global LATE '
+                    'need not equal the average LIATE, even without weight truncation.'
                     )
         else:
             txt += ('IATE. Thus a high internal consistency is preserved in the sense that IATEs '
                     'will aggregate to GATEs, which in turn will aggregate to ATEs.'
                     )
-    if p_cfg.max_weight_share > 0:
+    if p_cfg.max_weight_share < 1 or p_cfg.choice_based_sampling:
         txt += '\n' * 2 + 'ESTIMATION'
+    if p_cfg.max_weight_share < 1:
         txt += ('\nWeights of individual training observations are truncated '
                 f'at {p_cfg.max_weight_share:4.2%}. '
                 )
@@ -620,26 +640,31 @@ def mcf_results(mcf_o: 'ModifiedCausalForest',
             txt += 'No truncation of weights for value differences.'
         else:
             txt += 'Aggregation of '
-            txt += 'LIATEs to LATE and GATEs' if iv else 'IATEs to ATE and GATEs'
-            txt += ' may not be exact due to weight truncation.'
-        if p_cfg.choice_based_sampling:
-            txt += ('\nTreatment based choice based sampling is used with '
-                    f'probabilities {", ".join(p_cfg.choice_based_probs)}.'
+            txt += ('LIATEs to averaged local complier effects and LGATEs' if iv
+                    else 'IATEs to ATE and GATEs'
                     )
+            txt += ' may not be exact due to weight truncation.'
+    if p_cfg.choice_based_sampling:
+        probs = ', '.join(str(prob) for prob in p_cfg.choice_based_probs)
+        txt += f'\nChoice-based sampling by treatment uses probabilities {probs}.'
     txt += '\n' * 2 + 'INFERENCE'
-    txt += '\nInference is based on using the weight matrix. '
+    txt += ('\nInference is based on the weight matrix. Bootstrap inference, when enabled '
+            'for an effect type, estimates variance from repeated resampling. '
+            'For the standard analytical variance estimator, '
+            )
     if not p_cfg.cond_var:
-        txt += 'The unconditional variance of weight x outcome is used.'
+        txt += 'the unconditional variance of weighted outcomes is used.'
     else:
-        txt += 'Nonparametric regressions are based on '
+        txt += 'conditional moments are estimated using '
         if p_cfg.knn:
-            txt += 'k-nearest neighbours. '
+            txt += 'k-nearest neighbours.'
         else:
             txt += 'Nadaraya-Watson kernel regression.'
     if p_cfg.cluster_std:
         txt += ('\nStandard errors are clustered. '
-                f'{mcf_o.var_cfg.cluster_name} is the cluster variable.'
-                'Clustering is implemented by the block-bootstrap.'
+                f'Cluster variable: {", ".join(mcf_o.var_cfg.cluster_name)}. '
+                'For effects with bootstrap inference enabled, entire clusters are resampled. '
+                'Otherwise, variance estimation uses aggregation within clusters.'
                 )
     if not (iv or alloc):
         txt += '\n' * 2 + 'NOTE'
@@ -653,9 +678,10 @@ def mcf_results(mcf_o: 'ModifiedCausalForest',
 
 def mcf_prediction(mcf_o: 'ModifiedCausalForest', empty_lines_end: int) -> str:
     """Create the general text for predictions."""
-    txt = (f'Training uses {mcf_o.gen_cfg.mp_parallel} CPU '
-           f'{"cores" if mcf_o.gen_cfg.mp_parallel > 1 else "core"}. ')
-    if mcf_o.int_cfg.cuda and mcf_o.gen_cfg.iate_eff:
+    txt = (f'Prediction is configured to use up to {mcf_o.gen_cfg.mp_parallel} CPU '
+           f'{"cores" if mcf_o.gen_cfg.mp_parallel > 1 else "core"}.'
+           )
+    if mcf_o.int_cfg.cuda and mcf_o.p_cfg.iate:
         txt += '\nGPU may be used for predicting IATEs.'
 
     return txt + '\n' * empty_lines_end
@@ -664,8 +690,9 @@ def mcf_prediction(mcf_o: 'ModifiedCausalForest', empty_lines_end: int) -> str:
 def mcf_forest(mcf_o: 'ModifiedCausalForest', empty_lines_end: int, iv: bool = False) -> str:
     """Text the forest method."""
     if iv:
-        dc_1st, rep_1st = mcf_o.cf_cfg, mcf_o.report['cf_1st']
-        dc_redf, rep_redf = mcf_o.cf_cfg, mcf_o.report['cf_redf']
+        dc_1st = mcf_o.iv_mcf['firststage'].cf_cfg
+        dc_redf = mcf_o.iv_mcf['reducedform'].cf_cfg
+        rep_1st, rep_redf = mcf_o.report['cf_1st'], mcf_o.report['cf_redf']
         dc, rep = dc_redf, rep_redf
     else:
         dc, rep = mcf_o.cf_cfg, mcf_o.report['cf']
@@ -686,7 +713,7 @@ def mcf_forest(mcf_o: 'ModifiedCausalForest', empty_lines_end: int, iv: bool = F
         txt += (f'\nThe causal forest consists of {dc_1st.boot}, {dc_redf.boot} (1st stage, '
                 'reduced form) trees.'
                 f'\nThe minimum leaf size is {rep_1st["n_min"]}, {rep_redf["n_min"]}.'
-                '\nThe number of variables considered for each split is '
+                '\nThe baseline number of candidate variables per split is '
                 f'{rep_1st["m_split"]}, {rep_redf["m_split"]}.'
                 '\nThe share of data used in the subsamples for forest '
                 f'building is {rep_1st["f_share_build"]:4.0%}, {rep_redf["f_share_build"]:4.0%}.'
@@ -699,9 +726,10 @@ def mcf_forest(mcf_o: 'ModifiedCausalForest', empty_lines_end: int, iv: bool = F
                 'used for splitting. '
                 )
     else:
-        txt += (f'\nThe causal forest consists of {dc.boot} trees.'
-                f'\nThe minimum leaf size is {rep["n_min"]}.'
-                f'\nThe number of variables considered for each split is {rep["m_split"]}.'
+        txt += (f'\nThe causal forest consists of {dc.boot} trees. '
+                f'\nThe minimum leaf size is {rep["n_min"]}. '
+                '\nThe baseline number of candidate variables per split is '
+                f'{rep["m_split"]}. '
                 '\nThe share of data used in the subsamples for forest '
                 f'building is {rep["f_share_build"]:4.0%}.'
                 '\nThe share of the data used in the subsamples for forest '
@@ -763,18 +791,23 @@ def mcf_local_center(mcf_o: 'ModifiedCausalForest',
                      iv: bool = False
                      ) -> str:
     """Text the local centering results."""
-    txt = '\nMETHOD'
-    txt += ('\nLocal centering is based on training a regression to predict the outcome variable '
-            'conditional on the features (without the treatment). The regression method is '
-            'selected among various versions of Random Forests, Support Vector Machines, Boosting '
-            'methods, and Neural Networks of scikit-learn. The best method is selected by '
-            'minimizing their out-of-sample Mean Squared Error '
-            )
-    if mcf_o.lc_cfg.cs_cv:
-        txt += f'using {mcf_o.lc_cfg.cs_cv_k}-fold cross-validation. '
+    lc_cfg = mcf_o.lc_cfg
+    txt = ('\nMETHOD'
+           '\nLocal centering predicts the outcome conditional on the features '
+           '(without the treatment). '
+           )
+    if lc_cfg.estimator == 'automatic':
+        txt += ('The regression method is selected by minimizing out-of-sample mean squared '
+                'error for the first outcome, '
+                )
+        if lc_cfg.cs_cv:
+            txt += f'using {lc_cfg.cs_cv_k}-fold cross-validation. '
+        else:
+            txt += 'using a held-out validation sample. '
     else:
-        txt += f'using a test sample ({mcf_o.lc_cfg.cs_share:5.2%} of the training data). '
-    txt += ('The full set of results of the method selection step are contained in '
+        txt += f'The specified regression method is {lc_cfg.estimator}. '
+
+    txt += ('Further details are contained in '
             f'{mcf_o.gen_cfg.outfiletext}. '
             '\nThe respective out-of-sample predictions are subtracted from the observed outcome '
             'in the training data used to build the forest. '
@@ -814,15 +847,18 @@ def mcf_common_support(mcf_o: 'ModifiedCausalForest',
             txt += 'scores (PS) for the different values of the instrument. '
         else:
             txt += 'scores (PS) for the different treatment arms. '
-        txt += ('PSs are estimated by random forest classifiers. Overlap is operationalized by '
-                'computing cut-offs probabilities of the PSs (ignoring the first '
+        txt += ('PSs are estimated by random forest classifiers. Common support is imposed '
+                'using lower and upper probability cutoffs.'
                 )
-        txt += 'instrument value' if iv else 'treatment arm'
-        txt += ', because probabilities add to 1 over all '
-        txt += 'instrument values' if iv else 'treatment arms'
-        txt += ('). These cut-offs are subsequently also applied to the data '
-                'used for predicting the effects.'
-                )
+        if mcf_o.cs_cfg.type_ == 1:
+            first = 'instrument value' if iv else 'treatment arm'
+            txt += (f' Under the min-max/quantile rule, the probability of the first {first} '
+                    'is excluded from the cutoff checks.'
+                    )
+        else:
+            txt += ' Under the fixed-bound rule, all probabilities are checked.'
+
+        txt += (' These cutoffs are also applied to the data used for predicting the effects.')
         if mcf_o.cs_cfg.type_ == 1:
             quant = mcf_o.cs_cfg.quantil
             string = "min / max" if quant == 1 else str(quant*100) + "% quantile"
@@ -872,25 +908,27 @@ def mcf_feature_selection(mcf_o: 'ModifiedCausalForest',
             )
     if mcf_o.fs_cfg.rel_vi_keep_if != 'y_relevant':
         txt += 'and the propensity score (classifier). '
-    txt += ('Out-of-sample fit measures are computed using the accuracy score for classifiers and '
-            'the R2 for regressions. '
-            '\n'
-            )
+    txt += 'Out-of-sample fit is measured by R2 for regressions and '
+    if mcf_o.fs_cfg.mse_for_classifier:
+        txt += 'negative mean squared error of predicted class probabilities for classifiers. '
+    else:
+        txt += 'the accuracy score for classifiers. '
+    txt += '\n'
     if mcf_o.fs_cfg.rel_vi_keep_if != 'y_relevant':
         txt += 'For the propensity score and the outcome predictions, '
     else:
         txt += 'For the outcome prediction, '
     txt += ('variable importance statistics are computed by randomizing / permuting individual '
-            'features / covariates and computing the resulting loss of out-of-sample fit . If the '
+            'features / covariates and computing the resulting loss of out-of-sample fit. If the '
             'out-of-sample fit for the outcome is reduced by more than '
-            f'{mcf_o.fs_cfg.rel_vi_threshold_y:5.2%} '
+            f'{mcf_o.fs_cfg.rel_vi_threshold_y:5.2%}'
             )
-    if mcf_o.fs_cfg.rel_vi_keep_if in ('y_and_d_relevant', 'y_or_d_relevant',):
-        txt += 'and ' if mcf_o.fs_cfg.rel_vi_keep_if == 'y_and_d_relevant' else 'or '
+    if mcf_o.fs_cfg.rel_vi_keep_if in ('y_and_d_relevant', 'y_or_d_relevant'):
+        txt += ' and ' if mcf_o.fs_cfg.rel_vi_keep_if == 'y_and_d_relevant' else ' or '
         txt += ('the out-of-sample fit for the propensity score is reduced by more than '
-                f'{mcf_o.fs_cfg.rel_vi_threshold_d:5.2%}, the feature is kept. '
+                f'{mcf_o.fs_cfg.rel_vi_threshold_d:5.2%}'
                 )
-    txt += 'Otherwise, the respective feature is deleted. '
+    txt += ', the feature is kept. Otherwise, the respective feature is deleted. '
 
     if iv:
         txt += '\nFeature selection is based on the 1st stage only.'
@@ -917,9 +955,9 @@ def mcf_feature_selection(mcf_o: 'ModifiedCausalForest',
 def mcf_descriptives(mcf_o: 'ModifiedCausalForest', empty_lines_end: int) -> str:
     """Provide basic descriptive information about training data."""
     screen = mcf_o.dc_cfg.screen_covariates
-    percorr = mcf_o.dc_cfg.check_perfectcorr
+    percorr = screen and mcf_o.dc_cfg.check_perfectcorr
     clean = mcf_o.dc_cfg.clean_data
-    dummy = mcf_o.dc_cfg.min_dummy_obs
+    dummy = mcf_o.dc_cfg.min_dummy_obs if screen else 0
     txt = ''
     if screen or percorr or clean or dummy:
         txt += '\nMETHOD'
@@ -928,26 +966,34 @@ def mcf_descriptives(mcf_o: 'ModifiedCausalForest', empty_lines_end: int) -> str
         if percorr:
             txt += '\nVariables that are perfectly correlated with other variables are removed.'
         if dummy:
-            txt += (f'\nDummy variables with less than {mcf_o.dc_cfg.min_dummy_obs} observations '
+            txt += (f'\nDummy variables with less than {dummy} observations '
                     'in the smaller group are removed.'
                     )
         if clean:
             txt += '\nRows with any missing values for variables needed for training are removed.'
     txt += '\n\n' * 2 + 'RESULTS'
-    if mcf_o.report['removed_vars']:
-        txt += ('The following control variables were removed from the data: '
-                f'{" ".join(mcf_o.report["removed_vars"])}'
-                )
+    if screen:
+        removed_vars = mcf_o.report['removed_vars']
+        if removed_vars:
+            txt += ('The following control variables were removed from the data: '
+                    f'{" ".join(removed_vars)}'
+                    )
+        else:
+            txt += '\nNo relevant variables were removed.'
     else:
-        txt += '\nNo relevant variables were removed.'
-    txt += f'\nSample size of training data: {mcf_o.report["training_obs"][0]} '
-    if mcf_o.report["training_obs"][1] > 0:
-        del_obs = mcf_o.report["training_obs"][1]
-        txt += f'\n    - Deleted number of observations: {del_obs}'
-        remain_obs = mcf_o.report["training_obs"][0] - del_obs
-        txt += f'\nRemaining number of observations: {remain_obs}'
+        txt += '\nCovariate screening was disabled.'
+    if clean:
+        training_obs = mcf_o.report['training_obs']
+        txt += f'\nSample size of training data: {training_obs[0]} '
+        if training_obs[1] > 0:
+            del_obs = training_obs[1]
+            txt += f'\n    - Deleted number of observations: {del_obs}'
+            remain_obs = training_obs[0] - del_obs
+            txt += f'\nRemaining number of observations: {remain_obs}'
+        else:
+            txt += '   (no observations removed).'
     else:
-        txt += '   (no observations removed).'
+        txt += '\nMissing-value cleaning was disabled.'
 
     return txt + '\n' * empty_lines_end
 
@@ -957,8 +1003,10 @@ def mcf_training(mcf_o: 'ModifiedCausalForest', empty_lines_end: int) -> str:
     txt = (f'Training uses {mcf_o.gen_cfg.mp_parallel} CPU '
            f'{"cores" if mcf_o.gen_cfg.mp_parallel > 1 else "core"}.'
            )
-    if mcf_o.int_cfg.cuda and mcf_o.cf_cfg.match_nn_prog_score:
-        txt += '\nGPU is likely to be used for Mahalanobis matching.'
+    if mcf_o.int_cfg.cuda:
+        txt += ('\nCUDA is enabled. Matching may use the GPU, depending on the sample size '
+                'and the number of matching variables.'
+                )
 
     return txt + '\n' * empty_lines_end
 
@@ -1022,6 +1070,8 @@ def add_effects(p_cfg: 'PCfg', gen_cfg: 'GenCfg') -> list[str]:
         effects.append('Balanced GATE (BGATE)')
     if p_cfg.cbgate:
         effects.append('Fully Balanced (CAUSAL) GATE (CBGATE)')
+    if p_cfg.qiate:
+        effects.append('Quantile Individualized Average Treatment Effect (QIATE)')
     if p_cfg.iate:
         effects.append('Individualized Average Treatment Effect (IATE)')
     if gen_cfg.ate_eff:

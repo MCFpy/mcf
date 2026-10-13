@@ -10,15 +10,13 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.10.0
+Version: 0.11.0
 
-This is an example to show how the mcf can be implemented relying completely on
-defaults. Note that usually in application it is very likely to be appropriate
-to deviate from some of the default specifications.
+Minimal MCF example: specify treatment, outcome and at least one feature.
+Other estimation settings use their defaults; adapt them to the application.
 
 """
 from pathlib import Path
-import warnings
 
 from mcf.example_data import example_data
 from mcf.mcf_main import ModifiedCausalForest
@@ -37,13 +35,11 @@ training_df, prediction_df, name_dict = example_data()
 
 VAR_D_NAME = 'treat'   # Name of treatment variable
 VAR_Y_NAME = 'outcome'         # Name of outcome variable
-VAR_X_NAME_ORD = ('x_cont0',)  # Using VAR_X_NAME_UNORD instead is fine as well
+VAR_X_NAME_ORD = ('x_cont0',)  # Ordered features include binary variables.
+# Alternatively, use var_x_name_unord for categories with at least three values.
 # -----------------------------------------------------------------------------
-if not APPLIC_PATH.exists():
-    APPLIC_PATH.mkdir(parents=True)
+APPLIC_PATH.mkdir(parents=True, exist_ok=True)
 
-# Modules may send many irrelevant warnings: Globally ignore them
-warnings.filterwarnings('ignore')
 # -----------------------------------------------------------------------------
 mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
                              var_d_name=VAR_D_NAME,
@@ -52,8 +48,9 @@ mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
                              )
 mymcf.train(training_df)
 results = mymcf.predict(prediction_df)
-results_with_cluster_id_df = mymcf.analyse(results)
-my_report = McfOptPolReport(mcf=mymcf)
+# The returned dictionary adds k-means labels to results['iate_data_df'].
+results_with_clusters = mymcf.analyse(results)
+my_report = McfOptPolReport(mcf=mymcf, outputpath=results['path_output'])
 my_report.report()
 print('End of computations.\n\nThanks for using ModifiedCausalForest.'
       ' \n\nYours sincerely\nMCF \U0001F600'

@@ -13,13 +13,11 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.10.0
+Version: 0.11.0
 
-This is an example to show the optimal policy package can be implemented with
-a minimum number of specification (it could be even more further simplified
-when the same data is used for solving, evaluating, and predicting
-allocations; or when only one solving method is used which makes some more
-method-specific parameters redundant).
+Learn and evaluate allocations with three policy-learning methods.
+Policy scores define treatment codes in their column order. Trees and classifiers
+also require decision features; best-policy-score allocation needs scores on new data.
 
 """
 from pathlib import Path
@@ -42,18 +40,18 @@ METHODS = ('best_policy_score', 'policy_tree', 'bps_classifier',)
 #  'bps_classifier'
 
 # -------- All what follows are parameters of the OptimalPolicy --------
-#   Whenever None is specified, parameter will be set to default values.
+#   Omitted keywords use API defaults; None may select automatic settings.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 VAR_POLSCORE_NAME = ('y_pot0', 'y_pot1', 'y_pot2')
-#   Treatment specific variables to measure the value of individual treatments.
-#   This is usually the estimated potential outcome or any other score related
+# One policy score per treatment, ordered as treatment codes 0, 1, 2.
+# Usually estimated potential outcomes; this simulation supplies true scores.
 
-VAR_X_NAME_ORD = ('x_cont0',)  # Alternatively specify VAR_X_NAME_UNORD
+VAR_X_NAME_ORD = ('x_cont0',)  # Ordered features include binary variables.
+# Unordered decision variables need at least three integer-coded categories.
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-if not APPLIC_PATH.exists():
-    APPLIC_PATH.mkdir(parents=True)
+APPLIC_PATH.mkdir(parents=True, exist_ok=True)
 
 for method in METHODS:
     myoptp = OptimalPolicy(gen_outpath=APPLIC_PATH,
@@ -61,10 +59,11 @@ for method in METHODS:
                            var_polscore_name=VAR_POLSCORE_NAME,
                            var_x_name_ord=VAR_X_NAME_ORD)
 
-    solve_dict, training_df = myoptp.solve(training_df, data_title='training')
+    # Preserve the original data for the next method; evaluate only retained rows.
+    solve_dict, training_used_df = myoptp.solve(training_df.copy(), data_title='training')
 
     myoptp.evaluate(solve_dict['allocation_df'],
-                    training_df,
+                    training_used_df,
                     data_title='training'
                     )
 
@@ -74,8 +73,9 @@ for method in METHODS:
                     prediction_df,
                     data_title='prediction'
                     )
-    my_report = McfOptPolReport(
-        optpol=myoptp, outputfile='Report_OptP_' + method)
+    my_report = McfOptPolReport(optpol=myoptp,
+                                 outputpath=alloc_pred_dict['outpath'],
+                                 outputfile='Report_OptP_' + method)
     my_report.report()
 print('End of example estimation.\n\nThanks for using OptimalPolicy. \n\nYours'
       ' sincerely\nOptimalPolicy MCF module (beta) \U0001F600')

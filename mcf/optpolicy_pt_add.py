@@ -5,6 +5,7 @@ Created on Thu Aug  3 15:23:17 2023
 # -*- coding: utf-8 -*-
 @author: MLechner
 """
+from copy import deepcopy
 from itertools import combinations
 from math import comb
 from typing import Any, TYPE_CHECKING
@@ -16,7 +17,7 @@ from pandas import DataFrame
 
 from mcf import mcf_print_stats as mcf_ps
 if TYPE_CHECKING:
-    from mcf.optpolicy_methods import OptimalPolicy
+    from mcf.optpolicy_main import OptimalPolicy
     from mcf.optpolicy_init import GenCfg, VarCfg, FairCfg, OtherCfg, PtCfg
 
 
@@ -32,13 +33,19 @@ def describe_tree(optp_: 'OptimalPolicy',
     gen_cfg, other_cfg = optp_.gen_cfg, optp_.other_cfg
     txt = '\n' + '-' * 100 + '\nDetails of the estimated policy tree '
     txt += '\n' + '- ' * 50
-    txt += (f'\nDepth of 1st tree: {optp_.pt_cfg.depth_tree_1_adj}, '
-            'depth of 2nd tree (inside the leaves of the 1st tree): '
-            f'{optp_.pt_cfg.depth_tree_2_adj}, '
-            f'total depth: {optp_.pt_cfg.total_depth_adj}'
+    actual_depth = max((len(path) for splits in splits_seq for path in splits), default=0)
+    txt += (f'\nRequested depth of 1st tree: {optp_.pt_cfg.depth_tree_1_adj}, '
+            f'requested depth of 2nd-stage trees: {optp_.pt_cfg.depth_tree_2_adj}, '
+            f'requested total depth: {optp_.pt_cfg.total_depth_adj}'
+            f'\nActual maximum depth of fitted tree: {actual_depth}'
             )
     txt += '\n' + '- ' * 50
     tree_dic = {}
+    if fairness_corrected and optp_.fair_cfg.fair_strata is None:
+        txt += ('\nFairness stratum statistics are unavailable for these data. '
+                'Tree conditions are shown for the adjusted decision variables.\n'
+                )
+        fairness_corrected = False
     if fairness_corrected:
         fair_cfg, var_cfg = optp_.fair_cfg, optp_.var_cfg
         # For all leaves: describe
@@ -47,10 +54,10 @@ def describe_tree(optp_: 'OptimalPolicy',
         txt += strata_txt
     txt += '\n\nAnalysing the single leaves of the policy tree\n' + '- ' * 50
     for i, splits in enumerate(splits_seq):
-        for j in range(2):
+        for j in range(len(treat[i])):
             # This is a final leaf
             leaf_key = 'Leaf' + str(i) + str(j)
-            tree_dic[leaf_key] = {}
+            tree_dic[leaf_key] = {'splits': deepcopy(splits[j]), 'treatment': int(treat[i][j])}
             txt += f'\nLeaf {i:d}{j:d}:  '
             if fairness_corrected:
                 variables_leaf_name = []
@@ -116,9 +123,10 @@ def describe_tree(optp_: 'OptimalPolicy',
                     )
                 txt += txt_strata
             txt += '\n' + '- ' * 50
-    txt += ('\nNote: Splitpoints displayed for ordered variables are '
-            'midpoints between observable values '
-            '\n(e.g., 0.5 for a variable with values of 0 and 1).'
+    txt += ('\nNote: For ordered variables, conditions use the fitted split thresholds.'
+            '\nValues equal to a threshold follow the <= branch; larger values follow the > branch.'
+            '\nThresholds are displayed rounded to three decimal places.'
+            '\nUse the fitted tree for allocation when full numerical precision is required.'
             ) + '\n' + '-' * 100
     mcf_ps.print_mcf(gen_cfg, txt, summary=True)
 
@@ -167,11 +175,14 @@ def describe_protected_material_strata(fair_cfg: 'FairCfg',
         var_width=var_width, return_strata_indices=True
         )
     txt += txt_strata + '\n' + '- ' * 50
-    txt += f'\nNote: Strata formed using {fair_cfg.protected_disc_method} for protected variables.'
+    txt += f'\nGrouping setting for protected variables: {fair_cfg.protected_disc_method}.'
     if var_cfg.material_ord_name or var_cfg.material_unord_name:
-        txt += (f'Strata formed using {fair_cfg.material_disc_method} '
-                'for materially relevant variables.'
+        txt += ('\nGrouping setting for materially relevant variables: '
+                f'{fair_cfg.material_disc_method}.'
                 )
+    txt += ('\nExact cells replace the configured grouping when the relevant features have '
+            'sufficiently few values in this adjustment sample.'
+            )
     txt += '\n' + '- ' * 50
 
     return txt, strata_indices
@@ -198,7 +209,8 @@ def strata_specific_stats(var_name: list[str],
                     )
         subheader.append(sub_name)
     txt += '\nStratum obs ' + ' '.join(subheader)
-    for stratum in np.int16(strata_no):
+    for stratum in strata_no:
+        stratum = int(stratum)
         idx = all_indices[(strata_indices_np == stratum).reshape(-1)]
         if return_strata_indices:
             strata_indices.append(idx)
@@ -219,7 +231,7 @@ def strata_specific_stats(var_name: list[str],
             else:
                 unique_val = np.unique(var_stratum[:, jdx])
                 if isinteger(unique_val):
-                    uni_str = [f'{round(s):5>d}' for s in unique_val]
+                    uni_str = [f'{round(s):>5d}' for s in unique_val]
                 else:
                     uni_str = [f'{s:>5.2f}' for s in unique_val]
                 txt += f'|{(" ".join(uni_str)).center(var_width)}'
@@ -242,51 +254,97 @@ def automatic_cost(optp_: 'OptimalPolicy', data_df: DataFrame) -> list[float]:
     data_ps = data_df[var_cfg.polscore_name].to_numpy()
     obs = data_ps.shape[0]
 
-    max_by_treat = np.around(np.array(other_cfg.max_shares) * obs)
-    if any(cost > 0 for cost in other_cfg.costs_of_treat):
-        costs_of_treat = other_cfg.costs_of_treat.copy()
-    else:
-        costs_of_treat = np.zeros(gen_cfg.no_of_treat)
-    std_ps = np.std(data_ps.reshape(-1))
-    step_size = 0.02
+    max_by_treat = np.asarray(other_cfg.max_by_treat, dtype=np.int64)
+    base_costs = np.asarray(other_cfg.costs_of_treat, dtype=float)
+    costs_of_treat = base_costs.copy()
+
     max_iterations = 1000
+    active_treatments = np.zeros(gen_cfg.no_of_treat, dtype=bool)
 
+    converged = False
     for iterations in range(max_iterations):
-        treatments = np.argmax(data_ps - costs_of_treat, axis=1)
-        values, count = np.unique(treatments, return_counts=True)
-        if len(count) == gen_cfg.no_of_treat:
-            alloc = count
-        else:
-            alloc = np.zeros(gen_cfg.no_of_treat)
-            for i, j in enumerate(values):
-                alloc[j] = count[i]
-        diff = alloc - max_by_treat
+        adjusted_scores = data_ps - costs_of_treat
+        treatments = np.argmax(adjusted_scores, axis=1)
+        alloc = np.bincount(treatments, minlength=gen_cfg.no_of_treat)
+        violations = alloc > max_by_treat
+        excess_allocations = np.maximum(alloc - max_by_treat, 0)
 
-        diff[diff < 0] = 0
-        if not np.any(diff > 0):
+        if not np.any(violations):
+            converged = True
             break
 
-        if iterations % 100 == 0:
-            step_size /= 2
-            if gen_cfg.with_output:
-                iter_string = ' '.join(f'({int(s):3d})' for s in diff)
-                print(f'Iterations: {iterations}, {iter_string}')
+        if iterations % 100 == 0 and gen_cfg.with_output:
+            iter_string = ' '.join(f'({int(s):3d})' for s in excess_allocations)
+            print(f'Iterations: {iterations}, {iter_string}')
 
-        costs_of_treat += diff / obs * std_ps * step_size
+        if not np.any(active_treatments):
+            most_violated = int(np.argmax(excess_allocations))
+            active_treatments[most_violated] = True
+        else:
+            active_treatments |= violations
 
-    alloc = alloc.astype(np.int32)
-    costs_of_treat_update = costs_of_treat * other_cfg.costs_of_treat_mult
-    costs_of_treat_neu = other_cfg.costs_of_treat.copy()
-    for idx, cost in enumerate(costs_of_treat_update):
-        if cost > other_cfg.costs_of_treat[idx]:
-            costs_of_treat_neu[idx] = cost
+        active_observations = int(np.sum(alloc[active_treatments]))
+        active_capacity = int(np.sum(max_by_treat[active_treatments]))
 
+        if active_observations <= active_capacity:
+            active_treatments[:] = False
+            most_violated = int(np.argmax(excess_allocations))
+            active_treatments[most_violated] = True
+            active_observations = int(alloc[most_violated])
+            active_capacity = int(max_by_treat[most_violated])
+
+        outside_treatments = ~active_treatments
+        if not np.any(outside_treatments):
+            raise RuntimeError('Automatic treatment-cost calibration cannot find a feasible '
+                               'price adjustment.'
+                               )
+        observations_active = np.flatnonzero(active_treatments[treatments])
+        outside_indices = np.flatnonzero(outside_treatments)
+        best_active_scores = adjusted_scores[observations_active, treatments[observations_active]]
+        best_outside_scores = np.max(adjusted_scores[np.ix_(observations_active, outside_indices)],
+                                     axis=1
+                                     )
+        margins = best_active_scores - best_outside_scores
+        no_to_move = active_observations - active_capacity
+        partitioned_margins = np.partition(margins, no_to_move - 1)
+        last_to_move = float(partitioned_margins[no_to_move - 1])
+
+        score_scale = max(1.0,
+                          abs(last_to_move),
+                          float(np.max(np.abs(best_active_scores))),
+                          float(np.max(np.abs(best_outside_scores)))
+                          )
+        numerical_tolerance = 8 * np.spacing(1.0) * score_scale
+
+        if no_to_move < len(partitioned_margins):
+            first_to_stay = float(np.min(partitioned_margins[no_to_move:]))
+            if first_to_stay > last_to_move:
+                cost_increase = last_to_move + (first_to_stay - last_to_move) / 2
+            else:
+                cost_increase = last_to_move + numerical_tolerance
+        else:
+            cost_increase = last_to_move + numerical_tolerance
+
+        costs_of_treat[active_treatments] += max(cost_increase, numerical_tolerance)
+
+    if not converged:
+        excess_allocations = excess_allocations.astype(np.int64).tolist()
+        raise RuntimeError('Automatic treatment-cost calibration did not converge within '
+                           f'{max_iterations} iterations. Remaining excess allocations: '
+                           f'{excess_allocations}'
+                           )
+    shadow_costs = costs_of_treat - base_costs
+    cost_multipliers = np.asarray(other_cfg.costs_of_treat_mult, dtype=float,)
+    costs_of_treat_neu = (base_costs + shadow_costs * cost_multipliers).tolist()
     if gen_cfg.with_output:
+        treatments = np.argmax(data_ps - np.asarray(costs_of_treat_neu), axis=1)
+        alloc = np.bincount(treatments, minlength=gen_cfg.no_of_treat).astype(np.int32)
         txt = ('\n' + '=' * 100 +
                '\nAutomatic determination of cost that fullfil contraints in'
                ' unconstraint optimisation using allocation'
                '\naccording to best best policy score (Black Box)'
-               + '\n' + '-' * 100)
+               + '\n' + '-' * 100
+               )
         txt += '\nConstraints (share): '
         for j in max_by_treat:
             txt += f'{j / obs:7.2%} '
@@ -473,7 +531,7 @@ def get_values_ordered(single_x_np: NDArray[Any],
     return values_sorted, no_of_ps
 
 
-@njit   # Optimized by ChatGPT-4.o mini-high
+@njit
 def get_values_ordered_numba(single_x_np:  NDArray[Any],
                              ps_np_diff:   NDArray[Any],
                              values:       NDArray[Any],
@@ -510,12 +568,14 @@ def get_values_ordered_numba(single_x_np:  NDArray[Any],
     counts = np.zeros(no_of_values,           dtype=np.int64)
 
     # one‐pass: group sums & counts
+    # One pass through the observations. Since values is sorted,
+    # binary search identifies the corresponding category.
     for r in range(n):
         x = single_x_np[r]
-        # linear search for the group index i where values[i] == x
-        for i in range(no_of_values):
-            if np.isclose(values[i], x, rtol=zero_tol, atol=zero_tol):
-                break
+        i = np.searchsorted(values, x)
+
+        if i >= no_of_values or not np.isclose(values[i], x, rtol=zero_tol, atol=zero_tol):
+            raise ValueError('Categorical value is not contained in values.')
 
         counts[i] += 1
         for j in range(no_of_ps):
@@ -570,15 +630,15 @@ def get_values_ordered_numba_prange(single_x_np: NDArray[Any],
     no_val = len(values)
     for i in prange(no_val):                      # pylint: disable=E1133
         val = values[i]
-        # ps_group = ps_np_diff[single_x_np == val
         ps_group = ps_np_diff[np.isclose(single_x_np, val, atol=zero_tol, rtol=zero_tol), :]
         for j in range(no_of_ps):  # wg numba
             mean_y_by_values[i, j] = np.mean(ps_group[:, j])
-    indices = np.empty((no_of_values, no_of_ps))
+
     values_sorted = np.empty((no_of_values, no_of_ps))
     for j in range(no_of_ps):
         indices = np.argsort(mean_y_by_values[:, j])
         values_sorted[:, j] = values[indices]
+
     return values_sorted, no_of_ps
 
 
@@ -588,30 +648,32 @@ def get_values_ordered_no_numba(single_x_np: NDArray[Any],
                                 no_of_values: int,
                                 zero_tol: float = 1e-10,
                                 ) -> tuple[NDArray[Any], int]:
-    """
-    Sort values according policy score differences.
+    """Sort categories by their mean policy-score differences."""
+    no_of_ps = ps_np_diff.shape[1]
 
-    Parameters
-    ----------
-    single_x_np : 1D numpy array. Covariate.
-    ps_np_diff : 2 D numpy array. Policy scores as difference.
-    values : 1D numpy array. All unique values of x.
-    no_of_values : Int. #  of Unique values of x.
+    category_codes = np.searchsorted(values, single_x_np)
+    if (np.any(category_codes >= no_of_values)
+            or not np.all(np.isclose(values[category_codes], single_x_np,
+                                     rtol=zero_tol, atol=zero_tol))
+            ):
+        raise ValueError('Categorical value is not contained in values.')
 
-    Returns
-    -------
-    values_sorted : 2D numpy array. Sorted values.
+    counts = np.bincount(category_codes, minlength=no_of_values)
+    score_sums = np.empty((no_of_values, no_of_ps), dtype=float)
 
-    """
-    no_of_ps = np.size(ps_np_diff, axis=1)
-    mean_y_by_values = np.empty((no_of_values, no_of_ps))
-    for i, val in enumerate(values):
-        ps_group = ps_np_diff[np.where(np.isclose(single_x_np, val, rtol=zero_tol, atol=zero_tol))]
-        mean_y_by_values[i, :] = np.transpose(np.mean(ps_group, axis=0))
+    for idx in range(no_of_ps):
+        score_sums[:, idx] = np.bincount(category_codes,
+                                         weights=ps_np_diff[:, idx],
+                                         minlength=no_of_values,
+                                         )
+    mean_y_by_values = np.zeros_like(score_sums)
+    np.divide(score_sums, counts[:, None], out=mean_y_by_values, where=counts[:, None] > 0)
+
     values_sorted = np.empty((no_of_values, no_of_ps))
-    for j in range(no_of_ps):
-        indices = np.argsort(mean_y_by_values[:, j])
-        values_sorted[:, j] = values[indices]
+    for idx in range(no_of_ps):
+        indices = np.argsort(mean_y_by_values[:, idx])
+        values_sorted[:, idx] = values[indices]
+
     return values_sorted, no_of_ps
 
 
@@ -678,8 +740,17 @@ def adjust_reward_numba(no_by_treat_l: NDArray[Any],
         no_by_treat = no_by_treat_l + no_by_treat_r
         violations = no_by_treat > max_by_treat
         if np.any(violations):
-            diff_max = ((no_by_treat - max_by_treat) / max_by_treat).max()
-            diff = min(diff_max, 1)
+            diff_max = 0.0
+            for idx, _ in enumerate(max_by_treat):
+                if not violations[idx]:
+                    continue
+                if max_by_treat[idx] <= 0:
+                    diff_max = 1.0
+                    break
+                relative_excess = (no_by_treat[idx] - max_by_treat[idx]) / max_by_treat[idx]
+                diff_max = max(diff_max, relative_excess)
+
+            diff = min(diff_max, 1.0)
             reward_l = reward_l - diff * np.abs(reward_l)
             reward_r = reward_r - diff * np.abs(reward_r)
 
@@ -711,9 +782,16 @@ def adjust_reward_no_numba(no_by_treat_l: NDArray[Any],
     if (no_by_treat_l is None) or (no_by_treat_r is None):
         return reward_l, reward_r
     no_by_treat = no_by_treat_l + no_by_treat_r
-    if np.any(no_by_treat > max_by_treat):
-        diff_max = ((no_by_treat - max_by_treat) / max_by_treat).max()
-        diff = min(diff_max, 1)
+    violations = no_by_treat > max_by_treat
+    if np.any(violations):
+        violating_capacity = max_by_treat[violations]
+        if np.any(violating_capacity <= 0):
+            diff = 1.0
+        else:
+            relative_excess = ((no_by_treat[violations] - violating_capacity)
+                               / violating_capacity)
+            diff = min(np.max(relative_excess), 1.0)
+
         reward_l = reward_l - diff * np.abs(reward_l)
         reward_r = reward_r - diff * np.abs(reward_r)
 
@@ -925,7 +1003,7 @@ def evaluate_leaf_no_numba(data_ps: NDArray[Any],
                 data_ps = data_ps_tmp
             indi = indi[treat_ok]      # Remove obs that violate restriction
             costs_of_treat = pt_cfg.cost_of_treat_restrict[indi]
-    reward_by_treat = data_ps.sum(axis=0) - costs_of_treat * obs
+    reward_by_treat = data_ps.sum(axis=0, dtype=np.float64) - costs_of_treat * obs
     max_i = np.argmax(reward_by_treat)
     obs_all[indi[max_i]] = obs
 

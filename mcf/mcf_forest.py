@@ -12,10 +12,10 @@ from typing import Any, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
-from pandas import DataFrame
+from pandas import DataFrame, concat
 try:
     import ray
-except ImportError:
+except (ImportError, OSError):
     ray = None
 try:
     from tqdm.auto import tqdm
@@ -24,7 +24,6 @@ except ImportError:
 
 from mcf import mcf_forest_data as mcf_fo_data
 from mcf import mcf_forest_add as mcf_fo_add
-from mcf import mcf_forest_objfct as mcf_fo_obj
 from mcf import mcf_forest_asdict as mcf_fo_asdict
 from mcf import mcf_forest_splitting as mcf_fo_split
 from mcf import mcf_general as mcf_gp
@@ -33,6 +32,9 @@ from mcf import mcf_variable_importance as mcf_vi
 from mcf import mcfoptp_parallel_backend_ray_classical as mcf_ray
 from mcf.mcf_bias_adjustment import compute_ba_arrays, get_ba_data_train
 from mcf.mcf_general_sys import print_mememory_statistics, find_no_of_workers
+from mcf.mcf_local_centering import centering_data_for_round
+from mcf.mcf_init_update_helper import sub_size_eval
+from mcf.mcf_versions import tv_scores
 from mcf.mcfoptp_parallel_backend_forest_executor import make_forest_executor
 from mcf.mcfoptp_parallel_backends_base import (batched_tasks, batch_size_fct, TaskSpec,
                                                 ParallelExecutor, print_runtime_info,
@@ -41,16 +43,18 @@ if TYPE_CHECKING:
     from mcf.mcf_main import ModifiedCausalForest
     from mcf.mcf_init import GenCfg, CtGrid
     from mcf.mcf_init_train import CfCfg
+    from mcf.mcf_init_predict import PBiasAdjustmentCfg as PBaCfg
 
 
 def train_forest(mcf_: 'ModifiedCausalForest',
                  tree_df: DataFrame,
                  fill_y_df: DataFrame,
                  title: str = ''
-                 ) -> tuple[dict, list, float, dict]:
+                 ) -> tuple['CfCfg', 'PBaCfg', list[list[dict[str, Any]]],
+                            float, dict[str, Any] | None]:
     """Train the forest and do variable importance measures."""
     gen_cfg, cf_cfg, forest_list = mcf_.gen_cfg, mcf_.cf_cfg, mcf_.forest
-    p_ba_cfg = mcf_.p_ba_cfg
+    p_ba_cfg, gen_tv_cfg, var_cfg = mcf_.p_ba_cfg,  mcf_.gen_tv_cfg, mcf_.var_cfg
     seed, time_vi = 9324561, 0
     if gen_cfg.with_output:
         mcf_ps.print_mcf(gen_cfg, '=' * 100 + f'\nTraining of Modified Causal Forest {title}')
@@ -62,12 +66,72 @@ def train_forest(mcf_: 'ModifiedCausalForest',
     obs = len(tree_df) + len(fill_y_df)
 
     if p_ba_cfg.yes:
-        prog_r, prop_r, x_r, prog_a, prop_a, x_a = compute_ba_arrays(mcf_,
-                                                                     train_df=tree_df,
-                                                                     predict_df=fill_y_df,
-                                                                     )
+        additional_data = None
+        if gen_cfg.any_eff:
+            additional_data = (centering_data_for_round(mcf_, fill_y_df, additional=True),
+                               centering_data_for_round(mcf_, tree_df, additional=True),
+                               )
+        prog_r, prop_r, x_r, prog_a, prop_a, x_a = compute_ba_arrays(
+            mcf_, train_df=tree_df, predict_df=fill_y_df, additional_data=additional_data,
+            )
+        del additional_data
     else:
         prog_r = prop_r = x_r = prog_a = prop_a = x_a = None
+    main_scores_yes = False
+    if gen_tv_cfg.yes and gen_tv_cfg.addscores:
+        tv_scores_main_dc_list, tv_scores_version_by_round = [], []
+        main_scores_yes = ('prop_main' in gen_tv_cfg.score_type
+                           or 'prog_main' in gen_tv_cfg.score_type
+                           )
+        for est_round in cf_cfg.est_rounds:
+            if est_round == 'regular':
+                train_df, predict_df = tree_df, fill_y_df
+            else:
+                train_df = centering_data_for_round(mcf_, fill_y_df, additional=True)
+                predict_df = centering_data_for_round(mcf_, tree_df, additional=True)
+
+            scores_main_dc, scores_version_by_main = tv_scores(train_df=train_df,
+                                                               predict_df=predict_df,
+                                                               forest_dict=None,
+                                                               int_cfg=mcf_.int_cfg,
+                                                               gen_cfg=gen_cfg,
+                                                               gen_tv_cfg=gen_tv_cfg,
+                                                               var_cfg=var_cfg,
+                                                               data_train_dict=mcf_.data_train_dict,
+                                                               var_x_type=mcf_.var_x_type,
+                                                               boot=cf_cfg.boot,
+                                                               first_use=est_round == 'regular',
+                                                               predict=False,
+                                                               )
+
+            tv_scores_main_dc_list.append(scores_main_dc)
+            tv_scores_version_by_round.append(scores_version_by_main)
+
+            if scores_main_dc is not None:
+                if est_round == 'regular':
+                    if main_scores_yes:
+                        var_cfg.x_name_tv = [*var_cfg.x_name_tv, *scores_main_dc.names]
+
+                    fill_y_df = concat([fill_y_df.reset_index(drop=True),
+                                        scores_main_dc.scores_df.reset_index(drop=True),
+                                        ],
+                                       axis=1,
+                                       )
+                else:
+                    tree_df = concat([tree_df.reset_index(drop=True),
+                                      scores_main_dc.scores_df.reset_index(drop=True),
+                                      ],
+                                     axis=1,
+                                     )
+                scores_main_dc.scores_df = None
+
+        if (not gen_tv_cfg.score_version_local
+                and ('prop_version' in gen_tv_cfg.score_type
+                     or 'prog_version' in gen_tv_cfg.score_type)):
+            mcf_.gen_tv_cfg.scores_version_list = tv_scores_version_by_round
+    else:
+        tv_scores_main_dc_list = None
+        tv_scores_version_by_round = None
 
     if (folds := int(np.ceil(obs / cf_cfg.chunks_maxsize))) > 1:
         index_tr, index_y = tree_df.index.to_numpy(copy=True), fill_y_df.index.to_numpy(copy=True)
@@ -89,6 +153,12 @@ def train_forest(mcf_: 'ModifiedCausalForest',
             tree_fold_df, fill_y_fold_df = tree_df, fill_y_df
         for round_ in cf_cfg.est_rounds:
             reg_round = round_ == 'regular'
+            if mcf_.gen_tv_cfg.yes and mcf_.gen_tv_cfg.addscores and main_scores_yes:
+                tv_scores_main_dc = (tv_scores_main_dc_list[0] if reg_round
+                                     else tv_scores_main_dc_list[1]
+                                     )
+            else:
+                tv_scores_main_dc = None
             if p_ba_cfg.yes:  # Bias adjustment
                 if reg_round:
                     if folds > 1:
@@ -115,8 +185,14 @@ def train_forest(mcf_: 'ModifiedCausalForest',
                 tree_fold_df, fill_y_fold_df = efficient_iate(mcf_, fill_y_fold_df, tree_fold_df,
                                                               summary=False,
                                                               )
+                tree_fold_df = centering_data_for_round(mcf_, tree_fold_df, additional=True)
+                fill_y_fold_df = centering_data_for_round(mcf_, fill_y_fold_df, additional=True)
+
+            cf_cfg.subsample_share_eval = sub_size_eval(
+                len(fill_y_fold_df), cf_cfg.subsample_factor_eval, cf_cfg.subsample_share_forest,
+                getattr(cf_cfg, 'subsample_power_eval', 0.85),
+                )
             # Data preparation and stats II (regular, efficient IATE)
-            # if gen_cfg.d_type != 'continuous':
             tree_fold_df, mcf_.var_cfg = mcf_fo_data.nn_matched_outcomes(
                mcf_, tree_fold_df, print_out=reg_round and splits == 0,
                )
@@ -145,15 +221,32 @@ def train_forest(mcf_: 'ModifiedCausalForest',
             forest_dic = mcf_fo_add.train_save_data(mcf_, fill_y_fold_df, forest,
                                                     prog_dat=prog_dat, prop_dat=prop_dat,
                                                     x_ba_dat=x_ba_dat,
+                                                    tv_scores_dc=tv_scores_main_dc,
                                                     )
+            if tv_scores_version_by_round is not None:
+                scores_version = tv_scores_version_by_round[0 if reg_round else 1]
+                if scores_version is not None:
+                    if folds > 1:
+                        # Use the original chunk order, before matching resets dataframe indices.
+                        source_index = fill_y_df.index if reg_round else tree_df.index
+                        chunk_index = (index_folds_y[splits] if reg_round
+                                       else index_folds_tr[splits]
+                                       )
+                        score_rows = source_index.get_indexer(chunk_index)
+                        if len(score_rows) != len(fill_y_fold_df) or np.any(score_rows < 0):
+                            raise ValueError('Cannot align version scores with forest outcomes.')
+                        forest_dic['tv_score_rows'] = score_rows
+                    else:
+                        forest_dic['tv_score_rows'] = None
+
             forest_list = mcf_fo_add.save_forests_in_cf_cfg(forest_dic, forest_list, splits, folds,
                                                             reg_round,
-                                                            eff_iate=gen_cfg.any_eff,
+                                                            eff_any=gen_cfg.any_eff,
                                                             )
             if gen_cfg.with_output:
                 if reg_round and splits == 0:
                     report = report_
-                    report["share_leaf_merged"] = share_merged
+                    report['share_leaf_merged'] = share_merged
             else:
                 report = None
             if gen_cfg.with_output and gen_cfg.verbose and mcf_.int_cfg.memory_print:
@@ -166,7 +259,7 @@ def build_forest(mcf_: 'ModifiedCausalForest',
                  tree_df: DataFrame,
                  ) -> tuple[list, list, dict]:
     """Build MCF (not yet populated by w and outcomes)."""
-    int_cfg, gen_cfg, cf_cfg = mcf_.int_cfg, mcf_.gen_cfg, mcf_.cf_cfg
+    int_cfg, gen_cfg = mcf_.int_cfg, mcf_.gen_cfg
     cuda, cython = int_cfg.cuda, int_cfg.cython
     bigdata_train = int_cfg.bigdata_train
 
@@ -222,46 +315,72 @@ def build_forest(mcf_: 'ModifiedCausalForest',
                                   )
             ray_err_txt='Ray did not start in forest building.'
             if not ray.is_initialized():
-                mcf_ray.init_ray_with_fallback(maxworkers, gen_cfg,
-                                               mem_object_store=int_cfg.mem_object_store_1,
-                                               mem_object_store_2=int_cfg.mem_object_store_2,
-                                               ray_err_txt=ray_err_txt,
-                                               )
+                ray_is_running, _ = mcf_ray.init_ray_with_fallback(
+                    maxworkers, gen_cfg,
+                    mem_object_store=int_cfg.mem_object_store_1,
+                    mem_object_store_2=int_cfg.mem_object_store_2,
+                    ray_err_txt=ray_err_txt,
+                    )
+            else:
+                ray_is_running = True
+
+            if ray_is_running:
                 if int_cfg.mem_object_store_1 is not None:
                     mcf_ray.print_object_store(gen_cfg, int_cfg.mem_object_store_1)
 
-            data_np_ref = mcf_ray.ray_put_all(data_np)
+                data_np_ref = mcf_ray.ray_put_all(data_np)
 
-            still_running = [ray_build_tree_mcf.remote(data_np_ref,
-                                                       **kw_tree,
-                                                       boot=boot, seedseq=child_seeds[boot],
-                                                       zero_tol=int_cfg.zero_tol,
-                                                       )
-                             for boot in range(cf_cfg.boot)
-                             ]
-            jdx = 0
-            pbar = (tqdm(total=cf_cfg.boot, desc='Building trees', leave=False, dynamic_ncols=True)
-                    if use_tqdm else None
-                    )
-            try:
-                while len(still_running) > 0:
-                    finished, still_running = ray.wait(still_running, num_returns=1)
-                    finished_res = ray.get(finished)
-                    for ret_all_i in finished_res:
-                        forest[jdx] = ret_all_i
-                        jdx += 1
-                        if pbar is not None:
-                            pbar.update(1)
-                        mcf_gp.progress_clean_memory(output=output_clean, current_idx=jdx,
-                                                     total=cf_cfg.boot, clean_mem=True,
-                                                     )
-            finally:
-                if pbar is not None:
-                    pbar.close()
-            (data_np_ref, finished_res, finished        # pylint: disable=unbalanced-tuple-unpacking
-             ) = mcf_ray.ray_del_refs(data_np_ref,
-                                      f1=finished_res, f2=finished, mp_ray_del=int_cfg.mp_ray_del,
-                                      )
+                still_running = [ray_build_tree_mcf.remote(data_np_ref,
+                                                           **kw_tree,
+                                                           boot=boot, seedseq=child_seeds[boot],
+                                                           zero_tol=int_cfg.zero_tol,
+                                                           )
+                                 for boot in range(cf_cfg.boot)
+                                 ]
+                jdx = 0
+                pbar = (tqdm(total=cf_cfg.boot, desc='Building trees', leave=False,
+                             dynamic_ncols=True)
+                        if use_tqdm else None
+                        )
+                try:
+                    while len(still_running) > 0:
+                        finished, still_running = ray.wait(still_running, num_returns=1)
+                        finished_res = ray.get(finished)
+                        for ret_all_i in finished_res:
+                            iix = ret_all_i[0]
+                            forest[iix] = ret_all_i[1]
+                            jdx += 1
+                            if pbar is not None:
+                                pbar.update(1)
+                            mcf_gp.progress_clean_memory(output=output_clean, current_idx=jdx,
+                                                         total=cf_cfg.boot, clean_mem=True,
+                                                         )
+                finally:
+                    if pbar is not None:
+                        pbar.close()
+                (data_np_ref, finished_res, finished   # pylint: disable=unbalanced-tuple-unpacking
+                 ) = mcf_ray.ray_del_refs(data_np_ref,
+                                          f1=finished_res, f2=finished,
+                                          mp_ray_del=int_cfg.mp_ray_del,
+                                          )
+            else:
+                iterator = range(cf_cfg.boot)
+                if use_tqdm:
+                    iterator = tqdm(iterator, total=cf_cfg.boot,
+                                    desc='Building trees', leave=False,
+                                    dynamic_ncols=True,
+                                    )
+                for idx in iterator:
+                    forest[idx] = build_tree_mcf(
+                        data_np,
+                        **kw_tree,
+                        boot=idx, seedseq=child_seeds[idx],
+                        zero_tol=int_cfg.zero_tol,
+                        )
+                    mcf_gp.progress_clean_memory(output=output_clean,
+                                                 current_idx=idx + 1,
+                                                 total=cf_cfg.boot,
+                                                 )
         else:
             ray_remote_kwargs = {'num_cpus': 1, 'max_retries': 2,}  # Config for single ray worker
             executor = make_forest_executor(int_cfg=int_cfg,
@@ -289,7 +408,7 @@ def build_forest(mcf_: 'ModifiedCausalForest',
                 executor.shutdown()
 
     # find best forest given the saved oob values
-    forest_final, m_n_final = best_m_n_min_alpha_reg(forest, gen_cfg, cf_cfg, int_cfg.cython)
+    forest_final, m_n_final = best_m_n_min_alpha_reg(forest, gen_cfg, cf_cfg)
     del forest    # Free memory
     # Describe final forest
     if gen_cfg.with_output:
@@ -372,13 +491,14 @@ def _ray_build_tree_mcf_impl(data_np, *,
                              bigdata_train, seedseq=None, zero_tol=1e-10,
                              ):
     """Prepare function for Ray (legacy version of ray only)."""
-    return build_tree_mcf(data_np,
+    tree = build_tree_mcf(data_np,
                           y_i=y_i, y_nn_i=y_nn_i, x_i=x_i, d_i=d_i, d_grid_i=d_grid_i, cl_i=cl_i,
                           w_i=w_i, x_type=x_type, x_values=x_values, x_ind=x_ind, x_ai_ind=x_ai_ind,
                           gen_cfg=gen_cfg, cf_cfg=cf_cfg, ct_cfg=ct_cfg, boot=boot,
                           pen_mult=pen_mult, cuda=cuda, cython=cython, bigdata_train=bigdata_train,
                           seedseq=seedseq, zero_tol=zero_tol,
                           )
+    return boot, tree
 
 
 ray_build_tree_mcf = ray.remote(_ray_build_tree_mcf_impl) if ray is not None else None
@@ -436,7 +556,7 @@ def build_tree_mcf(data_np: NDArray[np.floating], *,
         cl_unique = np.unique(data_np[:, cl_i])
         n_cl = cl_unique.shape[0]
         n_train = round(n_cl * cf_cfg.subsample_share_forest)
-        indices_cl = list(rng.choice(n_cl, size=n_train, replace=False))
+        indices_cl = list(rng.choice(cl_unique, size=n_train, replace=False))
         indices = [i for i in range(n_obs) if data_np[i, cl_i] in indices_cl]
     else:
         n_train = round(n_obs * cf_cfg.subsample_share_forest)
@@ -462,13 +582,13 @@ def build_tree_mcf(data_np: NDArray[np.floating], *,
                                                 x_ind=x_ind, x_ai_ind=x_ai_ind, cf_cfg=cf_cfg,
                                                 gen_cfg=gen_cfg, ct_grid_nn_val=ct_cfg.grid_nn_val,
                                                 mmm=m_idx, n_min=n_min, alpha_reg=alpha_reg,
-                                                tree_dict_global=deepcopy(tree_empty),
+                                                tree_dict_global=tree_empty,
                                                 pen_mult=pen_mult, rng=rng, cuda=cuda,
                                                 cython=cython, zero_tol=zero_tol,
                                                 )
                 j += 1
 
-    return deepcopy(tree_all)
+    return tree_all
 
 
 def build_single_tree(data: NDArray[np.float64], *,
@@ -559,7 +679,7 @@ def build_single_tree(data: NDArray[np.float64], *,
 
     tree_dict = deepcopy(tree_dict_global)
     leaf_ids = tree_dict['leaf_info_int'][:, 0]
-    availabe_leaf_id_daughters = tree_dict['leaf_info_int'][1:, 0]
+    next_leaf_id = 1  # First unused node ID; node 0 is the root.
     for leaf_idx, idx in enumerate(leaf_ids):
         if leaf_idx != idx:
             raise ValueError('ID in Tree differes from position of leaf in '
@@ -588,15 +708,16 @@ def build_single_tree(data: NDArray[np.float64], *,
         if terminal:
             leaf_id_daughters = None
         else:
-            leaf_id_daughters = availabe_leaf_id_daughters[0:2]
-            availabe_leaf_id_daughters = availabe_leaf_id_daughters[2:].copy()
-            if leaf_id_daughters is None or len(leaf_id_daughters) < 2:
+            leaf_id_daughters = leaf_ids[next_leaf_id:next_leaf_id + 2]
+            if len(leaf_id_daughters) < 2:
                 raise RuntimeError('Not enough daughter leaves available for further splitting: '
                                    f'\n{leaf_id_daughters=:}'
-                                   f'\n{availabe_leaf_id_daughters=:}'
+                                   f'\n{next_leaf_id=:}'
                                    f'\n{leaf_ids=:}'
                                    f'\n{leaf_idx=:}'
                                    )
+            next_leaf_id += 2
+
         tree_dict = mcf_fo_split.update_tree(data_oob_leaf, tree_dict,
                                              parent_idx=leaf_idx, split_var_i=split_var_i,
                                              split_type=split_type, split_value=split_value,
@@ -617,22 +738,11 @@ def build_single_tree(data: NDArray[np.float64], *,
     return tree_dict
 
 
-def best_m_n_min_alpha_reg(forest: list[dict], gen_cfg: 'GenCfg', cf_cfg: 'CfCfg', cython: bool
-                           ) -> tuple[list, list]:
-    """Get best forest for the tuning parameters m_try, n_min, alpha_reg.
-
-    Parameters
-    ----------
-    forest : List of dictionaries. Estimated forests.
-    gen_cfg : GenCfg dataclass. Parameters.
-    c : Dict. Parameters.
-
-    Returns
-    -------
-    forest_final : List of dictionaries. OOB-optimal forest.
-    m_n_final : List. Optimal values of m and n_min.
-
-    """
+def best_m_n_min_alpha_reg(forest: list[list[dict[str, Any]]],
+                          gen_cfg: 'GenCfg',
+                          cf_cfg: 'CfCfg',
+                          ) -> tuple[list[dict[str, Any]], list[int | float]]:
+    """Get best forest for the tuning parameters m_try, n_min, alpha_reg."""
     grid_for_m = mcf_gp.check_if_iterable(cf_cfg.m_values)
     grid_for_n_min = mcf_gp.check_if_iterable(cf_cfg.n_min_values)
     grid_for_alpha_reg = mcf_gp.check_if_iterable(cf_cfg.alpha_reg_values)
@@ -645,65 +755,48 @@ def best_m_n_min_alpha_reg(forest: list[dict], gen_cfg: 'GenCfg', cf_cfg: 'CfCfg
     if (dim_m_n_min_ar) > 1:       # Find best of trees
         mse_oob = np.zeros(dim_m_n_min_ar)
         trees_without_oob = np.zeros(dim_m_n_min_ar)
-        if gen_cfg.d_type == 'continuous':
-            no_of_treat = 2
-        else:
-            no_of_treat = gen_cfg.no_of_treat
-        for trees_m_n_min_ar in forest:                  # different forests
-            for j, tree in enumerate(trees_m_n_min_ar):  # trees within forest
-                n_lost = n_total = 0
-                if no_of_treat is not None:
-                    mse_mce_tree = np.zeros((no_of_treat, no_of_treat))
-                    obs_t_tree = np.zeros(no_of_treat)
-                tree_mse = 0
+        for trees_m_n_min_ar in forest:
+            for j, tree in enumerate(trees_m_n_min_ar):
+                weight_total = weight_valid = 0.0
+                tree_mse = 0.0
+
                 for leaf_no, leaf_int in enumerate(tree['leaf_info_int']):
+                    if leaf_int[7] != 1:
+                        continue
+
                     leaf_float_2 = tree['leaf_info_float'][leaf_no, 2]
-                    leaf_float_2_dim1 = isinstance(leaf_float_2, (float, np.float32, np.float64))
-                    if leaf_int[7] == 1:  # Terminal leafs
-                        n_total += np.sum(leaf_int[9])
-                        if leaf_float_2 is None or leaf_float_2 <= 0:
-                            if no_of_treat is None or leaf_float_2_dim1:
-                                n_lost += leaf_int[9]
-                            else:
-                                n_lost += np.sum(leaf_int[9])
-                        else:
-                            if no_of_treat is None or leaf_float_2_dim1:
-                                tree_mse += (leaf_int[9] * leaf_float_2)
-                            else:
-                                mse_mce_tree, obs_t_tree = mcf_fo_obj.add_rescale_mse_mce(
-                                    leaf_float_2, leaf_int[9],
-                                    mtot=cf_cfg.mtot, no_of_treat=no_of_treat,
-                                    mse_mce_add_to=mse_mce_tree, obs_by_treat_add_to=obs_t_tree,
-                                    compare_only_to_zero=cf_cfg.compare_only_to_zero,
-                                    )
-                if n_lost > 0:
-                    if no_of_treat is None or leaf_float_2_dim1:
-                        tree_mse = tree_mse * n_total / (n_total - n_lost)
-                    else:
-                        if (n_total - n_lost) < 1:
-                            trees_without_oob[j] += 1
-                if no_of_treat is not None and not leaf_float_2_dim1:
-                    mse_mce_tree = mcf_fo_obj.get_avg_mse_mce(mse_mce_tree, obs_t_tree, cf_cfg.mtot,
-                                                              no_of_treat,
-                                                              cf_cfg.compare_only_to_zero,
-                                                              )
-                    if cython:
-                        # raise ValueError('Cython currently not used.')
-                        # tree_mse = mcf_cy.compute_mse_mce_cy(
-                        #     mse_mce_tree, cf_cfg.mtot, no_of_treat,
-                        #     cf_cfg.compare_only_to_zero)
-                        pass
-                    tree_mse = mcf_fo_obj.compute_mse_mce(mse_mce_tree, cf_cfg.mtot, no_of_treat,
-                                                          cf_cfg.compare_only_to_zero
-                                                          )
-                mse_oob[j] += tree_mse     # Add MSE to MSE of forest j
-        if np.any(trees_without_oob) > 0:
+                    oob_weight = tree['leaf_info_float'][leaf_no, 3]
+                    if not np.isfinite(oob_weight) or oob_weight < 0:
+                        raise ValueError('OOB aggregation weights must be finite and nonnegative.')
+
+                    weight_total += float(oob_weight)
+                    if oob_weight > 0 and np.isfinite(leaf_float_2):
+                        weight_valid += float(oob_weight)
+                        tree_mse += oob_weight * leaf_float_2
+
+                if weight_valid <= 0:
+                    trees_without_oob[j] += 1
+                    continue
+
+                if weight_valid < weight_total:
+                    tree_mse = (tree_mse / weight_valid) * weight_total
+
+                mse_oob[j] += tree_mse
+
+        if np.any(trees_without_oob > 0):
             for j, trees_without_oob_j in enumerate(trees_without_oob):
-                if trees_without_oob_j > 0:
-                    mse_oob[j] = mse_oob[j] * (cf_cfg.boot / (cf_cfg.boot - trees_without_oob_j))
+                if trees_without_oob_j >= cf_cfg.boot:
+                    mse_oob[j] = np.inf
+                elif trees_without_oob_j > 0:
+                    mse_oob[j] *= cf_cfg.boot / (cf_cfg.boot - trees_without_oob_j)
+
         # Change value of mse to infinity if OOB-based mse could not be computed
-        mse_oob = np.nan_to_num(mse_oob, np.inf)
-        mse_oob[mse_oob < 0.01 * np.mean(mse_oob)] = np.inf
+        mse_oob[~np.isfinite(mse_oob)] = np.inf
+
+        if not np.any(np.isfinite(mse_oob)):
+            raise RuntimeError('No finite OOB criterion is available for any '
+                               'tuning-parameter combination.'
+                               )
         min_i = np.argmin(mse_oob)
         mse_oob = mse_oob / cf_cfg.boot
         cf_cfg.n_min_values = mcf_gp.check_if_iterable(cf_cfg.n_min_values)

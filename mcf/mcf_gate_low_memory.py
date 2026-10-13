@@ -7,7 +7,6 @@ Contains the functions needed for computing the GATEs.
 -*- coding: utf-8 -*-
 
 """
-from collections import namedtuple
 from copy import deepcopy
 # from itertools import chain, compress, repeat
 from os import remove
@@ -24,11 +23,12 @@ from mcf.mcf_ate_low_memory import ate_weights
 from mcf.mcf_bias_adjustment import (bias_correction_wregr, get_ba_data_prediction,
                                      get_weights_eval_ba,
                                      )
-from mcf.mcf_estimation import analyse_weights, weight_var
+from mcf.mcf_estimation import analyse_weights, weight_var, joint_d_values
 from mcf.mcf_gate import w_gate_func, w_gate_cont_funct
 from mcf.mcf_general import split_dataframe
 from mcf.mcf_print_stats import del_added_chars, txt_weight_stat
-from mcf.mcf_versions import joint_d_values, get_tv_data, expand_dimension, version_wregr
+from mcf import mcf_versions as mcf_tv
+from mcf.mcf_versions import get_tv_data, expand_dimension, version_wregr, GenTvData
 from mcf.mcf_weight import get_weights_mp
 
 if TYPE_CHECKING:
@@ -88,7 +88,6 @@ def prepare_gate_context(mcf_: 'ModifiedCausalForest', *,
                           smooth_yes=smooth_yes, z_name_smooth=z_name_smooth,
                           )
 
-
 def gate_estimate_pot(mcf_: 'ModifiedCausalForest', *,
                       data_df: DataFrame,
                       w_gate_all: list[ArrayLike],
@@ -100,15 +99,20 @@ def gate_estimate_pot(mcf_: 'ModifiedCausalForest', *,
                       gate_context: he.GateContext | None = None,
                       with_output: bool = True,
                       iv: bool = False,
+                      tv_scores_pred_precomp: list[NDArray[Any] | None] | None = None,
                       ) -> tuple[ArrayLike, ArrayLike, ArrayLike, ArrayLike,
-                                 dict[str, Any], list[str], float,
-                                 ]:
-    # (pot_gate, pot_gate_var, pot_gate_mate, pot_gate_mate_var, gate_est_dic, txt_gate, dtime
-    """Estime potential outcomes and their variances for GATEs."""
+                                 dict[str, Any], list[str], float]:
+    """Estimate potential outcomes and their variances for GATEs."""
     start_time = time()
     if gate_type not in ('GATE', 'CBGATE', 'BGATE'):
         raise ValueError(f'Wrong GATE Type ({gate_type}) (Should be GATE, CBGATE, or BGATE')
-    gen_cfg, ct_cfg, int_cfg, p_cfg= mcf_.gen_cfg, mcf_.ct_cfg, mcf_.int_cfg, mcf_.p_cfg
+
+    gen_cfg, ct_cfg, int_cfg = mcf_.gen_cfg, mcf_.ct_cfg, mcf_.int_cfg
+    p_cfg = deepcopy(mcf_.p_cfg)
+
+    if gate_type != 'GATE':
+        p_cfg.gatet = p_cfg.atet = False
+
     p_ba_cfg, gen_tv_cfg = mcf_.p_ba_cfg, mcf_.gen_tv_cfg
     zero_tol, sum_tol = int_cfg.zero_tol, int_cfg.sum_tol
 
@@ -120,7 +124,6 @@ def gate_estimate_pot(mcf_: 'ModifiedCausalForest', *,
 
     # Get training and prediction data
     y_dat = weights_dic_data['y_dat_np']
-    w_dat = weights_dic_data['w_dat_np'] if gen_cfg.weighted else None
     cl_dat = weights_dic_data['cl_dat_np'] if p_cfg.cluster_std else None
     no_of_out = len(var_cfg.y_name)
 
@@ -166,15 +169,48 @@ def gate_estimate_pot(mcf_: 'ModifiedCausalForest', *,
 
     d_p, z_p, _, _ = get_data_for_final_ate_estimation(data_df, gen_cfg, p_cfg, var_cfg,
                                                        ate=False, need_count=False,
-                                                         )
+                                                       )
     if gen_tv_cfg.yes:
         # Obtain the data for the later regression step (treatment versions)
-        d_train, x_tv_train, x_tv_pred = get_tv_data(data_df, weights_dic_data,
-                                                     mcf_.var_cfg, zero_tol=zero_tol,
+        d_train, x_tv_train, x_tv_pred = get_tv_data(data_df, weights_dic_data, mcf_.var_cfg,
+                                                     zero_tol=zero_tol,
+                                                     score_names=gen_tv_cfg.score_names,
                                                      )
-        # Namedtuple is easy to pass through all function and access it
-        Tv_data = namedtuple('TV_data', ['d_train', 'x_tv_train', 'x_tv_pred'])
-        gen_tv_data = Tv_data(d_train, x_tv_train, x_tv_pred,)
+        tv_scores_pred = None
+        score_type = gen_tv_cfg.score_type or ()
+        if isinstance(score_type, str):
+            score_type = (score_type,)
+        global_tv_scores = (gen_tv_cfg.addscores
+                            and not gen_tv_cfg.score_version_local
+                            and ('prop_version' in score_type or 'prog_version' in score_type)
+                            )
+        if global_tv_scores and x_tv_train is not None and x_tv_pred is not None:
+            scores_round = gen_tv_cfg.scores_version_round
+            if scores_round is None or len(scores_round) != gen_cfg.no_of_treat:
+                raise ValueError('Global version scores must contain one entry per main treatment.')
+            if len(x_tv_pred) != len(data_df):
+                raise ValueError('Version-regression covariates do not match prediction rows.')
+            for score_dc in scores_round:
+                if score_dc.names is None or len(score_dc.names) == 0:
+                    continue
+                if score_dc.scores_np is None:
+                    raise ValueError('Global version-score GATE requires cached outcome scores.')
+                if score_dc.scores_np.shape != (len(y_dat), len(score_dc.names)):
+                    raise ValueError('Cached version scores do not match the forest outcome rows '
+                                     'and score columns.'
+                                     )
+            # Reuse these predictions across grouping variables and evaluation points.
+            tv_scores_pred = mcf_tv.predict_version_scores(data_df, scores_round,
+                                                           ps_yes='prop_version' in score_type,
+                                                           pg_yes='prog_version' in score_type,
+                                                           dtype=np.float64, zero_tol=zero_tol,
+                                                           scores_precomputed
+                                                               =tv_scores_pred_precomp,
+                                                           )
+        gen_tv_data = GenTvData(d_train=d_train,
+                                x_tv_train=x_tv_train, x_tv_pred=x_tv_pred,
+                                scores_pred=tv_scores_pred,
+                                )
     else:
         gen_tv_data = None
 
@@ -264,7 +300,7 @@ def gate_estimate_pot(mcf_: 'ModifiedCausalForest', *,
                 else:
                     w_ate = w_gate_unc[zj_idx, :, :, :]
             results_fut_zj = gate_zj_pot(z_val=z_values[zj_idx], y_dat=y_dat, cl_dat=cl_dat,
-                                         w_dat=w_dat, z_p=z_p, z_name_j=z_name_j,
+                                         z_p=z_p, z_name_j=z_name_j,
                                          w_gate_zj=w_gate_j[zj_idx, :, :, :],
                                          w_gate_unc_zj=w_gate_unc[zj_idx, :, :, :],
                                          w_censored_zj=w_censored[zj_idx, :, :],
@@ -375,7 +411,6 @@ def gate_estimate_pot(mcf_: 'ModifiedCausalForest', *,
 def gate_zj_pot( *, z_val: int | float,
                 y_dat: NDArray[Any],
                 cl_dat: ArrayLike,
-                w_dat: ArrayLike,
                 z_p: NDArray[Any],
                 z_name_j: str,
                 w_gate_zj: NDArray[Any],
@@ -390,7 +425,7 @@ def gate_zj_pot( *, z_val: int | float,
                 no_of_out: int,
                 ct_cfg: 'CtGrid', gen_cfg: 'GenCfg', int_cfg: 'IntCfg', p_cfg: 'PCfg',
                 p_ba_cfg: 'PBaCfg', ba_data: 'BaData',
-                gen_tv_cfg: 'GenTvCfg', gen_tv_data: Any,
+                gen_tv_cfg: 'GenTvCfg', gen_tv_data: GenTvData | None,
                 bandw_z: float,
                 kernel: int,
                 smooth_it: bool = False,
@@ -404,10 +439,10 @@ def gate_zj_pot( *, z_val: int | float,
     gen_tv, p_ba = gen_tv_cfg.yes, p_ba_cfg.yes
 
     if continuous:
-        no_of_treat = ct_cfg.ct_grid_w
-        i_w01 = ct_cfg.ct_w_to_dr_int_w01
-        i_w10 = ct_cfg.ct_w_to_dr_int_w10
-        index_full = ct_cfg.ct_w_to_dr_index_full
+        no_of_treat = ct_cfg.grid_w
+        i_w01 = ct_cfg.w_to_dr_int_w01
+        i_w10 = ct_cfg.w_to_dr_int_w10
+        index_full = ct_cfg.w_to_dr_index_full
     else:
         no_of_treat = gen_cfg.no_of_treat
 
@@ -422,6 +457,10 @@ def gate_zj_pot( *, z_val: int | float,
         d_tv_train = gen_tv_data.d_train
         x_tv_train = gen_tv_data.x_tv_train
         x_tv_pred = None if x_tv_train is None else gen_tv_data.x_tv_pred[relevant_z, :]
+        tv_scores_pred = (None if gen_tv_data.scores_pred is None
+                          else [None if scores is None else scores[relevant_z, :]
+                                for scores in gen_tv_data.scores_pred]
+                          )
 
     # Bias adjustment (optional)
     if p_ba:
@@ -446,9 +485,6 @@ def gate_zj_pot( *, z_val: int | float,
                                                                    ridge=p_ba_cfg.ridge,
                                                                    cv_k=p_ba_cfg.cv_k,
                                                                    )
-    else:
-        weights_eval = None
-
     # Get potential outcomes for particular z_value
     sum_wgate = None if continuous else np.sum(w_gate_zj, axis=2)
     if iv and sum_wgate is not None:
@@ -459,7 +495,7 @@ def gate_zj_pot( *, z_val: int | float,
         no_of_treat, _, _, _, _, _, _, = expand_dimension(None, None, None, None, None,
                                                           gen_tv_cfg=gen_tv_cfg,
                                                           )
-        version_res_dat = np.zeros_like(w_ate)
+        version_res_dat = np.zeros((*w_gate_zj.shape, no_of_out), dtype=w_gate_zj.dtype)
 
         for a_idx in range(no_of_tgates):
             maintreat_idx, subtreat_idx = 0, 0
@@ -467,8 +503,8 @@ def gate_zj_pot( *, z_val: int | float,
                 (w_gate_zj[a_idx, t_idx, :], results_container_w, res_tv, results_container_r,
                  maintreat_idx, subtreat_idx, _
                  ) = version_wregr(w_gate_zj[a_idx, t_idx, :],
-                                   y_train=y_dat[:, 0], d_train=d_tv_train, x_train=x_tv_train,
-                                   x_pred=x_tv_pred,
+                                   y_train=y_dat, d_train=d_tv_train,
+                                   x_train=x_tv_train, x_pred=x_tv_pred,
                                    cfg=gen_tv_cfg,
                                    container_w=results_container_w, container_r=results_container_r,
                                    treat_idx=t_idx,
@@ -478,9 +514,15 @@ def gate_zj_pot( *, z_val: int | float,
                                    ridge=gen_tv_cfg.estimator == 'ridge',
                                    penalize_version=gen_tv_cfg.penalize_version[maintreat_idx],
                                    return_residuals=True, standardize_x=True,
+                                   mp_parallel=gen_cfg.mp_parallel,
+                                   obs_bigdata=int_cfg.obs_bigdata,
+                                   allow_local_version_scores=True,
+                                   use_train_score_cache=tv_scores_pred is not None,
+                                   scores_pred=(None if tv_scores_pred is None
+                                                else tv_scores_pred[maintreat_idx]),
                                    )
                 if res_tv is not None:
-                    version_res_dat[a_idx, t_idx, :] = res_tv
+                    version_res_dat[a_idx, t_idx, :, :] = res_tv.reshape(len(y_dat), no_of_out)
     else:
         version_res_dat = None
     for a_idx in range(no_of_tgates):
@@ -502,15 +544,16 @@ def gate_zj_pot( *, z_val: int | float,
                                                no_of_treat=no_of_treat, w_gate_zj=w_gate_zj,
                                                w10=w10, w01=w01, i=i, w_gate_unc_zj=w_gate_unc_zj,
                                                w_censored_zj=w_censored_zj,
-                                               max_weight_share=int_cfg.max_weight_share,
+                                               max_weight_share=p_cfg.max_weight_share,
                                                iv=iv, zero_tol = int_cfg.zero_tol,
                                                sum_tol=int_cfg.sum_tol,
                                                )
-                        vres = None if version_res_dat is None else version_res_dat[a_idx, t_idx, :]
+                        vres = (None if version_res_dat is None
+                                else version_res_dat[a_idx, t_idx, :, o_idx]
+                                )
                         ret = weight_var(w_gate_cont, y_dat[:, o_idx], cl_dat, p_cfg,
                                          residual_dat=vres,
                                          normalize=True,
-                                         weighted=gen_cfg.weighted, weights=w_dat,
                                          bootstrap=p_cfg.se_boot_gate, keep_all=int_cfg.keep_w0,
                                          zero_tol=int_cfg.zero_tol, sum_tol=int_cfg.sum_tol,
                                          seed=123345, min_obs=5,
@@ -525,12 +568,11 @@ def gate_zj_pot( *, z_val: int | float,
                                                               w_ate=w_ate, w10=w10, w01=w01,
                                                               )
                             vres = (None if version_res_dat is None
-                                    else version_res_dat[a_idx, t_idx, :]
+                                    else version_res_dat[a_idx, t_idx, :, o_idx]
                                     )
                             ret2 = weight_var(w_diff_cont, y_dat[:, o_idx], cl_dat, p_cfg,
                                               residual_dat=vres,
                                               normalize=False,
-                                              weighted=gen_cfg.weighted, weights=w_dat,
                                               bootstrap=p_cfg.se_boot_gate,
                                               keep_all=int_cfg.keep_w0, zero_tol=int_cfg.zero_tol,
                                               sum_tol=int_cfg.sum_tol, seed=123345, min_obs=5,
@@ -540,11 +582,12 @@ def gate_zj_pot( *, z_val: int | float,
                         if t_idx == (no_of_treat - 1):  # last element,no inter
                             break
                 else:
-                    vres = None if version_res_dat is None else version_res_dat[a_idx, t_idx, :]
+                    vres = (None if version_res_dat is None
+                            else version_res_dat[a_idx, t_idx, :, o_idx]
+                            )
                     ret = weight_var(w_gate_zj[a_idx, t_idx, :], y_dat[:, o_idx], cl_dat, p_cfg,
                                      residual_dat=vres,
                                      normalize=not iv,
-                                     weighted=gen_cfg.weighted, weights=w_dat,
                                      bootstrap=p_cfg.se_boot_gate,
                                      keep_all=int_cfg.keep_w0, zero_tol=int_cfg.zero_tol,
                                      sum_tol=int_cfg.sum_tol, seed=123345, min_obs=5,
@@ -553,9 +596,7 @@ def gate_zj_pot( *, z_val: int | float,
                     pot_var_zj[a_idx, t_idx, o_idx] = ret[1]
                     if gen_cfg.with_output:
                         ret2 = weight_var(w_diff, y_dat[:, o_idx], cl_dat, p_cfg,
-                                          residual_dat=None,
-                                          normalize=False,
-                                          weighted=gen_cfg.weighted, weights=w_dat,
+                                          residual_dat=None, normalize=False,
                                           bootstrap=p_cfg.se_boot_gate, keep_all=int_cfg.keep_w0,
                                           zero_tol=int_cfg.zero_tol, sum_tol=int_cfg.sum_tol,
                                           seed=123345, min_obs=5,
@@ -580,11 +621,15 @@ def gate_weights(mcf_: 'ModifiedCausalForest', *,
                  ) -> tuple[list[NDArray[Any]], float]:
     """Estimate weights für chunk of prediction data for GATEs."""
     time_start = time()
-    gen_cfg, ct_cfg, int_cfg, p_cfg = mcf_.gen_cfg, mcf_.ct_cfg, mcf_.int_cfg, mcf_.p_cfg
+    gen_cfg, ct_cfg, int_cfg = mcf_.gen_cfg, mcf_.ct_cfg, mcf_.int_cfg
+    p_cfg = deepcopy(mcf_.p_cfg)
     var_cfg, var_x_values = deepcopy(mcf_.var_cfg), deepcopy(mcf_.var_x_values)
 
     if gate_type not in ('GATE', 'CBGATE', 'BGATE'):
         raise ValueError(f'Wrong GATE type: {gate_type!r}')
+
+    if gate_type != 'GATE':
+        p_cfg.gatet = p_cfg.atet = False
 
     if gen_cfg.with_output and gen_cfg.verbose and with_output:
         print(f'\nComputing {gate_type}s')
@@ -594,9 +639,6 @@ def gate_weights(mcf_: 'ModifiedCausalForest', *,
     n_y = len(weights_dic['y_dat_np'])
 
     if gate_context is not None:
-        var_x_values = deepcopy(gate_context.var_x_values)
-        smooth_yes = gate_context.smooth_yes
-        z_name_smooth = gate_context.z_name_smooth
         z_name_l = gate_context.z_name_l
         z_values_l = gate_context.z_values_l
         z_smooth_l = gate_context.z_smooth_l
@@ -642,23 +684,20 @@ def gate_weights(mcf_: 'ModifiedCausalForest', *,
     if gen_cfg.d_type == 'continuous':
         continuous = True
         p_cfg.atet = p_cfg.gatet = False
-        no_of_treat, d_values = ct_cfg.grid_w, ct_cfg.grid_w_val
+        no_of_treat = ct_cfg.grid_w
     else:
         continuous = False
-        no_of_treat, d_values = gen_cfg.no_of_treat, gen_cfg.d_values
+        no_of_treat = gen_cfg.no_of_treat
 
     i_d_val = np.arange(no_of_treat)
-    ref_pop_lab = ['All']
-    if p_cfg.gatet:    # Always False for continuous treatments
-        for lab in d_values:
-            ref_pop_lab.append(str(lab))
 
     if p_cfg.gatet and (d_p is not None):
-        no_of_tgates = no_of_treat + 1  # Compute GATEs, GATET, ...
+        no_of_tgates = no_of_treat + 1      # Compute GATEs, GATET, ...
     else:
         p_cfg.gatet, no_of_tgates = 0, 1
-        ref_pop_lab = [ref_pop_lab[0]]
+
     t_probs = p_cfg.choice_based_probs
+
     w_gate_all = []
     for z_name_j, _ in enumerate(var_cfg.z_name):
         z_values, z_smooth = z_values_l[z_name_j], z_smooth_l[z_name_j]
@@ -902,7 +941,7 @@ def gate_zj_weights(*, z_val: int | float,
     """Compute weights for specific Gates."""
     zero_tol, sum_tol = int_cfg.zero_tol, int_cfg.sum_tol
 
-    d_values = ct_cfg.ct_grid_w_val if continuous else gen_cfg.d_values
+    d_values = ct_cfg.grid_w_val if continuous else gen_cfg.d_values
 
     weights, relevant_z,  w_z_val = he.get_w_rel_z(z_p[:, z_name_j], z_val,
                                                    weights_all=weights_all, smooth_it=smooth_it,
@@ -916,38 +955,15 @@ def gate_zj_weights(*, z_val: int | float,
 
     n_x = weights[0].shape[0] if int_cfg.weight_as_sparse else len(weights)
 
-    for n_idx in range(n_x):
-        w_gadd = np.zeros(w_gate0_dim)
-        for t_idx, _ in enumerate(d_values):
-            if int_cfg.weight_as_sparse:
-                weight_i = weights[t_idx][n_idx:n_idx + 1, :].tocsr()
-                w_index = weight_i.indices.copy()
-                w_i = weight_i.data.copy()
-            else:
-                w_index = weights[n_idx][t_idx][0].copy()  # Ind weights>0
-                w_i = weights[n_idx][t_idx][1].copy()
-            if gen_cfg.weighted:
-                w_i = w_i * w_dat[w_index].reshape(-1)
-            w_i_sum = np.sum(w_i)
-            if abs(w_i_sum) > zero_tol and not (1-sum_tol < w_i_sum < 1+sum_tol) and not iv:
-                w_i = w_i / w_i_sum
-            if gen_cfg.weighted:
-                w_i = w_i * w_p_z[n_idx]
-            if smooth_it:
-                w_i = w_i * w_z_val[n_idx]
-            if p_cfg.choice_based_sampling:
-                if d_p_z is None:
-                    raise ValueError('Choice-based sampling requires prediction treatments d_p.')
-                i_pos = he.single_treatment_pos(d_p_z[n_idx], d_values, i_d_val, zero_tol=zero_tol)
-                w_gadd[t_idx, w_index] = w_i * t_probs[i_pos]
-            else:
-                w_gadd[t_idx, w_index] = w_i.copy()
-
-        w_gate_zj[0, :, :] += w_gadd
-        if p_cfg.gatet:
-            if d_p_z is None:
-                raise ValueError('GATET requires prediction treatments d_p.')
-            t_pos = he.single_treatment_pos(d_p_z[n_idx], d_values, i_d_val, zero_tol=zero_tol)
-            w_gate_zj[t_pos+1, :, :] += w_gadd
-
+    w_gate_zj = he.accumulate_gate_weights(weights, w_gate_zj,
+                                            n_x=n_x, w_gate0_dim=w_gate0_dim,
+                                            d_values=d_values, i_d_val=i_d_val,
+                                            d_p=d_p_z, w_dat=w_dat, w_p=w_p_z, w_z=w_z_val,
+                                            t_probs=t_probs, p_cfg=p_cfg,
+                                            weighted=gen_cfg.weighted,
+                                            weight_as_sparse=int_cfg.weight_as_sparse,
+                                            treat_main=None,
+                                            smooth_it=smooth_it, iv=iv,
+                                            zero_tol=zero_tol, sum_tol=sum_tol,
+                                            )
     return w_gate_zj

@@ -166,6 +166,90 @@ def need_ate_weights(round_: str, eff_flags: EffParaFlags, gate_yes: bool) -> bo
     return round_ == 'regular' or eff_flags.ate_eff or (eff_flags.gate_eff and gate_yes)
 
 
+def accumulate_gate_weights(weights: list[Any] | tuple[Any, ...],
+                             w_gate_zj: NDArray[Any], *,
+                             n_x: int,
+                             w_gate0_dim: tuple[int, int],
+                             d_values: list[int | float] | NDArray[Any],
+                             i_d_val: NDArray[Any],
+                             d_p: ArrayLike,
+                             w_dat: ArrayLike,
+                             w_p: ArrayLike,
+                             w_z: ArrayLike,
+                             t_probs: float | list[float] | NDArray[Any],
+                             p_cfg: 'PCfg',
+                             weighted: bool,
+                             weight_as_sparse: bool,
+                             treat_main: list[int] | None = None,
+                             smooth_it: bool = False,
+                             iv: bool = False,
+                             zero_tol: float = 1e-10,
+                             sum_tol: float = 1e-8,
+                             ) -> NDArray[Any]:
+    """Accumulate selected GATE rows without dense per-observation temporaries."""
+    no_of_treat, n_y = w_gate0_dim
+    repeats = np.ones(no_of_treat, dtype=np.intp) if treat_main is None else np.asarray(treat_main)
+    if repeats.shape != (no_of_treat,) or np.any(repeats < 0):
+        raise ValueError('Treatment-version counts must match the main treatments.')
+    bounds = np.concatenate((np.zeros(1, dtype=np.intp), np.cumsum(repeats, dtype=np.intp)))
+    if (len(d_values) != no_of_treat or w_gate_zj.ndim != 3
+            or w_gate_zj.shape[1:] != (bounds[-1], n_y)):
+        raise ValueError('GATE accumulator dimensions do not match the treatment and outcome data.')
+
+    for n_idx in range(n_x):
+        t_pos = 0
+        if p_cfg.gatet or p_cfg.choice_based_sampling:
+            if d_p is None:
+                label = 'Choice-based sampling' if p_cfg.choice_based_sampling else 'GATET'
+                raise ValueError(f'{label} requires prediction treatments d_p.')
+            d_value = d_p[n_idx] if d_p.ndim == 1 else d_p[n_idx, 0]
+            t_pos = single_treatment_pos(d_value, d_values, i_d_val, zero_tol=zero_tol)
+
+        for t_idx, _ in enumerate(d_values):
+            if weight_as_sparse:
+                weight_mat = weights[t_idx]
+                if weight_mat.format == 'csr':
+                    row_start = weight_mat.indptr[n_idx]
+                    row_stop = weight_mat.indptr[n_idx + 1]
+                    w_index = weight_mat.indices[row_start:row_stop].copy()
+                    w_i = weight_mat.data[row_start:row_stop].copy()
+                else:
+                    weight_i = weight_mat[n_idx:n_idx + 1, :].tocsr()
+                    w_index = weight_i.indices.copy()
+                    w_i = weight_i.data.copy()
+            else:
+                w_index = weights[n_idx][t_idx][0].copy()
+                w_i = weights[n_idx][t_idx][1].copy()
+            if weighted:
+                w_i = w_i * w_dat[w_index].reshape(-1)
+            w_i_sum = np.sum(w_i)
+            if abs(w_i_sum) > zero_tol and not (1-sum_tol < w_i_sum < 1+sum_tol) and not iv:
+                w_i = w_i / w_i_sum
+            if weighted:
+                w_i = w_i * w_p[n_idx]
+            if smooth_it:
+                w_i = w_i * w_z[n_idx]
+            if p_cfg.choice_based_sampling:
+                w_i = w_i * t_probs[t_pos]
+
+            # Match the former float64 w_gadd assignment, after all row arithmetic.
+            w_i = np.asarray(w_i, dtype=np.float64).reshape(-1)
+            if w_index.size > 1 and np.any(w_index[1:] <= w_index[:-1]):
+                # Dense assignment kept the last value for repeated column indices.
+                _, pos_rev = np.unique(w_index[::-1], return_index=True)
+                keep = w_index.size - 1 - pos_rev
+                w_index, w_i = w_index[keep], w_i[keep]
+
+            start, stop = bounds[t_idx], bounds[t_idx + 1]
+            target = w_gate_zj[0, start:stop, :]
+            target[:, w_index] += w_i
+            if p_cfg.gatet:
+                target = w_gate_zj[t_pos + 1, start:stop, :]
+                target[:, w_index] += w_i
+
+    return w_gate_zj
+
+
 def w_diff_cont_func(t_idx: int | np.integer,
                      a_idx: int | np.integer, *,
                      no_of_treat: int,
@@ -515,18 +599,17 @@ def ref_data_bgate(data_df: DataFrame,
         x_name_balance_bgate.remove(z_name + 'catv')
     if not x_name_balance_bgate:
         raise ValueError('BGATE {z_name}: No variables left for balancing.')
-    if obs / no_eval > 10:  # Save computation time by using random samples
-        share = p_cfg.bgate_sample_share / no_eval
-        if 0 < share < 1:
-            rng = np.random.default_rng(seed=9324561)
-            idx = rng.choice(obs, int(np.floor(obs * share)), replace=False)
-            obs = len(idx)
-            if with_output_verbose:
-                txt += f' BGATE: {share:5.2%} random sample drawn.'
-        else:
-            idx = np.arange(obs)
+    share = p_cfg.bgate_sample_share / no_eval
+    no_ref = min(obs, max(50, int(np.floor(obs * share))))
+    if no_ref < obs:
+        rng = np.random.default_rng(seed=9324561)
+        idx = rng.choice(obs, no_ref, replace=False)
+        if with_output_verbose:
+            txt += f' BGATE: {no_ref / obs:5.2%} random sample drawn.'
     else:
         idx = np.arange(obs)
+    obs = no_ref
+
     new_idx_dataframe = list(chain.from_iterable(repeat(idx, no_eval)))
     data_new_df = data_df.loc[new_idx_dataframe, :]
     new_values_z = list(chain.from_iterable([[i] * obs for i in eva_values]))
@@ -609,18 +692,16 @@ def ref_data_cbgate(data_df: DataFrame,
     """Create reference samples for covariates (CBGATE)."""
     eva_values = eva_values[z_name]
     no_eval, obs, txt = len(eva_values), len(data_df), ''
-    if obs / no_eval > 10:  # Save computation time by using random samples
-        share = p_cfg.bgate_sample_share / no_eval
-        if 0 < share < 1:
-            rng = np.random.default_rng(seed=9324561)
-            idx = rng.choice(obs, int(np.floor(obs * share)), replace=False)
-            obs = len(idx)
-            if with_output_verbose:
-                txt += f' CBGATE: {share:5.2%} random sample drawn'
-        else:
-            idx = np.arange(obs)
+    share = p_cfg.bgate_sample_share / no_eval
+    no_ref = min(obs, max(50, int(np.floor(obs * share))))
+    if no_ref < obs:
+        rng = np.random.default_rng(seed=9324561)
+        idx = rng.choice(obs, no_ref, replace=False)
+        if with_output_verbose:
+            txt += f' CBGATE: {no_ref / obs:5.2%} random sample drawn'
     else:
         idx = np.arange(obs)
+    obs = no_ref
     new_idx_dataframe = list(chain.from_iterable(repeat(idx, no_eval)))
     data_all_df = data_df.loc[new_idx_dataframe, :]
     new_values_z = list(chain.from_iterable([[i] * obs for i in eva_values]))

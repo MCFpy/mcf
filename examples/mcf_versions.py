@@ -10,16 +10,16 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.10.0
+Version: 0.11.0
 
-This is an example to show how the version of treatments can be dealt with in
-the mcf (using defaults for other parameters). For more details see Lechner &
-Kutz (2026): XXXX (in prepration).
+This example uses the mcf to estimate effects of the main treatments and
+mcf-weighted regressions (OLS or ridge) to estimate effects of treatment versions
+within each main treatment. It also shows how to reuse the trained forest for
+estimation without treatment versions.
 
 """
 from copy import deepcopy
 from pathlib import Path
-import warnings
 
 from mcf.example_data import example_data
 from mcf.mcf_main import ModifiedCausalForest
@@ -43,17 +43,9 @@ training_df, prediction_df, name_dict = example_data(obs_y_d_x_iate=OBS_TRAIN,
                                                      )
 # ------------------ Parameters of the ModifiedCausalForest -------------------
 
-VAR_D_NAME = name_dict['d_name']   # Name of treatment variable
-#  If d_no_versions > 2, this is a list with the treatment version as second
-#  variable. Note that the value of versions are conditional on the main
-#  treatment. In other words, version 2 of treatment 1 and version 2 of
-#  treatment 2 lead to different potential outcomes.
-#  IMPORTANT: Main treatment must always be the first element in the treatments
-#             list. This variable is also used for the programme to determine
-#             if there are treatment versions at all.
-#             Only one element in list/tuple or string: No treatment versions.
-#             Two elements in list/tuple: 1st element is main treatment,
-#                                         2nd element is subtreatment.
+VAR_D_NAME = name_dict['d_name']
+# Supply main treatment first and version second. Version labels are interpreted
+# within each main treatment. A single treatment name disables version estimation.
 
 VAR_Y_NAME = 'outcome'         # Name of outcome variable
 VAR_X_NAME_ORD = ('x_cont0', 'x_cont1',)
@@ -61,48 +53,56 @@ VAR_X_NAME_UNORD = ('x_unord0', 'x_unord1', )
 VAR_Z_NAME_ORD = name_dict['x_name_ord'][-2:]
 
 VAR_X_NAME_TV = ('x_cont1', 'x_unord0',)
-#  List or tuple of names of features used as regressors. These variables must be included
-#  var_x_name_ord or var_x_name_unord. Default is None.
+# Direct version-regression covariates; these must also be forest features. None uses none.
 
 GEN_TV_ESTIMATOR = None
-#  Estimation used to predict effect of specific version given (the weights of) the main treatment.
-#  Possible options are 'ols', 'ridge'. Default (or None) is 'ridge'.
+# 'ridge' (default): forest-weighted ridge with cross-validated penalty; 'ols': weighted OLS.
+# Versions are incompatible with sampling weights, clustered/panel inference, QIATEs and P_BA.
 
-GEN_TV_SPECIFICATION = None   # 'interacted', 'separable'
-#  This defines how the covariates enter the version-regressions inside the main treatments
-#  'interacted': Covariates are interacted with the version dummies (V*X * b).
-#  'separable': Covariates and version dummies enter in a linearly separable way ((V*b1 + X*b2).
-#  Default (or None) is 'interacted'.
+GEN_TV_SPECIFICATION = None
+# 'interacted' (default): version dummies and their covariate interactions.
+# 'separable': version-specific intercepts with common covariate slopes.
 
 GEN_TV_MIN_SUBTREAT = None
-#  Minimum number of subtreated per treatment. If actually number of subtreated with positive
-#  weight in effct estimation is below gen_tv_min_subtreat, the average effect is used instead of
-#  this subtreatment. Default is 10.
+# Minimum observations with positive forest weight per version for the current effect.
+# Below the threshold, use the main-treatment weights for that version. Default 10.
 
 GEN_TV_CV_K = None
-#  Number of folds in cross-validation for treatment version estimation (to find optimal penalty
-#  for ridge regression). Only relevant if GEN_TV_ESTIMATOR == 'ridge' is used.
-#  Default value (or None) depends on the size of the training sample (N):
-#  N < 100'000: 5;  100'000 <= N < 250'000: 4; 250'000 <= N < 500'000: 3; 500'000 <= N: 2.
+# Ridge-penalty CV folds; explicit values must be integers >=2. Automatic folds by training size:
+# below 100,000 / 250,000 / 500,000 / otherwise: 5 / 4 / 3 / 2.
 
 GEN_TV_PENALIZE_VERSION = None
-#  Determines whether the coefficients of version dummies are penalized in a particular main
-#  treatment. Only relevant if GEN_TV_ESTIMATOR == 'ridge' is used.
-#  This is either a Boolean or a list or tuple of Booleans. The number of elements of the
-#  list/tuple MUST equal the number of main treatments. If a single Boolean is provided it will be
-#  internally expanded to such a list for which all elements are equal to this single Boolean.
-#  True: Coefficients of the version dummies in the version ridge regression are (also) penalized
-#        (including treatment covariate interactions).
-#        Maybe useful, if there are very many treatment versions.
-#  False: Only coefficients of covariates are penalized.
-#  Default is False.
+# Penalize version-dummy coefficients as well as covariates and interactions. Default False.
+# A Boolean or one-element list/tuple applies to all main treatments; otherwise supply one Boolean
+# per main treatment. Covariate interactions remain penalized when this option is False.
+
+GEN_TV_ADDSCORES = None
+# Add the selected propensity/prognostic scores to version regressions. Default False.
+
+GEN_TV_SCORE_ESTIMATOR = None
+# Prognostic regression: 'RandomForest' (default), 'automatic' for CV selection, or another API
+# estimator. Propensity scores and prognostic scores for outcomes with fewer than 10 distinct
+# training values use random-forest classification; very small groups use their mean outcome.
+
+GEN_TV_SCORE_CV_K = None
+# Folds for automatic prognostic regression selection and local score cross-fitting.
+# Automatic folds follow GEN_TV_CV_K; group sizes can reduce the effective count.
+# Global propensity/classifier-based scores do not use this fold setting.
+
+GEN_TV_SCORE_TYPE = None
+# Select 'prop_version', 'prog_version', 'prop_main' and/or 'prog_main'.
+# Default ('prop_version', 'prop_main'). Main scores use all forest features.
+# Global version scores use VAR_X_NAME_TV; local version scores also use selected main scores.
+
+GEN_TV_SCORE_VERSION_LOCAL = None
+# False (default): fit global version-score models on tree-building data and reuse predictions
+# for aggregate effects and IATEs. True fits version scores for each aggregate effect; IATE
+# regressions then omit version-specific scores. Main-treatment scores are unaffected.
+# Relevant only with GEN_TV_ADDSCORES and a selected version score.
 
 # -----------------------------------------------------------------------------
-if not APPLIC_PATH.exists():
-    APPLIC_PATH.mkdir(parents=True)
+APPLIC_PATH.mkdir(parents=True, exist_ok=True)
 
-# Modules may send many irrelevant warnings: Globally ignore them
-warnings.filterwarnings('ignore')
 # -----------------------------------------------------------------------------
 params = {'gen_outpath': APPLIC_PATH,
           'var_d_name': VAR_D_NAME,
@@ -116,21 +116,28 @@ params = {'gen_outpath': APPLIC_PATH,
           'gen_tv_min_subtreat': GEN_TV_MIN_SUBTREAT,
           'gen_tv_specification': GEN_TV_SPECIFICATION,
           'gen_tv_penalize_version': GEN_TV_PENALIZE_VERSION,
+          'gen_tv_addscores': GEN_TV_ADDSCORES,
+          'gen_tv_score_estimator': GEN_TV_SCORE_ESTIMATOR,
+          'gen_tv_score_cv_k': GEN_TV_SCORE_CV_K,
+          'gen_tv_score_type': GEN_TV_SCORE_TYPE,
+          'gen_tv_score_version_local': GEN_TV_SCORE_VERSION_LOCAL,
           }
 # -----------------------------------------------------------------------------
 mymcf = ModifiedCausalForest(**params)
 mymcf.train(training_df)
-mymcf2 = deepcopy(mymcf)   # Use below for a 2nd estimation without versions
+# Copy before prediction: new_keywords requires a trained, not-yet-predicted instance.
+mymcf2 = deepcopy(mymcf)
 results = mymcf.predict(prediction_df)
-results_with_cluster_id_df = mymcf.analyse(results)
-my_report = McfOptPolReport(mcf=mymcf)
+results_with_clusters = mymcf.analyse(results)
+my_report = McfOptPolReport(mcf=mymcf, outputpath=results['path_output'])
 my_report.report()
 
-# Restimate without versions using the already trained forest (which does not
-# depend on the versions)
+# Re-estimate main-treatment effects using the same trained forest.
+# Include no_treatment_versions only to disable versions; omit it to retain them.
+# Any non-None value, including False, disables versions in the current API.
 results2 = mymcf2.predict(prediction_df, new_keywords={'no_treatment_versions': True},)
-results_with_cluster_id_df = mymcf2.analyse(results2)
-my_report2 = McfOptPolReport(mcf=mymcf2)
+results2_with_clusters = mymcf2.analyse(results2)
+my_report2 = McfOptPolReport(mcf=mymcf2, outputpath=results2['path_output'])
 my_report2.report()
 
 print('End of computations.\n\nThanks for using ModifiedCausalForest.'

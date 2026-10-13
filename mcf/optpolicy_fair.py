@@ -13,7 +13,6 @@ import numpy as np
 from numpy.typing import NDArray
 import pandas as pd
 from sklearn.neighbors import KernelDensity
-from scipy.interpolate import interp1d
 
 from mcf import mcf_estimation_generic as mcf_gf
 from mcf import mcf_print_stats as mcf_ps
@@ -63,25 +62,27 @@ def adjust_decision_variables(fair_cfg: 'FairCfg',
                           and fair_cfg.adjust_target in ('xvariables', 'scores_xvariables',)
                           )
     if x_cont_name:
-        (data_fair_df, x_fair_cont_name, fair_cfg, txt_report
+        (data_fair_df, x_fair_cont_name, fair_cfg, txt_cont
          ) = fair_adjust_cont_disc(fair_cfg, gen_cfg, var_cfg, data_fair_df,
                                    x_cont_name, x_are_continous=True, seed=seed,
                                    with_output=True,
                                    strata_number_fair=strata_number_fair,
-                                   decision_variable_adjust=True
+                                   decision_variable_adjust=True,
                                    )
+        txt_report += txt_cont
         for name_idx, name in enumerate(x_cont_name):
             if name in var_cfg.x_ord_name:
                 x_fair_ord_name.append(x_fair_cont_name[name_idx])
 
     if x_disc_name:
-        (data_fair_df, x_fair_disc_name, fair_cfg, txt_report
+        (data_fair_df, x_fair_disc_name, fair_cfg, txt_disc
          ) = fair_adjust_cont_disc(fair_cfg, gen_cfg, var_cfg, data_fair_df,
                                    x_disc_name, x_are_continous=False,
                                    seed=seed, with_output=True,
                                    strata_number_fair=strata_number_fair,
-                                   decision_variable_adjust=True
+                                   decision_variable_adjust=True,
                                    )
+        txt_report += txt_disc
         for name_idx, name in enumerate(x_disc_name):
             if name in var_cfg.x_ord_name:
                 x_fair_ord_name.append(x_fair_disc_name[name_idx])
@@ -152,11 +153,22 @@ def fair_adjust_cont_disc(fair_cfg: 'FairCfg',
                           ) -> tuple[pd.DataFrame, list[str], 'FairCfg', str]:
     """Fairness-adjust continuous and discrete variables."""
     fair_cfg = deepcopy(fair_cfg)
+    requested_adj_type = fair_cfg.adj_type
 
     x_np, protect_np, material_np = vars_to_numpy(data_df, x_name,
                                                   var_cfg.protected_name, var_cfg.material_name
                                                   )
-    txt_report = fair_method_message(gen_cfg, fair_cfg.adj_type, continuous_vars=x_are_continous)
+    txt_report = ''
+    if not x_are_continous and fair_cfg.adj_type != 'Quantiled':
+        txt_report = ('\nAdjustment method for discrete variables changed '
+                      f"from '{fair_cfg.adj_type}' to 'Quantiled'."
+                      )
+        fair_cfg.adj_type = 'Quantiled'
+        if gen_cfg.with_output:
+            mcf_ps.print_mcf(gen_cfg, txt_report, summary=True)
+
+    txt_report += fair_method_message(gen_cfg, fair_cfg.adj_type,
+                                      continuous_vars=x_are_continous)
     # Get fairness adjusted variables
     if x_are_continous:
         x_fair_np, cluster_fair_np, fair_cfg, txt = fair_continuous_xvars_fct(
@@ -164,9 +176,6 @@ def fair_adjust_cont_disc(fair_cfg: 'FairCfg',
             material_np=material_np, seed=seed, title='', strata_number_fair=strata_number_fair,
             )
     else:
-        if fair_cfg.adj_type != 'Quantiled':
-            txt = "\nAdjustment method for discrete variables changed to 'Quantiled'."
-            fair_cfg.adj_type = 'Quantiled'
         x_fair_np, cluster_fair_np, fair_cfg, txt = fair_discrete_xvars_fct(
             fair_cfg, gen_cfg, x_np, protect_np,
             material_np=material_np, seed=seed, title='', strata_number_fair=strata_number_fair,
@@ -180,7 +189,8 @@ def fair_adjust_cont_disc(fair_cfg: 'FairCfg',
 
     if gen_cfg.with_output and with_output:
         txt_report += optp_fair_add.fair_stats(gen_cfg, var_cfg, data_fair_df, x_name, x_fair_name,
-                                               var_continuous=x_are_continous
+                                               var_continuous=x_are_continous,
+                                               cont_min_values=fair_cfg.cont_min_values,
                                                )
     if decision_variable_adjust:
         fair_cfg.fair_strata = fair_strata_df
@@ -203,26 +213,27 @@ def fair_adjust_cont_disc(fair_cfg: 'FairCfg',
         if fair_cfg.x_ord_org_name is None:
             fair_cfg.x_ord_org_name = var_cfg.x_ord_name
 
+    fair_cfg.adj_type = requested_adj_type
     return data_fair_df, x_fair_name, fair_cfg, txt_report
 
 
 def update_fair_df(data_df: pd.DataFrame,
-                   x_name: list,
+                   x_name: list[str],
                    x_fair_np: NDArray[Any],
-                   cluster_fair_np: NDArray[Any],
-                   ) -> tuple[pd.DataFrame, list[str], pd.DataFrame | None, pd.DataFrame | None]:
-    """Update dataframe and names."""
+                   cluster_fair_np: NDArray[Any] | None,
+                   ) -> tuple[pd.DataFrame, list[str], pd.DataFrame | None, pd.DataFrame]:
+    """Add or replace adjusted columns while retaining one column per name."""
     x_fair_name = [name + '_fair' for name in x_name]
+    conflicts = set(x_fair_name).intersection(x_name)
+    if conflicts:
+        raise ValueError('Adjusted names conflict with original variables in the same adjustment: '
+                         f'{", ".join(sorted(conflicts))}. Rename these input columns.'
+                         )
     x_fair_df = pd.DataFrame(x_fair_np, columns=x_fair_name)
-    if cluster_fair_np is None:
-        fair_strata_df = x_org_df = None
-    else:
-        fair_strata_df = pd.DataFrame(cluster_fair_np, columns=('cluster',))
-        x_org_df = data_df[x_name]
-
-    x_org_df = None if x_name is None else data_df[x_name]
-
-    data_df = data_df.reset_index(drop=True)
+    fair_strata_df = (None if cluster_fair_np is None
+                      else pd.DataFrame(cluster_fair_np, columns=('cluster',)))
+    x_org_df = data_df[x_name]
+    data_df = data_df.reset_index(drop=True).drop(columns=x_fair_name, errors='ignore')
     data_fair_df = pd.concat((data_df, x_fair_df), axis=1)
 
     return data_fair_df, x_fair_name, fair_strata_df, x_org_df
@@ -300,9 +311,7 @@ def fair_discrete_xvars_fct(fair_cfg: 'FairCfg',
     """Use one of the different fairness adjustment methods."""
     # 1. Add a little noise, so that obs with same value appear to be ordered.
     #    Importantly, this ordering is random.
-    xvars_noise_np, unique_vals = optp_fair_add.add_noise_discrete(
-        xvars_np.copy()
-        )
+    xvars_noise_np, unique_vals = optp_fair_add.add_noise_discrete(xvars_np.copy())
     # 2. Switch the values of the (semi-random) ranks from the conditional
     #    distribution to the (semi-random) ranks of the unconditional
     #    distribution
@@ -325,10 +334,13 @@ def quantalisation(fair_cfg: 'FairCfg',
                    seed: int = 1246546,
                    title: str = '',
                    continuous: bool = True,
-                   ) -> tuple[NDArray[Any], NDArray[Any], str,  dict]:
+                   ) -> tuple[NDArray[Any], NDArray[Any] | None, str, 'FairCfg']:
     """Adjust by quantalisation similar to Strack & Yang (2024)."""
+    xvars_np = np.asarray(xvars_np, dtype=float)
     txt_report = ''
     fair_cfg = deepcopy(fair_cfg)
+    requested_disc_methods = (fair_cfg.protected_disc_method,
+                              fair_cfg.material_disc_method)
     disc_methods = fair_cfg.discretization_methods
     if gen_cfg.with_output:
         if title is None or title == '':
@@ -341,17 +353,16 @@ def quantalisation(fair_cfg: 'FairCfg',
 
     # Check if materially relevant features should be treated as discrete
     if optp_fair_add.no_discretization(material_np, fair_cfg.material_max_groups):
-        fair_cfg.material_disc_method = 'NoDiscretization'
-        txt_report += ('\nMaterial relevant features have no or only a few '
-                       'values. Discretization is not used.'
+        fair_cfg.material_disc_method = 'ExactCell'
+        txt_report += ('\nMaterially relevant features have no or only a few values. '
+                       'Exact cells are used without coarsening.'
                        )
     # Check if protected features should be treated as discrete
     if optp_fair_add.no_discretization(protect_np, fair_cfg.protected_max_groups):
-        fair_cfg.protected_disc_method = 'NoDiscretization'
+        fair_cfg.protected_disc_method = 'ExactCell'
         txt_report += ('\nProtected features have no or only a few values. '
-                       'Discretization is not used.'
+                       'Exact cells are used without coarsening.'
                        )
-
     # Discretize if needed, otherwise no change of data
     protect_np, material_np, txt_add = optp_fair_add.data_quantilized(fair_cfg, protect_np,
                                                                       material_np, seed
@@ -375,6 +386,8 @@ def quantalisation(fair_cfg: 'FairCfg',
     if gen_cfg.with_output and title == '':
         mcf_ps.print_mcf(gen_cfg, txt_report, summary=True)
 
+    (fair_cfg.protected_disc_method, fair_cfg.material_disc_method
+     ) = requested_disc_methods
     return xvars_fair_np, strata_fair_np, txt_report, fair_cfg
 
 
@@ -467,64 +480,110 @@ def kernel_quantilization(fair_cfg: dict,
     return xvars_fair_np, txt_report
 
 
-def calculate_quantiles_kde(
-        xvars: NDArray[Any],
-        data_cond: NDArray[Any],
-        xvars_grid: NDArray[Any],
-        quantile_data: NDArray[Any] | None = None,
-        ) -> tuple[NDArray[Any] | None, NDArray[Any] | None]:
-    """Calculate the quantiles using Kernel density estimation."""
+def calculate_quantiles_kde(xvars: NDArray[Any],
+                            data_cond: NDArray[Any] | None,
+                            xvars_grid: NDArray[Any],
+                            quantile_data: NDArray[Any] | None = None,
+                            ) -> tuple[NDArray[Any] | None, NDArray[Any] | None]:
+    """Integrate the Epanechnikov KDE over the grid bounds, without grid approximation."""
+    xvars = np.asarray(xvars, dtype=float).reshape(-1)
+    grid = np.asarray(xvars_grid, dtype=float).reshape(-1)
+    if xvars.size == 0 or not np.all(np.isfinite(xvars)):
+        raise ValueError('xvars must contain finite observations.')
+    if len(grid) < 2 or not np.all(np.isfinite(grid)) or grid[0] >= grid[-1]:
+        raise ValueError('xvars_grid must have finite, increasing bounds.')
+    lower, upper = float(grid[0]), float(grid[-1])
+
+    if data_cond is None:
+        condition = np.empty((len(xvars), 0))
+    else:
+        condition = np.asarray(data_cond, dtype=float)
+        if condition.ndim == 1:
+            condition = condition.reshape(-1, 1)
+        if condition.ndim != 2 or len(condition) != len(xvars):
+            raise ValueError('data_cond must contain one row per xvars value.')
+        if not np.all(np.isfinite(condition)):
+            raise ValueError('data_cond must contain only finite values.')
+
     quantile_values = quantile_data is not None
     if quantile_values:
-        y_at_quantile = np.zeros_like(xvars)
-    else:
-        quantile_at_y = np.zeros_like(xvars)
+        quantile_data = np.asarray(quantile_data, dtype=float).reshape(-1)
+        if len(quantile_data) != len(xvars):
+            raise ValueError('quantile_data and xvars must have equal length.')
+        if not np.all(np.isfinite(quantile_data)) or np.any((quantile_data < 0)
+                                                          | (quantile_data > 1)):
+            raise ValueError('quantile_data must contain finite values between 0 and 1.')
 
-    num_points = len(xvars_grid)
+    joint_data = np.column_stack((condition, xvars))
+    kde = KernelDensity(kernel='epanechnikov', bandwidth='silverman').fit(joint_data)
+    bandwidth = float(kde.bandwidth_)
+    result = np.empty(len(xvars), dtype=float)
 
-    # Fit KDE for the joint density p(x, y)
-    if data_cond.shape[1] == 1:
-        data_cond = data_cond.reshape(-1, 1)
-    if data_cond is None:
-        joint_data = xvars.reshape(-1, 1)
-    else:
-        joint_data = np.concatenate((data_cond, xvars.reshape(-1, 1)), axis=1)
-    kde_joint = KernelDensity(kernel='epanechnikov', bandwidth='silverman'
-                              ).fit(joint_data)
-    kde_marg = KernelDensity(kernel='epanechnikov', bandwidth='silverman'
-                             ).fit(data_cond)
+    def cdf_at(point: float,
+               centers: NDArray[Any],
+               radii: NDArray[Any],
+               weights: NDArray[Any],
+               ) -> float:
+        """Integrate the conditional mixture up to point."""
+        with np.errstate(over='ignore'):
+            position = np.clip((point - centers) / radii, -1, 1)
+        unit = (position + 1) / 2
+        return float(weights @ (unit * unit * (3 - 2 * unit)))
 
-    kde_marg_data = np.exp(kde_marg.score_samples(data_cond))  # All datapoints
-
-    for idx, xvars_i in enumerate(xvars):
-        xy_grid = np.hstack([np.tile(data_cond[idx, :], (num_points, 1)), xvars_grid])
-        joint_density = np.exp(kde_joint.score_samples(xy_grid))
-        cond_density_idx = joint_density / kde_marg_data[idx]
-        cond_density_idx /= np.sum(cond_density_idx)
-        # Calculate the cumulative distribution function (CDF)
-        cdf_idx = np.cumsum(cond_density_idx)
-        # Normalise it (again, as a safeguard, should be unnecessary)
-        cdf_idx /= cdf_idx[-1]
-
-        if quantile_values:
-            # Function to interpolate the quantile function (inverse CDF)
-            quantile_func = interp1d(cdf_idx, xvars_grid.flatten(), bounds_error=False,
-                                     fill_value=(xvars_grid[0, 0], xvars_grid[-1, 0])
-                                     )
-            y_at_quantile[idx] = quantile_func(quantile_data[idx])
-            quantile_at_y = None
+    for idx, value in enumerate(xvars):
+        if condition.shape[1]:
+            with np.errstate(over='ignore', invalid='ignore'):
+                distance_sq = np.sum(((condition - condition[idx]) / bandwidth) ** 2, axis=1)
+            support = np.maximum(1 - distance_sq, 0)
         else:
-            cdf_func = interp1d(xvars_grid.flatten(), cdf_idx, bounds_error=False, fill_value=(0, 1)
-                                )
-            quantile_at_y[idx] = cdf_func(xvars_i)
-            y_at_quantile = None
+            support = np.ones(len(xvars))
+        active = support > 0
+        centers = xvars[active]
+        radii = bandwidth * np.sqrt(support[active])
+        weights = support[active] ** 1.5
+        weights /= weights.sum()
 
-    return quantile_at_y, y_at_quantile
+        # At a fixed condition, each spherical kernel becomes a weighted 1D kernel.
+        cdf_lower = cdf_at(lower, centers, radii, weights)
+        mass = cdf_at(upper, centers, radii, weights) - cdf_lower
+        if not np.isfinite(mass) or mass <= 0:
+            raise ValueError('The KDE has no positive probability within the evaluation bounds.')
+
+        if not quantile_values:
+            cumulative = cdf_at(float(value), centers, radii, weights)
+            result[idx] = np.clip((cumulative - cdf_lower) / mass, 0, 1)
+            continue
+
+        quantile = float(quantile_data[idx])
+        if quantile in (0, 1):
+            result[idx] = lower if quantile == 0 else upper
+            continue
+        target = cdf_lower + quantile * mass
+        left, right = lower, upper
+        for _ in range(64):
+            midpoint = left / 2 + right / 2
+            if midpoint in (left, right):
+                break
+            if cdf_at(midpoint, centers, radii, weights) < target:
+                left = midpoint
+            else:
+                right = midpoint
+        result[idx] = right
+
+    return (None, result) if quantile_values else (result, None)
 
 
 def get_grid(data: np.array, no_eval_point: int | float) -> NDArray[Any]:
     """Get evaluation grid for densities."""
-    grid = np.linspace(data.min(), data.max(), no_eval_point).reshape(-1, 1)
+    lower = float(np.min(data))
+    upper = float(np.max(data))
+
+    if np.isclose(lower, upper, rtol=0, atol=1e-12):
+        padding = max(abs(lower), 1) * 1e-6
+        lower -= padding
+        upper += padding
+
+    grid = np.linspace(lower, upper, no_eval_point).reshape(-1, 1)
 
     return grid
 
@@ -537,7 +596,7 @@ def cluster_number_within_cell_quantilization(
     if material_np is None:
         material_np = np.ones((protected_np.shape[0], 1))
     material_values = np.unique(material_np, return_counts=False)
-    cluster_fair_np = np.zeros(len(protected_np))
+    cluster_fair_np = np.zeros(len(protected_np), dtype=np.int64)
     cluster_no = 0
     for mat_val in material_values:
         indices_mat = np.where(material_np == mat_val)[0]
@@ -547,6 +606,7 @@ def cluster_number_within_cell_quantilization(
         prot_mat = protected_np[indices_mat].reshape(-1)
         vals_prot_mat = np.unique(prot_mat, return_counts=False)
         if len(vals_prot_mat) == 1:
+            cluster_fair_np[indices_mat] = cluster_no
             cluster_no += 1
             continue
         for val in vals_prot_mat:
@@ -572,7 +632,6 @@ def within_cell_quantilization(xvars_np: NDArray[Any],
         material_np = np.ones((protected_np.shape[0], 1))
     material_values = np.unique(material_np, return_counts=False)
     xvars_fair_np = xvars_np.copy()
-    cluster_no = 0
     for mat_val in material_values:
         indices_mat = np.where(material_np == mat_val)[0]
         if indices_mat.size == 0:
@@ -581,7 +640,6 @@ def within_cell_quantilization(xvars_np: NDArray[Any],
         prot_mat = protected_np[indices_mat].reshape(-1)
         vals_prot_mat = np.unique(prot_mat, return_counts=False)
         if len(vals_prot_mat) == 1:
-            cluster_no += 1
             continue
 
         for idx_xvars in range(no_of_xvars):
@@ -602,10 +660,8 @@ def within_cell_quantilization(xvars_np: NDArray[Any],
 
 def calculate_quantiles(data: NDArray[Any]) -> NDArray[Any]:
     """Calculate quantiles for each value in the dataset."""
-    data_sort = np.sort(data)  # Sort the data
-    rank = np.empty_like(data)
-    for idx, value in enumerate(data):
-        rank[idx] = np.searchsorted(data_sort, value, side='right')  # Find rank
+    data_sort = np.sort(data)
+    rank = np.searchsorted(data_sort, data, side='right')
 
     return rank / len(data)
 
@@ -616,7 +672,8 @@ def values_from_quantiles(data: NDArray[Any],
     """Get the values from the quantiles."""
     d_sorted = np.sort(data)  # Sort the empirical distribution
     obs = len(d_sorted)       # Number of data points
-    indices = np.int64(np.round(quantiles * (obs - 1)))  # Compute the indices
+    cdf = np.arange(1, obs + 1) / obs
+    indices = np.searchsorted(cdf, quantiles, side='left')
 
     return d_sorted[indices]
 
@@ -631,9 +688,13 @@ def residualisation(fair_cfg: 'FairCfg',
                     title: str = '',
                     ) -> tuple[NDArray[Any], str]:
     """Adjust by residualisation."""
+    if not np.issubdtype(xvars_np.dtype, np.floating):
+        xvars_np = np.asarray(xvars_np, dtype=float)
     # Info and tuning parameters
     obs, no_of_xvars = xvars_np.shape
-    boot, cross_validation_k, txt_report = 5, 1000, ''
+    boot = 1000
+    cross_validation_k = min(5, obs)
+    txt_report = ''
 
     # Define all conditioning variables for regressions below
     if material_np is None:
@@ -808,7 +869,7 @@ def residualisation(fair_cfg: 'FairCfg',
 
         # Rescale to retain about the variability of the original variabless
         std_resid = np.std(residuum_np, axis=0).reshape(-1, 1).T
-        residuum_np /= std_resid
+        np.divide(residuum_np, std_resid, out=residuum_np, where=std_resid > 0)
         if with_material_x:
             residuum_np *= y_std_cond_mat_np
         else:
@@ -908,12 +969,37 @@ def update_names_for_solve_in_self(var_cfg: 'VarCfg',
     return org_name_dic, var_cfg
 
 
+def _align_prediction_dummies(data_df: pd.DataFrame,
+                              unordered_names: list[str],
+                              ordered_names: list[str],
+                              training_names: list[str],
+                              ) -> pd.DataFrame:
+    """Align prediction dummies to dummy columns used in fairness training."""
+    if not unordered_names:
+        return data_df
+
+    dummies_df = pd.get_dummies(data_df[unordered_names], columns=unordered_names, dtype=int)
+    expected = [name for name in training_names if name not in ordered_names]
+    unexpected = [name for name in dummies_df.columns if name not in expected]
+
+    if unexpected:
+        raise ValueError('Prediction data contain categorical values that were not observed '
+                         f'during fairness training: {" ".join(unexpected)}'
+                         )
+    dummies_df = dummies_df.reindex(columns=expected, fill_value=0)
+
+    for name in expected:
+        data_df[name] = dummies_df[name].to_numpy(copy=False)
+
+    return data_df
+
+
 def fair_adjust_data_for_pred(fair_cfg: 'FairCfg',
                               gen_cfg: 'GenCfg',
                               var_cfg: 'VarCfg',
                               data_df: pd.DataFrame,
                               fair_adjust_decision_vars: bool,
-                              ) -> tuple[pd.DataFrame, str]:
+                              ) -> tuple[pd.DataFrame, 'FairCfg', str]:
     """Add fairness-transformed data if needed for prediction."""
     txt = ''
     # Remove some information from training that will be updated
@@ -926,33 +1012,61 @@ def fair_adjust_data_for_pred(fair_cfg: 'FairCfg',
     if fair_cfg.x_ord_org_name is not None:
         fair_cfg.x_ord_org_name = None
 
-    fair_adjustvar = fair_cfg.adjust_target in ('xvariables', 'scores_xvariables',)
-
+    fair_adjustvar = (gen_cfg.method != 'best_policy_score'
+                      and fair_cfg.adjust_target in ('xvariables', 'scores_xvariables')
+                      )
     fair_decision_var_na = any(elem not in data_df.columns
                                for elem in [*var_cfg.x_ord_name, *var_cfg.x_unord_name]
                                )
-    if (var_cfg.protected_unord_name
-        and any(elem not in data_df.columns for elem in var_cfg.protected_name)):
-        dummies_df = pd.get_dummies(data_df[var_cfg.protected_unord_name],
-                                    columns=var_cfg.protected_unord_name,
-                                    dtype=int
-                                    )
-        data_df = pd.concat((data_df, dummies_df), axis=1)
+    fair_adjust_scores = (gen_cfg.method == 'best_policy_score'
+                          and fair_cfg.adjust_target in ('scores', 'scores_xvariables')
+                          )
+    fair_score_na = any(name not in data_df.columns for name in var_cfg.polscore_name)
+    needs_adjustment = (fair_adjust_decision_vars or (fair_adjustvar and fair_decision_var_na)
+                        or (fair_adjust_scores and fair_score_na)
+                        )
+    if (needs_adjustment and var_cfg.protected_unord_name
+            and any(name not in data_df.columns for name in var_cfg.protected_name)):
+        data_df = _align_prediction_dummies(data_df,
+                                            var_cfg.protected_unord_name,
+                                            var_cfg.protected_ord_name,
+                                            var_cfg.protected_name,
+                                            )
+    if (needs_adjustment and var_cfg.material_unord_name
+            and any(name not in data_df.columns for name in var_cfg.material_name)):
+        data_df = _align_prediction_dummies(data_df,
+                                            var_cfg.material_unord_name,
+                                            var_cfg.material_ord_name,
+                                            var_cfg.material_name,
+                                            )
 
-    # if (var_cfg.material_name
-    #     and any(elem not in data_df.columns
-    #             for elem in var_cfg.material_unord_name)):
-    if (var_cfg.material_unord_name
-        and any(elem not in data_df.columns for elem in var_cfg.material_name)):
-        dummies_df = pd.get_dummies(data_df[var_cfg.material_unord_name],
-                                    columns=var_cfg.material_unord_name,
-                                    dtype=int
-                                    )
-        data_df = pd.concat((data_df, dummies_df), axis=1)
+    if fair_adjust_scores and fair_score_na:
+        original_score_names = fair_cfg.org_name_dict['polscore_name']
+
+        data_df, score_fair_names, fair_cfg, txt_scores = fair_adjust_cont_disc(
+            deepcopy(fair_cfg),
+            deepcopy(gen_cfg),
+            deepcopy(var_cfg),
+            data_df,
+            original_score_names,
+            x_are_continous=True,
+            strata_number_fair=False,
+            seed=1234567,
+            with_output=True,
+            decision_variable_adjust=False,
+            )
+
+        if score_fair_names != var_cfg.polscore_name:
+            raise RuntimeError('Names of fairness-adjusted prediction scores are inconsistent '
+                               'with the scores used for training.'
+                               )
+        txt += ('\nFairness-adjusted policy scores were not available in the '
+                'prediction data. They were therefore computed from the original policy scores.'
+                )
+        txt += txt_scores
 
     if fair_adjustvar and fair_decision_var_na:
-        # If adjusted variables are not available,they must be created and
-        # added to the data
+        # If adjusted variables are not available,they must be created and added to the data
         # Add explanations to report file
         txt += ('\n\nFairness adjusted variables were not available in the '
                 'data provided to compute allocations (prediction data). '
@@ -985,10 +1099,8 @@ def fair_adjust_data_for_pred(fair_cfg: 'FairCfg',
         if add_train_data:
             data_pred_df = data_temp_df.iloc[:len(data_df), :]
             data_pred_rel_df = data_pred_df[[*var_cfg.x_ord_name, *var_cfg.x_unord_name]]
-            data_df = pd.concat((data_df.reset_index(drop=True),
-                                 data_pred_rel_df.reset_index(drop=True),),
-                                axis=1,
-                                )
+            data_df = data_df.reset_index(drop=True).copy()
+            data_df[data_pred_rel_df.columns] = data_pred_rel_df.to_numpy(copy=False)
         else:
             data_df = data_temp_df
 

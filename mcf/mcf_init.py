@@ -7,10 +7,12 @@ Contains the functions needed for initialising the parameters of the programme.
 """
 from copy import deepcopy
 from dataclasses import dataclass, field
+from numbers import Real
 from pathlib import Path
+import sys
 import warnings
 
-from typing import Any, Literal, TYPE_CHECKING
+from typing import Any, ClassVar, Literal, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
@@ -26,6 +28,7 @@ from mcf.mcf_init_update_helper import isinstance_scalar, get_ray_del_defaults, 
 from mcf import mcf_init_values_cfg as mcf_initvals
 from mcf import mcf_print_stats as mcf_ps
 from mcf import mcf_general_sys as mcf_sys
+from mcf.mcf_versions import TvScores
 
 if TYPE_CHECKING:
     from mcf.mcf_init_predict import PCfg
@@ -62,7 +65,6 @@ class IntCfg:
     verbose: bool = False
     memory_print: bool = False
     output_no_new_dir: bool = False
-    report: bool = True
 
     # implementation / backend
     cuda: bool = False
@@ -92,12 +94,10 @@ class IntCfg:
     mp_weights_type: int = 1
     weight_as_sparse: bool = True
     weight_as_sparse_splits: IntLike = None
-    mp_vim_type: IntLike = None
 
     # training / sampling
     iate_chunk_size: NumberLike = None
     share_forest_sample: float = 0.5
-    seed_sample_split: int = 67567885
     max_cats_cont_vars: IntLike = None
     replication: bool = False
 
@@ -141,14 +141,11 @@ class IntCfg:
                   mp_ray_del: IntLike | tuple[str, ...] = None,
                   mp_ray_objstore_multiplier: NumberLike = None,
                   mp_ray_shutdown: BoolLike = None,
-                  mp_vim_type: IntLike = None,
                   mp_weights_tree_batch: bool | NumberLike = None,
                   mp_weights_type: NumberLike = None,
                   obs_bigdata: NumberLike = None,
                   output_no_new_dir: BoolLike = None,
                   replication: BoolLike = None,
-                  report: BoolLike = None,
-                  seed_sample_split: NumberLike = None,
                   share_forest_sample: FloatLike = None,
                   show_plots: BoolLike = None,
                   weight_as_sparse: BoolLike = None,
@@ -194,7 +191,6 @@ class IntCfg:
             verbose_b = False
 
         show_plots_b = show_plots is not False
-        report_b = report is not False
         output_no_new_dir_b = output_no_new_dir is True
         replication_b = replication is True
 
@@ -254,10 +250,6 @@ class IntCfg:
         # weights type
         mp_weights_type_i = 2 if mp_weights_type == 2 else 1
 
-        # seed
-        seed_sample_split_i = (67567885 if seed_sample_split is None
-                               else int(round(seed_sample_split))
-                               )
         # iate chunk size
         iate_chunk_size_out = (iate_chunk_size if (isinstance_scalar(iate_chunk_size)
                                                    and iate_chunk_size > 0
@@ -358,16 +350,13 @@ class IntCfg:
                    mp_ray_shutdown=mp_ray_shutdown,
                    max_save_values=max_save_values_out,
                    mp_use_old_ray=mp_use_old_ray_b,
-                   mp_vim_type=mp_vim_type,
                    mp_weights_tree_batch=mp_weights_tree_batch_i,
                    mp_weights_type=mp_weights_type_i,
                    no_filled_plot=no_filled_plot_i,
                    obs_bigdata=obs_bigdata_out,
                    output_no_new_dir=output_no_new_dir_b,
                    replication=replication_b,
-                   report=report_b,
                    show_plots=show_plots_b,
-                   seed_sample_split=seed_sample_split_i,
                    share_forest_sample=share_forest_sample_f,
                    verbose=verbose_b,
                    weight_as_sparse=weight_as_sparse_b,
@@ -471,6 +460,12 @@ class GenCfg:
             case (int() | float()) as x:
                 mp_parallel_i, mp_auto = int(round(x)), False
 
+        if mp_parallel_i > 63 and int_cfg.mp_backend == 'joblib' and sys.platform.startswith('win'):
+            raise ValueError('Joblib is specified for multiprocessing. Joblib can only use up to '
+                             f'63 cores on Windows. However, {mp_parallel_i} process are '
+                             'specified. Either reduce the number of parallel processes '
+                             '(gen_mp_parallel) or use ray as backend (_int_mp_backend).'
+                             )
         # system share
         sys_share_f = 0.7 * virtual_memory().percent / 100.0
 
@@ -499,7 +494,11 @@ class GenCfg:
             outpath_final = outfiletext_path = outfilesummary_path = None
 
         # printing
-        output_type_i = 2 if output_type is None else int(output_type)
+        if output_type is not None and not isinstance(output_type, Real):
+            raise TypeError('gen_output_type must be specified as a number.')
+        output_type_i = 2 if output_type is None else int(round(output_type))
+        if output_type_i not in (0, 1, 2):
+            raise TypeError('gen_output_type must round to one of: 0, 1, 2.')
         match output_type_i:
             case 0:
                 print_to_file, print_to_terminal = False, True
@@ -557,6 +556,7 @@ class VarCfg:
     # canonical inputs (lists; normalized by from_arg)
     cluster_name: list[str] = field(default_factory=list)
     d_name: list[str] = field(default_factory=list)
+    d_value_mapping: dict[str, dict[Any, Any]] = field(default_factory=dict, init=False)
     id_name: list[str] = field(default_factory=list)
     iv_name: list[str] = field(default_factory=list)
     w_name: list[str] = field(default_factory=list)
@@ -607,6 +607,8 @@ class VarCfg:
         # required fields
         if not self.y_name:
             raise ValueError('y_name must be specified.')
+        if len(self.y_tree_name) != 1:
+            raise ValueError('var_y_tree_name must identify exactly one outcome.')
         if not self.d_name:
             raise ValueError('d_name must be specified.')
 
@@ -753,10 +755,12 @@ class VarCfg:
     # ---------- keyword-only factory ----------
 
     @classmethod
-    def from_args(cls, *,
+    def from_args(cls: type['VarCfg'], *,
                   gen_cfg: 'GenCfg',
                   p_cfg: 'PCfg',
                   fs_yes: bool,
+                  screen_covariates: bool,
+                  descriptive_stats: bool,
                   p_ba_yes: bool,
                   p_ba_use_x: bool,
                   cluster_name: NameLike = None,
@@ -827,27 +831,30 @@ class VarCfg:
         # x parts (+ augment with z to mirror original behavior)
         x_name_ord_n = norm(x_name_ord)
         x_name_unord_n = norm(x_name_unord)
-        if z_name_cont_n or z_name_ord_n:
+        if z_name_cont_n or z_name_ord_n or z_name_unord_n:
             x_name_ord_n = x_name_ord_n + z_name_cont_n + z_name_ord_n
             x_name_unord_n = x_name_unord_n + z_name_unord_n
-
         # always/remain/balance sets
         x_ai_ord_n = norm(x_name_always_in_ord)
         x_ai_unord_n = norm(x_name_always_in_unord)
-        x_rem_ord_n = norm(x_name_remain_ord)
-        x_rem_unord_n = norm(x_name_remain_unord)
-        x_bt_ord_n = norm(x_name_balance_test_ord)
-        x_bt_unord_n = norm(x_name_balance_test_unord)
+        protect_features = fs_yes or screen_covariates
+        x_rem_ord_n = norm(x_name_remain_ord) if protect_features else []
+        x_rem_unord_n = norm(x_name_remain_unord) if protect_features else []
+        balance_needed = p_cfg.bt_yes or (gen_cfg.with_output and descriptive_stats)
+        x_bt_ord_n = norm(x_name_balance_test_ord) if balance_needed else []
+        x_bt_unord_n = norm(x_name_balance_test_unord) if balance_needed else []
 
-        # bgate balance set only if bgate on
-        x_bgate_n = norm(x_name_balance_bgate) if p_cfg.bgate else []
+        # BGATE balancing is needed only with enabled grouping variables.
+        bgate_needed = p_cfg.bgate and bool(z_name_cont_n or z_name_ord_n
+                                                or z_name_unord_n)
+        x_bgate_n = norm(x_name_balance_bgate) if bgate_needed else []
 
         x_name_ba_n = norm(to_list(x_name_ba)) if p_ba_yes and p_ba_use_x else []
 
-        x_name_tv_n = norm(to_list(x_name_tv)) if x_name_tv else []
+        x_name_tv_n = norm(to_list(x_name_tv)) if len(d_name_n) == 2 else []
 
         # weights (clean; presence validated in __post_init__)
-        w_name_n = norm(w_name)
+        w_name_n = norm(w_name) if gen_cfg.weighted else []
 
         return cls(gen_cfg=gen_cfg,
                    p=p_cfg,
@@ -946,9 +953,16 @@ class GenTvCfg:
     cv_k: IntLike = None
     tv_min_subtreat: IntLike = 10
     specification: str = 'interacted'
-    penalize_version: bool = False
+    penalize_version: bool | list[bool] | None = False
+    addscores: BoolLike = False
+    score_type: str | tuple[str, ...] | None = ('prop_version', 'prop_main')
+    score_estimator: StrLike = 'RandomForest'
+    score_cv_k: IntLike = None
+    boot: int = 1_000
+    score_version_local: BoolLike = None
 
     # To be filled later
+    y_tree_index: IntLike = field(default=None, init=False)
     d_main_values: GridLike = field(default=None, init=False)
     d_sub_values: GridLike = field(default=None, init=False)
     d_dict: dict | None = field(default=None, init=False)
@@ -956,21 +970,41 @@ class GenTvCfg:
     d_all_values: ArrayLike = field(default=None, init=False)
     d_all_values_one_label: list[int] | None = field(default=None, init=False)
     no_of_treat_per_main: list[int] | None = field(default=None, init=False)
+    score_names: list[str] | None = field(default=None, init=False)
+    scores_version_list: list[list[TvScores] | None] | None = field(default=None, init=False)
+    scores_version_round: list[TvScores] | None = field(default=None, init=False)
+
+    # allowed estimators (case-insensitive match)
+    OK_ESTIMATORS: ClassVar[tuple[str, ...]] = (
+        'RandomForest', 'RandomForestNminl5', 'RandomForestNminls5', 'SupportVectorMachine',
+        'SupportVectorMachineC2', 'SupportVectorMachineC4', 'AdaBoost', 'AdaBoost100',
+        'AdaBoost200', 'GradBoost', 'GradBoostDepth6', 'GradBoostDepth12', 'LASSO',
+        'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger', 'Mean', 'automatic'
+        )
+    OK_SCORES: ClassVar[tuple[str, ...]] = ('prop_version', 'prog_version',
+                                            'prop_main', 'prog_main',
+                                            )
 
     @classmethod
     def from_args(cls, *,
                   d_name: GridLike = None,
-                  y_name: GridLike = None,
                   estimator: StrLike = 'ridge',
-                  penalize_version: bool | list[bool] | tuple[bool, ...] = False,
+                  penalize_version: bool | list[bool] | tuple[bool, ...] | None = False,
                   cv_k: IntLike = None,
                   tv_min_subtreat: IntLike = 10,
                   specification: str = 'interacted',
+                  addscores: BoolLike = False,
+                  score_estimator: StrLike = 'RandomForest',
+                  score_cv_k: IntLike = None,
                   clustering: bool = False,
                   weighted: bool = False,
                   continuous: bool = False,
                   qiate: bool = False,
                   p_ba: bool = False,
+                  boot: int = 1000,
+                  score_type: str | list[str] | tuple[str, ...] | None = ('prop_version',
+                                                                          'prop_main'),
+                  score_version_local: BoolLike = None,
                   ) -> 'GenTvCfg':
         """Check, modify and save input values."""
         yes_n = len(d_name) > 1     # Second treatment variable required
@@ -981,10 +1015,6 @@ class GenTvCfg:
                                  'continuous treatments are not allowed together with treatment '
                                  'versions.'
                                  )
-            if isinstance(y_name, (list, tuple)) and len(y_name) > 1:
-                raise NotImplementedError('Version estimation is currently implemented for '
-                                          'single outcomes only.'
-                                          )
             estimator_n = mcf_initvals.gen_tv_valid_estimators(estimator)
             specification_n = mcf_initvals.gen_tv_valid_specification(specification)
             cv_k_n = mcf_initvals.gen_tv_valid_cv_k(cv_k)
@@ -1005,14 +1035,82 @@ class GenTvCfg:
                         raise ValueError('Elements of penalize_version must be Boolean' )
             penalize_version_n = False if penalize_version is None else penalize_version
             if estimator_n == 'ols':
-                penalize_version_n = False
+                penalize_version_n = [False]
             else:
                 if isinstance(penalize_version_n, bool):
                     penalize_version_n = [penalize_version_n]
                 if isinstance(penalize_version_n, tuple):
                     penalize_version_n = list(penalize_version_n)
+            if addscores is None:
+                addscores_n = False
+            else:
+                if isinstance(addscores, bool):
+                    addscores_n = addscores
+                else:
+                    raise ValueError('addscores must be Boolean or None.')
+
+            if addscores_n:
+                # To be updated when training sample size is known
+                if not isinstance(score_cv_k, (int, float)) or score_cv_k < 1:
+                    score_cv_k_n = None
+                else:
+                    score_cv_k_n = round(float(score_cv_k))
+                    if score_cv_k_n < 2:
+                        score_cv_k_n = None
+
+                if score_estimator is None:
+                    score_estimator_n = 'RandomForest'
+                elif isinstance(score_estimator, str):
+                    names = cls.OK_ESTIMATORS
+                    names_cf = tuple(name.casefold() for name in names)
+                    try:
+                        pos = names_cf.index(score_estimator.casefold())
+                        score_estimator_n = names[pos]
+                    except ValueError as exc:
+                        raise ValueError('Estimator specified for prognostic score estimation '
+                                         'for versions is not valid. '
+                                         f'\nSpecified estimator: {score_estimator}.'
+                                         f'\nAllowed estimators: {" ".join(names)}.'
+                                         ) from exc
+                else:
+                    raise ValueError('score_estimator must be string or None.')
+
+                if score_version_local is None:
+                    score_version_local_n = False
+                elif isinstance(score_version_local, bool):
+                    score_version_local_n = score_version_local
+                else:
+                    raise ValueError('score_version_local must be bool or None.' )
+
+                if score_type is None:
+                    score_type_n = ('prop_version', 'prop_main')
+                else:
+                    names = cls.OK_SCORES
+                    names_cf = tuple(name.casefold() for name in names)
+
+                    if isinstance(score_type, str):
+                        score_type_cf = (score_type.casefold(),)
+                    elif isinstance(score_type, (list, tuple)):
+                        if not all(isinstance(item, str) for item in score_type):
+                            raise ValueError('Elements of score_type must be strings.')
+                        score_type_cf = tuple(item.casefold() for item in score_type)
+                    else:
+                        raise ValueError('score_type must be string, list of strings, '
+                                         'or tuple of strings.'
+                                         )
+                    if not all(item in names_cf for item in score_type_cf):
+                        raise ValueError('score_type is not valid. '
+                                         f'\nSpecified score_type: {" ".join(score_type_cf)}.'
+                                         f'\nAllowed score_type: {" ".join(names)}.'
+                                         )
+
+                    score_type_n = tuple(names[names_cf.index(item)] for item in score_type_cf)
+            else:
+                score_cv_k_n = score_estimator_n = score_version_local_n = score_type_n = None
         else:
             tv_min_subtreat_n = penalize_version_n = estimator_n = specification_n = cv_k_n = None
+            addscores_n = score_estimator_n = score_cv_k_n = None
+            score_version_local_n = score_type_n = None
 
         return cls(yes=yes_n,
                    estimator=estimator_n,
@@ -1020,4 +1118,10 @@ class GenTvCfg:
                    penalize_version=penalize_version_n,
                    tv_min_subtreat=tv_min_subtreat_n,
                    specification=specification_n,
+                   addscores=addscores_n,
+                   score_estimator=score_estimator_n,
+                   score_cv_k=score_cv_k_n,
+                   boot=boot,
+                   score_version_local=score_version_local_n,
+                   score_type=score_type_n,
                    )

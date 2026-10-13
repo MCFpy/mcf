@@ -21,6 +21,355 @@ if TYPE_CHECKING:
     from mcf.mcf_init import GenCfg, VarCfg, CtGrid
 
 
+def create_xz_variables(mcf_: 'ModifiedCausalForest',
+                        data_df: pd.DataFrame,
+                        train: bool = True
+                        ) -> pd.DataFrame:
+    """Create the variables for GATE & add to covariates, recode X.
+
+    Parameters
+    ----------
+    mcf_c : Instance of the Modified Causal Forest class.
+    data_df : DataFrame.
+           Data for prediction or training.
+    train : Bool. train is True if function is used in training part. Default
+               is True
+
+    Returns
+    -------
+    data_df : DataFrame.
+        Updated data.
+
+    """
+
+    def check_for_nan(data_df: pd.DataFrame) -> None:
+        """Raise exception if data contains missings or non-numeric variables."""
+        vars_with_nans_mask = data_df.isna().any(axis=0)
+        vars_with_nans = vars_with_nans_mask[vars_with_nans_mask].index.tolist()
+
+        vars_non_numeric = [variable for variable in data_df.columns
+                            if not pd.api.types.is_numeric_dtype(data_df[variable])
+                            ]
+        if vars_with_nans or vars_non_numeric:
+            txt = ('The data contains invalid variables.'
+                   '\nPlease clean the data before sending it to the mcf package.'
+                   )
+            if vars_with_nans:
+                txt += ('\nVariables containing missing values: '
+                        f'\n{" ".join(vars_with_nans)}'
+                        )
+            if vars_non_numeric:
+                txt += ('\nVariables containing non-numeric data: '
+                        f'\n{" ".join(vars_non_numeric)}'
+                        )
+            txt += ('\nRemove or impute missing values and recode all non-numeric '
+                    'variables as numeric before calling the mcf package.'
+                    )
+            raise ValueError(txt)
+
+    var_cfg, gen_cfg, ct_cfg = mcf_.var_cfg, mcf_.gen_cfg, mcf_.ct_cfg
+    p_cfg, int_cfg = mcf_.p_cfg, mcf_.int_cfg
+    zero_tol=int_cfg.zero_tol
+    data_train_dic = mcf_.data_train_dict
+    if train:
+        no_val_dict, q_inv_dict, z_new_name_dict = {}, {}, {}
+        z_new_dic_dict = {}
+    else:
+        d_indat_values = data_train_dic['d_indat_values']
+        no_val_dict = data_train_dic['no_val_dict']
+        q_inv_dict = data_train_dic['q_inv_dict']
+        q_inv_cr_dict = data_train_dic['q_inv_cr_dict']
+        prime_values_dict = data_train_dic['prime_values_dict']
+        unique_val_dict = data_train_dic['unique_values_dict']
+        z_new_name_dict = data_train_dic['z_new_name_dict']
+        z_new_dic_dict = data_train_dic['z_new_dic_dict']
+        prime_new_name_dict = data_train_dic['prime_new_name_dict']
+        prime_old_name_dict = data_train_dic['prime_old_name_dict']
+
+        # Restore raw covariate names before rebuilding any GATE variables.
+        for original_variable in q_inv_cr_dict:
+            recoded_variable = original_variable + 'CR'
+            for cached_name in (recoded_variable, recoded_variable.casefold()):
+                var_cfg = mcf_gp.substitute_variable_name(var_cfg, cached_name, original_variable)
+
+    data_df.columns = data_df.columns.str.casefold()
+    temp_df = data_df.replace({False: 0, True: 1})
+    data_df = temp_df
+    if len(data_df.columns) > len(set(data_df.columns)):
+        raise RuntimeError('Duplicate variable names. Names are NOT case sensitive')
+    check_for_nan(data_df)
+
+    # Get and check treatment variable
+    if train:
+        if gen_cfg.d_type == 'continuous':
+            d1_unique = ct_cfg.grid_nn_val
+            data_df = recode_treat_cont(data_df, var_cfg, ct_cfg, zero_tol=zero_tol)
+        else:
+            # Do this check only for main treatment. Subtreatments later.
+            d_name = var_cfg.d_name[0] if mcf_.gen_tv_cfg.yes else var_cfg.d_name
+            d1_unique = np.unique(np.int32(np.round(data_df[d_name].to_numpy())))
+    else:
+        # This loads information from training iteration.
+        d1_unique = d_indat_values
+        if p_cfg.gatet or p_cfg.atet:  # Treatment variable required
+            text = ('Treatment variable differently coded in datasets used for '
+                    'Training and Prediction. Correct, or set ATET and GATET '
+                    'to False (in this case treatment information is not '
+                    'needed in the prediction data.'
+                    )
+            d_name = var_cfg.d_name[0] if mcf_.gen_tv_cfg.yes else var_cfg.d_name
+            d2_unique = np.unique(np.int32(np.round(data_df[d_name].to_numpy())))
+            # Treatment identical in training and prediction?
+            if len(d1_unique) == len(d2_unique):
+                if not np.all(np.isclose(d1_unique, d2_unique,atol=zero_tol, rtol=zero_tol)):
+                    raise ValueError(text)
+            else:
+                raise RuntimeError(text)
+            # if mcf_.gen_tv_cfg.yes:
+            #     check_subtreatments_available(mcf_.gen_tv_cfg.dict,
+            #                                   data_df[var_cfg.d_name],
+            #                                   mcf_.int_cfg.zero_tol)
+    # Part 1: Recoding and adding Z variables
+    if gen_cfg.agg_yes:
+        if not var_cfg.z_name_cont == []:
+            z_name_ord_new = []
+            z_name_cont_remove = []  # changed 25.8.23
+            if train:
+                no_val_dict, q_inv_dict, z_new_name_dict = {}, {}, {}
+                z_new_dic_dict = {}
+            for z_name in var_cfg.z_name_cont:
+                if train:
+                    no_val = data_df[z_name].unique()
+                    no_val_dict.update({z_name: no_val})
+                else:
+                    no_val = no_val_dict[z_name]
+                if len(no_val) > p_cfg.max_cats_z_vars:
+                    groups = p_cfg.max_cats_z_vars
+                else:
+                    groups = len(no_val)
+                # Variables are discretized because too many groups
+                if len(no_val) > groups:  # Else, existing categ.s are used
+                    if train:
+                        quant = np.linspace(1/groups, 1-1/groups, groups-1)
+                        q_t = data_df[z_name].quantile(quant)  # Returns DF
+                        std = data_df[z_name].std()
+                        q_inv = [data_df[z_name].min() - 0.001 * std]
+                        q_inv.extend(q_t)   # This is a list
+                        q_inv.extend([data_df[z_name].max() + 0.001 * std])
+                        q_inv = np.unique(q_inv)
+                    else:
+                        q_inv = q_inv_dict[z_name]
+                        std = data_df[z_name].std()
+                        q_inv[0] = min(q_inv[0], data_df[z_name].min() - 0.001 * std)
+                        q_inv[-1] = max(q_inv[-1], data_df[z_name].max() + 0.001 * std)
+                    data_s = pd.cut(data_df[z_name], q_inv, right=True, labels=False)
+                    if train:
+                        cont_name = data_s.name
+                        new_name = cont_name + 'catv'
+                        # z_name_ord_new.extend([new_name])
+                    else:
+                        new_name = z_new_name_dict[z_name]
+                        new_dic = z_new_dic_dict[z_name]
+                        cont_name = new_name[:-4]
+                    z_name_ord_new.append(new_name)
+                    z_name_cont_remove.append(cont_name)
+                    data_df[new_name] = data_s.copy()
+                    if train:
+                        means = data_df.groupby(new_name).mean(numeric_only=True)
+                        new_dic = means[data_s.name].to_dict()
+                        z_new_name_dict.update({z_name: new_name})
+                        q_inv_dict.update({z_name: q_inv})
+                        z_new_dic_dict.update({z_name: new_dic})
+                    data_df = data_df.replace({new_name: new_dic})
+                    if gen_cfg.with_output and gen_cfg.verbose:
+                        txt = f'Training: Variable recoded: {data_s.name} -> {new_name}'
+                        mcf_ps.print_mcf(gen_cfg, txt, summary=False)
+                else:
+                    z_name_ord_new.extend([z_name])
+            var_cfg.z_name_ord.extend(z_name_ord_new)
+            var_cfg.z_name.extend(z_name_ord_new)
+            if z_name_cont_remove:  # changed 25.8.23
+                z_name_ord = [name for name in var_cfg.z_name_ord if name not in z_name_cont_remove]
+                z_name = [name for name in var_cfg.z_name if name not in z_name_cont_remove]
+                var_cfg.z_name_ord = z_name_ord
+                var_cfg.z_name = z_name
+        var_cfg.z_name_ord = mcf_gp.cleaned_var_names(var_cfg.z_name_ord)
+        var_cfg.z_name = mcf_gp.cleaned_var_names(var_cfg.z_name)
+        var_cfg.x_name.extend(var_cfg.z_name)
+        if var_cfg.x_name_balance_bgate:
+            bad_vars = [var for var in var_cfg.x_name_balance_bgate if var not in var_cfg.x_name]
+            if bad_vars:
+                raise ValueError(f'{bad_vars} not included among features. Add them.')
+            var_cfg.x_name_remain.extend(var_cfg.x_name_balance_bgate)
+        var_cfg.x_name_remain.extend(var_cfg.z_name)
+        var_cfg.x_name_balance_test.extend(var_cfg.z_name)
+        var_cfg.name_ordered.extend(var_cfg.z_name_ord)
+        var_cfg.name_ordered.extend(var_cfg.z_name_cont)
+        var_cfg.name_unordered.extend(var_cfg.z_name_unord)
+        var_cfg.x_name = mcf_gp.cleaned_var_names(var_cfg.x_name)
+        var_cfg.x_name_remain = mcf_gp.cleaned_var_names(var_cfg.x_name_remain)
+        var_cfg.x_name_balance_test = mcf_gp.cleaned_var_names(
+            var_cfg.x_name_balance_test)
+        var_cfg.name_ordered = mcf_gp.cleaned_var_names(var_cfg.name_ordered)
+        var_cfg.name_unordered = mcf_gp.cleaned_var_names(var_cfg.name_unordered)
+    # Part 2: Recoding ordered and unordered variables
+    x_name_type_unord,  x_name_values = [], []
+    if train:
+        q_inv_cr_dict, prime_values_dict, unique_val_dict = {}, {}, {}
+        prime_new_name_dict, prime_old_name_dict = {}, {}
+    list_of_missing_vars = []
+    for variable in var_cfg.x_name:
+        if variable in var_cfg.name_ordered:  # Ordered variable
+            original_variable = variable
+            recoded_in_train = not train and variable in q_inv_cr_dict
+            unique_val = np.sort(data_df[original_variable].unique())
+            k = len(unique_val)
+            x_name_type_unord.append(0)
+            recode_now = recoded_in_train or (train and int_cfg.max_cats_cont_vars < k - 2)
+            if recode_now:
+                if train:
+                    groups = int_cfg.max_cats_cont_vars
+                    quant = np.linspace(1 / groups, 1 - 1 / groups, groups - 1)
+                    inner = np.unique(data_df[original_variable].quantile(quant).to_numpy())
+                    inner = inner[(inner > unique_val[0]) & (inner < unique_val[-1])]
+                    q_inv = np.concatenate(([-np.inf], inner, [np.inf]))
+                else:
+                    recode_info = q_inv_cr_dict[original_variable]
+                    if (not isinstance(recode_info, tuple) or len(recode_info) != 2
+                            or not isinstance(recode_info[1], dict)):
+                        raise ValueError('Stored discretization lacks training bin means. '
+                                         'Retrain the model before prediction.')
+                    q_inv, new_dic = recode_info
+                data_s = pd.cut(data_df[original_variable], bins=q_inv, right=True, labels=False)
+                new_variable = original_variable + 'cr'
+                if train and new_variable.casefold() in data_df.columns:
+                    raise ValueError(f'Covariate discretization creates {new_variable}, which '
+                                     'conflicts with an input column. Rename that column.')
+                if train:
+                    new_dic = data_df[original_variable].groupby(data_s).mean().to_dict()
+                    q_inv_cr_dict[original_variable] = (q_inv, new_dic)
+                data_df[new_variable] = data_s.map(new_dic)
+                var_cfg = mcf_gp.substitute_variable_name(var_cfg, variable, new_variable)
+                if gen_cfg.with_output and gen_cfg.verbose:
+                    txt = f'Variable recoded: {original_variable} -> {new_variable}'
+                    mcf_ps.print_mcf(gen_cfg, txt, summary=False)
+                values_pd = data_df[new_variable].unique()
+            else:
+                values_pd = unique_val
+            values = values_pd.tolist()
+            if len(values) < int_cfg.max_save_values:
+                x_name_values.append(sorted(values))
+            else:
+                x_name_values.append([])  # Add empty list to avoid excess mem
+        elif variable in var_cfg.name_unordered:   # Unordered variable
+            if train:
+                unique_val = data_df[variable].unique()
+                unique_val.sort()  # unique_val: Sorted from smallest to large
+                k = len(unique_val)
+                if k < 3:
+                    raise ValueError(f'{variable} has only {k} different values. Remove it from '
+                                     'the list of unorderd variables and add it '
+                                     'to the list of ordered variables.'
+                                     )
+                # Recode categorical variables by running integers such that
+                # groups of them can be efficiently translated into primes
+                prime_values = mcf_gp.primes_list(k)
+                if len(prime_values) != len(unique_val):
+                    raise RuntimeError('Not enough prime values available for recoding. Most '
+                                       'likely reason: Continuous variables coded as'
+                                       ' unordered. Program stopped.'
+                                       )
+            else:
+                variable = variable[:-6]   # Remove _prime from variable name
+                prime_values = prime_values_dict[variable + '_prime']  # List
+                unique_val = unique_val_dict[variable]
+                k = len(unique_val)
+                unique_val_pred = data_df[variable].unique()
+                bad_vals = list(np.setdiff1d(unique_val_pred, unique_val))
+                if bad_vals:    # List is not empty
+                    data_df.drop(data_df[data_df[variable].isin(bad_vals)].index, inplace=True)
+                    if gen_cfg.with_output and gen_cfg.verbose:
+                        txt = ('Too many values in unordered variable.'
+                               ' Prediction file contains values that were not'
+                               f' used for training: {variable} : {bad_vals}. '
+                               'These obervations will be removed from prediction data.'
+                               )
+                        mcf_ps.print_mcf(gen_cfg, txt, summary=True)
+            prime_variable = data_df[variable].name + '_prime'
+            data_df[prime_variable] = data_df[variable].replace(unique_val, prime_values)
+            if train:
+                prime_values_dict.update({prime_variable: prime_values})
+                prime_new_name_dict.update({variable: prime_variable})
+                prime_old_name_dict.update({prime_variable: variable})
+                unique_val_dict.update({variable: tuple(unique_val)})
+            if k < 19:
+                x_name_type_unord += [1]  # <= 18 categories: dtype=int64
+            else:
+                x_name_type_unord += [2]  # > 18 categories: dtype=object
+            values_pd = data_df[prime_variable].unique()
+            x_name_values.append(sorted(values_pd.tolist()))
+            var_cfg = mcf_gp.substitute_variable_name(var_cfg, variable, prime_variable)
+            if gen_cfg.with_output and gen_cfg.verbose:
+                txt = f'Variable recoded: {variable} -> {prime_variable}'
+                mcf_ps.print_mcf(gen_cfg, txt, summary=False)
+        else:
+            list_of_missing_vars.extend(variable)
+
+    if list_of_missing_vars:
+        raise ValueError(f'{" ".join(list_of_missing_vars)} is neither '
+                         'contained in list of ordered nor list of unordered variables.'
+                         )
+    # Define dummy to see if particular type of UO exists at all in data
+    type_0, type_1, type_2 = unordered_types_overall(x_name_type_unord)
+    var_x_type = dict(zip(var_cfg.x_name, x_name_type_unord))
+    var_x_values = dict(zip(var_cfg.x_name, x_name_values))
+    gen_cfg.x_type_0, gen_cfg.x_type_1 = type_0, type_1
+    gen_cfg.x_type_2 = type_2
+    if gen_cfg.with_output and gen_cfg.verbose and (type_1 or type_2):
+        txt = ''
+        if type_1:
+            txt = '\nType 1 unordered variable detected'
+        if type_2:
+            txt = '\nType 2 unordered variable detected'
+        mcf_ps.print_mcf(gen_cfg, txt, summary=False)
+    if gen_cfg.with_output and gen_cfg.agg_yes:
+        txt = ('\n' + '-' * 100 + '\nShort analysis of policy variables'
+               ' (variable to aggregate the effects; effect sample). \nEach'
+               ' value of a variable defines an independent stratum.'
+               )
+        if train:
+            txt += '\nTraining data\n'
+        else:
+            txt += '\nPrediction data\n'
+        txt += 'Name                             # of cat \n'
+        for i in var_cfg.z_name:
+            txt += f'{i:<32} {len(data_df[i].unique()):>6}\n'
+        txt += '-' * 100 + '\n'
+        mcf_ps.print_mcf(gen_cfg, txt, summary=False)
+    if not isinstance(var_cfg.id_name, (list, tuple)):
+        var_cfg.id_name = [var_cfg.id_name]
+    if not var_cfg.id_name or not isinstance(var_cfg.id_name[0], str):
+        # Add identifier to data
+        var_cfg.id_name = ['id_mcf']
+        # data_df[var_cfg.id_name[0]] = np.arange(len(data_df))
+        data_df.loc[:, var_cfg.id_name[0]] = np.arange(len(data_df))
+    if gen_cfg.with_output and int_cfg.descriptive_stats and train:
+        mcf_ps.print_descriptive_df(gen_cfg, data_df, varnames='all', summary=False)
+    mcf_.data_train_dict = {'d_indat_values': d1_unique, 'no_val_dict': no_val_dict,
+                            'q_inv_dict': q_inv_dict, 'q_inv_cr_dict': q_inv_cr_dict,
+                            'prime_values_dict': prime_values_dict,
+                            'unique_values_dict': unique_val_dict,
+                            'prime_new_name_dict': prime_new_name_dict,
+                            'prime_old_name_dict': prime_old_name_dict,
+                            'z_new_name_dict': z_new_name_dict, 'z_new_dic_dict': z_new_dic_dict
+                            }
+    mcf_.var_cfg = var_cfg
+    mcf_.var_x_type,  mcf_.var_x_values = var_x_type, var_x_values
+    mcf_.gen_cfg = gen_cfg
+
+    return data_df
+
+
 def split_sample_for_mcf(self,
                          data_df: pd.DataFrame
                          ) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -158,12 +507,15 @@ def clean_data(mcf_: 'ModifiedCausalForest',
     """Clean the data."""
     int_cfg, var_cfg, gen_cfg = mcf_.int_cfg, mcf_.var_cfg, mcf_.gen_cfg
     obs = len(data_df)
+    balance_needed = (mcf_.p_cfg.bt_yes
+                      or (train and gen_cfg.with_output and int_cfg.descriptive_stats))
+    balance_names = var_cfg.x_name_balance_test if balance_needed else []
     if train:
         namen_to_inc = mcf_gp.add_var_names(var_cfg.id_name,
                                             names2=var_cfg.y_name, names3=var_cfg.cluster_name,
                                             names4=var_cfg.w_name, names5=var_cfg.d_name,
                                             names6=var_cfg.y_tree_name,
-                                            names7=var_cfg.x_name_balance_test,
+                                            names7=balance_names,
                                             names8=var_cfg.x_name
                                             )
         if gen_cfg.d_type == 'continuous':
@@ -173,7 +525,7 @@ def clean_data(mcf_: 'ModifiedCausalForest',
     else:
         namen_to_inc = mcf_gp.add_var_names(var_cfg.id_name,
                                             names2=var_cfg.w_name,
-                                            names3=var_cfg.x_name_balance_test,
+                                            names3=balance_names,
                                             names4=var_cfg.x_name,
                                             )
         if mcf_.p_cfg.d_in_pred:
@@ -207,6 +559,7 @@ def clean_reduce_data(data_df: pd.DataFrame,
     """Remove obs. with missings and variables not needed."""
     shape = data_df.shape
     data_df.columns = [var.casefold() for var in data_df.columns]
+    original_vars = mcf_gp.remove_dupl_keep_order(data_df.columns)
     names_to_inc = [var.casefold() for var in names_to_inc_]
     if id_name_ is None or id_name_ == []:
         id_name_ = 'id_mcf'
@@ -240,23 +593,30 @@ def clean_reduce_data(data_df: pd.DataFrame,
     stop_if_df_contains_nan(data_new_df, obs_bigdata)
     shapenew = data_new_df.shape
     if gen_cfg.with_output:
+        kept_vars = mcf_gp.remove_dupl_keep_order(data_new_df.columns)
+        deleted_vars = [var for var in original_vars if var not in kept_vars]
+        added_vars = [var for var in kept_vars if var not in original_vars]
+        obs_deleted = shape[0] - shapenew[0]
+
         txt = '\nCheck for missing and unnecessary variables.'
-        if shape == shapenew:
-            txt += '\nFile has not been changed'
+        if obs_deleted:
+            noun = 'observation' if obs_deleted == 1 else 'observations'
+            txt += f'\n  {obs_deleted} {noun} deleted'
         else:
-            if shapenew[0] == shape[0]:
-                txt += '\n  No observations deleted'
-            else:
-                txt += f'\n{shape[0]-shapenew[0]:<5} observations deleted'
-            if shapenew[1] == shape[1]:
-                txt += '\nNo variables deleted'
-            else:
-                txt += f'\n{shape[1]-shapenew[1]:<4} variables deleted:'
-                all_var = mcf_gp.remove_dupl_keep_order(data_df.columns)
-                keep_var = mcf_gp.remove_dupl_keep_order(data_new_df.columns)
-                del_var = [var for var in all_var if var not in keep_var]
-                vars_str = ' '.join(del_var)
-                txt += vars_str
+            txt += '\n  No observations deleted'
+
+        if deleted_vars:
+            noun = 'variable' if len(deleted_vars) == 1 else 'variables'
+            txt += f'\n  {len(deleted_vars)} {noun} deleted: '
+            txt += ' '.join(deleted_vars)
+        else:
+            txt += '\n  No variables deleted'
+
+        if added_vars:
+            noun = 'variable' if len(added_vars) == 1 else 'variables'
+            txt += f'\n  {len(added_vars)} {noun} added: '
+            txt += ' '.join(added_vars)
+
         mcf_ps.print_mcf(gen_cfg, txt + '\n', summary=False)
         if descriptive_stats:
             mcf_ps.print_descriptive_df(gen_cfg, data_new_df, varnames='all', summary=False)
@@ -314,332 +674,7 @@ def print_prime_value_corr(data_train_dic: dict, gen_cfg: 'GenCfg', summary: boo
             mcf_ps.print_mcf(gen_cfg, txt, summary=summary)
 
 
-def create_xz_variables(mcf_: 'ModifiedCausalForest',
-                        data_df: pd.DataFrame,
-                        train: bool = True
-                        ) -> pd.DataFrame:
-    """Create the variables for GATE & add to covariates, recode X.
 
-    Parameters
-    ----------
-    mcf_c : Instance of the Modified Causal Forest class.
-    data_df : DataFrame.
-           Data for prediction or training.
-    train : Bool. train is True if function is used in training part. Default
-               is True
-
-    Returns
-    -------
-    data_df : DataFrame.
-        Updated data.
-
-    """
-
-    def check_for_nan(data_df: pd.DataFrame,
-                      gen_cfg: 'GenCfg', summary: bool = False
-                      ) -> pd.DataFrame:
-        vars_with_nans_mask = data_df.isna().any()
-        vars_with_nans = vars_with_nans_mask[vars_with_nans_mask].index.tolist()
-
-        if vars_with_nans:
-            txt = ('-' * 100 + '\nWARNING: The following variables are not '
-                   f'numeric or may contain missing values:\n {vars_with_nans} '
-                   '\nWARNING: Rows with missing values will be deleted.\n'
-                   ' Other non-numeric values have to be recoded as numerical'
-                   ' if variable is used in the mcf.\n' + '-' * 100
-                   )
-            mcf_ps.print_mcf(gen_cfg, txt, summary=summary)
-
-    var_cfg, gen_cfg, ct_cfg = mcf_.var_cfg, mcf_.gen_cfg, mcf_.ct_cfg
-    p_cfg, int_cfg = mcf_.p_cfg, mcf_.int_cfg
-    zero_tol=int_cfg.zero_tol
-    data_train_dic = mcf_.data_train_dict
-    if train:
-        no_val_dict, q_inv_dict, z_new_name_dict = {}, {}, {}
-        z_new_dic_dict = {}
-    else:
-        d_indat_values = data_train_dic['d_indat_values']
-        no_val_dict = data_train_dic['no_val_dict']
-        q_inv_dict = data_train_dic['q_inv_dict']
-        q_inv_cr_dict = data_train_dic['q_inv_cr_dict']
-        prime_values_dict = data_train_dic['prime_values_dict']
-        unique_val_dict = data_train_dic['unique_values_dict']
-        z_new_name_dict = data_train_dic['z_new_name_dict']
-        z_new_dic_dict = data_train_dic['z_new_dic_dict']
-        prime_new_name_dict = data_train_dic['prime_new_name_dict']
-        prime_old_name_dict = data_train_dic['prime_old_name_dict']
-
-    data_df.columns = data_df.columns.str.casefold()
-    temp_df = data_df.replace({False: 0, True: 1})
-    data_df = temp_df
-    if gen_cfg.with_output:
-        check_for_nan(data_df, gen_cfg, summary=False)
-    if len(data_df.columns) > len(set(data_df.columns)):
-        raise RuntimeError(
-            'Duplicate variable names. Names are NOT case sensitive')
-    # Get and check treatment variable
-    if train:
-        if gen_cfg.d_type == 'continuous':
-            d1_unique = ct_cfg.grid_nn_val
-            data_df = recode_treat_cont(data_df, var_cfg, ct_cfg, zero_tol=zero_tol)
-        else:
-            # Do this check only for main treatment. Subtreatments later.
-            d_name = var_cfg.d_name[0] if mcf_.gen_tv_cfg.yes else var_cfg.d_name
-            d1_unique = np.unique(np.int32(np.round(data_df[d_name].to_numpy())))
-    else:
-        # This loads information from training iteration.
-        d1_unique = d_indat_values
-        if p_cfg.gatet or p_cfg.atet:  # Treatment variable required
-            text = ('Treatment variable differently coded in datasets used for '
-                    'Training and Prediction. Correct, or set ATET and GATET '
-                    'to False (in this case treatment information is not '
-                    'needed in the prediction data.'
-                    )
-            d_name = var_cfg.d_name[0] if mcf_.gen_tv_cfg.yes else var_cfg.d_name
-            d2_unique = np.unique(np.int32(np.round(data_df[d_name].to_numpy())))
-            # Treatment identical in training and prediction?
-            if len(d1_unique) == len(d2_unique):
-                if not np.all(np.isclose(d1_unique, d2_unique,atol=zero_tol, rtol=zero_tol)):
-                    raise ValueError(text)
-            else:
-                raise RuntimeError(text)
-            # if mcf_.gen_tv_cfg.yes:
-            #     check_subtreatments_available(mcf_.gen_tv_cfg.dict,
-            #                                   data_df[var_cfg.d_name],
-            #                                   mcf_.int_cfg.zero_tol)
-    # Part 1: Recoding and adding Z variables
-    if gen_cfg.agg_yes:
-        if not var_cfg.z_name_cont == []:
-            z_name_ord_new = []
-            z_name_cont_remove = []  # changed 25.8.23
-            if train:
-                no_val_dict, q_inv_dict, z_new_name_dict = {}, {}, {}
-                z_new_dic_dict = {}
-            for z_name in var_cfg.z_name_cont:
-                if train:
-                    no_val = data_df[z_name].unique()
-                    no_val_dict.update({z_name: no_val})
-                else:
-                    no_val = no_val_dict[z_name]
-                if len(no_val) > p_cfg.max_cats_z_vars:
-                    groups = p_cfg.max_cats_z_vars
-                else:
-                    groups = len(no_val)
-                # Variables are discretized because too many groups
-                if len(no_val) > groups:  # Else, existing categ.s are used
-                    if train:
-                        quant = np.linspace(1/groups, 1-1/groups, groups-1)
-                        q_t = data_df[z_name].quantile(quant)  # Returns DF
-                        std = data_df[z_name].std()
-                        q_inv = [data_df[z_name].min() - 0.001 * std]
-                        q_inv.extend(q_t)   # This is a list
-                        q_inv.extend([data_df[z_name].max() + 0.001 * std])
-                        q_inv = np.unique(q_inv)
-                    else:
-                        q_inv = q_inv_dict[z_name]
-                        std = data_df[z_name].std()
-                        q_inv[0] = min(q_inv[0], data_df[z_name].min() - 0.001 * std)
-                        q_inv[-1] = max(q_inv[-1], data_df[z_name].max() + 0.001 * std)
-                    data_s = pd.cut(data_df[z_name], q_inv, right=True, labels=False)
-                    if train:
-                        cont_name = data_s.name
-                        new_name = cont_name + 'catv'
-                        # z_name_ord_new.extend([new_name])
-                    else:
-                        new_name = z_new_name_dict[z_name]
-                        new_dic = z_new_dic_dict[z_name]
-                        cont_name = new_name[:-4]
-                    z_name_ord_new.append(new_name)
-                    z_name_cont_remove.append(cont_name)
-                    data_df[new_name] = data_s.copy()
-                    if train:
-                        means = data_df.groupby(new_name).mean(numeric_only=True)
-                        new_dic = means[data_s.name].to_dict()
-                        z_new_name_dict.update({z_name: new_name})
-                        q_inv_dict.update({z_name: q_inv})
-                        z_new_dic_dict.update({z_name: new_dic})
-                    data_df = data_df.replace({new_name: new_dic})
-                    if gen_cfg.with_output and gen_cfg.verbose:
-                        txt = f'Training: Variable recoded: {data_s.name} -> {new_name}'
-                        mcf_ps.print_mcf(gen_cfg, txt, summary=False)
-                else:
-                    z_name_ord_new.extend([z_name])
-            var_cfg.z_name_ord.extend(z_name_ord_new)
-            var_cfg.z_name.extend(z_name_ord_new)
-            if z_name_cont_remove:  # changed 25.8.23
-                z_name_ord = [name for name in var_cfg.z_name_ord if name not in z_name_cont_remove]
-                z_name = [name for name in var_cfg.z_name if name not in z_name_cont_remove]
-                var_cfg.z_name_ord = z_name_ord
-                var_cfg.z_name = z_name
-        var_cfg.z_name_ord = mcf_gp.cleaned_var_names(var_cfg.z_name_ord)
-        var_cfg.z_name = mcf_gp.cleaned_var_names(var_cfg.z_name)
-        var_cfg.x_name.extend(var_cfg.z_name)
-        if var_cfg.x_name_balance_bgate:
-            bad_vars = [var for var in var_cfg.x_name_balance_bgate if var not in var_cfg.x_name]
-            if bad_vars:
-                raise ValueError(f'{bad_vars} not included among features. Add them.')
-            var_cfg.x_name_remain.extend(var_cfg.x_name_balance_bgate)
-        var_cfg.x_name_remain.extend(var_cfg.z_name)
-        var_cfg.x_name_balance_test.extend(var_cfg.z_name)
-        var_cfg.name_ordered.extend(var_cfg.z_name_ord)
-        var_cfg.name_ordered.extend(var_cfg.z_name_cont)
-        var_cfg.name_unordered.extend(var_cfg.z_name_unord)
-        var_cfg.x_name = mcf_gp.cleaned_var_names(var_cfg.x_name)
-        var_cfg.x_name_remain = mcf_gp.cleaned_var_names(var_cfg.x_name_remain)
-        var_cfg.x_name_balance_test = mcf_gp.cleaned_var_names(
-            var_cfg.x_name_balance_test)
-        var_cfg.name_ordered = mcf_gp.cleaned_var_names(var_cfg.name_ordered)
-        var_cfg.name_unordered = mcf_gp.cleaned_var_names(var_cfg.name_unordered)
-    # Part 2: Recoding ordered and unordered variables
-    x_name_type_unord,  x_name_values = [], []
-    if train:
-        q_inv_cr_dict, prime_values_dict, unique_val_dict = {}, {}, {}
-        prime_new_name_dict, prime_old_name_dict = {}, {}
-    list_of_missing_vars = []
-    for variable in var_cfg.x_name:
-        if variable in var_cfg.name_ordered:  # Ordered variable
-            unique_val = data_df[variable].unique()
-            unique_val.sort()  # unique_val: Sorted from smallest to largest
-            k = len(unique_val)
-            # Recode continuous variables to fewer values to speed up programme
-            x_name_type_unord += [0]
-            # Determine whether this has to be recoded
-            if int_cfg.max_cats_cont_vars < (k-2):
-                groups = int_cfg.max_cats_cont_vars
-                quant = np.linspace(1/groups, 1-1/groups, groups-1)
-                if train:
-                    q_t = data_df[variable].quantile(quant)  # Returns DF
-                    std = data_df[variable].std()
-                    q_inv = [data_df[variable].min() - 0.001*std]
-                    q_inv.extend(q_t)   # This is a list
-                    q_inv.extend([data_df[variable].max() + 0.001*std])
-                    q_inv_cr_dict.update({variable: q_inv})
-                else:
-                    q_inv = q_inv_cr_dict[variable]
-                data_s = pd.cut(x=data_df[variable], bins=q_inv, right=True, labels=False)
-                new_variable = data_s.name + "CR"
-                data_df[new_variable] = data_s.copy()
-                means = data_df.groupby(new_variable).mean(numeric_only=True)
-                new_dic = means[data_s.name].to_dict()
-                data_df = data_df.replace({new_variable: new_dic})
-                var_cfg = mcf_gp.substitute_variable_name(var_cfg, variable, new_variable)
-                if gen_cfg.with_output and gen_cfg.verbose:
-                    txt = f'Variable recoded: {variable} -> {new_variable}'
-                    mcf_ps.print_mcf(gen_cfg, txt, summary=False)
-                values_pd = data_df[new_variable].unique()
-            else:
-                values_pd = unique_val
-            values = values_pd.tolist()
-            if len(values) < int_cfg.max_save_values:
-                x_name_values.append(sorted(values))
-            else:
-                x_name_values.append([])  # Add empty list to avoid excess mem
-        elif variable in var_cfg.name_unordered:   # Unordered variable
-            if train:
-                unique_val = data_df[variable].unique()
-                unique_val.sort()  # unique_val: Sorted from smallest to large
-                k = len(unique_val)
-                if k < 3:
-                    raise ValueError(f'{variable} has only {k} different values. Remove it from '
-                                     'the list of unorderd variables and add it '
-                                     'to the list of ordered variables.'
-                                     )
-                # Recode categorical variables by running integers such that
-                # groups of them can be efficiently translated into primes
-                prime_values = mcf_gp.primes_list(k)
-                if len(prime_values) != len(unique_val):
-                    raise RuntimeError('Not enough prime values available for recoding. Most '
-                                       'likely reason: Continuous variables coded as'
-                                       ' unordered. Program stopped.'
-                                       )
-            else:
-                variable = variable[:-6]   # Remove _prime from variable name
-                prime_values = prime_values_dict[variable + '_prime']  # List
-                unique_val = unique_val_dict[variable]
-                unique_val_pred = data_df[variable].unique()
-                bad_vals = list(np.setdiff1d(unique_val_pred, unique_val))
-                if bad_vals:    # List is not empty
-                    data_df.drop(data_df[data_df[variable].isin(bad_vals)].index, inplace=True)
-                    if gen_cfg.with_output and gen_cfg.verbose:
-                        txt = ('Too many values in unordered variable.'
-                               ' Prediction file contains values that were not'
-                               f' used for training: {variable} : {bad_vals}. '
-                               'These obervations will be removed from prediction data.'
-                               )
-                        mcf_ps.print_mcf(gen_cfg, txt, summary=True)
-            prime_variable = data_df[variable].name + '_prime'
-            data_df[prime_variable] = data_df[variable].replace(unique_val, prime_values)
-            if train:
-                prime_values_dict.update({prime_variable: prime_values})
-                prime_new_name_dict.update({variable: prime_variable})
-                prime_old_name_dict.update({prime_variable: variable})
-                unique_val_dict.update({variable: tuple(unique_val)})
-            if k < 19:
-                x_name_type_unord += [1]  # <= 18 categories: dtype=int64
-            else:
-                x_name_type_unord += [2]  # > 18 categories: dtype=object
-            values_pd = data_df[prime_variable].unique()
-            x_name_values.append(sorted(values_pd.tolist()))
-            var_cfg = mcf_gp.substitute_variable_name(var_cfg, variable, prime_variable)
-            if gen_cfg.with_output and gen_cfg.verbose:
-                txt = f'Variable recoded: {variable} -> {prime_variable}'
-                mcf_ps.print_mcf(gen_cfg, txt, summary=False)
-        else:
-            list_of_missing_vars.extend(variable)
-
-    if list_of_missing_vars:
-        raise ValueError(f'{" ".join(list_of_missing_vars)} is neither '
-                         'contained in list of ordered nor list of unordered variables.'
-                         )
-    # Define dummy to see if particular type of UO exists at all in data
-    type_0, type_1, type_2 = unordered_types_overall(x_name_type_unord)
-    var_x_type = dict(zip(var_cfg.x_name, x_name_type_unord))
-    var_x_values = dict(zip(var_cfg.x_name, x_name_values))
-    gen_cfg.x_type_0, gen_cfg.x_type_1 = type_0, type_1
-    gen_cfg.x_type_2 = type_2
-    if gen_cfg.with_output and gen_cfg.verbose and (type_1 or type_2):
-        txt = ''
-        if type_1:
-            txt = '\nType 1 unordered variable detected'
-        if type_2:
-            txt = '\nType 2 unordered variable detected'
-        mcf_ps.print_mcf(gen_cfg, txt, summary=False)
-    if gen_cfg.with_output and gen_cfg.agg_yes:
-        txt = ('\n' + '-' * 100 + '\nShort analysis of policy variables'
-               ' (variable to aggregate the effects; effect sample). \nEach'
-               ' value of a variable defines an independent stratum.'
-               )
-        if train:
-            txt += '\nTraining data\n'
-        else:
-            txt += '\nPrediction data\n'
-        txt += 'Name                             # of cat \n'
-        for i in var_cfg.z_name:
-            txt += f'{i:<32} {len(data_df[i].unique()):>6}\n'
-        txt += '-' * 100 + '\n'
-        mcf_ps.print_mcf(gen_cfg, txt, summary=False)
-    if not isinstance(var_cfg.id_name, (list, tuple)):
-        var_cfg.id_name = [var_cfg.id_name]
-    if not var_cfg.id_name or not isinstance(var_cfg.id_name[0], str):
-        # Add identifier to data
-        var_cfg.id_name = ['id_mcf']
-        # data_df[var_cfg.id_name[0]] = np.arange(len(data_df))
-        data_df.loc[:, var_cfg.id_name[0]] = np.arange(len(data_df))
-    if gen_cfg.with_output and int_cfg.descriptive_stats and train:
-        mcf_ps.print_descriptive_df(gen_cfg, data_df, varnames='all', summary=False)
-    mcf_.data_train_dict = {'d_indat_values': d1_unique, 'no_val_dict': no_val_dict,
-                            'q_inv_dict': q_inv_dict, 'q_inv_cr_dict': q_inv_cr_dict,
-                            'prime_values_dict': prime_values_dict,
-                            'unique_values_dict': unique_val_dict,
-                            'prime_new_name_dict': prime_new_name_dict,
-                            'prime_old_name_dict': prime_old_name_dict,
-                            'z_new_name_dict': z_new_name_dict, 'z_new_dic_dict': z_new_dic_dict
-                            }
-    mcf_.var_cfg = var_cfg
-    mcf_.var_x_type,  mcf_.var_x_values = var_x_type, var_x_values
-    mcf_.gen_cfg = gen_cfg
-
-    return data_df
 
 
 def unordered_types_overall(x_name_type_unord: list[int]) -> bool:
@@ -661,38 +696,106 @@ def unordered_types_overall(x_name_type_unord: list[int]) -> bool:
     return type_0, type_1, type_2
 
 
-def check_recode_treat_variable(mcf_: 'ModifiedCausalForest',
-                                data_df: pd.DataFrame,
-                                treat_name: str | None = None
-                                ) -> pd.DataFrame:
-    """Recode treatment variable if categorical or does not start with 0."""
-    gen_cfg = mcf_.gen_cfg
-    d_name = mcf_.var_cfg.d_name if treat_name is None else treat_name
-    # In case of subtreatments, this recodes only the main treatment
-    n_old_df = len(data_df)
-    if isinstance(d_name, (list, tuple)):   # Ignores subtreatments anyway
+def check_recode_treat_variable(
+        mcf_: 'ModifiedCausalForest',
+        data_df: pd.DataFrame,
+        treat_name: str | None = None,
+        *,
+        train: bool,
+        ) -> pd.DataFrame:
+    """Check treatment variable and consistently recode it."""
+    gen_cfg, var_cfg = mcf_.gen_cfg, mcf_.var_cfg
+    d_name = var_cfg.d_name if treat_name is None else treat_name
+    if isinstance(d_name, (list, tuple)):
         d_name = d_name[0]
-    temp_df = data_df.dropna(subset=d_name)
-    data_df = temp_df
-    n_new_df = len(data_df)
-    if n_new_df < n_old_df:
-        if gen_cfg.with_output:
-            mcf_ps.print_mcf(gen_cfg, f'{n_old_df - n_new_df} observations',
-                             f' dropped due to missing values in {d_name}', summary=True
-                             )
-    d_dat_pd = data_df[d_name].squeeze()  # pylint: disable=E1136
-    if d_dat_pd.dtype == 'object':
-        d_dat_pd = d_dat_pd.astype('category')
-        mcf_ps.print_mcf(gen_cfg, d_dat_pd.cat.categories, summary=False)
-        if gen_cfg.with_output:
-            mcf_ps.print_mcf(gen_cfg, 'Automatic recoding of treatment variable', summary=True)
-            numerical_codes = pd.unique(d_dat_pd.cat.codes)
-            mcf_ps.print_mcf(gen_cfg, numerical_codes, summary=True)
-        data_df[d_name] = d_dat_pd.cat.codes
-    if data_df[d_name].min() != 0:
-        data_df[d_name] = data_df[d_name] - data_df[d_name].min()
+
+    missing_treat = data_df[d_name].isna()
+    if missing_treat.any():
+        raise ValueError(
+            f'Treatment variable {d_name} contains {missing_treat.sum()} missing values.'
+            )
+
+    d_dat_pd = data_df[d_name]
+    d_dat_org = d_dat_pd.copy()
+
+    if train or gen_cfg.d_type == 'continuous':
+        if d_dat_pd.dtype == 'object':
+            d_dat_cat = d_dat_pd.astype('category')
+            mcf_ps.print_mcf(gen_cfg, d_dat_cat.cat.categories, summary=False)
+            if gen_cfg.with_output:
+                mcf_ps.print_mcf(gen_cfg, 'Automatic recoding of treatment variable', summary=True)
+                numerical_codes = pd.unique(d_dat_cat.cat.codes)
+                mcf_ps.print_mcf(gen_cfg, numerical_codes, summary=True)
+            data_df[d_name] = d_dat_cat.cat.codes
+
+        if data_df[d_name].min() != 0:
+            data_df[d_name] = data_df[d_name] - data_df[d_name].min()
+
+    if gen_cfg.d_type != 'continuous':
+        if train:
+            d_dat = data_df[d_name].to_numpy(copy=True)
+            if not np.all(np.isfinite(d_dat)):
+                raise ValueError(f'Treatment variable {d_name} contains NaN or infinite values. '
+                                 'Please clean the data before sending it to the mcf package.'
+                                 )
+            d_rounded = np.round(d_dat)
+            zero_tol = mcf_.int_cfg.zero_tol
+            if not np.all(np.isclose(d_dat, d_rounded, atol=zero_tol, rtol=zero_tol)):
+                raise ValueError(f'Discrete treatment variable {d_name} contains non-integer '
+                                 f'values. Observed values are {np.unique(d_dat).tolist()}.'
+                                 )
+
+            _, d_codes = np.unique(d_rounded, return_inverse=True)
+            data_df[d_name] = d_codes.astype(np.int32)
+            check_discrete_treatment_is_compact(data_df, d_name, zero_tol=zero_tol)
+            var_cfg.d_value_mapping[d_name] = dict(zip(d_dat_org.tolist(), data_df[d_name].tolist())
+                                                   )
+        else:
+            value_mapping = var_cfg.d_value_mapping.get(d_name)
+            if value_mapping is None:
+                raise RuntimeError(f'No training treatment mapping is available for {d_name}.')
+
+            unseen_values = [value for value in pd.unique(d_dat_pd) if value not in value_mapping]
+            if unseen_values:
+                raise ValueError(f'Treatment variable {d_name} contains values not observed in '
+                                 f'training data: {unseen_values}.'
+                                 )
+            data_df[d_name] = d_dat_pd.map(value_mapping)
 
     return data_df
+
+
+def check_discrete_treatment_is_compact(data_df: pd.DataFrame,
+                                        d_name: str,
+                                        *,
+                                        zero_tol: float = 1e-10,
+                                        ) -> None:
+    """Check that discrete treatment labels are integer and compact."""
+    d_dat = data_df[d_name].to_numpy(copy=True)
+
+    if not np.all(np.isfinite(d_dat)):
+        raise ValueError(f'Treatment variable {d_name} contains NaN or infinite values. '
+                         'Please clean the data before sending it to the mcf package.'
+                         )
+    d_rounded = np.round(d_dat)
+    if not np.all(np.isclose(d_dat, d_rounded, atol=zero_tol, rtol=zero_tol)):
+        raise ValueError(f'Discrete treatment variable {d_name} contains non-integer values. '
+                         f'Observed values are {np.unique(d_dat).tolist()}.'
+                         )
+    d_values = np.sort(np.unique(d_rounded.astype(np.int64)))
+    expected = np.arange(len(d_values), dtype=np.int64)
+
+    if not np.array_equal(d_values, expected):
+        d_values_str = ' '.join([str(val) for val in d_values.tolist()])
+        expected_str = ' '.join([str(val) for val in expected.tolist()])
+        raise ValueError(f'Discrete treatment variable {d_name} must be coded as '
+                         f'consecutive integers 0, ..., {len(d_values) - 1}. '
+                         f'Observed values are {d_values_str}. '
+                         '\nThis can happen after deleting all observations from one or more '
+                         'treatment states. Please recode the remaining treatment values '
+                         'before calling the mcf package. '
+                         f'\nFor example, recode {d_values_str} to {expected_str}.'
+                         )
 
 
 def recode_treat_cont(data_df: pd.DataFrame,
@@ -704,21 +807,16 @@ def recode_treat_cont(data_df: pd.DataFrame,
     d_dat_np = data_df[var_cfg.d_name].to_numpy(copy=True)
     data_df[var_cfg.d_name] = data_df[var_cfg.d_name] - data_df[var_cfg.d_name].min()
     d_dat_np = np.where(d_dat_np < zero_tol, 0, d_dat_np)
-    d_discr_w_pd = get_d_discr(data_df, d_dat_np, ct_cfg.grid_w_val, var_cfg.grid_w_name,
-                               zero_tol=zero_tol
-                               )
-    d_discr_dr_pd = get_d_discr(data_df, d_dat_np, ct_cfg.grid_dr_val, var_cfg.grid_dr_name,
-                                zero_tol=zero_tol
-                                )
-    if np.all(np.isclose(ct_cfg.grid_nn_val, ct_cfg.grid_w_val, rtol=zero_tol, atol=zero_tol)):
-        data_df = pd.concat([data_df, d_discr_w_pd, d_discr_dr_pd], axis=1)
-    else:
-        d_discr_nn_pd = get_d_discr(data_df, d_dat_np, ct_cfg.grid_nn_val, var_cfg.grid_nn_name,
-                                    zero_tol=zero_tol,
-                                    )
-        data_df = pd.concat([data_df, d_discr_nn_pd, d_discr_w_pd, d_discr_dr_pd], axis=1)
+    grids = {
+        var_cfg.grid_nn_name[0]: ct_cfg.grid_nn_val,
+        var_cfg.grid_w_name[0]: ct_cfg.grid_w_val,
+        var_cfg.grid_dr_name[0]: ct_cfg.grid_dr_val,
+        }
+    frames = [data_df]
+    for name, values in grids.items():
+        frames.append(get_d_discr(data_df, d_dat_np, values, [name], zero_tol=zero_tol))
 
-    return data_df
+    return pd.concat(frames, axis=1)
 
 
 def get_d_discr(data: pd.DataFrame,
@@ -740,7 +838,8 @@ def get_d_discr(data: pd.DataFrame,
 def dummies_for_unord(x_df: pd.DataFrame,
                       names_unordered: list[str],
                       primes: bool = True,
-                      data_train_dict: dict | None = None
+                      data_train_dict: dict | None = None,
+                      bad_vals_exception=True,
                       ) -> tuple[pd.DataFrame, dict]:
     """Add dummies and remove unordered variables."""
     unordered_dummy_names = {}
@@ -756,9 +855,10 @@ def dummies_for_unord(x_df: pd.DataFrame,
                 vals_all = data_train_dict['unique_values_dict'][name]
             vals_not_in = [val for val in vals_all if val not in vals_in_x]
             bad_vals = [val for val in vals_in_x if val not in vals_all]
-            if bad_vals:
+            if bad_vals_exception and bad_vals:
                 raise ValueError(f'{name}: {bad_vals} are in the prediction'
-                                 'data but not in the training data.')
+                                 'data but not in the training data.'
+                                 )
             if vals_not_in:
                 x_not_in_df = pd.DataFrame(data=vals_not_in, columns=[name])
                 x_help = pd.get_dummies(x_not_in_df[name], columns=[name], dtype=int)

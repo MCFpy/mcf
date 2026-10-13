@@ -11,11 +11,14 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from gc import collect
 from itertools import count
 from pathlib import Path
 import pickle
 from shutil import rmtree
 from tempfile import mkdtemp
+from threading import RLock, Thread
+from time import sleep
 from typing import Any, Literal
 from uuid import uuid4
 import warnings
@@ -35,7 +38,6 @@ from mcf.mcfoptp_parallel_backends_base import (JoblibBackend,
                                                 joblib_parallel_kwargs,
                                                 )
 
-_PICKLE_FILE_CACHE: dict[str, Any] = {}
 MmapMode = Literal['r', 'r+']
 
 
@@ -49,9 +51,79 @@ class MemmapArrayRef:
 
 @dataclass(slots=True, kw_only=True)
 class PickleFileRef:
-    """Lightweight descriptor for a Python object stored on disk."""
+    """Lightweight descriptor with an optional session-lifetime marker."""
 
     path: str
+    cache_marker: str | None = None
+
+
+class _PickleFileCache:
+    """Reuse loaded objects until their owning session closes."""
+
+    def __init__(self) -> None:
+        self._entries: dict[str, tuple[str, Any]] = {}
+        self._lock = RLock()
+        self._cleaner: Thread | None = None
+
+    def get_or_load(self, ref: PickleFileRef) -> Any:
+        """Load once per worker and active session, including a cached None."""
+        with self._lock:
+            entry = self._entries.get(ref.path)
+            if entry is not None:
+                return entry[1]
+
+        # Release closed-session objects before loading another large payload.
+        self.prune()
+        with self._lock:
+            entry = self._entries.get(ref.path)
+            if entry is not None:
+                return entry[1]
+            with open(ref.path, 'rb') as file:
+                loaded = pickle.load(file)
+
+            marker = ref.cache_marker if ref.cache_marker is not None else ref.path
+            self._entries[ref.path] = (marker, loaded)
+            if self._cleaner is None:
+                self._cleaner = Thread(target=self._watch, name='mcf-pickle-cache', daemon=True)
+                self._cleaner.start()
+
+            return loaded
+
+    def prune(self) -> None:
+        """Drop only entries whose lifetime marker is definitely gone."""
+        with self._lock:
+            markers = {entry[0] for entry in self._entries.values()}
+
+        expired = set()
+        for marker in markers:
+            try:
+                Path(marker).stat()
+            except FileNotFoundError:
+                expired.add(marker)
+            except OSError:
+                # A temporary filesystem error is not proof that a session closed.
+                continue
+
+        with self._lock:
+            paths = [path for path, entry in self._entries.items() if entry[0] in expired]
+            removed = [self._entries.pop(path) for path in paths]
+
+        if removed:
+            removed.clear()  # Release objects outside the lock before collecting cycles.
+            collect()
+
+    def _watch(self) -> None:
+        """Release expired entries even when the joblib worker receives no new tasks."""
+        while True:
+            sleep(1.0)
+            self.prune()
+            with self._lock:
+                if not self._entries:
+                    self._cleaner = None
+                    return
+
+
+_PICKLE_FILE_CACHE = _PickleFileCache()
 
 
 @dataclass(slots=True, kw_only=True)
@@ -87,6 +159,7 @@ class MemmapSharedRegistry:
     _base_dir: Path | None = None
     _created_base_dir: bool = False
     _closed: bool = False
+    _pickle_cache_marker: str | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         """Check directories and paths."""
@@ -115,6 +188,15 @@ class MemmapSharedRegistry:
     def clear(self) -> None:
         """Clear shared data and remove temporary memmap directories."""
         self._store.clear()
+
+        if self._pickle_cache_marker is not None:
+            try:
+                Path(self._pickle_cache_marker).unlink(missing_ok=True)
+            except OSError as exc:
+                warnings.warn(f'Could not close pickle-cache session: {exc}')
+            else:
+                self._pickle_cache_marker = None
+        _PICKLE_FILE_CACHE.prune()  # Immediate cleanup for n_jobs=1 or threading.
 
         if self._closed or not self.cleanup_on_shutdown or self._session_dir is None:
             return
@@ -246,7 +328,12 @@ class MemmapSharedRegistry:
         with open(path, 'wb') as file:
             file.write(payload)
 
-        return PickleFileRef(path=str(path))
+        if self._pickle_cache_marker is None:
+            marker = self._session_dir / f'pickle_cache_active_{uuid4().hex}'
+            marker.touch(exist_ok=False)
+            self._pickle_cache_marker = str(marker)
+
+        return PickleFileRef(path=str(path), cache_marker=self._pickle_cache_marker)
 
     def _next_pickle_path(self, *, prefix: str) -> Path:
         """Create the next pickle-backed object path."""
@@ -307,7 +394,7 @@ def _materialize_memmap_obj(obj: Any) -> Any:
     Replace file-backed descriptors by worker-local materialized objects.
 
     MemmapArrayRef is loaded as np.memmap. PickleFileRef is loaded once per
-    worker process and then reused from _PICKLE_FILE_CACHE.
+    worker process and reused until its session-lifetime marker is removed.
     """
     if isinstance(obj, MemmapArrayRef):
         return np.load(obj.path,
@@ -316,15 +403,7 @@ def _materialize_memmap_obj(obj: Any) -> Any:
                        )
 
     if isinstance(obj, PickleFileRef):
-        cached = _PICKLE_FILE_CACHE.get(obj.path)
-        if cached is not None:
-            return cached
-
-        with open(obj.path, 'rb') as file:
-            loaded = pickle.load(file)
-
-        _PICKLE_FILE_CACHE[obj.path] = loaded
-        return loaded
+        return _PICKLE_FILE_CACHE.get_or_load(obj)
 
     if isinstance(obj, dict):
         return {key: _materialize_memmap_obj(value)
@@ -392,7 +471,7 @@ class MemmapJoblibExecutor(ParallelExecutor):
     def map_iter(self, tasks: list[TaskSpec[Any]]) -> Iterator[Any]:
         """Yield joblib results as soon as they become available."""
         resolved_tasks = self._resolved_tasks(tasks)
-    
+
         parallel_kwargs = joblib_parallel_kwargs(backend=self.backend,
                                                  verbose=self.verbose,
                                                  temp_folder=str(self._shared.joblib_temp_dir),

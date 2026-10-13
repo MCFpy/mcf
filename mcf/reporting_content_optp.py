@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    from mcf.optpolicy_main import OptimalPolicy, OptimalPolicyVersion
+    from mcf.optpolicy_main import OptimalPolicy, OptimalPolicyVersions
 
 
 def opt_fairness(opt_o: 'OptimalPolicy', empty_lines_end: int) -> str:
@@ -23,14 +23,18 @@ def opt_fairness(opt_o: 'OptimalPolicy', empty_lines_end: int) -> str:
            '\nThis fairness module is experimental. It is a preview of what '
            'will be analysed in the paper by Bearth, Lechner, Mareckova, and '
            'Muny (2024): Explainable Optimal Policy with Protected Variables. '
-           'The main idea is to adjust the policy scores in a way such that '
-           'the resulting optimal allocation will not depend on the protected features. '
+           'The adjustments aim to reduce dependence of policy scores and/or decision '
+           'variables on protected features, while allowing for materially relevant features. '
+           'Mean and MeanVar target conditional moments and do not guarantee that resulting '
+           'allocations are independent of protected features. '
            '\nCurrently the following methods are available for the adjustments: '
-           '\n(1)  Mean: Mean dependence of the policy score with protected '
-           'features is removed by residualisation.'
-           '\n(2)  MeanVar: In addition to the mean dependence, '
-           'heteroscedasticity of the policy scores related to the '
-           'protected features is removed by rescaling.'
+           '\n(1) Mean: Residualisation using estimated conditional means aims to remove '
+           'mean dependence on protected features, while retaining the component associated '
+           'with materially relevant features.'
+           '\n(2) MeanVar: In addition to the mean adjustment, rescaling using estimated '
+           'conditional standard deviations aims to remove heteroscedasticity associated '
+           'with protected features, while retaining variation associated with materially '
+           'relevant features.'
            '\n(3) Quantiled: insprired by the quantile based an approach suggested by '
            'Strack & Yang (2024), but extended to address multiple treatments and possibly '
            'continuous protected and / or materially important features. If there are many values '
@@ -49,35 +53,34 @@ def opt_fairness(opt_o: 'OptimalPolicy', empty_lines_end: int) -> str:
 
     txt += ('\n\nIMPLEMENTATION '
             f'\nProtected features: {", ".join(prot_vars)}. ')
-    txt += '\nProtected features are '
-    if opt_o.fair_cfg.protected_disc_method == 'NoDiscretization':
-        txt += 'are treated as continous, i.e., their joint densities are estimated. '
-    else:
-        txt += 'discretized using '
-        if opt_o.fair_cfg.protected_disc_method == 'EqualCell':
-            txt += ('equal cell sizes for each discrete feature of not more '
-                    f'than {opt_o.fair_cfg.protected_disc_method} observations.'
-                    )
-        else:
-            txt += f'k-means++ clustering with {opt_o.fair_cfg.protected_disc_method} clusters. '
     if mat_vars:
-        txt += (
-                f'\nMaterially relevant features: {", ".join(mat_vars)}. '
+        txt += (f'\nMaterially relevant features: {", ".join(mat_vars)}. '
                 '\nMaterially relevant features may be correlated with the protected features. '
-                'Therefore, the adjusted scores may still show some correlation with the protected'
-                'features due to their correlation with the materially relevant features. '
-                 )
-        if opt_o.fair_cfg.material_disc_method == 'NoDiscretization':
-            txt += 'are treated as continous, i.e., their joint densities are estimated. '
-        else:
-            txt += 'discretized using '
-            if opt_o.fair_cfg.material_disc_method == 'EqualCell':
-                txt += ('equal cell sizes for each discrete feature of not '
-                        f'more than {opt_o.fair_cfg.material_disc_method} observations.'
+                'Therefore, adjusted scores may still be correlated with protected features '
+                'through their relationship with materially relevant features. '
+                )
+    txt += ('\n\nDiscretization settings for quantile adjustments, when needed:'
+            '\nFeatures with sufficiently few values use exact cells without coarsening.'
+            )
+    for label, names, method, max_groups in (
+            ('Protected', prot_vars, opt_o.fair_cfg.protected_disc_method,
+             opt_o.fair_cfg.protected_max_groups),
+            ('Materially relevant', mat_vars, opt_o.fair_cfg.material_disc_method,
+             opt_o.fair_cfg.material_max_groups)):
+        if not names:
+            continue
+        txt += f'\n{label} features: '
+        match method:
+            case 'EqualCell':
+                txt += (f'up to {max_groups} groups per feature, '
+                        'aiming for approximately equal group sizes.'
                         )
-            else:
-                txt += f'k-means++ clustering with {opt_o.fair_cfg.material_disc_method} clusters. '
-
+            case 'Kmeans':
+                txt += f'k-means++ clustering with {max_groups} requested clusters.'
+            case 'ExactCell':
+                txt += 'exact cells without coarsening.'
+            case 'NoDiscretization':
+                txt += 'no discretization.'
     fair_txt = opt_o.report.get('fairscores_delete_x_vars_txt')
     if isinstance(fair_txt, str):
         txt += '\n' + fair_txt
@@ -125,27 +128,28 @@ def opt_allocation(opt_o: dict, empty_lines_end: int) -> str:
 def opt_evaluation(opt_o: 'OptimalPolicy') -> tuple[str, list[tuple[str, pd.DataFrame]]]:
     """Text evaluation part of description."""
     def results_dic_to_df(results_dic):
-        treat_values = ['Share of ' + str(s) + ' in %'
-                        for s in opt_o.gen_cfg.d_values]
-        columns = ['Value function', *treat_values]
+        treat_values = ['Share of ' + str(s) + ' in %' for s in opt_o.gen_cfg.d_values]
+        columns = ['Gross value', 'Net value', *treat_values]
         for idx, key in enumerate(results_dic):
             index = next(iter(results_dic[key]))   # first key
             if isinstance(results_dic[key][index], (list, tuple)) and (
                     len(results_dic[key][index]) == 1):
                 data = [round(results_dic[key][index][0], 4),
-                        *list(np.round(results_dic[key]['treatment share']*100, 2))
+                        round(results_dic[key].get('welfare net of costs', np.nan), 4),
+                        *list(np.round(results_dic[key]['treatment share'] * 100, 2))
                         ]
                 tmp_df = pd.DataFrame([data], index=(index,), columns=columns, copy=True)
 
             elif isinstance(results_dic[key][index], float) and key == index:
                 data = [round(results_dic[key][index], 4),
-                        *list(np.round(results_dic[key]['treatment share']*100, 2))
+                        round(results_dic[key].get('welfare net of costs', np.nan), 4),
+                        *list(np.round(results_dic[key]['treatment share'] * 100, 2))
                         ]
                 tmp_df = pd.DataFrame([data], index=(index,), columns=columns, copy=True)
 
             else:
                 data = [*list(np.round(results_dic[key]['treatment share']*100, 2))]
-                tmp_df = pd.DataFrame([data], index=(key,), columns=columns[1:], copy=True)
+                tmp_df = pd.DataFrame([data], index=(key,), columns=columns[2:], copy=True)
             if idx == 0:
                 table_df = tmp_df
             else:
@@ -154,25 +158,29 @@ def opt_evaluation(opt_o: 'OptimalPolicy') -> tuple[str, list[tuple[str, pd.Data
 
     txt_table_list = []
     general_txt = ('\nMain evaluation results.'
-                   '\n' * 2 + 'Note: The output files contain relevant '
-                   'additional information, like a descriptive analysis of '
-                   'the treatment groups'
+                   '\n\nNote: The output files contain relevant additional information, like a '
+                   'descriptive analysis of the treatment groups'
                    )
     if (opt_o.gen_cfg.variable_importance
             and (opt_o.var_cfg.vi_x_name or opt_o.var_cfg.vi_to_dummy_name)):
         general_txt += ' and variable importance statistics'
-    general_txt += ('. Also Qini-like plots are produced and saved in the same location as '
-                    'the text output. Those plots compare the optimal allocation to a '
-                    'reference allocation (3 allocations are used as such reference '
-                    'allocations, if available: (i) observed, (ii) random, (iii) the '
-                    'treatment with the highest ATE is allocated to everybody). '
-                    'They show the mean welfare when an increasing share of observations '
-                    '(starting with those who gain most from the optimal allocation '
-                    'compared to the reference allocation) is allocated using the optimal '
-                    'allocation rule.'
-                    )
+    general_txt += '.'
+    if opt_o.gen_cfg.with_output and opt_o.gen_cfg.method in ('policy_tree', 'bps_classifier'):
+        general_txt += ('\nQini-like plots, when generated, are saved alongside the text output. '
+                        'They require usable policy scores and suitable policy and reference '
+                        'allocations. Reference rules include the observed allocation, a random '
+                        'allocation, and the uniform allocation with the highest mean score '
+                        'net of treatment costs, where available. '
+                        'The plots show mean welfare net of treatment costs as an increasing '
+                        'share of observations receives the learned allocation and the remainder '
+                        'receives the reference allocation. Observations are switched in '
+                        'descending order of their net welfare gain.'
+                        )
     for evalu in opt_o.report['evalu_list']:
-        txt = evalu[0]
+        txt = evalu[0] + (
+            '\nGross and net values show mean policy scores before and after subtracting '
+            'treatment costs, respectively.'
+            )
         table_df = results_dic_to_df(evalu[1])
         txt_table_list.append((txt, table_df))
 
@@ -187,36 +195,39 @@ def opt_training(opt_o: 'OptimalPolicy', empty_lines_end: int = 2) -> str:
             opt_o.gen_cfg.method in ('policy_tree', 'policy tree old',)):
         txt += '\nContinuous variables are internally split for best use of cpu ressources.'
 
-    screen = opt_o.dc_cfg.screen_covariates
-    percorr = opt_o.dc_cfg.check_perfectcorr
-    clean = opt_o.dc_cfg.clean_data
-    dummy = opt_o.dc_cfg.min_dummy_obs
-    if screen or percorr or clean or dummy:
-        txt += '\n' * 2 + 'DATA PREPARATION'
-        if screen:
-            txt += '\nVariables without variation are removed.'
-        if percorr:
-            txt += '\nVariables that are perfectly correlated with other variables are removed.'
-        if dummy:
-            txt += ('\nDummy variables with less than '
-                    f'{opt_o.dc_cfg.min_dummy_obs} observations in the smaller group are removed.'
-                    )
-        if clean:
-            txt += '\nRows with any missing values for variables needed for training are removed.'
+    screen = 'removed_vars' in opt_o.report
+    percorr = screen and opt_o.dc_cfg.check_perfectcorr
+    dummy = opt_o.dc_cfg.min_dummy_obs if screen else 0
+    txt += '\n' * 2 + 'DATA PREPARATION'
+    if screen:
+        txt += '\nVariables without variation are removed.'
+    if percorr:
+        txt += '\nVariables that are perfectly correlated with other variables are removed.'
+    if dummy:
+        txt += ('\nDummy variables with less than '
+                f'{opt_o.dc_cfg.min_dummy_obs} observations in the smaller group are removed.'
+                )
+    txt += '\nRows with any missing values for variables needed for training are removed.'
     if opt_o.gen_cfg.method in ('best_policy_score', 'bps_classifier'):
         if opt_o.other_cfg.restricted:
             txt += '\n' * 2 + 'RESTRICTIONS on treatment shares'
-            txt += '\nRestrictions are ignored if they are not binding.'
-            txt += ('\nIf they are binding, then several methods are used to enforce them (almost) '
-                    'exactly:'
-                    '\n1) Prioritize units that benefit most.'
-                    '\n2) Deny a random selection of units their best option.'
+            txt += ('\nThe unrestricted allocation is retained as a benchmark. Additional '
+                    'allocations use integer treatment capacities derived from the specified '
+                    'maximum shares:'
+                    '\n1) Randomly assign units to treatments with remaining capacity.'
+                    '\n2) Process units in descending order of their best net-score gain '
+                    'relative to treatment 0. Assign each unit to the treatment with the '
+                    'highest net policy score among those with remaining capacity.'
+                    '\n3) Process units in random order. Assign each unit to the treatment '
+                    'with the highest net policy score among those with remaining capacity.'
                     )
             if opt_o.var_cfg.bb_restrict_name:
-                txt += (
-                    '\n3) Prioritize units with higher values of '
-                    f'{", ".join(opt_o.var_cfg.bb_restrict_name)}.'
-                    )
+                priority_var = opt_o.var_cfg.bb_restrict_name[0]
+                txt += (f'\n4) When the priority variable {priority_var} is available, '
+                        'process units in descending order of that variable. Assign each '
+                        'unit to the treatment with the highest net policy score among '
+                        'those with remaining capacity.'
+                        )
     elif opt_o.gen_cfg.method in ('policy_tree', 'policy tree old',):
         if opt_o.other_cfg.restricted:
             txt += '\n' * 2 + 'RESTRICTIONS on treatment shares'
@@ -232,7 +243,7 @@ def opt_training(opt_o: 'OptimalPolicy', empty_lines_end: int = 2) -> str:
                         )
             txt += ('\nIf the allocated treatment shares are not close enough to the desired '
                     'shares, then these artificial costs can be adjusted by specifying/changing '
-                    'the cost multiplier (keyword "costs_of_treat_mult"). '
+                    'the cost multiplier (keyword "other_costs_of_treat_mult"). '
                     )
             if opt_o.pt_cfg.enforce_restriction:
                 txt += ('\nTrees that violate restrictions are not considered. Note that this '
@@ -242,14 +253,13 @@ def opt_training(opt_o: 'OptimalPolicy', empty_lines_end: int = 2) -> str:
         txt += '\n' * 2 + 'COMPUTATIONAL EFFICIENCY'
         txt += ('\nOptimal policy trees are computationally very demanding. '
                 'Therefore, several approximation parameters are used.'
-                '\nWhen splitting, instead of evaluating all values of continuous variables and '
-                'combinations of values of categorical variables, only '
-                f' {opt_o.pt_cfg.no_of_evalupoints} values are considered. These values are '
-                'equally spaced for continuous variables and random combinations for '
-                'categorical variables. This number is used for EVERY splitting decision, i.e. '
-                'the approximation improves the smaller the data in the leaf becomes. Increasing '
-                'this value can significantly improve the computational performance at '
-                'the price of a certain approximation loss.'
+                '\nFor continuous variables, the baseline number of candidate split points is '
+                f'{opt_o.pt_cfg.no_of_evalupoints}. '
+                'Candidates occupy roughly equally spaced positions in the sorted data. '
+                'This setting is used at each splitting decision, so '
+                'the approximation improves the smaller the data in the leaf becomes. Reducing '
+                'this value can shorten computation time, at the cost of a coarser search for '
+                'the best split.'
                 )
         txt += ('\nThe depth of the tree is also a key parameter. Usually, it is very hard to '
                 'estimate trees beyond the depth of 4 (16 leaves) with reasonably sized training '
@@ -258,16 +268,17 @@ def opt_training(opt_o: 'OptimalPolicy', empty_lines_end: int = 2) -> str:
                 'interpretability). The second option is to split the tree building into several '
                 'steps. '
                 )
-        if opt_o.pt_cfg.depth_tree_2 > 2:
-            txt += ('\nIn this application, this two-step tree buildung option is implemented in '
-                    'the following way: after buildung the first '
-                    f'tree of depth {opt_o.pt_cfg.depth_tree_1-1}, in each leaf of this tree, a '
-                    f'second optimal tree of depth {opt_o.pt_cfg.depth_tree_2-1} is built. '
-                    'Subsequently, these trees are combined to form the final tree of depth '
-                    f'{opt_o.pt_cfg.depth-1}. For given final tree depth, the more similar the '
-                    'depths of the two trees are, the faster the algorithm. However, the final '
-                    'tree will of course be subject to an additional approximation error.'
-                   )
+        if opt_o.pt_cfg.depth_tree_2 > 1:
+            txt += ('\nTwo-stage tree construction is requested. '
+                    f'The requested depth of the first tree is {opt_o.pt_cfg.depth_tree_1-1}; '
+                    'the requested depth of each second-stage tree is '
+                    f'{opt_o.pt_cfg.depth_tree_2-1}. '
+                    f'The requested total depth is {opt_o.pt_cfg.depth-1}. '
+                    'If no feasible tree is found at a requested depth, the depth is reduced. '
+                    'Some first-stage leaves may receive no second-stage tree. '
+                    'Building trees sequentially adds an approximation relative to optimising '
+                    'the entire tree jointly.'
+                    )
         else:
             txt += 'However, the second option is not used here.'
         txt += ('\nAnother parameter crucial for performance is the minimum leaf size. Too small '
@@ -279,28 +290,30 @@ def opt_training(opt_o: 'OptimalPolicy', empty_lines_end: int = 2) -> str:
                 'data to increase speed, but this will increase sampling noise.'
                 )
         txt += '\n' * 2 + 'CATEGORICAL VARIABLES'
-        txt += ('\nThere are two different approximation methods for larger categorical variables. '
-                'Since we build optimal trees, for categorical variables we need to check all '
-                'possible combinations of the different values that lead to binary splits. '
-                'This number could indeed be huge. Therefore, we compare only '
-                f'{opt_o.pt_cfg.no_of_evalupoints*2} different combinations. '
-                'The available methods differ on how these methods are implemented. '
-                '\nIn this application, at each possible split, '
+        efficient_tree = opt_o.gen_cfg.method == 'policy_tree'
+        cat_limit = opt_o.pt_cfg.no_of_evalupoints
+        if efficient_tree:
+            cat_limit = max(1, int(cat_limit * opt_o.pt_cfg.eva_cat_mult))
+
+        txt += ('\nCategorical splits partition categories into two groups. '
+                f'The search considers up to {cat_limit} candidate partitions per variable '
+                'and node. When there are sufficiently few possible partitions, exhaustive '
+                'search is used. Otherwise, an approximation is used.'
                 )
-        if opt_o.pt_cfg.select_values_cat:
-            txt += ('we randomly draw values from the particular categorical '
-                    'variable and form groups only using those values only.'
+        if efficient_tree and opt_o.pt_cfg.select_values_cat:
+            txt += ('\nFor the approximation, a random subset of categories is selected. '
+                    'Candidate groups are formed from these categories, with all remaining '
+                    'categories assigned to the complementary group.'
                     )
         else:
-            txt += ('we sort the values of the categorical variables according '
-                    'to the values of the policy scores as one would do for a '
-                    'standard random forest. If this set is still too large, a '
-                    'random sample of the entailed combinations is drawn.'
+            txt += ('\nFor the approximation, categories are ordered by policy-score '
+                    'differences. Candidate partitions are formed from these orderings '
+                    'and randomly sampled if their number exceeds the limit.'
                     )
-        if opt_o.pt_cfg.eva_cat_mult != 1:
-            txt += ('\nMultiplier used for the number of split points for categorical variables '
-                    f'considered (relative to ordered variables: {opt_o.pt_cfg.eva_cat_mult}'
-                    )
+            if efficient_tree:
+                txt += (' If fewer candidates are obtained, additional random partitions '
+                        'are generated up to the limit.'
+                        )
         if opt_o.report['training_leaf_information'] is not None:
             txt += '\n' * 3 + 'STRUCTURE OF FINAL TREE'
             txt += opt_o.report['training_leaf_information']
@@ -315,14 +328,20 @@ def opt_general(opt_o: 'OptimalPolicy', empty_lines_end: int) -> str:
     method = opt_o.gen_cfg.method
     match method:
         case 'best_policy_score':
-            txt += 'to the treatment with the highest score.'
+            txt += ('initially to the treatment with the highest policy score net of '
+                    'treatment costs.'
+                    )
+            if opt_o.other_cfg.restricted:
+                txt += (' Additional allocations account for the specified treatment-share '
+                        'constraints.'
+                        )
 
         case 'policy_tree' | 'policy tree old':
-            txt += f'using a shallow decision tree of depth {opt_o.pt_cfg.depth-1} '
-            if opt_o.pt_cfg.depth_tree_2 > 2:
+            txt += f'using a shallow decision tree with requested depth {opt_o.pt_cfg.depth-1} '
+            if opt_o.pt_cfg.depth_tree_2 > 1:
                 txt += ('(based on 2 optimal trees, '
-                        f'depth of 1st tree: {opt_o.pt_cfg.depth_tree_1-1},'
-                        f' depth of 2nd tree: {opt_o.pt_cfg.depth_tree_2-1})'
+                        f'requested depth of 1st tree: {opt_o.pt_cfg.depth_tree_1-1},'
+                        f' requested depth of 2nd tree: {opt_o.pt_cfg.depth_tree_2-1})'
                         )
             txt += '.'
             if opt_o.gen_cfg.method == 'policy tree old':
@@ -335,12 +354,7 @@ def opt_general(opt_o: 'OptimalPolicy', empty_lines_end: int) -> str:
     txt += '\n\nVARIABLES provided'
     var_cfg = opt_o.var_cfg
     txt += f'\nPolicy scores: {", ".join(var_cfg.polscore_name)}'
-    if var_cfg.effect_vs_0:
-        txt += f'\nIATEs relative to first treatment state: {", ".join(var_cfg.effect_vs_0)} '
-    if var_cfg.effect_vs_0_se:
-        txt += ('\nStandard errors of IATEs relative to first treatment state: '
-                f'{", ".join(var_cfg.effect_vs_0_se)}'
-                )
+
     if var_cfg.polscore_desc_name:
         txt += ('\nTreatment dependent variables for descriptive analysis: '
                 f'{", ".join(var_cfg.polscore_desc_name)}'
@@ -371,8 +385,8 @@ def opt_general(opt_o: 'OptimalPolicy', empty_lines_end: int) -> str:
                 )
     txt += '\n' * 2 + 'COSTS'
     if (opt_o.other_cfg.costs_of_treat is not None
-        and len(opt_o.other_cfg.costs_of_treat) > 1
-            and sum(opt_o.other_cfg.costs_of_treat) > 0):
+            and any(cost != 0 for cost in opt_o.other_cfg.costs_of_treat)
+            ):
         cost = [str(cos) for cos in opt_o.other_cfg.costs_of_treat]
         txt += '\n' * 2 + f'Used provided treatment specific costs: {", ".join(cost)}'
     else:
@@ -409,14 +423,22 @@ def opt_general(opt_o: 'OptimalPolicy', empty_lines_end: int) -> str:
                 adjust_objects = 'Policy scores and decision variables'
 
         txt += f'\nAdjusted objects: {adjust_objects}'
-        txt += f'\nAdjustmend method used: {opt_o.fair_cfg.adj_type}'
-        txt += ('\nDiscretization method used for protected variables: '
-                f' {opt_o.fair_cfg.protected_disc_method}'
+        txt += (f'\nFinal adjustment method setting: {opt_o.fair_cfg.adj_type}. '
+                'Earlier adjustment steps may have used a different method. '
+                'When enabled, the fairness adjustment output records '
+                'the methods used at each step.'
+                )
+        txt += ('\nConfigured discretization method for protected variables: '
+                f'{opt_o.fair_cfg.protected_disc_method}'
                 )
         if material_var:
-            txt += ('\nDiscretization method used for materially relevant '
-                    f'variables: {opt_o.fair_cfg.material_disc_method}'
+            txt += ('\nConfigured discretization method for materially relevant variables: '
+                    f'{opt_o.fair_cfg.material_disc_method}'
                     )
+        txt += ('\nEach quantile adjustment uses exact cells when the conditioning features have '
+                'sufficiently few values in that sample. This does not change these settings.'
+                )
+
         txt += '\nFor more detail information on methods used see output files.'
     else:
         txt += '\nNo fairness adjustments performed.'
@@ -432,29 +454,29 @@ def opt_general(opt_o: 'OptimalPolicy', empty_lines_end: int) -> str:
     return txt + '\n' * empty_lines_end
 
 
-def opt_versions(opt_o: 'OptimalPolicyVersion', empty_lines_end: int) -> str:
+def opt_versions(opt_o: 'OptimalPolicyVersions', empty_lines_end: int) -> str:
     """General introduction into optimal policy estimation with treatment versions."""
     optp = opt_o.optp[0] if isinstance(opt_o.optp, list) else opt_o.optp
     method = optp.gen_cfg.method
 
     txt = 'Accounting for treatment versions in finding optimal assignment rules is implemented by '
     match method:
-        case 'policy_tree' | 'policy tree old':
+        case 'policy_tree':
             txt += ('a two-step procedure. '
                     '\nIn a first step a policy tree is build for the main treatments using a '
-                    f'shallow decision tree of depth {optp.pt_cfg.depth-1} '
+                    f'shallow decision tree with requested depth {optp.pt_cfg.depth-1} '
                     )
-            if optp.pt_cfg.depth_tree_2 > 2:
+            if optp.pt_cfg.depth_tree_2 > 1:
                 txt += (' (based on 2 sequentially optimal trees, '
-                        f'depth of 1st tree: {optp.pt_cfg.depth_tree_1-1}, '
-                        f'depth of 2nd tree: {optp.pt_cfg.depth_tree_2-1}) '
+                        f'requested depth of 1st tree: {optp.pt_cfg.depth_tree_1-1}, '
+                        f'requested depth of 2nd tree: {optp.pt_cfg.depth_tree_2-1}) '
                         )
             dvt = [str(d) for d in opt_o.version_cfg.depth_version_tree]
             txt += ('.'
                     '\nIn the second step, for each main treatment that has treatment versions '
                     'an additional policy tree is build allocating its versions. The depths of '
                     'these trees for the treatment versions may differ among the main treatments. '
-                    f'The following depths are used: {", ".join(dvt)}. '
+                    f'The following depths are requested: {", ".join(dvt)}. '
                     # '\n\nThe tree shown below is the tree for the main treatment only. The trees '
                     # 'for the treatment versions are contained in the output files. '
                     )

@@ -12,8 +12,11 @@ from typing import Any, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 import matplotlib.pyplot as plt
 import pandas as pd
+from scipy.ndimage import gaussian_filter1d
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
@@ -46,7 +49,7 @@ def common_support_p_score(mcf_: 'ModifiedCausalForest',
     data_train_dic = mcf_.data_train_dict
     cs_tree_prob_df = cs_fill_y_prob_df = predicted_probs_df = x_cs_np = None
     probs_df = None
-    d_name, d_values, no_of_treat = mcf_data.get_treat_info(mcf_)  # Only main treatm.
+    d_name, d_values, no_of_treat = mcf_data.get_treat_info(mcf_)  # Only main treatments
     x_name, x_type = mcf_gp.get_key_values_in_list(var_x_type)
     len1 = 0 if tree_df is None else len(tree_df)
     len2 = 0 if fill_y_df is None else len(fill_y_df)
@@ -58,7 +61,6 @@ def common_support_p_score(mcf_: 'ModifiedCausalForest',
     if train:
         if cs_cfg.detect_const_vars_stop and not p_score_only:
             check_const_single_variable(list(var_x_type.keys()),
-                                        #mcf_.var_cfg.d_name,
                                         d_name,
                                         (tree_df, fill_y_df,)
                                         )
@@ -107,10 +109,18 @@ def common_support_p_score(mcf_: 'ModifiedCausalForest',
                 txt += 'Computing random forest based common support\n'
             mcf_ps.print_mcf(gen_cfg, txt, summary=False)
         max_workers = 1 if int_cfg.replication else gen_cfg.mp_parallel
-        classif = RandomForestClassifier(n_estimators=mcf_.cf_cfg.boot, max_features='sqrt',
-                                         bootstrap=True, oob_score=False, n_jobs=max_workers,
-                                         random_state=42, verbose=False, min_samples_split=5,
-                                         )
+        classif_parameters = {'n_estimators': mcf_.cf_cfg.boot,
+                              'criterion': 'gini',
+                              'max_features': 'sqrt',
+                              'bootstrap': True,
+                              'oob_score': False,
+                              'n_jobs': max_workers,
+                              'min_samples_split': 5,
+                              'random_state': 42,
+                              'verbose': False,
+                              'min_samples_leaf': 5,
+                              }
+        classif = RandomForestClassifier(**classif_parameters)
         if gen_cfg.with_output and gen_cfg.verbose and int_cfg.memory_print:
             mcf_sys.print_mememory_statistics(gen_cfg, 'Training: ' + txt_cs + ' before CV')
         if lc_cfg.cs_cv:   # Crossvalidate
@@ -129,8 +139,6 @@ def common_support_p_score(mcf_: 'ModifiedCausalForest',
                 d_train = d_tree_mcf_np[index_train]
                 classif.fit(x_train, d_train)
                 forests.append(deepcopy(classif))
-                # pred_mcf_np[index_pred, :] = classif.predict_proba(x_pred)
-                # pred_fy_np_fold += classif.predict_proba(x_fy_np)
                 pred_mcf_np[index_pred, :] = predict_proba_aligned(classif, x_pred, d_values,
                                                                    dtype=pred_mcf_np.dtype,
                                                                    zero_tol=int_cfg.zero_tol,
@@ -149,9 +157,6 @@ def common_support_p_score(mcf_: 'ModifiedCausalForest',
                                                                 )
             classif.fit(x_train, d_train)
             d_cs_np = d_test
-            # pred_cs_np = classif.predict_proba(x_test)  # -> determine cut-offs
-            # pred_mcf_np = classif.predict_proba(x_mcf_np)   # cut and return
-            # pred_fy_np = classif.predict_proba(x_fy_np)     # cut and return
             proba_dtype = np.float32 if len(x_mcf_np) >= int_cfg.obs_bigdata else np.float64
             pred_cs_np = predict_proba_aligned(classif, x_test, d_values,
                                                dtype=proba_dtype, zero_tol=int_cfg.zero_tol,
@@ -246,6 +251,9 @@ def common_support_p_score(mcf_: 'ModifiedCausalForest',
 
     len1 = 0 if tree_mcf_df is None else len(tree_mcf_df)
     len2 = 0 if fill_y_mcf_df is None else len(fill_y_mcf_df)
+    if train and not p_score_only:
+        check_if_too_many_deleted(mcf_, len1, len(pred_mcf_np) - len1)
+        check_if_too_many_deleted(mcf_, len2, len(pred_fy_np) - len2)
     obs_remain = len1 + len2
     share_deleted = (obs - obs_remain) / obs
 
@@ -288,7 +296,6 @@ def descriptive_stats_on_off_support(mcf_: 'ModifiedCausalForest',
                          )
     else:
         d_name, _, _ = mcf_data.get_treat_info(mcf_)
-        x_name = var_cfg.x_name.copy()
         data_train_dic = mcf_.data_train_dict
         keep_df = mcf_ps.change_name_value_df(keep_df,
                                               data_train_dic['prime_old_name_dict'],
@@ -367,7 +374,6 @@ def descriptive_stats_on_off_support(mcf_: 'ModifiedCausalForest',
             mcf_ps.print_mcf(gen_cfg, delete_df[x_name].describe().transpose(), summary=False)
             if d_name[0].casefold() in all_var_names and len(delete_df) > 5:
                 mean_by_treatment(delete_df[d_name], delete_df[x_name], gen_cfg, summary=False)
-        check_if_too_many_deleted(mcf_, obs_keep, obs_del)
 
 
 def mean_by_treatment(treat_df: pd.DataFrame,
@@ -427,102 +433,249 @@ def on_off_support_df(cs_cfg: 'CsCfg',
     return data_on_df, data_off_df, predicted_df
 
 
+def smoothed_propensity_density(data: NDArray[Any], *,
+                                zero_tol: float = 1e-10,
+                                ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Estimate a binned Gaussian KDE with reflection at probability boundaries."""
+    values = np.asarray(data, dtype=np.float64).reshape(-1)
+    if not np.all(np.isfinite(values)):
+        raise ValueError('Propensity scores must be finite.')
+    if np.any((values < 0) | (values > 1)):
+        raise ValueError('Propensity scores must lie between 0 and 1.')
+
+    n_bins = 1024
+    edges = np.linspace(0.0, 1.0, n_bins + 1)
+    centers = (edges[:-1] + edges[1:]) / 2
+    grid = np.concatenate(([0.0], centers, [1.0]))
+    missing = np.full(grid.shape, np.nan, dtype=np.float64)
+    if values.size < 2:
+        return grid, missing
+
+    sigma = float(np.std(values, ddof=1))
+    if sigma <= zero_tol:
+        return grid, missing
+
+    q25, q75 = np.percentile(values, [25, 75])
+    iqr_scale = float(q75 - q25) / 1.349
+    scale = min(sigma, iqr_scale) if iqr_scale > zero_tol else sigma
+    bandwidth = max(0.9 * scale * values.size ** (-0.2), 1.0 / n_bins)
+
+    counts, _ = np.histogram(values, bins=edges)
+    density = gaussian_filter1d(counts.astype(np.float64), bandwidth * n_bins,
+                                mode='reflect')
+    density *= n_bins / values.size
+    density = np.concatenate((density[:1], density, density[-1:]))
+    density /= np.trapezoid(density, grid)
+
+    return grid, density
+
+
 def plot_support(mcf_: 'ModifiedCausalForest',
                  probs_np: NDArray[Any],
                  d_np: NDArray[Any],
                  titel_data: str | None = None
                  ) -> tuple[list[Path], list[Path]]:
-    """Histogrammes for distribution of treatment probabilities for overlap."""
+    """Plot propensity-score distributions and export the underlying data."""
     cs_cfg, int_cfg = mcf_.cs_cfg, mcf_.int_cfg
     lower, upper = cs_cfg.cut_offs['lower'], cs_cfg.cut_offs['upper']
-    zero_tol = mcf_.int_cfg.zero_tol
+    zero_tol = int_cfg.zero_tol
     _, d_values, _ = mcf_data.get_treat_info(mcf_)
-    color_list = ['red', 'blue', 'green', 'violet', 'magenta', 'crimson',
-                  'yellow', 'darkorange', 'khaki', 'skyblue', 'darkgreen',
-                  'olive', 'greenyellow',  'aguamarine', 'deeppink',
-                  'royalblue', 'navy', 'blueviolet', 'purple']
-    if len(color_list) < len(d_values):
-        color_list = color_list * len(d_values)
-    color_list = color_list[:len(d_values)]
-    file_list_jpeg = []
-    file_list_d_jpeg = []
-    for idx_p, ival_p in enumerate(d_values):  # iterate treatment probs
+    labels = ['Treat ' + str(d) for d in d_values]
+    file_list_jpeg: list[Path] = []
+    file_list_d_jpeg: list[Path] = []
+
+    for idx_p, ival_p in enumerate(d_values):
         treat_prob = probs_np[:, idx_p]
         titel = f'Probability of treatment {ival_p} in different subsamples'
         f_titel = f'common_support_pr_treat{ival_p}'
-        file_name_csv = cs_cfg.paths['common_support_fig_pfad_csv'] / f'{f_titel}.csv'
-        file_name_jpeg = cs_cfg.paths['common_support_fig_pfad_jpeg'] / f'{f_titel}.jpeg'
-        file_list_jpeg.append(file_name_jpeg)
-        file_name_pdf = cs_cfg.paths['common_support_fig_pfad_pdf'] / f'{f_titel}.pdf'
-        file_name_csv_d = cs_cfg.paths['common_support_fig_pfad_csv'] / f'{f_titel}_d.csv'
-        file_name_jpeg_d = cs_cfg.paths['common_support_fig_pfad_jpeg'] / f'{f_titel}_d.jpeg'
-        file_list_d_jpeg.append(file_name_jpeg_d)
-        file_name_pdf_d = cs_cfg.paths['common_support_fig_pfad_pdf'] / f'{f_titel}_d.pdf'
-        # data_hist = [treat_prob[d_np == val] for val in d_values]
         data_hist = [treat_prob[np.isclose(d_np, val, rtol=zero_tol, atol=zero_tol)]
-                     for val in d_values
-                     ]
-        fig, axs = plt.subplots()
-        fig_d, axs_d = plt.subplots()
-        labels = ['Treat ' + str(d) for d in d_values]
+                     for val in d_values]
+        hist_bins = np.histogram_bin_edges(treat_prob, bins='auto')
         fit_line_all, bins_all = [], []
+        plot_notes: list[str] = []
+
         for idx, dat in enumerate(data_hist):
-            axs.hist(dat, bins='auto', histtype='bar', label=labels[idx],
-                     color=color_list[idx], alpha=0.5, density=False
-                     )
-            _, bins, _ = axs_d.hist(dat, bins='auto', histtype='bar', label=labels[idx],
-                                    color=color_list[idx], alpha=0.5, density=True
-                                    )
-            bins_all.append(bins.copy())
-            sigma = np.std(dat)
-            fit_line = ((1 / (np.sqrt(2 * np.pi) * sigma))
-                        * np.exp(-0.5 * (1 / sigma * (bins - np.mean(dat)))**2)
-                        )
-            axs_d.plot(bins, fit_line, '--', color=color_list[idx], label='Smoothed ' + labels[idx])
+            if dat.size == 0:
+                bins_all.append(np.empty(0, dtype=np.float64))
+                fit_line_all.append(np.empty(0, dtype=np.float64))
+                plot_notes.append(f'{labels[idx]}: no observations.')
+                continue
+
+            grid, fit_line = smoothed_propensity_density(dat, zero_tol=zero_tol)
+            if not np.all(np.isfinite(fit_line)):
+                plot_notes.append(
+                    f'{labels[idx]}: density smoothing omitted '
+                    '(insufficient variation or sample).')
+            bins_all.append(grid.copy())
             fit_line_all.append(fit_line.copy())
 
-        axs.set_title(titel)
-        if titel_data is not None:
-            fig.text(0.02, 0.02, "Data: " + titel_data, ha='left', fontsize=int_cfg.fontsize)
-            fig_d.text(0.02, 0.02, "Data: " + titel_data, ha='left',fontsize=int_cfg.fontsize)
-        axs.set_xlabel('Treatment probability')
-        axs.set_ylabel('Observations')
-        axs.set_xlim([0, 1])
-        axs.axvline(lower[idx_p], color='blue', linewidth=0.7, linestyle="--", label='min')
-        axs.axvline(upper[idx_p], color='black', linewidth=0.7, linestyle="--", label='max')
-        axs.legend(loc=int_cfg.legend_loc, shadow=True, fontsize=int_cfg.fontsize)
-        mcf_sys.delete_file_if_exists(file_name_jpeg)
-        mcf_sys.delete_file_if_exists(file_name_pdf)
-        mcf_sys.delete_file_if_exists(file_name_csv)
-        fig.savefig(file_name_jpeg, dpi=int_cfg.dpi)
-        fig.savefig(file_name_pdf, dpi=int_cfg.dpi)
+        if plot_notes:
+            txt = f'\nCommon-support plot: probability of treatment {ival_p}\n'
+            txt += '\n'.join(plot_notes)
+            mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=False)
+
+        file_name_csv = cs_cfg.paths['common_support_fig_pfad_csv'] / f'{f_titel}.csv'
         padded_arrays = padded_array_from_list(data_hist)
-        save_df = pd.DataFrame(padded_arrays, columns=labels)
-        save_df = save_df.fillna(value='NaN')
+        save_df = pd.DataFrame(padded_arrays, columns=labels).fillna(value='NaN')
+        mcf_sys.delete_file_if_exists(file_name_csv)
         save_df.to_csv(file_name_csv, index=False)
-        axs_d.set_title(titel)
-        axs_d.set_xlabel('Treatment probability')
-        axs_d.set_ylabel('Density')
-        axs_d.set_xlim([0, 1])
-        axs_d.axvline(lower[idx_p], color='blue', linewidth=0.7, linestyle="--", label='min')
-        axs_d.axvline(upper[idx_p], color='black', linewidth=0.7, linestyle="--", label='max')
-        axs_d.legend(loc=int_cfg.legend_loc, shadow=True, fontsize=int_cfg.fontsize)
-        mcf_sys.delete_file_if_exists(file_name_jpeg_d)
-        mcf_sys.delete_file_if_exists(file_name_pdf_d)
-        mcf_sys.delete_file_if_exists(file_name_csv_d)
+
+        file_name_csv_d = cs_cfg.paths['common_support_fig_pfad_csv'] / f'{f_titel}_d.csv'
         np_list = [*fit_line_all, *bins_all]
-        label_list = [*['line_' + lab for lab in labels], *['bin_' + lab for lab in labels],]
+        label_list = [*['line_' + lab for lab in labels],
+                      *['bin_' + lab for lab in labels]]
         padded_arrays = padded_array_from_list(np_list)
-        save_df = pd.DataFrame(padded_arrays, columns=label_list)
-        save_df = save_df.fillna(value='NaN')
+        save_df = pd.DataFrame(padded_arrays, columns=label_list).fillna(value='NaN')
+        mcf_sys.delete_file_if_exists(file_name_csv_d)
         save_df.to_csv(file_name_csv_d, index=False)
-        fig_d.savefig(file_name_jpeg_d, dpi=int_cfg.dpi)
-        fig_d.savefig(file_name_pdf_d, dpi=int_cfg.dpi)
-        if int_cfg.show_plots:
-            plt.show()
-        plt.close()
+
+        for density, file_list in ((False, file_list_jpeg), (True, file_list_d_jpeg)):
+            files = plot_support_pages(mcf_, data_hist, hist_bins, bins_all, fit_line_all,
+                                       labels, titel, f_titel, float(lower[idx_p]),
+                                       float(upper[idx_p]), density=density,
+                                       titel_data=titel_data)
+            file_list.extend(files)
 
     return file_list_jpeg, file_list_d_jpeg
+
+
+def plot_support_pages(mcf_: 'ModifiedCausalForest',
+                       data_hist: list[NDArray[Any]],
+                       hist_bins: NDArray[Any],
+                       grids: list[NDArray[Any]],
+                       densities: list[NDArray[Any]],
+                       labels: list[str],
+                       title: str,
+                       file_stem: str,
+                       lower: float,
+                       upper: float,
+                       *,
+                       density: bool,
+                       titel_data: str | None = None
+                       ) -> list[Path]:
+    """Use an overlay for up to four groups, otherwise at most six panels per page."""
+    cs_cfg, int_cfg = mcf_.cs_cfg, mcf_.int_cfg
+    panel_mode = len(data_hist) > 4
+    groups_per_page = 6 if panel_mode else len(data_hist)
+    no_of_pages = (len(data_hist) + groups_per_page - 1) // groups_per_page
+    colors = ('tab:blue', 'tab:orange', 'tab:green', 'tab:purple')
+    hist_values = []
+    smooth_ok = []
+
+    for dat, fit_line in zip(data_hist, densities, strict=True):
+        heights = np.histogram(dat, bins=hist_bins)[0].astype(np.float64)
+        if density and dat.size > 0:
+            heights /= dat.size * np.diff(hist_bins)
+        hist_values.append(heights)
+        smooth_ok.append(fit_line.size > 0 and np.all(np.isfinite(fit_line)))
+
+    y_max = max(float(heights.max()) for heights in hist_values)
+    if density:
+        for fit_line, valid in zip(densities, smooth_ok, strict=True):
+            if valid:
+                y_max = max(y_max, float(fit_line.max()))
+    y_upper = 1.05 * y_max if y_max > 0 else 1.0
+
+    stem = file_stem + ('_d' if density else '')
+    file_list: list[Path] = []
+    for page in range(no_of_pages):
+        start = page * groups_per_page
+        stop = min(start + groups_per_page, len(data_hist))
+        n_panels = stop - start if panel_mode else 1
+        n_cols = 2 if n_panels > 1 else 1
+        n_rows = (n_panels + n_cols - 1) // n_cols
+        figsize = (10, 3 * n_rows + 2) if panel_mode else (8, 6)
+        fig, axes = plt.subplots(n_rows, n_cols, squeeze=False, sharex=True, sharey=True,
+                                 figsize=figsize
+                                 )
+        axes_flat = axes.ravel()
+        legend_handles = []
+
+        for local_idx, group_idx in enumerate(range(start, stop)):
+            axe = axes_flat[local_idx] if panel_mode else axes_flat[0]
+            dat = data_hist[group_idx]
+            color = 'tab:blue' if panel_mode else colors[group_idx]
+            if dat.size > 0:
+                artist = axe.stairs(hist_values[group_idx], hist_bins, fill=True,
+                                    color=color, alpha=0.5, label=labels[group_idx],
+                                    )
+                if not panel_mode:
+                    legend_handles.append(artist)
+                if density and smooth_ok[group_idx]:
+                    axe.plot(grids[group_idx], densities[group_idx], '--', color=color)
+
+            if panel_mode:
+                axe.set_title(f'{labels[group_idx]} (n={dat.size:,})',
+                              fontsize=int_cfg.fontsize,
+                              )
+                note = ''
+                if dat.size == 0:
+                    note = 'No observations'
+                elif density and not smooth_ok[group_idx]:
+                    note = 'Smoothing omitted'
+                if note:
+                    axe.text(0.5, 0.9, note, transform=axe.transAxes, ha='center',
+                             va='top', fontsize=int_cfg.fontsize,
+                             )
+
+        for axe in axes_flat[:n_panels]:
+            axe.set_xlim(0, 1)
+            axe.set_ylim(0, y_upper)
+            axe.set_xlabel('Treatment probability')
+            axe.set_ylabel('Density' if density else 'Observations')
+            axe.tick_params(labelbottom=True)
+            axe.axvline(lower, color='black', linewidth=0.9, linestyle='--')
+            axe.axvline(upper, color='black', linewidth=0.9, linestyle=':')
+
+        for axe in axes_flat[n_panels:]:
+            axe.set_visible(False)
+
+        if panel_mode:
+            legend_handles.append(Patch(facecolor='tab:blue', alpha=0.5, label='Histogram'))
+        if density and any(smooth_ok[start:stop]):
+            legend_handles.append(Line2D([0], [0], color='gray', linestyle='--',
+                                         label='Smoothed density'))
+        legend_handles.extend([
+            Line2D([0], [0], color='black', linestyle='--', label='Lower cutoff'),
+            Line2D([0], [0], color='black', linestyle=':', label='Upper cutoff')])
+        fig.legend(handles=legend_handles, loc='lower center', bbox_to_anchor=(0.5, 0.04),
+                   ncol=min(3, len(legend_handles)), fontsize=int_cfg.fontsize,
+                   )
+        page_title = title
+        if panel_mode:
+            page_title += f'\nPage {page + 1} of {no_of_pages}'
+        fig.suptitle(page_title, fontsize=int_cfg.fontsize)
+        if titel_data is not None:
+            fig.text(0.02, 0.01, 'Data: ' + titel_data, ha='left',
+                     fontsize=int_cfg.fontsize)
+        fig.tight_layout(rect=(0, 0.16, 1, 0.9))
+
+        page_suffix = f'_page{page + 1:02d}' if panel_mode else ''
+        image_stem = stem + page_suffix
+        file_jpeg = cs_cfg.paths['common_support_fig_pfad_jpeg'] / f'{image_stem}.jpeg'
+        file_pdf = cs_cfg.paths['common_support_fig_pfad_pdf'] / f'{image_stem}.pdf'
+        mcf_sys.delete_file_if_exists(file_jpeg)
+        mcf_sys.delete_file_if_exists(file_pdf)
+        fig.savefig(file_jpeg, dpi=int_cfg.dpi, bbox_inches='tight')
+        fig.savefig(file_pdf, dpi=int_cfg.dpi, bbox_inches='tight')
+        file_list.append(file_jpeg)
+        if int_cfg.show_plots:
+            plt.show()
+        plt.close(fig)
+
+    current_stems = {path.stem for path in file_list}
+    for path_key, extension in (('common_support_fig_pfad_jpeg', '.jpeg'),
+                                ('common_support_fig_pfad_pdf', '.pdf')):
+        directory = cs_cfg.paths[path_key]
+        old_overlay = directory / f'{stem}{extension}'
+        if old_overlay.stem not in current_stems:
+            mcf_sys.delete_file_if_exists(old_overlay)
+        for old_page in directory.glob(f'{stem}_page*{extension}'):
+            page_number = old_page.stem[len(stem) + len('_page'):]
+            if page_number.isdigit() and old_page.stem not in current_stems:
+                mcf_sys.delete_file_if_exists(old_page)
+
+    return file_list
 
 
 def padded_array_from_list(list_of_arrays: list[NDArray[Any]]) -> NDArray[Any]:
@@ -642,11 +795,12 @@ class NoVariationInTreatmentState(Exception):
 
 
 def predicted_probs_frame(data_df: pd.DataFrame,
-                          id_name: str,
+                          id_name: str | list[str] | tuple[str, ...],
                           probs_np: NDArray[Any],
                           ) -> pd.DataFrame:
     """Create DataFrame with IDs and predicted treatment probabilities."""
+    id_names = [id_name] if isinstance(id_name, str) else list(id_name)
     col_names = [f'P{i}' for i in range(probs_np.shape[1])]
     probs_df = pd.DataFrame(probs_np, columns=col_names, index=data_df.index)
 
-    return pd.concat((data_df[[id_name]], probs_df), axis=1)
+    return pd.concat((data_df[id_names], probs_df), axis=1)

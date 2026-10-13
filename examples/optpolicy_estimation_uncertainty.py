@@ -13,13 +13,12 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.10.0
+Version: 0.11.0
 
 This is an example showing how to use the adjustments for policy score
 uncertainty in the mcf optimal policy module.
 
 """
-from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -29,8 +28,7 @@ from mcf.example_data import example_data
 from mcf.optpolicy_main import OptimalPolicy
 from mcf.reporting import McfOptPolReport
 
-# ---- This script is experimental !
-#      Be careful, it will run for a long time!
+# Fit a separate policy for every method and risk-adjustment value.
 
 
 # ------------- NOT passed to OptimalPolicy --------------------------------------------------------
@@ -52,11 +50,6 @@ PRED_OBS = 2000         # Number of observations of prediction data.
 #                         features that are used in training. Policy scores are
 #                         not required. Default is 1000.
 
-# If True, scores are adjusted for fairness
-# considerations a là Bearth, Lechner, Mareckova, and Muny (2024). Requires
-# the specification of some additional keywords below
-# (var_protected_xxx, fair_xxx).
-
 PREDDATA_IS_TRAINDATA = False  # If True, the same data will be used
 #                                for training and prediction (in this case, PRED_OBS is ignored).
 
@@ -74,134 +67,106 @@ training_df, prediction_df, name_dict = example_data(obs_y_d_x_iate=TRAIN_OBS,
                                                      descr_stats=True
                                                      )
 if PREDDATA_IS_TRAINDATA:
-    prediction_df = training_df
+    prediction_df = training_df.copy()
 
 # ------------- Methods used in Optimal Policy Module ----------------------------------------------
-# METHODS = ('best_policy_score', 'bps_classifier', 'policy_tree',)
-# Using 'best_policy_score' requires scores also for the prediction data!
-# Therefore, training data is used for the evaluation of 'best_policy_score'.
+# These methods learn feature-based rules. Best-score allocation additionally needs
+# prediction scores and their standard errors if risk-adjusted scores are absent.
 GEN_METHOD_ALL = ('policy_tree', 'bps_classifier',)
 
 # -------- All what follows are parameters of the OptimalPolicy ------------------------------------
-#   Whenever None is specified, parameter will be set to default values.
+#   Omitted keywords use API defaults; None may select automatic settings.
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 GEN_OUTPATH = Path.cwd() / 'example/outputOPT'  # Directory for output.
-#   If it does not exist, it will be created. Default is an *.out directory
-#   just below to the directory where the programme is run.
+# Explicit paths get a method subdirectory. None uses output below the working directory;
+# nonempty output directories normally receive a numeric suffix.
 
 WEIGHTPLOT_PATH = Path.cwd() / 'out'
-#   Path to put the plots for the different fairness weighting; define as Path object
+#   Directory for plots comparing different estimation-risk adjustment values.
 
-GEN_OUTFILETEXT = "OptPolicy_0_8_0_Fairness"  # File for text output
+GEN_OUTFILETEXT = 'OptPolicy_0_11_0_EstimationRisk'  # File for text output
 #   Default is 'txtFileWithOutput'.
-#   *.txt file extension will be added by the programme
+#   The programme adds the .txt extension.
 
-# ---------------- Names of variables used ---------------------------------------------------------
-VAR_ID_NAME = 'id'     # Name of identifier in data. Default is None.
+# Variable names
+# --------------
+# Optional row identifier. evaluate() still pairs rows by position, not by ID.
+VAR_ID_NAME = 'id'
 
-VAR_D_NAME = 'treat'   # Name of discrete treatment.
-#   Needed in training data only if 'changers' (different treatment than
-#   observed treatment) are analysed and if allocation is compared to observed
-#   allocation.
+# Observed treatment, used for evaluation against the observed allocation and for switcher
+# summaries. Use integer codes 0,...,K-1 in policy-score order.
+VAR_D_NAME = 'treat'
 
+# Required policy-score names in treatment order 0,...,K-1. Usually potential outcomes. If using
+# effects relative to treatment 0, include a zero score for that reference treatment.
 VAR_POLSCORE_NAME = ('y_pot0', 'y_pot1', 'y_pot2',)
-#   Treatment specific variables to measure the value of individual treatments,
-#   starting with the first, second, third, ..., treatment (e.g. corresponding
-#   to treatment values 0, 1, 2, ...).
-#   This is usually the estimated potential outcome or any other score related
-#   quantity. If Individualized Average Treatment Effects (e.g., of the effect
-#   1-0, 2-0, 3-0, etc. are provided instead, make sure that the reference
-#   treatment (in this case treatment 0) is included as a vector of zeros
-#   (in this example it corresponds to the IATE of 0-0, which is of course 0
-#   for all observations).
 
+# Numeric, finite, nonnegative standard errors, in the same order as the policy scores. Required
+# by estrisk_adjust().
 VAR_POLSCORE_SE_NAME = ('y_pot0_se', 'y_pot1_se', 'y_pot2_se',)
-#   Standard errors of individual policy scores (same order as
-#   VAR_POLSCORE_NAME). Default is None.
 
+# Additional evaluation scores. Names are flattened and deduplicated, then grouped into
+# consecutive blocks of K treatments. Only complete blocks with all columns present are evaluated.
+# Each block must follow policy-score treatment order.
 VAR_POLSCORE_DESC_NAME = (('zero', 'ite1vs0', 'ite2vs0',),
                           (('x_cont0', 'iate1vs0', 'iate2vs0',)))
-#   Tuple of tuples. Each tuple of dimension equal to the number of treatments
-#   contains treatment specific variables that are used to evaluate the effect
-#   of the allocation with respect to those variables. This could be for
-#   example policy score not used in training, but which are relevant
-#   nevertheless. Default is no variables.
 
+# Ordered decision variables, including binary features, for trees/classifiers and allocation
+# descriptions. At least one ordered or unordered feature is required for these learning methods.
 VAR_X_NAME_ORD = ('x_cont0', 'x_cont1', 'x_cont2', 'x_ord0', 'x_ord1', 'x_ord2')
-#   Ordered variables used to build policy tree (including dummy variables) and
-#   classifier. They are also used to characterise the allocation.
 
+# Unordered decision variables. Use integer-coded categories with at least three distinct values
+# in retained training data; put binary features in VAR_X_NAME_ORD.
 VAR_X_NAME_UNORD = ('x_unord0', 'x_unord1', 'x_unord2',)
-#   Unordered variables used to build policy tree and classifier.They are also
-#    used to characterise the allocation.
 
+# Features used to predict allocations for variable-importance diagnostics during evaluate().
+# Default None.
 VAR_VI_X_NAME = ('x_cont0', 'x_cont1', 'x_cont2',)
-#   Names of variables for which variable importance is computed.
-#   Default is None.
-VAR_VI_TO_DUMMY_NAME = ('x_unord0',)
-#   Names of categorical variables for which variable importance is computed.
-#   These variables will be broken up into dummies. Default is None.
 
-# ----------------- Allocations adjusted for estimation risk ---------------------------------------
-# Two methods are explicitly designed to account for estimation risk.
-# Generally, the ideas implemented follow the paper by Chernozhukov, Lee, Rosen,
-# and Sun (2025), Policy Learning With Confidence, arXiv. However, since several
-# approximations are used in the algorithm, the methods will have the direct
-# confidence-level-related interpretations suggested by these authors.
-#
-# To be applicable, it is necessary to provide the standard errors of the
-# individualized average treatment effects relative to alternative zero,
-# 'VAR_EFFECT_VS_0_SE'.
-#
-# The first method 'adjust_risk' adjust the policy scores for estimation risk.
-# Once the scores are adjusted, standard procedures can be used. The adjustment
-# is based on subtracting multiples, k, of the standard error from the
-# policy score (or normalized score, ie., the IATE).
-#
-# The second method 'estimation_error_trade_off' is useful to show the trade-off
-# between the expected welfare and the associated estimation risk when
-# of allocations based on several values of k.
-#
-# ESTRISK_VALUE = None
-# The is k in the formula 'policy_score - k * standard_error' used to adjust
-# the scores for estimation risk. Default (or None) is 1.
-#
+# Categorical predictors expanded into dummies for variable-importance diagnostics. Default None.
+VAR_VI_TO_DUMMY_NAME = ('x_unord0',)
+
+# Estimation-risk adjustment
+# adjusted_score = policy_score - k * standard_error, with finite k (default 1).
+# Scores and standard errors must be finite, and standard errors nonnegative.
+# estrisk_adjust() returns data_estrisk_df and selects its adjusted score columns.
+# Repeated calls replace adjustments from the original scores; they do not compound.
+# Use a fresh instance for each k here to keep learned policies and reports separate.
+# k is a sensitivity parameter, without a direct confidence-level interpretation.
 
 ESTRISK_VALUE_TUPLE = (0, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2,)
 #  Values of ESTRISK_VALUE to be used below for comparing different
 #  allocations.
 
-# ---------------------- Tree depth of policy tree -------------------------------------------------
+# Policy-tree depth
+# -----------------
+# Maximum split depth of the first policy tree. Default 3; this example uses 2. A depth d allows
+# at most 2**d leaves; fitted trees can be smaller.
+PT_DEPTH_TREE_1 = 2
 
-PT_DEPTH_TREE_1 = 2   # Depth of 1st optimal tree. Default is 3.
-#   In this example, this parameter is set to 2 to speed up computation.
-
-PT_DEPTH_TREE_2 = 2   # Depth of 2nd optimal tree. This set is built within
-#   the strata obtained from the leaves of the first tree. If set to 0, a second
-#   tree is not built. Default is 1 (together with the default for
-#   pt_depth_tree_1 this leads to a (not optimal) total tree of level of 4.
-#   In this example, this parameter is set to 2.
-
-#   Note that tree depth is defined such that a depth of 1 implies 2 leaves,
-#   a depth of 2 implies 4 leaves, a depth of = 3 implies 8 leaves, etc.
+# Maximum extra split depth within each first-stage leaf. Default 1; 0 disables the second stage.
+# The two stages are optimized sequentially. Here 2 + 2 allows at most 4 split levels and 16
+# leaves.
+PT_DEPTH_TREE_2 = 2
 
 # -------------- Other parameters (costs and restrictions) -----------------------------------------
 OTHER_MAX_SHARES = (1, 1, 1)  # Maximum share allowed for each treatment.
-#   This is a tuple with as many elements as treatments.
-#   0 <  OTHER_MAX_SHARES <= 1.  (1,...,1) implies unconstrained optimization
-#   (default).
+#  Maximum allowed share for each treatment, in the order of VAR_POLSCORE_NAME.
+#  Specify one finite value per treatment, with 0 <= share <= 1.
+#  A value of 0 specifies zero capacity for that treatment.
+#  Shares must sum to at least 1; feasibility is also checked using integer observation counts.
+#  Default (or None) is (1, ..., 1), corresponding to no share restrictions.
 
-# The following is an example on how the fairness adjustment of the
-# OptimalPolicy object can be used.
-# For convenience the parameters are collected and passed as a dictionary.
-# Of course, they can also be passed as single parameters (or not at all, in
-# which case default values are used).
+# This example adjusts policy scores for estimation risk before learning allocations.
+# Parameters are collected in a dictionary and passed to OptimalPolicy.
+# Omitted parameters use their defaults.
 params_org = {'gen_outfiletext': GEN_OUTFILETEXT,
               'gen_outpath': GEN_OUTPATH,
               'other_max_shares': OTHER_MAX_SHARES,
               'pt_depth_tree_1': PT_DEPTH_TREE_1,
               'pt_depth_tree_2': PT_DEPTH_TREE_2,
               'var_d_name': VAR_D_NAME,
+              'var_id_name': VAR_ID_NAME,
               'var_polscore_desc_name': VAR_POLSCORE_DESC_NAME,
               'var_polscore_name': VAR_POLSCORE_NAME,
               'var_vi_x_name': VAR_VI_X_NAME,
@@ -210,52 +175,51 @@ params_org = {'gen_outfiletext': GEN_OUTFILETEXT,
               'var_x_name_unord': VAR_X_NAME_UNORD,
               'var_polscore_se_name': VAR_POLSCORE_SE_NAME,
               }
-if not APPLIC_PATH.exists():
-    APPLIC_PATH.mkdir(parents=True)
+APPLIC_PATH.mkdir(parents=True, exist_ok=True)
 
 welfare_np = np.zeros((len(ESTRISK_VALUE_TUPLE), len(GEN_METHOD_ALL),))
 
 # 'True' values
 pot_pred_true_np = prediction_df[list(VAR_POLSCORE_NAME)].to_numpy()
 
-for mult_idx, muliplier in enumerate(ESTRISK_VALUE_TUPLE):
-    params = params_org.copy()
-    params['estrisk_value'] = muliplier
-    myoptp_risk = OptimalPolicy(**params)
-    estrisk = myoptp_risk.estrisk_adjust(training_df.copy(), data_title='training')
-    training_risk_df = estrisk['data_estrisk_df']
-    polscore_risk_name = myoptp_risk.var_cfg.polscore_name.copy()
-
+for mult_idx, multiplier in enumerate(ESTRISK_VALUE_TUPLE):
     for midx, gen_method in enumerate(GEN_METHOD_ALL):
-        print(f'Optp_method: {gen_method}, '
-              f'value of adjustment parameter: {muliplier}')
-        myoptp = deepcopy(myoptp_risk)
-        myoptp.gen_cfg.method = gen_method
+        print(f'Optp_method: {gen_method}  Value of adjustment parameter: {multiplier}')
+        params = params_org.copy()
+        params['gen_method'] = gen_method
+        params['estrisk_value'] = multiplier
+        params['gen_outpath'] = GEN_OUTPATH / f'estrisk_{multiplier:g}'
+        myoptp = OptimalPolicy(**params)
+        estrisk = myoptp.estrisk_adjust(training_df.copy(), data_title='training')
+        training_risk_df = estrisk['data_estrisk_df']
         # ----- Training data ----------
         solve_dict, training_risk_df = myoptp.solve(training_risk_df.copy(),
-                                                    data_title='training fair'
+                                                    data_title='training risk',
                                                     )
         myoptp.evaluate(solve_dict['allocation_df'], training_risk_df.copy(),
-                        data_title='training risk'
+                        data_title='training risk',
                         )
         results_alloc = myoptp.allocate(prediction_df.copy(), data_title='prediction')
 
-        # Evaluate using prediction data
+        # evaluate() uses original scores via its descriptive-score fallback here.
+        # Keep data and allocations in the same row order; IDs do not align them.
         myoptp.evaluate(results_alloc['allocation_df'], prediction_df.copy(),
-                        data_title='prediction'
+                        data_title='prediction',
                         )
         myoptp.print_time_strings_all_steps()
-        my_report = McfOptPolReport(optpol=myoptp, outputfile='Report_OptP_')
+        my_report = McfOptPolReport(optpol=myoptp, outputpath=myoptp.gen_cfg.outpath,
+                                     outputfile='Report_OptP_' + gen_method)
 
         my_report.report()
         del my_report, myoptp
 
-        # Compute welfare with original policy scores
+        # Compute welfare using original simulated potential outcomes and the same row order.
         new_alloc_np = results_alloc['allocation_df'].to_numpy()[:, 0].reshape(-1)
         row_indices = np.arange(len(new_alloc_np))
         welfare_indiv_np = pot_pred_true_np[row_indices, np.int32(new_alloc_np)]
         welfare_np[mult_idx, midx] = np.mean(welfare_indiv_np)
 
+# Normalize each method by its own k=0 welfare.
 welfare_norm = welfare_np / welfare_np[0, :]
 
 TITEL = 'Welfare (with adjustments for estimation risk)'

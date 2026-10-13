@@ -71,7 +71,7 @@ class SensCfg:
             raise ValueError(
                 'p_cbgate must be set to True if sens_cbgate is True'
                 )
-        if gate_b and not getattr(p_cfg, 'bgate', False):
+        if bgate_b and not getattr(p_cfg, 'bgate', False):
             raise ValueError('p_bgate must be set to True if sens_bgate is True')
 
         refpop_v = None if reference_population is None else reference_population
@@ -82,8 +82,11 @@ class SensCfg:
                 scens_v = ('basic',)
             case str() as s:
                 scens_v = (s,)
+            case list() | tuple():
+                scens_v = tuple(scenarios)
             case _:
                 raise NotImplementedError(f'Sensitivity scenario {scenarios!r} not implemented')
+
         eligible_scenarios = ('basic',)
         wrong_scenarios = [scen for scen in scens_v
                            if scen not in eligible_scenarios

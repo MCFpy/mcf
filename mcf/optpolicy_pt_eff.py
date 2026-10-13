@@ -11,7 +11,6 @@ from functools import lru_cache
 from itertools import count
 from numbers import Real  # For type checking only
 from math import inf
-from random import randrange
 from typing import Any, TYPE_CHECKING, Sequence, TypeVar
 
 from numba import njit
@@ -19,9 +18,13 @@ import numpy as np
 from numpy.typing import NDArray
 try:
     import ray
-except ImportError:
+except (ImportError, OSError):
     ray = None
 from pandas import DataFrame
+try:
+    from tqdm.auto import tqdm
+except ImportError:
+    tqdm = None
 
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_print_stats as mcf_ps
@@ -46,10 +49,11 @@ def optimal_tree_eff_proc(optp_: 'OptimalPolicy',
     other_cfg = optp_.other_cfg
     if gen_cfg.with_output:
         print('\nBuilding optimal policy / decision tree')
+    use_tqdm, output_clean = mcf_gp.tqdm_setup(tqdm, gen_cfg.with_output)
+
     (data_x, data_ps, data_ps_diff, data_opt_treat, name_x, type_x, values_x, values_comp_all
      ) = prepare_data_for_tree_building_eff(optp_, data_df, seed=seed, zero_tol=zero_tol)
     # All values_x are already sorted before this step
-    optimal_tree, x_trees = None, []
 
     kw_args = {'pt_cfg': pt_cfg, 'gen_cfg': gen_cfg, 'other_cfg': other_cfg,
                'treedepth': pt_cfg.depth, 'with_numba': int_cfg.with_numba,
@@ -59,6 +63,11 @@ def optimal_tree_eff_proc(optp_: 'OptimalPolicy',
     if gen_cfg.mp_parallel > 1.5:
         ray_err_txt='Ray does not start up in policy tree estimation.'
         if int_cfg.mp_use_old_ray:
+            if ray is None or ray_tree_search_eff_multip_single is None:
+                raise ImportError('int_cfg.mp_use_old_ray=True, but ray is not installed. '
+                                  'Install ray or use the new backend with '
+                                  'mp_use_old_ray=False.'
+                                  )
             if not ray.is_initialized():
                 init_ray_with_fallback(gen_cfg.mp_parallel, gen_cfg,
                                        ray_err_txt=ray_err_txt,
@@ -88,23 +97,30 @@ def optimal_tree_eff_proc(optp_: 'OptimalPolicy',
                     m_i=m_i, seed=int(m_i**3),
                     )
                     for m_i in range(len(type_x))]
+
             total_threads = len(still_running)
-            idx, x_trees = 0, []
-            while len(still_running) > 0:
-                finished, still_running = ray.wait(still_running, num_returns=1)
-                finished_res = ray.get(finished)
-                for ret_all_i in finished_res:
-                    mcf_gp.progress_clean_memory(output=gen_cfg.with_output,
-                                                 current_idx=idx+1, total=total_threads,
-                                                 )
-                    x_trees.append(ret_all_i)
-                    idx += 1
+            task_positions = {task_ref: position for position, task_ref in enumerate(still_running)}
+            idx = 0
+            x_trees = [None] * total_threads
+            pbar = tqdm(total=total_threads, desc='Policy tree') if use_tqdm else None
+
+            try:
+                while len(still_running) > 0:
+                    finished, still_running = ray.wait(still_running, num_returns=1)
+                    finished_res = ray.get(finished)
+                    for task_ref, ret_all_i in zip(finished, finished_res):
+                        if pbar is not None:
+                            pbar.update()
+                        mcf_gp.progress_clean_memory(output=output_clean, current_idx=idx + 1,
+                                                     total=total_threads,
+                                                     )
+                        x_trees[task_positions[task_ref]] = ret_all_i
+                        idx += 1
+
+            finally:
+                if pbar is not None:
+                    pbar.close()
         else:
-            # shared_tree_search_data = {'data_x': data_x,
-            #                            'data_ps': data_ps,
-            #                            'data_ps_diff': data_ps_diff,
-            #                            'data_opt_treat': data_opt_treat,
-            #                            }
             with forest_executor_context(int_cfg=int_cfg, maxworkers=gen_cfg.mp_parallel,
                                          ray_err_txt=ray_err_txt,
                                          fail_txt='Failed to make executor in tree search.',
@@ -152,13 +168,19 @@ def optimal_tree_eff_proc(optp_: 'OptimalPolicy',
                 idx = 0
                 x_trees = []
 
-                for ret_all_i in map_task_batches(executor=executor, tasks=tasks, int_cfg=int_cfg,
-                                                  maxworkers=maxworkers,
-                                                  min_worker_waves = (
-                                                      4 if int_cfg.mp_backend == 'joblib' else 1
-                                                      ),
-                                                  ):
-                    mcf_gp.progress_clean_memory(output=gen_cfg.with_output, current_idx=idx + 1,
+                result_iter = map_task_batches(executor=executor,
+                                               tasks=tasks,
+                                               int_cfg=int_cfg,
+                                               maxworkers=maxworkers,
+                                               min_worker_waves=(4 if int_cfg.mp_backend == 'joblib'
+                                                                 else 1
+                                                                 ),
+                                               )
+                if use_tqdm:
+                    result_iter = tqdm(result_iter, total=total_threads, desc='Policy tree')
+
+                for ret_all_i in result_iter:
+                    mcf_gp.progress_clean_memory(output=output_clean, current_idx=idx + 1,
                                                  total=total_threads,
                                                  )
                     x_trees.append(ret_all_i)
@@ -171,7 +193,7 @@ def optimal_tree_eff_proc(optp_: 'OptimalPolicy',
         optimal_reward = optimal_reward[max_i]
         optimal_tree, obs_total = x_trees[max_i][0], x_trees[max_i][2]
     else:
-        (optimal_tree, optimal_reward, obs_total, values_comp_all
+        (optimal_tree, optimal_reward, obs_total, _,
          ) = tree_search_eff(data_ps,
                              data_ps_diff=data_ps_diff, data_opt_treat=data_opt_treat,
                              data_x=data_x,
@@ -203,6 +225,201 @@ def tree_search_eff_multip_single_backend_xtr(*, data_ps: Any,
                                          data_x=data_x,
                                          **kwargs,
                                          )
+
+
+def evaluate_terminal_leaves_eff(score_sums: NDArray[Any],
+                                 observations: NDArray[Any],
+                                 costs: NDArray[Any], *,
+                                 other_cfg: 'OtherCfg',
+                                 pt_cfg: 'PtCfg',
+                                 ) -> tuple[NDArray[Any], NDArray[Any]]:
+    """Select the best feasible treatment for every candidate leaf."""
+    rewards = score_sums - observations[:, None] * costs
+
+    if other_cfg.restricted and pt_cfg.enforce_restriction:
+        max_by_treat = np.asarray(other_cfg.max_by_treat)
+        feasible = observations[:, None] <= max_by_treat[None, :]
+        any_feasible = np.any(feasible, axis=1)
+        rewards = np.where(feasible, rewards, -np.inf)
+
+        if not np.all(any_feasible):
+            fallback_treatment = int(np.argmax(max_by_treat))
+            no_feasible = ~any_feasible
+            rewards[no_feasible, fallback_treatment] = (
+                score_sums[no_feasible, fallback_treatment]
+                - observations[no_feasible] * costs[fallback_treatment]
+                )
+
+    treatments = np.argmax(rewards, axis=1)
+    selected_rewards = rewards[np.arange(len(rewards)), treatments]
+
+    return treatments, selected_rewards
+
+
+@njit
+def cumulative_scores_at_splits_numba(data_ps: NDArray[Any],
+                                      order: NDArray[Any],
+                                      split_positions: NDArray[Any],
+                                      ) -> tuple[NDArray[Any], NDArray[Any]]:
+    """Accumulate scores in sorted order and retain the required prefix sums."""
+    no_splits = len(split_positions)
+    no_treatments = data_ps.shape[1]
+    scores_left = np.empty((no_splits, no_treatments), dtype=np.float64)
+    scores_total = np.zeros(no_treatments, dtype=np.float64)
+    split_order = np.argsort(split_positions)
+    next_split = 0
+
+    for position in range(len(order)):
+        row = order[position]
+        for treatment in range(no_treatments):
+            scores_total[treatment] += data_ps[row, treatment]
+
+        while next_split < no_splits:
+            split_idx = split_order[next_split]
+            if split_positions[split_idx] != position + 1:
+                break
+            for treatment in range(no_treatments):
+                scores_left[split_idx, treatment] = scores_total[treatment]
+            next_split += 1
+
+    return scores_left, scores_total
+
+
+def evaluate_terminal_splits_eff(data_ps: NDArray[Any],
+                                 data_x: NDArray[Any],
+                                 values_to_check: Sequence, *,
+                                 unordered: bool,
+                                 min_leaf_size: int,
+                                 gen_cfg: 'GenCfg',
+                                 other_cfg: 'OtherCfg',
+                                 pt_cfg: 'PtCfg',
+                                 with_numba: bool = True,
+                                 ) -> tuple[Any, float, NDArray[Any], int, int] | None:
+    """Evaluate all candidate terminal splits simultaneously."""
+    obs_total = len(data_x)
+
+    if unordered:
+        categorical_values, category_codes = np.unique(data_x, return_inverse=True)
+        no_categories = len(categorical_values)
+        category_counts = np.bincount(category_codes, minlength=no_categories)
+
+        scores_by_category = np.empty((no_categories, data_ps.shape[1]), dtype=float)
+        for treat_idx in range(data_ps.shape[1]):
+            scores_by_category[:, treat_idx] = np.bincount(
+                category_codes, weights=data_ps[:, treat_idx], minlength=no_categories
+                )
+        candidate_left = np.zeros((len(values_to_check), no_categories), dtype=bool)
+        if len(values_to_check):
+            candidate_sizes = np.fromiter((len(value) for value in values_to_check),
+                                          dtype=np.intp, count=len(values_to_check),
+                                          )
+            candidate_rows = np.repeat(np.arange(len(values_to_check)), candidate_sizes)
+            selected_codes = np.searchsorted(categorical_values, np.concatenate(values_to_check))
+            candidate_left[candidate_rows, selected_codes] = True
+
+        obs_left = candidate_left @ category_counts
+        valid = (obs_left >= min_leaf_size) & (obs_total - obs_left >= min_leaf_size)
+        if not np.any(valid):
+            return None
+
+        values_valid = [values_to_check[idx] for idx in np.flatnonzero(valid)]
+        obs_left = obs_left[valid]
+        scores_left = candidate_left[valid] @ scores_by_category
+        scores_total = scores_by_category.sum(axis=0)
+
+    else:
+        values_to_check = np.asarray(values_to_check)
+        order = np.argsort(data_x, kind='quicksort')
+        data_x_sorted = data_x[order]
+
+        obs_left = np.searchsorted(data_x_sorted, values_to_check, side='right')
+        valid = (obs_left >= min_leaf_size) & (obs_total - obs_left >= min_leaf_size)
+        if not np.any(valid):
+            return None
+
+        values_valid = values_to_check[valid]
+        obs_left = obs_left[valid]
+        if with_numba and data_ps.dtype in (np.float32, np.float64):
+            scores_left, scores_total = cumulative_scores_at_splits_numba(data_ps, order, obs_left)
+        else:
+            scores_cumsum = np.cumsum(data_ps[order], axis=0, dtype=np.float64)
+            scores_left = scores_cumsum[obs_left - 1]
+            scores_total = scores_cumsum[-1]
+
+    obs_right = obs_total - obs_left
+    scores_right = scores_total - scores_left
+
+    costs = np.asarray(pt_cfg.cost_of_treat_restrict, dtype=float)
+
+    treat_left, reward_left = evaluate_terminal_leaves_eff(scores_left, obs_left, costs,
+                                                           other_cfg=other_cfg, pt_cfg=pt_cfg,
+                                                           )
+    treat_right, reward_right = evaluate_terminal_leaves_eff(scores_right, obs_right, costs,
+                                                             other_cfg=other_cfg, pt_cfg=pt_cfg,
+                                                             )
+    if other_cfg.restricted and pt_cfg.enforce_restriction:
+        no_by_treat = np.zeros((len(values_valid), gen_cfg.no_of_treat), dtype=np.int64)
+        rows = np.arange(len(values_valid))
+        no_by_treat[rows, treat_left] += obs_left
+        no_by_treat[rows, treat_right] += obs_right
+
+        max_by_treat = np.asarray(other_cfg.max_by_treat)
+        violations = no_by_treat > max_by_treat
+        relative_excess = np.zeros_like(no_by_treat, dtype=float)
+        positive_capacity = violations & (max_by_treat > 0)
+
+        np.divide(no_by_treat - max_by_treat,
+                  max_by_treat,
+                  out=relative_excess,
+                  where=positive_capacity,
+                  )
+        penalty = np.max(relative_excess, axis=1)
+        zero_capacity_violation = np.any(violations & (max_by_treat <= 0), axis=1)
+        penalty[zero_capacity_violation] = 1
+        penalty = np.minimum(penalty, 1)
+
+        reward_left -= penalty * np.abs(reward_left)
+        reward_right -= penalty * np.abs(reward_right)
+
+    rewards = reward_left + reward_right
+    best_idx = int(np.argmax(rewards))
+
+    if other_cfg.restricted and pt_cfg.enforce_restriction:
+        best_no_by_treat = no_by_treat[best_idx]
+    else:
+        best_no_by_treat = np.zeros(gen_cfg.no_of_treat, dtype=np.int64)
+        best_no_by_treat[treat_left[best_idx]] += obs_left[best_idx]
+        best_no_by_treat[treat_right[best_idx]] += obs_right[best_idx]
+
+    return (values_valid[best_idx],
+            float(rewards[best_idx]),
+            best_no_by_treat,
+            int(treat_left[best_idx]),
+            int(treat_right[best_idx]),
+            )
+
+
+@njit
+def no_variation_float_numba(data_x: NDArray[Any],
+                             zero_tol: float,
+                             ) -> NDArray[np.bool_]:
+    """Check feature ranges, stopping as soon as sufficient variation is found."""
+    no_obs, no_features = data_x.shape
+    if no_obs == 0:
+        raise ValueError('Cannot check variation without observations.')
+    no_variation = np.empty(no_features, dtype=np.bool_)
+
+    for feature in range(no_features):
+        minimum = maximum = data_x[0, feature]
+        for observation in range(1, no_obs):
+            value = data_x[observation, feature]
+            minimum = np.minimum(minimum, value)
+            maximum = np.maximum(maximum, value)
+            if maximum - minimum >= zero_tol:
+                break
+        no_variation[feature] = maximum - minimum < zero_tol
+
+    return no_variation
 
 
 def tree_search_eff(data_ps: NDArray[Any], *,
@@ -250,9 +467,8 @@ def tree_search_eff(data_ps: NDArray[Any], *,
         tree, reward, no_by_treat = opt_pt_add.evaluate_leaf(
             data_ps, gen_cfg, other_cfg, pt_cfg, with_numba=with_numba)
     else:
-        if not no_further_splits and (treedepth < pt_cfg.depth):
-            no_further_splits = opt_pt_add.only_1st_tree_fct3(
-                data_ps, pt_cfg.cost_of_treat_restrict)
+        if not no_further_splits and treedepth < pt_cfg.depth:
+            no_further_splits = no_further_gain_split_funct(data_opt_treat)
 
         min_leaf_size = pt_cfg.min_leaf_size * 2**(treedepth - 2)
         no_of_x, reward = len(type_x), -inf
@@ -265,12 +481,24 @@ def tree_search_eff(data_ps: NDArray[Any], *,
         # enforced as it is more likely to lead to violations of the
         # restrictions.
         if treedepth < 4 and (pt_cfg.depth > 2 or not other_cfg.restricted):
-            no_gain_splitting = no_further_gain_split_funct(data_opt_treat)
+            if treedepth < pt_cfg.depth:
+                no_gain_splitting = no_further_splits
+            else:
+                no_gain_splitting = no_further_gain_split_funct(data_opt_treat)
         else:
             no_gain_splitting = False
 
         # Iterate over the single variables
-        no_variation = np.ptp(data_x, axis=0) < zero_tol
+
+        if with_numba and data_x.dtype in (np.float32, np.float64):
+            comparison_dtype = np.result_type(data_x, zero_tol)
+            tolerance = np.asarray(zero_tol, dtype=comparison_dtype).item()
+            no_variation = no_variation_float_numba(data_x, tolerance)
+        elif np.issubdtype(data_x.dtype, np.integer):
+            no_variation = np.min(data_x, axis=0) == np.max(data_x, axis=0)
+        else:
+            no_variation = np.ptp(data_x, axis=0) < zero_tol
+
         for m_i in range(no_of_x):
             if no_variation[m_i]:
                 continue
@@ -294,11 +522,49 @@ def tree_search_eff(data_ps: NDArray[Any], *,
                 )
             obs_all = data_x_m_i.shape[0]
 
+            if treedepth == 2 and not no_further_splits:
+                terminal_result = evaluate_terminal_splits_eff(data_ps,
+                                                               data_x_m_i,
+                                                               values_x_to_check,
+                                                               unordered=type_x_mi == 'unord',
+                                                               min_leaf_size=min_leaf_size,
+                                                               gen_cfg=gen_cfg,
+                                                               other_cfg=other_cfg,
+                                                               pt_cfg=pt_cfg,
+                                                               with_numba=with_numba,
+                                                               )
+                if terminal_result is not None:
+                    (val_terminal, reward_terminal, no_by_treat_terminal, treat_left, treat_right,
+                     ) = terminal_result
+
+                    if reward_terminal > reward:
+                        reward = reward_terminal
+                        no_by_treat = no_by_treat_terminal
+                        tree = merge_trees_eff(tree_l=treat_left,
+                                               tree_r=treat_right,
+                                               name_x_m=name_x[m_i],
+                                               type_x_m=type_x_mi,
+                                               val_x=val_terminal,
+                                               treedepth=treedepth,
+                                               )
+                continue
+
+            if type_x_mi == 'unord':
+                categorical_values, category_codes = np.unique(data_x_m_i, return_inverse=True)
+
             for val_x in values_x_to_check:
                 if type_x_mi == 'unord':
-                    left = np.isin(data_x_m_i, val_x)
+                    selected_codes = np.searchsorted(
+                        categorical_values, np.asarray(val_x)
+                        )
+                    category_left = np.zeros(
+                        len(categorical_values), dtype=bool
+                        )
+                    category_left[selected_codes] = True
+                    left = category_left[category_codes]
                 else:
-                    left = data_x_m_i <= (val_x + zero_tol)
+                    left = data_x_m_i <= val_x
+
                 obs_left = left.sum()
 
                 if obs_left < min_leaf_size:
@@ -310,27 +576,39 @@ def tree_search_eff(data_ps: NDArray[Any], *,
                     break
 
                 right = ~left
-
-                (tree_l, reward_l, no_by_treat_l, values_comp_all
-                 ) = tree_search_eff(data_ps[left, :],
-                                     data_ps_diff=data_ps_diff[left, :],
-                                     data_opt_treat=data_opt_treat[left], data_x=data_x[left, :],
-                                     name_x=name_x, type_x=type_x, values_x=values_x,
-                                     values_comp_all=values_comp_all, pt_cfg=pt_cfg,
-                                     gen_cfg=gen_cfg, other_cfg=other_cfg, treedepth=treedepth-1,
-                                     no_further_splits=no_further_splits, with_numba=with_numba,
-                                     seed=seed+1, zero_tol=zero_tol,
-                                     )
-                (tree_r, reward_r, no_by_treat_r, values_comp_all
-                 ) = tree_search_eff(data_ps[right, :],
-                                     data_ps_diff=data_ps_diff[right, :],
-                                     data_opt_treat=data_opt_treat[right], data_x=data_x[right, :],
-                                     name_x=name_x, type_x=type_x, values_x=values_x,
-                                     values_comp_all=values_comp_all, pt_cfg=pt_cfg,
-                                     gen_cfg=gen_cfg, other_cfg=other_cfg, treedepth=treedepth-1,
-                                     no_further_splits=no_further_splits, with_numba=with_numba,
-                                     seed=seed+1, zero_tol=zero_tol,
-                                     )
+                if treedepth == 2:
+                    tree_l, reward_l, no_by_treat_l = opt_pt_add.evaluate_leaf(
+                        data_ps[left, :], gen_cfg, other_cfg, pt_cfg, with_numba=with_numba
+                        )
+                    tree_r, reward_r, no_by_treat_r = opt_pt_add.evaluate_leaf(
+                        data_ps[right, :], gen_cfg, other_cfg, pt_cfg, with_numba=with_numba
+                        )
+                else:
+                    (tree_l, reward_l, no_by_treat_l, values_comp_all
+                     ) = tree_search_eff(data_ps[left, :],
+                                         data_ps_diff=data_ps_diff[left, :],
+                                         data_opt_treat=data_opt_treat[left],
+                                         data_x=data_x[left, :],
+                                         name_x=name_x, type_x=type_x, values_x=values_x,
+                                         values_comp_all=values_comp_all, pt_cfg=pt_cfg,
+                                         gen_cfg=gen_cfg, other_cfg=other_cfg,
+                                         treedepth=treedepth-1,
+                                         no_further_splits=no_further_splits,
+                                         with_numba=with_numba,
+                                         seed=seed+1, zero_tol=zero_tol,
+                                         )
+                    (tree_r, reward_r, no_by_treat_r, values_comp_all
+                     ) = tree_search_eff(data_ps[right, :],
+                                         data_ps_diff=data_ps_diff[right, :],
+                                         data_opt_treat=data_opt_treat[right],
+                                         data_x=data_x[right, :],
+                                         name_x=name_x, type_x=type_x, values_x=values_x,
+                                         values_comp_all=values_comp_all, pt_cfg=pt_cfg,
+                                         gen_cfg=gen_cfg, other_cfg=other_cfg,
+                                         treedepth=treedepth-1,
+                                         no_further_splits=no_further_splits, with_numba=with_numba,
+                                         seed=seed+1, zero_tol=zero_tol,
+                                         )
                 if other_cfg.restricted and pt_cfg.enforce_restriction:
                     reward_l, reward_r = opt_pt_add.adjust_reward(no_by_treat_l=no_by_treat_l,
                                                                   no_by_treat_r=no_by_treat_r,
@@ -346,8 +624,7 @@ def tree_search_eff(data_ps: NDArray[Any], *,
                     tree = merge_trees_eff(tree_l=tree_l, tree_r=tree_r, name_x_m=name_x[m_i],
                                            type_x_m=type_x[m_i], val_x=val_x, treedepth=treedepth,
                                            )
-                if no_further_splits:
-
+                if no_further_splits and tree is not None:
                     return tree, reward, no_by_treat, values_comp_all
 
     return tree, reward, no_by_treat, values_comp_all
@@ -389,9 +666,7 @@ def merge_trees_eff(*, tree_l: list[list],
     -------
     new_tree : List of lists. The merged trees.
     """
-    note_id = next(_id_gen) + randrange(100000)  # Counter lives as a default
-#   argument—no module-level globals. Random number added as this is used in
-#   parallel threads.
+    note_id = next(_id_gen)
     if treedepth == 2:
         leaf = [note_id, None, None, None, 1, name_x_m, type_x_m, val_x, [tree_l, tree_r]]
 
@@ -465,7 +740,7 @@ def tree_search_eff_multip_single(data_ps: NDArray[Any], *,
     assert treedepth != 1, 'This should not happen in Multiprocessing.'
     reward, tree, no_by_treat = -inf, None, None
 
-    min_leaf_size = pt_cfg.min_leaf_size
+    min_leaf_size = pt_cfg.min_leaf_size * 2**(treedepth - 2)
     x_col = data_x[:, m_i]
 
     values_x_to_check, values_comp_all[m_i] = get_val_to_check_eff(
@@ -476,12 +751,40 @@ def tree_search_eff_multip_single(data_ps: NDArray[Any], *,
         with_numba=with_numba,seed=seed, first_split_idx=first_split_idx, zero_tol=zero_tol,
         )
     type_x_m_i, name_x_m_i = type_x[m_i], name_x[m_i]
+
     obs_all = x_col.shape[0]
+
+    if treedepth == 2:
+        terminal_result = evaluate_terminal_splits_eff(data_ps,
+                                                       x_col,
+                                                       values_x_to_check,
+                                                       unordered=type_x_m_i == 'unord',
+                                                       min_leaf_size=min_leaf_size,
+                                                       gen_cfg=gen_cfg,
+                                                       other_cfg=other_cfg,
+                                                       pt_cfg=pt_cfg,
+                                                       with_numba=with_numba,
+                                                       )
+        if terminal_result is None:
+            return None, -inf, None
+
+        val_x, reward, no_by_treat, treat_left, treat_right = terminal_result
+        tree = merge_trees_eff(tree_l=treat_left, tree_r=treat_right, name_x_m=name_x_m_i,
+                               type_x_m=type_x_m_i, val_x=val_x, treedepth=treedepth,
+                               )
+        return tree, reward, no_by_treat
+
+    if type_x_m_i == 'unord':
+        categorical_values, category_codes = np.unique(x_col, return_inverse=True)
+
     for val_x in values_x_to_check:
         if type_x_m_i == 'unord':
-            left = np.isin(x_col, val_x)
+            selected_codes = np.searchsorted(categorical_values, np.asarray(val_x))
+            category_left = np.zeros(len(categorical_values), dtype=bool)
+            category_left[selected_codes] = True
+            left = category_left[category_codes]
         else:
-            left = x_col <= (val_x + zero_tol)
+            left = x_col <= val_x
 
         # Fast check of stopping criteria: Leaf size too small
         obs_left = left.sum()
@@ -490,21 +793,30 @@ def tree_search_eff_multip_single(data_ps: NDArray[Any], *,
             continue
 
         right = ~left
-
-        tree_l, reward_l, no_by_treat_l, values_comp_all = tree_search_eff(
-            data_ps[left, :],
-            data_ps_diff=data_ps_diff[left, :], data_opt_treat=data_opt_treat[left],
-            data_x=data_x[left, :], name_x=name_x, type_x=type_x, values_x=values_x,
-            values_comp_all=values_comp_all, pt_cfg=pt_cfg, gen_cfg=gen_cfg, other_cfg=other_cfg,
-            treedepth=treedepth-1, with_numba=with_numba, seed=seed+1, zero_tol=zero_tol,
-            )
-        tree_r, reward_r, no_by_treat_r, values_comp_all = tree_search_eff(
-            data_ps[right, :],
-            data_ps_diff=data_ps_diff[right, :], data_opt_treat=data_opt_treat[right],
-            data_x=data_x[right, :], name_x=name_x, type_x=type_x, values_x=values_x,
-            values_comp_all=values_comp_all, pt_cfg=pt_cfg, gen_cfg=gen_cfg, other_cfg=other_cfg,
-            treedepth=treedepth-1, with_numba=with_numba, seed=seed+1, zero_tol=zero_tol,
-            )
+        if treedepth == 2:
+            tree_l, reward_l, no_by_treat_l = opt_pt_add.evaluate_leaf(
+                data_ps[left, :], gen_cfg, other_cfg, pt_cfg, with_numba=with_numba
+                )
+            tree_r, reward_r, no_by_treat_r = opt_pt_add.evaluate_leaf(
+                data_ps[right, :], gen_cfg, other_cfg, pt_cfg, with_numba=with_numba
+                )
+        else:
+            tree_l, reward_l, no_by_treat_l, values_comp_all = tree_search_eff(
+                data_ps[left, :],
+                data_ps_diff=data_ps_diff[left, :], data_opt_treat=data_opt_treat[left],
+                data_x=data_x[left, :], name_x=name_x, type_x=type_x, values_x=values_x,
+                values_comp_all=values_comp_all, pt_cfg=pt_cfg, gen_cfg=gen_cfg,
+                other_cfg=other_cfg,
+                treedepth=treedepth-1, with_numba=with_numba, seed=seed+1, zero_tol=zero_tol,
+                )
+            tree_r, reward_r, no_by_treat_r, values_comp_all = tree_search_eff(
+                data_ps[right, :],
+                data_ps_diff=data_ps_diff[right, :], data_opt_treat=data_opt_treat[right],
+                data_x=data_x[right, :], name_x=name_x, type_x=type_x, values_x=values_x,
+                values_comp_all=values_comp_all, pt_cfg=pt_cfg, gen_cfg=gen_cfg,
+                other_cfg=other_cfg,
+                treedepth=treedepth-1, with_numba=with_numba, seed=seed+1, zero_tol=zero_tol,
+                )
         if other_cfg.restricted and pt_cfg.enforce_restriction:
             reward_l, reward_r = opt_pt_add.adjust_reward(no_by_treat_l=no_by_treat_l,
                                                           no_by_treat_r=no_by_treat_r,
@@ -539,8 +851,10 @@ def get_val_to_check_eff(type_x_m_i: str, *,
     match type_x_m_i:
         case 'cont' | 'disc':
             if no_gain_split:
-                max_x, min_x = data_x_m_i.max(), data_x_m_i.min()
-                values_x_to_check = (min_x + 0.5 * (max_x - min_x),)
+                values, counts = np.unique(data_x_m_i, return_counts=True)
+                obs_left = np.cumsum(counts)
+                split_idx = np.argmin(np.abs(2 * obs_left - data_x_m_i.size))
+                values_x_to_check = (values[split_idx],)
             else:
                 values_x_to_check_tmp = get_values_cont_ord_x_eff(data_x_m_i, values_x_m_i)
                 if first_split_idx is not None and len(values_x_to_check_tmp) > 2:
@@ -555,11 +869,7 @@ def get_val_to_check_eff(type_x_m_i: str, *,
                 else:
                     values_x_to_check = values_x_to_check_tmp
         case 'unord':
-            # Take the pre-computed values of the splitting points that fall
-            #  into the range of the data
-            if no_gain_split:
-                no_of_evalupoints = 1
-                eva_cat_mult = 1
+            # Take pre-computed values of the splitting points that fall into the range of the data
             (values_x_to_check, values_comp_all_m_i) = combinations_categorical_eff(
                 data_x_m_i, data_ps_diff, values_comp_all_m_i,
                 no_of_evalupoints,
@@ -588,19 +898,26 @@ def combinations_categorical_eff(single_x_np: NDArray[Any],
     """Create all possible combinations of list elements, w/o complements."""
     values = np.unique(single_x_np)
     no_of_values = len(values)
-    no_eva_point = int(no_of_evalupoints * factor)
+    no_eva_point = max(1, int(no_of_evalupoints * factor))
 
     if values_comp_all is not None:
         for hist in values_comp_all:
             if len(hist[0]) == len(values) and np.array_equal(hist[0], values):
                 return hist[1], values_comp_all  # No need to compute new
 
-    if with_numba:
+    if with_numba and no_of_values < 64:
         no_of_combinations = total_sample_splits_categorical_eff_numba(no_of_values)
     else:
         no_of_combinations = total_sample_splits_categorical_eff(no_of_values)
 
-    if no_of_combinations < no_eva_point:
+    exhaustive = no_of_combinations <= no_eva_point
+
+    if exhaustive and values_comp_all is not None:
+        for hist in values_comp_all:
+            if len(hist[0]) == len(values) and np.array_equal(hist[0], values):
+                return hist[1], values_comp_all  # No need to compute new
+
+    if exhaustive:
         combinations_new = all_combinations_no_complements_eff(values)
     else:
         if select_values:
@@ -608,20 +925,22 @@ def combinations_categorical_eff(single_x_np: NDArray[Any],
                 len(values), no_eva_point, with_numba=with_numba))
 
             rng = np.random.default_rng(seed=seed)
-            # indx = rng.choice(range(len(values)), size=no_of_evalupoints_new,
-            #                   replace=False)
-            indx = rng.choice(len(values), size=no_of_evalupoints_new,
-                              replace=False)
+            indx = rng.choice(len(values), size=no_of_evalupoints_new, replace=False)
+
             combinations_new = all_combinations_no_complements_eff(values[indx])
+            if len(combinations_new) > no_eva_point:
+                combination_idx = rng.choice(len(combinations_new), size=no_eva_point, replace=False
+                                             )
+                combinations_new = [combinations_new[idx] for idx in combination_idx]
         else:
             # Sort values according to policy score differences
             values_sorted, no_of_ps = opt_pt_add.get_values_ordered(
-                single_x_np, ps_np_diff, values, no_of_values, with_numba=with_numba,
-                zero_tol=zero_tol,
+                single_x_np, ps_np_diff, values, no_of_values,
+                with_numba=with_numba, zero_tol=zero_tol,
                 )
-            combinations_t = sorted_values_into_combinations_eff(
-                values_sorted, no_of_ps, no_of_values
-                )
+            combinations_t = sorted_values_into_combinations_eff(values_sorted, no_of_ps,
+                                                                 no_of_values,
+                                                                 )
             combinations_ = drop_complements_eff(combinations_t, values,sublist=False)
             len_c = len(combinations_)
 
@@ -630,40 +949,88 @@ def combinations_categorical_eff(single_x_np: NDArray[Any],
                     indx = (len_c // 2,)
                 else:
                     rng = np.random.default_rng(seed=seed)
-                    # indx = rng.choice(len_c, size=no_eva_point,
-                    #                   replace=False).tolist()
                     indx = rng.choice(len_c, size=no_eva_point, replace=False)
                 combinations_new = [combinations_[i] for i in indx]
             elif len_c < no_eva_point:
                 # Fill with some random combinations previously omitted.
                 # This case can happen because of the ordering used above.
-                combinations_new = add_combis(combinations_, values_sorted, no_eva_point)
+                combinations_new = add_combis(combinations_, values, no_eva_point, seed=seed)
             else:
                 combinations_new = combinations_
     if values_comp_all is None:
         values_comp_all = []
-    values_comp_all.append((values, combinations_new))
+    if exhaustive:
+        values_comp_all.append((values, combinations_new))
 
     return combinations_new, values_comp_all
 
 
-def add_combis(combinations_: list,
-               values_sorted: list,
-               no_values_to_add: int,
-               ) -> list:
-    """Add combinations."""
-    no_to_add = min(no_values_to_add, len(values_sorted) // 2)
+@lru_cache(maxsize=32)
+def random_category_subsets(no_values: int,
+                            target_size: int,
+                            seed: int,
+                            ) -> tuple[tuple[int, ...], ...]:
+    """Cache distinct random subsets of category positions, excluding the last."""
+    rng = np.random.default_rng(seed=seed)
+    subsets = []
+    seen = set()
 
-    combinations_.extend(map(tuple, values_sorted[:no_to_add]))
+    while len(subsets) < target_size:
+        selected = rng.integers(0, 2, size=no_values - 1, dtype=np.int8).astype(bool)
+        positions = tuple(np.flatnonzero(selected).tolist())
+        if not positions or positions in seen:
+            continue
+        subsets.append(positions)
+        seen.add(positions)
 
-    return combinations_
+    return tuple(subsets)
+
+
+def add_combis(combinations_: list[tuple],
+               values: NDArray[Any],
+               target_size: int, *,
+               seed: int,
+               ) -> list[tuple]:
+    """Add randomly selected combinations not represented so far."""
+    values = np.asarray(values)
+    values_set = frozenset(values.tolist())
+    last_value = values[-1]
+
+    def canonical(combination: tuple) -> frozenset:
+        """Represent complementary splits by the same set."""
+        combination_set = frozenset(combination)
+        if last_value in combination_set:
+            combination_set = values_set - combination_set
+
+        return combination_set
+
+    combinations_new = []
+    combinations_set = set()
+    for combination in combinations_:
+        combination_key = canonical(combination)
+        if combination_key not in combinations_set:
+            combinations_new.append(tuple(combination))
+            combinations_set.add(combination_key)
+
+    if len(combinations_new) >= target_size:
+        return combinations_new
+
+    for positions in random_category_subsets(len(values), target_size, seed):
+        combination = tuple(values[position] for position in positions)
+        combination_key = frozenset(combination)
+        if combination_key in combinations_set:
+            continue
+
+        combinations_new.append(combination)
+        combinations_set.add(combination_key)
+        if len(combinations_new) >= target_size:
+            break
+
+    return combinations_new
 
 
 @lru_cache(maxsize=None)
-def find_evapoints_cat(no_values: int,
-                       no_of_evalupoints: int,
-                       with_numba: bool = True,
-                       ) -> int:
+def find_evapoints_cat(no_values: int, no_of_evalupoints: int, with_numba: bool = True) -> int:
     """Find number of categories that find to no_of_evaluation points."""
     if no_values < 6:
         return no_values
@@ -696,7 +1063,7 @@ def comb_numba(n: int, k: int) -> int:
     return result
 
 
-@njit    # Optimization check July, 1, 2025
+@njit
 def total_sample_splits_categorical_eff_numba(no_of_values: int) -> int:
     """Compute the total # of unique sample splits for categorical variables.
 
@@ -738,9 +1105,7 @@ def total_sample_splits_categorical_eff(no_of_values: int) -> int:
     return (1 << (no_of_values - 1)) - 1  # Equivalent to 2**(no_of_values-1)-1
 
 
-# Optimized with ChatGPT-4.0.mini-high, July, 1, 2025
-def all_combinations_no_complements_eff(values: Sequence[T]
-                                        ) -> list[tuple[T, ...]]:
+def all_combinations_no_complements_eff(values: Sequence[T]) -> list[tuple[T, ...]]:
     """
     Only emit subsets whose 'highest' element (values[n-1]) is absent.
 
@@ -766,31 +1131,7 @@ def all_combinations_no_complements_eff(values: Sequence[T]
     return out
 
 
-# def all_combinations_no_complements_eff(values: list[Real, ...]
-#                                         ) -> list[Real, ...]:
-#     """Create all possible combinations of list elements,removing complements.
-
-#     Parameters
-#     ----------
-#     values : List. Elements to be combined.
-
-#     Returns
-#     -------
-#     list_without_complements : List of tuples.
-
-#     """
-#     # This returns a list with tuples of all possible combinations of tuples
-#     list_all = [combinations(values, length) for length
-#                 in range(1, len(values))]
-#     # Next, the complements to each list will be removed
-#     list_wo_compl = drop_complements_eff(list_all, values)
-#     return list_wo_compl
-
-
-def drop_complements_eff(list_all: list[tuple],
-                         values: list[Real],
-                         sublist: bool = True
-                         ) -> list:
+def drop_complements_eff(list_all: list[tuple], values: list[Real], sublist: bool = True) -> list:
     """
     Identify and remove complements.
 
@@ -856,14 +1197,20 @@ def prepare_data_for_tree_building_eff(optp_: 'OptimalPolicy',
                                        seed: int = 123456,
                                        zero_tol: float = 1e-10,
                                        ) -> tuple[NDArray[Any], NDArray[Any],
-                                                  list, list, list,  list, list
+                                                  list, list, list,  list, list,
                                                   ]:
     """Prepare data for tree building."""
     x_type, x_values = optp_.var_x_type, optp_.var_x_values
-    # x_values is numpy array
-    data_ps = data_df[optp_.var_cfg.polscore_name].to_numpy(copy=True)
-    data_ps_diff = data_ps[:, 1:] - data_ps[:, 0, np.newaxis]
-    data_opt_treat = np.argmax(data_ps, axis=1)
+
+    data_ps = data_df[optp_.var_cfg.polscore_name].to_numpy(copy=False)
+    data_opt_treat = np.argmax(data_ps - np.asarray(optp_.pt_cfg.cost_of_treat_restrict), axis=1
+                               ).astype(np.int32, copy=False)
+
+    if optp_.gen_cfg.x_unord_flag:
+        data_ps_diff = data_ps[:, 1:] - data_ps[:, 0, np.newaxis]
+    else:
+        data_ps_diff = data_ps[:, :0]
+
     no_of_x = len(x_type)
     name_x = [None for _ in range(no_of_x)]
     type_x = [None for _ in range(no_of_x)]
@@ -880,13 +1227,13 @@ def prepare_data_for_tree_building_eff(optp_: 'OptimalPolicy',
             values_x[j] = vals[indi]
         else:
             values_x[j] = vals.copy()
-    data_x = data_df[name_x].to_numpy(copy=True)
+    data_x = data_df[name_x].to_numpy(copy=optp_.gen_cfg.x_unord_flag)
     del data_df
     if optp_.gen_cfg.x_unord_flag:
         for m_i in range(no_of_x):
             if type_x[m_i] == 'unord':
                 data_x[:, m_i] = np.round(data_x[:, m_i])
-                (values_x[m_i], values_comp_all[m_i]
+                (values_x[m_i], values_comp_all[m_i],
                  ) = combinations_categorical_eff(data_x[:, m_i], data_ps_diff, None,
                                                   optp_.pt_cfg.no_of_evalupoints,
                                                   select_values=optp_.pt_cfg.select_values_cat,
@@ -917,9 +1264,7 @@ def prepare_ordered_for_xtr_splits(type_x: list, values_x: list) -> list:
 
 
 # Optimized version
-def get_values_cont_ord_x_eff(data_vector: NDArray[Any],
-                              x_values: NDArray[Any],
-                              ) -> NDArray[Any]:
+def get_values_cont_ord_x_eff(data_vector: NDArray[Any], x_values: NDArray[Any]) -> NDArray[Any]:
     """Get cut-off points for tree splitting for single continuous variables.
 
     Parameters
@@ -942,7 +1287,7 @@ def get_values_cont_ord_x_eff(data_vector: NDArray[Any],
     split_x_values = x_values[split_values_mask]
 
     no_vals = split_x_values.shape[0]
-    if no_vals < 2:
+    if no_vals == 0:
         return np.array([min_x + 0.5 * (max_x - min_x)])
 
     if len_data_vector < (no_vals / 2):

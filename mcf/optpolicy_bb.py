@@ -19,17 +19,23 @@ if TYPE_CHECKING:
 def black_box_allocation(optp_: 'OptimalPolicy',
                          data_df: pd.DataFrame,
                          bb_rest_variable: bool,
-                         seed: int = 234356
+                         seed: int = 234356,
                          ) -> pd.DataFrame:
     """Compute various Black-Box allocations and return to main programme."""
     rng = np.random.default_rng(seed=seed)
     var_cfg, other_cfg = optp_.var_cfg, optp_.other_cfg
-    po_np = data_df[var_cfg.polscore_name].to_numpy(copy=True)
+    po_np = (data_df[var_cfg.polscore_name].to_numpy(copy=False)
+             - np.asarray(other_cfg.costs_of_treat, dtype=float)
+             )
     no_obs, no_treat = po_np.shape
     largest_gain = largest_gain_fct(po_np)
     allocations_df = pd.DataFrame(data=largest_gain, columns=('bb',))
     if other_cfg.restricted:
-        max_by_cat = np.int64(np.floor(no_obs * np.array(other_cfg.max_shares)))
+        max_by_cat = np.asarray(other_cfg.max_by_treat, dtype=np.int64)
+        if max_by_cat.sum() < no_obs:
+            raise ValueError('Treatment-share restrictions are infeasible after conversion to '
+                             'integer capacities. Increase at least one maximum share.'
+                             )
         random_rest = random_rest_fct(no_treat, no_obs, max_by_cat, rng)
         allocations_df['bb_rest_rnd'] = random_rest
         largest_gain_rest = largest_gain_rest_fct(po_np, no_treat, no_obs, max_by_cat, largest_gain)
@@ -99,12 +105,11 @@ def largest_gain_rest_fct(po_np: NDArray[Any],
                           largest_gain: NDArray[Any],
                           ) -> NDArray[Any]:
     """Compute allocation based on largest gains, under restrictions."""
-    val_best_treat = np.empty(no_obs)
-    for i in range(no_obs):
-        val_best_treat[i] = (po_np[i, largest_gain[i]] - po_np[i, 0])
-    order_best_treat = np.flip(np.argsort(val_best_treat))
+    row_idx = np.arange(no_obs)
+    val_best_treat = (po_np[row_idx, largest_gain] - po_np[:, 0])
+    order_best_treat = np.argsort(val_best_treat)[::-1]
     allocations = largest_gain_rest_idx_fct(order_best_treat, largest_gain,
-                                            max_by_cat, po_np.copy(), no_treat
+                                            max_by_cat, po_np, no_treat,
                                             )
     return allocations
 
@@ -119,9 +124,7 @@ def largest_gain_rest_random_order_fct(po_np: NDArray[Any], *,
     """Compute allocation based on first come first served, restricted."""
     order_random = np.arange(no_obs)
     rng.shuffle(order_random)
-    allocations = largest_gain_rest_idx_fct(order_random, largest_gain, max_by_cat, po_np.copy(),
-                                            no_treat
-                                            )
+    allocations = largest_gain_rest_idx_fct(order_random, largest_gain, max_by_cat, po_np, no_treat)
     return allocations
 
 
@@ -134,7 +137,7 @@ def largest_gain_rest_other_var_fct(po_np: NDArray[Any], *,
     """Compute allocation of largest gain under restriction, order by var."""
     order_other_var = np.flip(np.argsort(data_df[var_cfg.bb_restrict_name].to_numpy(), axis=0))
     order_other_var = [x[0] for x in order_other_var]
-    allocations = largest_gain_rest_idx_fct(order_other_var, largest_gain, max_by_cat, po_np.copy(),
+    allocations = largest_gain_rest_idx_fct(order_other_var, largest_gain, max_by_cat, po_np,
                                             no_treat
                                             )
     return allocations
@@ -176,10 +179,25 @@ def largest_gain_rest_idx_fct(order_treat: NDArray[Any],
         allocated treatment for each observation respecting capacity
         constraints.
     """
+    # # Track how many observations have been allocated to each category
+    # so_far_by_cat = np.zeros_like(max_by_cat, dtype=int)
+    # # Final allocations (treatments) after restrictions
+    # largest_gain_rest = np.zeros_like(largest_gain_alloc, dtype=int)
+    max_by_cat = np.asarray(max_by_cat, dtype=np.int64)
+
+    if max_by_cat.shape != (no_treat,):
+        raise ValueError(f'Expected {no_treat} treatment capacities, got {max_by_cat.size}.')
+    if np.any(max_by_cat < 0):
+        raise ValueError('Treatment capacities must be nonnegative.')
+    if max_by_cat.sum() < len(largest_gain_alloc):
+        raise ValueError('Restricted allocation is infeasible: integer '
+                         'capacities sum to fewer than the observations.'
+                         )
     # Track how many observations have been allocated to each category
     so_far_by_cat = np.zeros_like(max_by_cat, dtype=int)
-    # Final allocations (treatments) after restrictions
-    largest_gain_rest = np.zeros_like(largest_gain_alloc, dtype=int)
+
+    # Every element will be assigned in the loop below.
+    largest_gain_rest = np.empty_like(largest_gain_alloc, dtype=int)
 
     for obs_idx in order_treat:
         # Start with the initially "best" category
@@ -191,7 +209,7 @@ def largest_gain_rest_idx_fct(order_treat: NDArray[Any],
             largest_gain_rest[obs_idx] = best_cat
         else:
             # Otherwise, repeatedly look for the next-best category
-            row = po_np[obs_idx].copy()  # Copy to avoid modifying original arr.
+            row = po_np[obs_idx].astype(float, copy=True)
             # "Remove" the already-full best_cat from consideration
             row[best_cat] = float('-inf')
 
@@ -208,6 +226,6 @@ def largest_gain_rest_idx_fct(order_treat: NDArray[Any],
                 row[next_best_cat] = float('-inf')
 
             if assigned_cat is None:
-                print('All treatments at capacity.')
-
+                raise RuntimeError('No feasible treatment found despite valid aggregate capacities.'
+                                   )
     return largest_gain_rest

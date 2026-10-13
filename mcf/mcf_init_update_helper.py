@@ -7,7 +7,7 @@ Contains the functions needed for initialising the parameters of the programme.
 """
 from copy import deepcopy
 from numbers import Real
-from platform import system
+import sys
 from typing import Any, TYPE_CHECKING
 
 import numpy as np
@@ -15,10 +15,10 @@ from numpy.typing import NDArray
 from pandas import DataFrame
 from psutil import virtual_memory
 
+from mcf.mcf_estimation import joint_d_values
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_print_stats as mcf_ps
 from mcf import mcf_init_values_cfg as mcf_initvals
-from mcf.mcf_versions import joint_d_values
 
 try:
     import ray        # type: ignore[import]
@@ -39,9 +39,7 @@ def int_update_train(mcf_: 'ModifiedCausalForest') -> None:
         int_cfg.max_cats_cont_vars = cf_cfg.n_train_eff + 100_000_000
     else:
         int_cfg.max_cats_cont_vars = round(int_cfg.max_cats_cont_vars)
-    if int_cfg.mp_vim_type not in (1, 2):
-        int_cfg.mp_vim_type = 1 if cf_cfg.n_train_eff < 20_000 else 2
-    # 1: MP over var's, fast, lots RAM; 2: MP over bootstraps.
+
     if cf_cfg.n_train_eff < 20_000:
         int_cfg.mem_object_store_1 = int_cfg.mem_object_store_2 = None
     else:
@@ -66,10 +64,11 @@ def int_update_train(mcf_: 'ModifiedCausalForest') -> None:
 
     int_cfg.bigdata_train = cf_cfg.n_train > int_cfg.obs_bigdata
 
-    if (system() == 'Windows' and cf_cfg.n_train <= 250_000) or ray is None:
-        int_cfg.mp_backend = 'joblib'
-    else:
-        int_cfg.mp_backend = 'ray'
+    if int_cfg.mp_backend is None:
+        if (sys.platform.startswith('win') and cf_cfg.n_train <= 250_000) or ray is None:
+            int_cfg.mp_backend = 'joblib'
+        else:
+            int_cfg.mp_backend = 'ray'
 
     mcf_.int_cfg = int_cfg  # probably redundant
 
@@ -119,6 +118,8 @@ def gen_tv_update_train(mcf_: 'ModifiedCausalForest',
     obs = len(data_df)
     if mcf_.gen_tv_cfg.cv_k is None:
         mcf_.gen_tv_cfg.cv_k = mcf_initvals.determine_cv_k(obs)
+    if mcf_.gen_tv_cfg.score_cv_k is None:
+        mcf_.gen_tv_cfg.score_cv_k = mcf_initvals.determine_cv_k(obs)
     if len(mcf_.gen_tv_cfg.penalize_version) == 1:
         mcf_.gen_tv_cfg.penalize_version *= mcf_.gen_cfg.no_of_treat
     if len(mcf_.gen_tv_cfg.penalize_version) != mcf_.gen_cfg.no_of_treat:
@@ -128,8 +129,18 @@ def gen_tv_update_train(mcf_: 'ModifiedCausalForest',
 
 
 def gen_tv_update_pred(mcf_: 'ModifiedCausalForest') -> None:
-    """Recode treatment information to update dataclass."""
-    gen_tv_cfg = mcf_.gen_tv_cfg
+    """Update treatment-version metadata and the tuning-outcome index."""
+    gen_tv_cfg, var_cfg = mcf_.gen_tv_cfg, mcf_.var_cfg
+
+    if len(var_cfg.y_tree_name) != 1:
+        raise ValueError('Treatment-version estimation requires one tree-building outcome.')
+
+    # Use the current names, including any local-centering suffix.
+    try:
+        gen_tv_cfg.y_tree_index = var_cfg.y_name.index(var_cfg.y_tree_name[0])
+    except ValueError as exc:
+        raise ValueError('The tree-building outcome must be contained in var_cfg.y_name.') from exc
+
     d_all_values, no_of_treat_per_main = [], []
     main_vals = gen_tv_cfg.d_dict['main_treat']
     sub_vals = gen_tv_cfg.d_dict['sub_treat']
@@ -142,7 +153,7 @@ def gen_tv_update_pred(mcf_: 'ModifiedCausalForest') -> None:
             d_all_values.append((m_val, 0,))
             no_of_treat_per_main.append(1)
 
-    mcf_.gen_tv_cfg.d_all_values = np.asarray(d_all_values, dtype=np.int8)
+    mcf_.gen_tv_cfg.d_all_values = np.asarray(d_all_values, dtype=np.int32)
     mcf_.gen_tv_cfg.no_of_treat_all = len(d_all_values)
     mcf_.gen_tv_cfg.no_of_treat_per_main = no_of_treat_per_main
     mcf_.gen_tv_cfg.d_all_values_one_label = joint_d_values(main_vals, sub_vals, as_string=False)
@@ -166,10 +177,16 @@ def ct_update_train(mcf_: 'ModifiedCausalForest', data_df: DataFrame) -> None:
     zero_tol = mcf_.int_cfg.zero_tol
     d_dat = data_df[var_cfg.d_name].to_numpy(copy=True)
     if gen_cfg.d_type == 'continuous':
-        grid_nn, grid_w, grid_dr = 10, 10, 100
-        ct_cfg.grid_nn = ct_grid(grid_nn, grid_nn)
-        ct_cfg.grid_w = ct_grid(grid_w, grid_w)
-        ct_cfg.grid_dr = ct_grid(grid_dr, grid_dr)
+        # Existing grids include the zero point; recover their positive-point counts.
+        grid_nn = (ct_cfg.grid_nn if ct_cfg.grid_nn_val is None
+                   else len(ct_cfg.grid_nn_val) - 1)
+        grid_w = (ct_cfg.grid_w if ct_cfg.grid_w_val is None
+                  else len(ct_cfg.grid_w_val) - 1)
+        grid_dr = (ct_cfg.grid_dr if ct_cfg.grid_dr_val is None
+                   else len(ct_cfg.grid_dr_val) - 1)
+        ct_cfg.grid_nn = ct_grid(grid_nn, 10)
+        ct_cfg.grid_w = ct_grid(grid_w, 10)
+        ct_cfg.grid_dr = ct_grid(grid_dr, 100)
         ct_cfg.grid_dr = max(ct_cfg.grid_dr, ct_cfg.grid_w)
         ct_cfg.grid_nn_val = grid_val_fct(ct_cfg.grid_nn, d_dat, zero_tol)
         ct_cfg.grid_w_val = grid_val_fct(ct_cfg.grid_w, d_dat, zero_tol)
@@ -202,12 +219,10 @@ def lc_update_train(mcf_: 'ModifiedCausalForest', data_df):
         mcf_.lc_cfg.cs_cv_k = mcf_initvals.determine_cv_k(obs)
 
 
-def pa_ba_update_train(cv_k, obs):
-    """Adjust folds for CV for number of training observations."""
-    if cv_k is None:
-        return mcf_initvals.determine_cv_k(obs)
-
-    return cv_k
+def p_ba_update_train(mcf_: 'ModifiedCausalForest', data_df: DataFrame) -> None:
+    """Adjust cross-validation for bias adjustment."""
+    if mcf_.p_ba_cfg.cv_k is None:
+        mcf_.p_ba_cfg.cv_k = mcf_initvals.determine_cv_k(len(data_df))
 
 
 def cs_update_train(mcf_: 'ModifiedCausalForest') -> None:
@@ -259,19 +274,12 @@ def cf_update_train(mcf_: 'ModifiedCausalForest', data_df: DataFrame) -> None:
     cf_cfg.subsample_share_forest = sub_size(
         cf_cfg.n_train_eff, cf_cfg.subsample_factor_forest, 0.67)
 
-    match cf_cfg.subsample_factor_eval:
-        case None | True:
-            cf_cfg.subsample_factor_eval = 2
-        case False:
-            cf_cfg.subsample_factor_eval = 1_000_000_000
-        case x if isinstance(x, Real) and x < 0.01:
-            cf_cfg.subsample_factor_eval = 1_000_000_000
-        case _:
-            pass  # keep provided numeric factor
-
-    cf_cfg.subsample_share_eval = min(cf_cfg.subsample_share_forest * cf_cfg.subsample_factor_eval,
-                                      1
-                                      )
+    # Initial estimate; train_forest resolves the actual filling size for each round/chunk.
+    n_fill = max(1, round(cf_cfg.n_train_eff * (1 - int_cfg.share_forest_sample)))
+    cf_cfg.subsample_share_eval = sub_size_eval(
+        n_fill, cf_cfg.subsample_factor_eval, cf_cfg.subsample_share_forest,
+        getattr(cf_cfg, 'subsample_power_eval', 0.85),
+        )
     n_d_subsam = (obs_by_treat_eff.min() * int_cfg.share_forest_sample
                   * cf_cfg.subsample_share_forest
                   )
@@ -333,6 +341,7 @@ def cf_update_train(mcf_: 'ModifiedCausalForest', data_df: DataFrame) -> None:
         min_leaf_size = cf_cfg.n_min_treat * gen_cfg.no_of_treat
         if cf_cfg.n_min_min < min_leaf_size:
             cf_cfg.n_min_min = min_leaf_size
+            cf_cfg.n_min_max = max(cf_cfg.n_min_max, min_leaf_size)
             mcf_ps.print_mcf(gen_cfg, 'Minimum leaf size adjusted. Smallest ',
                              f' leafsize set to: {cf_cfg.n_min_min}', summary=True
                              )
@@ -444,29 +453,21 @@ def p_update_pred(mcf_: 'ModifiedCausalForest',
 
 
 def post_update_pred(mcf_: 'ModifiedCausalForest', data_df: DataFrame) -> None:
-    """Update entries in post_cfg that need info from prediction data."""
-    n_pred = len(data_df)
-    post_cfg = mcf_.post_cfg
-    if isinstance(post_cfg.kmeans_no_of_groups, (int, float)):
-        post_cfg.kmeans_no_of_groups = [(post_cfg.kmeans_no_of_groups)]
-    if (post_cfg.kmeans_no_of_groups is None
-        or len(post_cfg.kmeans_no_of_groups) == 1
-            or post_cfg.kmeans_no_of_groups[0] < 2):
+    """Resolve the automatic cluster grid while preserving explicit candidate counts."""
+    groups = mcf_initvals.kmeans_groups_fct(mcf_.post_cfg.kmeans_no_of_groups)
+    if groups is None:
+        n_pred = len(data_df)
         if n_pred < 10_000:
             middle = 5
         elif n_pred > 100_000:
             middle = 10
         else:
-            middle = 5 + round(n_pred/20_000)
+            middle = 5 + round(n_pred / 20_000)
         if middle < 7:
-            post_cfg.kmeans_no_of_groups = [middle-2, middle-1, middle, middle+1, middle+2]
+            groups = [middle - 2, middle - 1, middle, middle + 1, middle + 2]
         else:
-            post_cfg.kmeans_no_of_groups = [middle-4, middle-2, middle, middle+2, middle+4]
-    else:
-        if not isinstance(post_cfg.kmeans_no_of_groups, list):
-            post_cfg.kmeans_no_of_groups = list(post_cfg.kmeans_no_of_groups)
-            post_cfg.kmeans_no_of_groups = [round(a) for a in post_cfg.kmeans_no_of_groups]
-    mcf_.post_cfg = post_cfg
+            groups = [middle - 4, middle - 2, middle, middle + 2, middle + 4]
+    mcf_.post_cfg.kmeans_no_of_groups = groups
 
 
 def name_unique(all_names: list[str]) -> list[str]:
@@ -517,9 +518,9 @@ def get_alpha(alpha_reg_grid: int | float | None,
                          float | NDArray[float] | list[float]
                          ]:
     """Get the alphas for the CF."""
-    if alpha_reg_min is None or not 0 <= alpha_reg_min < 0.4:
+    if alpha_reg_min is None or not 0 <= alpha_reg_min < 0.5:
         alpha_reg_min = 0.05
-    if alpha_reg_max is None or not 0 <= alpha_reg_max < 0.4:
+    if alpha_reg_max is None or not 0 <= alpha_reg_max < 0.5:
         alpha_reg_max = 0.15
     alpha_reg_grid = (1 if alpha_reg_grid is None or alpha_reg_grid < 1
                       else round(alpha_reg_grid))
@@ -612,6 +613,60 @@ def sub_size(n_train: int, share_mult: float, max_share: float | int) -> float:
     subsam_share = max(min(subsam_share, max_share), (2 * (n_train / 2)**0.5) / n_train)
 
     return subsam_share
+
+
+def get_subsample_power_eval(power: float | int | None) -> float:
+    """Resolve the filling exponent; 0.85 selects the relative-share rule used in version 0.10.0."""
+    if power is None:
+        return 0.90
+    if isinstance(power, (bool, np.bool_)) or not isinstance(power, Real):
+        raise TypeError('cf_subsample_power_eval must be a real number or None.')
+    power_f = float(power)
+    if not np.isfinite(power_f) or not 0.85 <= power_f <= 1.0:
+        raise ValueError('cf_subsample_power_eval must be between 0.85 and 1, inclusive.')
+
+    return power_f
+
+
+def sub_size_eval(n_fill: int,
+                  share_mult: float | int | bool | None,
+                  share_forest: float,
+                  power: float | int | None = None,
+                  ) -> float:
+    """Resolve the fraction of the available filling rows used by each tree.
+
+    None or True selects factor 2. False or a numeric factor below 0.01
+    requests every filling row. The exponent 0.85 preserves the
+    factor-times-construction-share rule of version 0.10.0, including its rounding downstream.
+
+    For larger exponents, use an independent filling power with scale
+    (factor / 2) * 4**((1 - power) / 0.15). Factor 2 preserves the previous
+    default full-filling threshold for equal construction/filling halves.
+    Round the count, retaining at least one row and at most n_fill rows.
+    """
+    power_f = get_subsample_power_eval(power)
+    if n_fill < 1:
+        raise ValueError('The available filling sample must contain at least one row.')
+    if share_mult is None or share_mult is True:
+        factor = 2.0
+    elif share_mult is False:
+        return 1.0
+    elif not isinstance(share_mult, Real):
+        raise TypeError('cf_subsample_factor_eval must be a real number, bool or None.')
+    else:
+        factor = float(share_mult)
+        if np.isnan(factor):
+            raise ValueError('cf_subsample_factor_eval must not be NaN.')
+        if factor < 0.01:
+            return 1.0
+    if power_f == 0.85:
+        return float(min(share_forest * factor, 1.0))
+
+    scale = 4.0**((1.0 - power_f) / 0.15)
+    share = min((factor / 2.0) * scale * n_fill**(power_f - 1.0), 1.0)
+    n_selected = min(n_fill, max(1, round(n_fill * share)))
+
+    return n_selected / n_fill
 
 
 def bootstrap(se_boot: int | None, cut_off: int, bnr: int, cluster_std: bool,) -> int | bool:

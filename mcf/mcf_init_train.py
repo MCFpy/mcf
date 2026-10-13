@@ -10,7 +10,7 @@ from typing import Any, ClassVar, TYPE_CHECKING
 
 from numpy.typing import NDArray
 
-from mcf.mcf_init_update_helper import get_alpha
+from mcf.mcf_init_update_helper import get_alpha, get_subsample_power_eval
 from mcf import mcf_general_sys as mcf_sys
 
 if TYPE_CHECKING:
@@ -101,8 +101,10 @@ class LcCfg:
     estimator: StrLike = 'RandomForest'
     uncenter_po: bool = True
 
-    # To be filled later
+    # To be filled later; each ensemble is indexed by fold and outcome.
     forests: ListLike = field(default=None, init=False)
+    forests_additional: ListLike = field(default=None, init=False)
+    additional_names: dict[str, str] = field(default_factory=dict, init=False)
 
     # allowed estimators (case-insensitive match)
     OK_ESTIMATORS: ClassVar[tuple[str, ...]] = (
@@ -111,6 +113,13 @@ class LcCfg:
         'AdaBoost200', 'GradBoost', 'GradBoostDepth6', 'GradBoostDepth12', 'LASSO',
         'NeuralNet', 'NeuralNetLarge', 'NeuralNetLarger', 'Mean', 'automatic'
         )
+
+    def __setstate__(self: 'LcCfg', state: tuple[None, dict[str, Any]]) -> None:
+        """Restore slot state, including checkpoints saved before round-specific centering."""
+        self.forests_additional = None
+        self.additional_names = {}
+        for name, value in state[1].items():
+            setattr(self, name, value)
 
     @classmethod
     def from_args(cls,
@@ -132,6 +141,8 @@ class LcCfg:
             k_val: IntLike = None
         else:
             k_val = round(float(cs_cv_k))
+            if k_val < 2:
+                k_val = None
 
         yes_b = yes is not False
 
@@ -178,6 +189,7 @@ class CfCfg:
     alpha_reg_grid: int = 1
     alpha_reg_max: NumberLike = None
     alpha_reg_min: NumberLike = None
+    alpha_reg_type: str = 'treatment'
     alpha_reg_values: Any = field(default_factory=list)
 
     tune_all: bool = False
@@ -185,8 +197,9 @@ class CfCfg:
     m_share_min: float = 0.1
     m_share_max: float = 0.6
     m_random_poisson: bool = True
-    m_random_poisson_min: int = 10
+    m_random_poisson_min: int = 0
 
+    mce_type: str = 'cross_error'
     mce_vart: IntLike = None
     penalty_type: str = 'mse_d'
 
@@ -203,6 +216,7 @@ class CfCfg:
     n_min_treat: NumberLike = None
     p_diff_penalty: NumberLike = None
     subsample_factor_eval: NumberLike | bool = None
+    subsample_power_eval: float = 0.90
     subsample_factor_forest: NumberLike | bool = None
     random_thresholds: NumberLike = None
 
@@ -220,12 +234,20 @@ class CfCfg:
     m_values: list[int] | None = field(default=None, init=False)
     x_name_mcf: ListofStrLike = field(default=None, init=False)
 
+    def __setstate__(self: 'CfCfg', state: tuple[None, dict[str, Any]]) -> None:
+        """Restore old slot states using the previous filling rule when the power is absent."""
+        self.subsample_power_eval = 0.85
+        for name, value in state[1].items():
+            setattr(self, name, value)
+
+
     @classmethod
-    def from_args(cls,
-                  *,
+    def from_args(cls: type['CfCfg'],
+                  gen_cfg: 'GenCfg', *,
                   alpha_reg_grid: NumberLike = None,
                   alpha_reg_max: NumberLike = None,
                   alpha_reg_min: NumberLike = None,
+                  alpha_reg_type: StrLike = None,
                   boot: NumberLike = None,
                   chunks_maxsize: NumberLike = None,
                   compare_only_to_zero: BoolLike = None,
@@ -239,15 +261,16 @@ class CfCfg:
                   m_share_min: NumberLike = None,
                   m_random_poisson: BoolLike = None,
                   match_nn_prog_score: BoolLike = None,
+                  mce_type: StrLike = None,
                   mce_vart: IntLike = None,
                   p_diff_penalty: NumberLike = None,
                   penalty_type: StrLike = None,
                   subsample_factor_eval: NumberLike | bool = None,
+                  subsample_power_eval: NumberLike = None,
                   subsample_factor_forest: NumberLike = None,
                   tune_all: BoolLike = None,
                   random_thresholds: NumberLike = None,
                   vi_oob_yes: BoolLike = None,
-
                   ) -> 'CfCfg':
         """Get input and normalize parameters."""
         # integers / grids
@@ -265,6 +288,18 @@ class CfCfg:
         # get alpha grid/max/min/values from helper
         (alpha_reg_grid_o, alpha_reg_max_o, alpha_reg_min_o, alpha_reg_values_o,
          ) = get_alpha(arg_grid_chk, alpha_reg_max, alpha_reg_min,)
+        if alpha_reg_type is None:
+            alpha_reg_type_s = ('pooled' if gen_cfg.d_type == 'continuous' else 'treatment')
+        else:
+            alpha_reg_type_s = alpha_reg_type
+        if not isinstance(alpha_reg_type_s, str):
+            raise TypeError('cf_alpha_reg_type must be a string or None.')
+        alpha_reg_type_s = alpha_reg_type_s.strip().lower()
+        if alpha_reg_type_s not in ('pooled', 'treatment'):
+            raise ValueError('cf_alpha_reg_type must be pooled or treatment.')
+        if gen_cfg.d_type == 'continuous' and alpha_reg_type_s == 'treatment':
+            raise ValueError('cf_alpha_reg_type=treatment requires discrete treatments.')
+
         # shares
         m_share_min_f = (0.1 if m_share_min is None or not (0 < m_share_min <= 1)
                          else float(m_share_min)
@@ -278,7 +313,15 @@ class CfCfg:
             m_random_poisson_min_i = 1_000_000
         else:
             m_random_poisson_b = True
-            m_random_poisson_min_i = 10
+            m_random_poisson_min_i = 0
+
+        # Definition of the mean correlated error
+        mce_type_s = 'cross_error' if mce_type is None else mce_type   # Default
+        if not isinstance(mce_type_s, str):
+            raise TypeError('cf_mce_type must be a string or None.')
+        mce_type_s = mce_type_s.strip().lower()
+        if mce_type_s not in ('covariance', 'cross_error'):
+            raise ValueError('cf_mce_type must be covariance or cross_error.')
 
         # objective function choice via mce_vart
         match mce_vart:
@@ -309,12 +352,14 @@ class CfCfg:
                    alpha_reg_grid=alpha_reg_grid_o,
                    alpha_reg_max=alpha_reg_max_o,
                    alpha_reg_min=alpha_reg_min_o,
+                   alpha_reg_type=alpha_reg_type_s,
                    alpha_reg_values=alpha_reg_values_o,
                    tune_all=tune_all_b,
                    m_share_min=m_share_min_f,
                    m_share_max=m_share_max_f,
                    m_random_poisson=m_random_poisson_b,
                    m_random_poisson_min=m_random_poisson_min_i,
+                   mce_type=mce_type_s,
                    mce_vart=mce_vart,
                    penalty_type=penalty_type_s,
                    mtot=mtot_i,
@@ -327,6 +372,8 @@ class CfCfg:
                    n_min_treat=n_min_treat,
                    p_diff_penalty=p_diff_penalty,
                    subsample_factor_eval=subsample_factor_eval,
+                   subsample_power_eval=get_subsample_power_eval(
+                       subsample_power_eval),
                    subsample_factor_forest=subsample_factor_forest,
                    random_thresholds=random_thresholds,
                    )

@@ -14,15 +14,21 @@ import numpy as np
 from numpy.typing import NDArray, DTypeLike
 from scipy.stats import t
 from scipy.special import erfc                                              # pylint: disable=E0611
+from sklearn.base import BaseEstimator, is_classifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
 
 from mcf import mcf_print_stats as mcf_ps
 from mcf import mcf_estimation_generic as mcf_est_g
-from mcf.mcf_versions import joint_d_values
 
 if TYPE_CHECKING:
     from mcf.mcf_main import ModifiedCausalForest
     from mcf.mcf_init import GenCfg
     from mcf.mcf_init_predict import PCfg
+
+type Number = int | float | np.integer | np.floating
+type ScoreInst =  BaseEstimator | float | np.floating | int | np.integer | None
+type ScoreScaler = StandardScaler | None
 
 
 def effect_from_potential(
@@ -207,7 +213,6 @@ def compute_inference_080(estimate: NDArray[Any],
     return stderr, t_val, p_val
 
 
-# Newly introduced in 0.9.0
 def compute_inference(estimate: NDArray[Any],
                       variance: NDArray[Any], *,
                       var_floor: float = 1e-6
@@ -217,11 +222,11 @@ def compute_inference(estimate: NDArray[Any],
     var = np.array(variance, dtype=float, copy=True)
 
     np.nan_to_num(est, copy=False, nan=0.0)
-    np.nan_to_num(var, copy=False, nan=var_floor)
+    np.nan_to_num(var, copy=False, nan=np.nan)  # Preserve unavailable variance.
     np.maximum(var, var_floor, out=var)   # clip negatives to floor
 
     stderr = np.sqrt(var)
-    t_val = np.divide(np.abs(est), stderr, out=np.zeros_like(est), where=stderr > 0)
+    t_val = np.divide(np.abs(est), stderr, out=np.full_like(est, np.nan), where=stderr > 0)
     p_val = erfc(np.abs(t_val) / np.sqrt(2.0))  # two-sided normal tail; more efficient
 
     return stderr, t_val, p_val
@@ -351,10 +356,8 @@ def weight_var(w0_dat: NDArray[Any],
                y_dat: NDArray[Any],
                cl_dat: NDArray[Any] | None,
                p_cfg: 'PCfg', *,
-               weighted: bool = False,
                normalize: bool = True,
                w_for_diff: NDArray[Any] | None = None,
-               weights: NDArray[Any] | None = None,
                bootstrap: int = 0,
                keep_some_0: bool = False,
                se_yes: bool = True,
@@ -376,7 +379,6 @@ def weight_var(w0_dat: NDArray[Any],
     normalize : Boolean. Normalisation. Default is True.
     w_for_diff : Numpy array. weights used for difference when clustering.
                  Default is None.
-    weights : Numpy array. Sampling weights. Clustering only. Default is None.
     no_agg :   Boolean. No aggregation of weights. Default is False.
     bootstrap: Int. If > 1: Use bootstrap instead for SE estimation.
     keep_some_0, se_yes, keep_all: Booleans.
@@ -388,18 +390,18 @@ def weight_var(w0_dat: NDArray[Any],
     """
     w_dat = w0_dat.copy()
 
-    if p_cfg.cluster_std and (cl_dat is not None) and (bootstrap < 1):
-        if not weighted:
-            weights = None
+    if p_cfg.cluster_std and cl_dat is not None and bootstrap < 1:
         r_dat = None if residual_dat is None else residual_dat.copy()
+
+        # w_dat already includes any sampling-weight adjustment.
         w_dat, y_dat, _, _, residual_dat = aggregate_cluster_nonzero_w(
-            cl_dat, w_dat, y_dat=y_dat.copy(), r_dat=r_dat,
-            norma=normalize, sweights=weights, zero_tol=zero_tol, sum_tol=sum_tol,
+            cl_dat, w_dat, y_dat=y_dat.copy(), r_dat=r_dat, norma=normalize,
+            zero_tol=zero_tol, sum_tol=sum_tol,
             )
         if w_for_diff is not None:
             w_dat = w_dat - w_for_diff
 
-    if not p_cfg.iate_se:
+    if not se_yes:
         keep_some_0, bootstrap = False, 0
 
     if normalize:
@@ -421,12 +423,6 @@ def weight_var(w0_dat: NDArray[Any],
 
     # Early fast-path (no SEs, no bootstrap, no conditional var, no clustering)
     if ((not se_yes) and (bootstrap < 1) and (not p_cfg.cond_var) and (not p_cfg.cluster_std)):
-        obs_eff = w_dat.size if keep_all else int(np.count_nonzero(np.abs(w_dat) > zero_tol))
-
-        if obs_eff < min_obs:
-            # Not enough observations for decent point estimate
-            return 0.0, 1.0, w_ret
-
         est = float(w_dat @ y_dat)
 
         return est, None, w_ret
@@ -457,26 +453,28 @@ def weight_var(w0_dat: NDArray[Any],
         w_dat2, y_dat = w_dat[w_nonzero], y_dat[w_nonzero]
 
     obs = len(w_dat2)
-
-    if obs < min_obs:  # Not enough observations for decent point estimate
-        return 0.0, 1.0, w_ret
-
     est = np.dot(w_dat2, y_dat)
+
+    if obs < min_obs:
+        variance = np.nan if se_yes else None
+
+        return est, variance, w_ret
 
     if se_yes:
         if bootstrap > 1:
-            if p_cfg.cluster_std and (cl_dat is not None) and not only_copy:
-                cl_sub = np.round(cl_dat[w_nonzero]).astype(int, copy=False)
+            if p_cfg.cluster_std and cl_dat is not None:
+                cl_sub = cl_dat if only_copy else cl_dat[w_nonzero]
+                cl_sub = cl_sub.reshape(-1)
                 unique_cl_id, inverse = np.unique(cl_sub, return_inverse=True)
                 obs_cl = unique_cl_id.size
 
                 # Micro-speedup: precompute indices per cluster
                 clusters_idx = [np.where(inverse == j)[0] for j in range(obs_cl)]
+
             rng = np.random.default_rng(seed=seed)
             est_b = np.empty(bootstrap)
             for b_idx in range(bootstrap):
-                if p_cfg.cluster_std and (cl_dat is not None and not only_copy):
-
+                if p_cfg.cluster_std and cl_dat is not None:
                     idx_cl = rng.integers(0, high=obs_cl, size=obs_cl)
                     # concatenate precomputed groups (much faster than per-loop boolean scans)
                     idx = np.concatenate([clusters_idx[j] for j in idx_cl])
@@ -498,8 +496,9 @@ def weight_var(w0_dat: NDArray[Any],
                     k = max(p_cfg.knn_min_k, min(k, obs // 2))
                     exp_y_cond_w, var_y_cond_w = mcf_est_g.moving_avg_mean_var(y_s, k)
                 else:
-                    band = (mcf_est_g.bandwidth_nw_rule_of_thumb(w_s, zero_tol=zero_tol)
-                            * p_cfg.nw_bandw
+                    band = (mcf_est_g.bandwidth_nw_rule_of_thumb(w_s, kernel=p_cfg.nw_kern,
+                                                                 zero_tol=zero_tol,
+                                                                 ) * p_cfg.nw_bandw
                             )
                     exp_y_cond_w = mcf_est_g.nadaraya_watson(y_s, w_s, w_s, p_cfg.nw_kern, band)
                     var_y_cond_w = mcf_est_g.nadaraya_watson((y_s - exp_y_cond_w)**2, w_s, w_s,
@@ -613,7 +612,7 @@ def aggregate_cluster_nonzero_w(cl_dat: NDArray[Any],
                                               )
     if norma:
         sum_w_agg = np.sum(w_agg)
-        if not sum_tol < sum_w_agg < sum_tol:
+        if not -sum_tol < sum_w_agg < sum_tol:
             w_agg = w_agg / sum_w_agg
         if w2_dat is not None:
             sum_w2_agg = np.sum(w2_agg)
@@ -624,13 +623,13 @@ def aggregate_cluster_nonzero_w(cl_dat: NDArray[Any],
 
 
 def analyse_weights(weights: NDArray[Any],
-                    title: str,
+                    title: str | None,
                     gen_cfg: 'GenCfg',
                     p_cfg: 'PCfg', *,
                     gen_tv_total_treat: int | None = None,
                     ate: bool = True,
                     continuous: bool = False,
-                    no_of_treat_cont: int = None,
+                    no_of_treat_cont: int | None = None,
                     d_values_cont: NDArray[Any] | None = None,
                     iv: bool = False,
                     zero_tol: float = 1e-10,
@@ -640,37 +639,8 @@ def analyse_weights(weights: NDArray[Any],
                     ) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any],
                                NDArray[Any], NDArray[Any], NDArray[Any],
                                NDArray[Any], NDArray[Any], NDArray[Any],
-                               str,
-                               ]:
-    """Describe the weights.
-
-    Parameters
-    ----------
-    weights : Numyp array. Weights.
-    title : String. Title for output.
-    gen_cfg : GenCfg dataclass. Parameters.
-    p_cfg : PCfg dataclass. Parameters.
-    ate: Boolean. True if Ate is estimated. Default is True.
-    continuous : Boolean. Continuous treatment. Default is False.
-    no_of_treat_cont : Int. Number of discretized treatments of continuous
-                            treatments used for weights. Default is None.
-    d_values_cont : Numpy array. Values of discretized treatments of continuous
-                                 treatments used for weights. Default is None.
-
-    Returns
-    -------
-    nonzero : Numpy array.
-    equalzero : Numpy array.
-    mean_nonzero : Numpy array.
-    std_nonzero : Numpy array.
-    gini_all : Numpy array.
-    gini_nonzero : Numpy array.
-    share_largest_q : Numpy array.
-    sum_larger : Numpy array.
-    obs_larger : Numpy array.
-    txt : String. Text to print.
-
-    """
+                               str]:
+    """Describe the weights."""
     txt = ''
     if ate:
         txt += '\n' * 2 + '=' * line_length
@@ -687,9 +657,9 @@ def analyse_weights(weights: NDArray[Any],
     equalzero, mean_nonzero = np.empty_like(nonzero), np.empty(no_of_treat)
     std_nonzero, gini_all = np.empty_like(mean_nonzero), np.empty_like(mean_nonzero)
     gini_nonzero = np.empty_like(mean_nonzero)
-    share_largest_q = np.empty((no_of_treat, 3))
-    sum_larger = np.empty((no_of_treat, len(p_cfg.q_w)))
-    obs_larger = np.empty_like(sum_larger)
+    share_largest_q = np.zeros((no_of_treat, 3))
+    sum_larger = np.zeros((no_of_treat, len(p_cfg.q_w)))
+    obs_larger = np.zeros_like(sum_larger)
     sum_weights = np.sum(weights, axis=1)
     for j in range(no_of_treat):
         if not (((1 - sum_tol) < sum_weights[j] < (1 + sum_tol))
@@ -717,12 +687,8 @@ def analyse_weights(weights: NDArray[Any],
             for idx, val in enumerate(p_cfg.q_w):
                 sum_larger[j, idx] = np.sum(w_pos[w_pos >= (val - zero_tol)]) / w_pos_sum * 100
                 obs_larger[j, idx] = len(w_pos[w_pos >= (val - zero_tol)]) / n_nonzero * 100
-        else:
-            share_largest_q = np.empty((no_of_treat, 3))
-            sum_larger = np.zeros((no_of_treat, len(p_cfg.q_w)))
-            obs_larger = np.zeros_like(sum_larger)
-            if gen_cfg.with_output:
-                txt += '\nLess than 5 observations in some groups.'
+        elif gen_cfg.with_output:
+            txt += f'\nNot more than {min_obs} nonzero weights for treatment {j}.'
     if ate:
         txt += mcf_ps.txt_weight_stat(nonzero=nonzero, equalzero=equalzero,
                                       mean_nonzero=mean_nonzero, std_nonzero=std_nonzero,
@@ -730,10 +696,24 @@ def analyse_weights(weights: NDArray[Any],
                                       share_largest_q=share_largest_q, sum_larger=sum_larger,
                                       obs_larger=obs_larger, gen_cfg=gen_cfg, p_cfg=p_cfg,
                                       continuous=continuous, d_values_cont=d_values_cont,
-            )
+                                      )
     return (nonzero, equalzero, mean_nonzero, std_nonzero, gini_all, gini_nonzero, share_largest_q,
             sum_larger, obs_larger, txt,
             )
+
+
+def joint_d_values(main_values: list[int],
+                   sub_values: list[list[int]],
+                   as_string: bool = False,
+                   ) -> list[int] | list[str]:
+    """Create joint labels of main and subtreatments."""
+    if as_string:
+        return [f'{main_val}_{sub_val}'
+                for main_idx, main_val in enumerate(main_values) for sub_val in sub_values[main_idx]
+                ]
+    return [main_val * 1000 + sub_val
+            for main_idx, main_val in enumerate(main_values) for sub_val in sub_values[main_idx]
+            ]
 
 
 def predict_proba_aligned(classif, x_np: NDArray[Any],
@@ -759,3 +739,221 @@ def predict_proba_aligned(classif, x_np: NDArray[Any],
         # keep probability zero for this treatment.
 
     return out
+
+
+def prognostic_score_train(*, y_np: NDArray,
+                           x_np: NDArray,
+                           d_np: NDArray,
+                           params_classif: dict,
+                           d_values: list[Number] | tuple[Number, ...],
+                           cv_k: int | None,
+                           boot: int,
+                           mp_parallel: int,
+                           obs_bigdata: int,
+                           estimators: list[str] | tuple[str, ...] | None = None,
+                           zero_tol: float,
+                           ) -> tuple[list[ScoreInst], list[ScoreScaler]]:
+    """Train prognostic scores (for each treatment)."""
+    y_discrete = np.unique(y_np).shape[0] < 10
+    d_np = np.asarray(d_np).reshape(-1)
+
+    instances, scalers = [], []
+    for d_treatment in d_values:
+
+        # Train on the treatment group
+        treatments = np.isclose(d_np, d_treatment, rtol=zero_tol, atol=zero_tol).squeeze()
+        if not np.any(treatments):
+            raise ValueError(f'No observations found for treatment value {d_treatment}.')
+        x_tmp_np = x_np[treatments].copy()
+        y_tmp_np = y_np[treatments].squeeze().copy()
+
+        if x_tmp_np.shape[0] < 3:
+            obj = np.average(y_tmp_np.ravel())
+            scaler = None
+            instances.append(obj)
+            scalers.append(scaler)
+            continue
+
+        # Get a new clean instance
+        if y_discrete:
+            obj = mcf_est_g.NumericOutcomeClassifier(**params_classif)
+            # train the model
+            obj.fit(x_tmp_np, y_tmp_np)
+            scaler = None
+        else:
+            # Find best estimator for continuous outcomes
+            if cv_k is None:
+                cv_k_treat = mcf_est_g.cv_k_update_train(cv_k, x_tmp_np.shape[0],)
+            else:
+                cv_k_treat = cv_k
+            cv_k_treat = min(cv_k_treat, x_tmp_np.shape[0])  # Avoid empty folds
+            (estimator, params, _, _, transform_x, _
+             ) = mcf_est_g.best_regression(x_tmp_np,  y_tmp_np.ravel(), estimator=estimators,
+                                           boot=boot, seed=123456, max_workers=mp_parallel,
+                                           test_share=0, cross_validation_k=cv_k_treat,
+                                           obs_bigdata=obs_bigdata,
+                                           )
+            if transform_x:
+                scaler, x_train, _ = mcf_est_g.scale(x_tmp_np.copy(), None)
+            else:
+                x_train = x_tmp_np
+                scaler = None
+
+            obj = mcf_est_g.regress_instance(estimator, params)
+            if obj is None:
+                obj = np.average(y_tmp_np.ravel())
+            else:
+                obj.fit(x_train, y_tmp_np.ravel())
+        instances.append(obj)
+        scalers.append(scaler)
+
+    return instances, scalers
+
+
+def prognostic_score_predict(*,
+                             x_np: NDArray,
+                             instances: list[ScoreInst],
+                             scalers: list[ScoreScaler],
+                             dtype: DTypeLike,
+                             ) -> NDArray:
+    """Predict prognostic scores for each treatment."""
+    prog_score_np = np.empty((len(x_np), len(instances)), dtype=dtype)
+
+    for idx, obj in enumerate(instances):
+        if isinstance(obj, (float, int, np.floating, np.integer)):
+            prog_score_np[:, idx] = obj
+            continue
+
+        scaler = scalers[idx]
+        x_pred = x_np if scaler is None else scaler.transform(x_np)
+
+        if is_classifier(obj):
+            classes = np.asarray(obj.classes_, dtype=dtype)
+            prog_score_np[:, idx] = obj.predict_proba(x_pred) @ classes
+        else:
+            prog_score_np[:, idx] = obj.predict(x_pred)
+
+    return prog_score_np
+
+
+def propensity_score_train(*,
+                           x_np: NDArray,
+                           d_np: NDArray,
+                           params: dict,
+                           ) -> tuple[RandomForestClassifier, None]:
+    """Predict propensity score with multiple treatments."""
+    classif = RandomForestClassifier(**params)
+    classif.fit(x_np, d_np.ravel())
+
+    return classif, None
+
+
+def propensity_score_predict(*,
+                             x_np: NDArray,
+                             classif: RandomForestClassifier,
+                             d_values: list[Number] | tuple[Number, ...],
+                             dtype: DTypeLike,
+                             zero_tol: float,
+                             ) -> NDArray:
+    """Predict propensity score."""
+    prop_all = predict_proba_aligned(classif, x_np, d_values, dtype=dtype, zero_tol=zero_tol,
+                                     )
+    return prop_all[:, 1:]   # Propensity scores add up to one -> remove 1st score
+
+
+def train_scores(*,
+                 y_np: NDArray,
+                 x_np: NDArray,
+                 d_np: NDArray,
+                 d_values: list[Number] | tuple[Number, ...],
+                 cv_k: int | None,
+                 boot: int,
+                 mp_parallel: int,
+                 obs_bigdata: int,
+                 estimators: list[str] | tuple[str, ...] | None = None,
+                 zero_tol: float,
+                 ps_yes: bool,
+                 pg_yes: bool,
+                 ) -> tuple[RandomForestClassifier, list[ScoreInst], list[ScoreScaler]]:
+    """Train propensity and prognostic scores."""
+    # Use same parameters for both classifier estimations
+    params_rfc = {'n_estimators': boot,
+                  'criterion': 'gini',
+                  'max_features': 'sqrt',
+                  'bootstrap': True,
+                  'oob_score': False,
+                  'n_jobs': mp_parallel,
+                  'random_state': 42,
+                  'verbose': False,
+                  'min_samples_split': 5,
+                  }
+    if ps_yes:
+        ps_inst, _ = propensity_score_train(x_np=x_np, d_np=d_np, params=params_rfc)
+    else:
+        ps_inst = None
+
+    # Prognostic score
+    if pg_yes:
+        pg_inst, pg_scalers = prognostic_score_train(y_np=y_np,
+                                                     x_np=x_np,
+                                                     d_np=d_np,
+                                                     params_classif=params_rfc,
+                                                     d_values=d_values,
+                                                     cv_k=cv_k,
+                                                     boot=boot,
+                                                     mp_parallel=mp_parallel,
+                                                     obs_bigdata=obs_bigdata,
+                                                     estimators=estimators,
+                                                     zero_tol=zero_tol,
+                                                     )
+    else:
+        pg_inst = pg_scalers = None
+
+    return ps_inst, pg_inst, pg_scalers
+
+
+def predict_scores(*,
+                   x_np: NDArray,
+                   ps_inst: RandomForestClassifier,
+                   pg_inst: list[ScoreInst],
+                   pg_scalers: list[ScoreScaler],
+                   d_values: list[Number] | tuple[Number, ...],
+                   dtype: DTypeLike,
+                   zero_tol: float,
+                   ps_yes: bool,
+                   pg_yes: bool,
+                   ) -> tuple[NDArray, NDArray]:
+    """Predict propensity and prognostic scores."""
+    if ps_yes:
+        prop_score_np = propensity_score_predict(x_np=x_np,
+                                                 classif=ps_inst,
+                                                 d_values=d_values,
+                                                 dtype=dtype,
+                                                 zero_tol=zero_tol,
+                                                 )
+    else:
+        prop_score_np = None
+    if pg_yes:
+        prog_score_np = prognostic_score_predict(x_np=x_np,
+                                                 instances=pg_inst,
+                                                 scalers=pg_scalers,
+                                                 dtype=dtype,
+                                                 )
+    else:
+        prog_score_np = None
+
+    return prop_score_np, prog_score_np
+
+
+def get_score_names(d_values: list[Number] | tuple[Number, ...]) -> tuple[list[str], list[str]]:
+    """Generate variable names for prognostic and propensity scores."""
+    prog_score_name = [f'prognostic_score_main_{d_value}' for d_value in d_values]
+    prop_score_name = [f'propensity_score_main_{d_value}' for d_value in d_values]
+    prop_score_name = prop_score_name[1:]  # Propensity scores add up to one -> remove 1st
+
+    return prop_score_name, prog_score_name
+
+
+def dtype_score(*, obs_bigdata, obs1: int=0, obs2: int=0,) -> DTypeLike:
+    """Return dtype depending on data size."""
+    return np.float64 if obs1 < obs_bigdata and obs2 < obs_bigdata else np.float32

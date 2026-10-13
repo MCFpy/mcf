@@ -27,28 +27,58 @@ from sklearn.metrics import accuracy_score, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVR
+from sklearn.utils.validation import check_array, check_consistent_length
 
+from mcf.mcf_init_values_cfg import determine_cv_k
 from mcf.mcf_print_stats import del_added_chars
 
 type TreeEstimator = tree.DecisionTreeClassifier | tree.DecisionTreeRegressor
 
 
+class NumericOutcomeClassifier(RandomForestClassifier):
+    """Fit a single numeric outcome as classes while retaining its original values."""
+
+    classes_: NDArray[Any]  # Learned during fit; declared here for static analysis.
+
+    def fit(self, X: NDArray[Any] | pd.DataFrame,
+            y: NDArray[Any] | pd.Series,
+            sample_weight: NDArray[Any] | None = None,
+            ) -> 'NumericOutcomeClassifier':
+        """Encode numeric outcomes for fitting and restore their values for prediction."""
+        target = check_array(y, ensure_2d=False, dtype='numeric').ravel()
+        values, encoded = np.unique(target, return_inverse=True)
+        super().fit(X, encoded, sample_weight=sample_weight)
+        self.classes_ = values
+        return self
+
+    def score(self, X: NDArray[Any] | pd.DataFrame,
+              y: NDArray[Any] | pd.Series,
+              sample_weight: NDArray[Any] | None = None,
+              ) -> float:
+        """Return accuracy without treating fractional outcome values as continuous targets."""
+        target = np.asarray(y).ravel()
+        predicted = self.predict(X)
+        check_consistent_length(target, predicted, sample_weight)
+        return float(np.average(target == predicted, weights=sample_weight))
+
+
 # Since pad is not supported by numba, njit does not bring improvements
 def moving_avg_mean_var(data: NDArray[Any],
-                        k: int,
+                        k: int | float | np.integer[Any] | np.floating[Any],
                         mean_and_var: bool = True
-                        ) -> tuple[NDArray[Any], NDArray[Any]]:
-    """Compute moving average of mean and std deviation.
+                        ) -> tuple[NDArray[Any], NDArray[Any] | None]:
+    """Compute moving average means and optional variances.
 
     Parameters
     ----------
-    y : Numpy array. Dependent variable. Sorted.
-    k : Int. Number of neighbours to be considered.
+    data : Numpy array. Ordered observations.
+    k : Integer or float. Window length, converted to int; k >= len(data) uses all observations.
+    mean_and_var : Boolean. Also compute variances if True. Default is True.
 
     Returns
     -------
-    mean : numpy array.
-    var : numpy array.
+    mean : Numpy array.
+    var : Numpy array or None. None if mean_and_var is False.
     """
     obs = len(data)
     k = int(k)
@@ -58,6 +88,8 @@ def moving_avg_mean_var(data: NDArray[Any],
         mean = np.full(obs, mean_)
         if mean_and_var:
             var = np.full(obs, np.var(data, mean=mean_))  # New in 2.0.0)
+        else:
+            var = None
     else:
         weights = np.ones(k) / k
 
@@ -312,7 +344,6 @@ def gini_coeff_all(x_dat: NDArray[Any]) -> float:
     # For negative mean, flip the sign: absolute mean in the normalization.
     if mean_x < 0.0:
         x = -x
-        mean_x = -mean_x
 
     # Sort ascending (stable), as required by the closed-form formula
     order = np.argsort(x, kind='mergesort')
@@ -1136,21 +1167,37 @@ def best_classifier(x_np: NDArray[Any],
     """Find best classifiers for specific allocation and features."""
     # Find best algorithm (among a very limited choice so far; to be expanded)
     # Data should be scaled when entering algorithm
-    while True:
-        x_train, x_test, y_train, y_test = train_test_split(x_np, y_np,
-                                                            test_size=test_share, random_state=seed
-                                                            )
-        # Check if same values are in treated and test data
-        unique_train = np.unique(np.round(y_train))
-        unique_test = np.unique(np.round(y_test))
-        if np.array_equal(unique_train, unique_test):
-            break
-        test_share += 0.05
-        if test_share > 0.5:
-            raise ValueError('Test share larger than 50%. Some category '
-                             'does not contain all values of treatment.'
-                             f'\n{unique_train}, \n{unique_test}'
-                             )
+    y_round = np.round(y_np)
+    classes = np.unique(y_round)
+    rng = np.random.default_rng(seed)
+
+    train_required = []
+    remaining = []
+
+    for class_value in classes:
+        class_idx = np.flatnonzero(y_round == class_value)
+        rng.shuffle(class_idx)
+        train_required.append(class_idx[0])
+        remaining.extend(class_idx[1:].tolist())
+
+    remaining = np.asarray(remaining, dtype=np.intp)
+    rng.shuffle(remaining)
+
+    test_obs = max(1, int(np.ceil(len(y_np) * test_share)))
+    test_obs = min(test_obs, len(remaining))
+
+    if test_obs < 1:
+        raise ValueError('Out-of-sample classifier selection requires at least one '
+                         'class with two or more observations.'
+                         )
+    test_idx = remaining[:test_obs]
+    train_idx = np.concatenate((np.asarray(train_required, dtype=np.intp), remaining[test_obs:],))
+
+    x_train = x_np[train_idx]
+    x_test = x_np[test_idx]
+    y_train = y_np[train_idx]
+    y_test = y_np[test_idx]
+
     params_rf5 = {'n_estimators': boot, 'max_depth': None,
                   'min_samples_split': 5, 'min_samples_leaf': 2,
                   'random_state': seed, 'n_jobs': max_workers
@@ -1433,9 +1480,12 @@ def cramers_v(x: pd.Series, y: pd.Series) -> float:
     -------
     float
         Cramér's V, between 0 (no association) and 1 (perfect association).
+        NaN if either variable has fewer than two categories in the contingency table.
     """
     # Build contingency table
     contingency = pd.crosstab(x, y)
+    if min(contingency.shape) < 2:
+        return float('nan')
 
     # Compute Chi-square statistic, ignore p-value and expected frequencies
     chi2, _, _, _ = chi2_contingency(contingency, correction=False)
@@ -1450,3 +1500,11 @@ def cramers_v(x: pd.Series, y: pd.Series) -> float:
     v = np.sqrt(chi2 / (n * min(k - 1, r - 1)))
 
     return v
+
+
+def cv_k_update_train(cv_k, obs):
+    """Adjust folds for CV for number of training observations."""
+    if cv_k is None:
+        return determine_cv_k(obs)
+
+    return cv_k

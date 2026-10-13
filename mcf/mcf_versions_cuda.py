@@ -6,6 +6,7 @@ Created on Mon Dec 15 13:59:59 2025.
 """
 from __future__ import annotations
 
+from numbers import Integral
 from typing import Any, Sequence, TYPE_CHECKING
 
 try:
@@ -19,6 +20,7 @@ from mcf.mcf_cuda import require_torch
 if TYPE_CHECKING:
     from torch import Tensor
     from torch import dtype as TorchDType
+    from mcf.mcf_init import GenTvCfg
 else:
     Tensor = Any
     TorchDType = Any
@@ -46,9 +48,15 @@ def version_wregr_cuda(weights: list[torch.Tensor] | torch.Tensor, *,
                        out_dtype: TorchDType | None = None,
                        zero_tol: float = 1e-10,
                        ridge: bool = True,
-                       penalize_version: bool = False,
+                       penalize_version: bool | torch.Tensor = False,
                        return_residuals: bool = True,
                        standardize_x: bool = True,
+                       interacted: bool = False,
+                       cfg: 'GenTvCfg' | None = None,
+                       scores_train: TensorLike = None,
+                       scores_pred: TensorLike = None,
+                       allow_local_version_scores: bool = True,
+                       use_train_score_cache: bool = False,
                        ) -> tuple[torch.Tensor,
                                   list[torch.Tensor],
                                   torch.Tensor,
@@ -56,23 +64,47 @@ def version_wregr_cuda(weights: list[torch.Tensor] | torch.Tensor, *,
                                   int, int,
                                   str,
                                   ]:
-    """Estimate new weights based on treatment versions (CUDA-friendly)."""
+    """Estimate common version weights and outcome-specific residuals on CUDA.
+
+    y_train contains all outcomes in var_cfg.y_name order. cfg.y_tree_index
+    selects the outcome for ridge tuning. Residuals have shape (n,) for one
+    outcome and (n, n_outcomes) otherwise, with rows aligned to weights after
+    applying w_index when supplied.
+    """
     require_torch()
+
+    if y_train is None or d_train is None:
+        raise ValueError('y_train and d_train must be provided for version regression.')
+
+    if d_train.ndim != 2 or d_train.shape[1] < 2:
+        raise ValueError('d_train must be a 2D tensor with at least two columns: '
+                         'main treatment and subtreatment.'
+                         )
+    if d_all_values is None:
+        raise ValueError('d_all_values must be provided for version regression.')
+
     if int_dtype is None:
         int_dtype = torch.float64
     if out_dtype is None:
         out_dtype = torch.float32
 
+    if torch.is_tensor(penalize_version):
+        penalize_version = bool(penalize_version.item())
+
     txt = ''
     device = y_train.device
-    # --- Ensure weights is a CUDA tensor (only potential CPU->GPU transfer in this function)
+    with_x = x_train is not None and x_pred is not None
+
     if isinstance(weights, list):
         weights = torch.as_tensor(weights, device=device, dtype=out_dtype)
     else:
         weights = weights.to(device=device, dtype=out_dtype)
     weights = weights.reshape(-1)
 
-    # --- Robust 'length' check for d_sub_only (list or tensor)
+    if not torch.is_tensor(d_all_values):
+        d_all_values = torch.as_tensor(d_all_values, device=device)
+    d_all_values = d_all_values.to(device=device)
+
     if d_sub_only is None:
         n_sub = 0
     elif torch.is_tensor(d_sub_only):
@@ -84,174 +116,285 @@ def version_wregr_cuda(weights: list[torch.Tensor] | torch.Tensor, *,
         txt += f'\nMain treatment {maintreat_idx}: No subtreatment'
         return weights, None, None, None, maintreat_idx + 1, 0, txt
 
-    # --- Optional subsampling (IATE)
+    if y_train.ndim not in (1, 2) or y_train.shape[0] != d_train.shape[0]:
+        raise ValueError('y_train must be a vector or matrix with one row per row of d_train.')
+    if y_train.ndim == 2:
+        if y_train.shape[1] == 0:
+            raise ValueError('y_train must contain at least one outcome.')
+        if y_train.shape[1] == 1:
+            y_train = y_train.reshape(-1)
+
+    no_of_out = 1 if y_train.ndim == 1 else y_train.shape[1]
+    y_tree_index = None if cfg is None else cfg.y_tree_index
+    if y_tree_index is None and no_of_out == 1:
+        y_tree_index = 0
+    if (not isinstance(y_tree_index, Integral)
+            or not 0 <= y_tree_index < no_of_out):
+        raise ValueError('cfg.y_tree_index must identify the tree-building outcome in y_train. '
+                         f'Got {y_tree_index!r} for {no_of_out} outcome(s).'
+                         )
+    y_tree_index = int(y_tree_index)
+
     if w_index is not None:
-        # w_index must be a Long tensor for indexing; assume already on GPU, but enforce dtype
         if not torch.is_tensor(w_index):
             w_index = torch.as_tensor(w_index, device=device)
         w_index = w_index.to(dtype=torch.long, device=device)
 
         y_train = y_train[w_index]
         d_train = d_train[w_index, :]
-        if x_train is not None:
+        if with_x:
             x_train = x_train[w_index, :]
 
-    # --- x_pred fallback (replace .copy() with .clone())
-    if x_train.shape[1] != x_pred.shape[1]:
-        x_pred = x_train.clone()
-        txt += ('\nPREDICTION AND TRAINING DATA HAVE DIFFERENT # OF COLUMNS. '
-                'TRAINING DATA USED FOR PREDICTIONS IN VERSION REGRESSIONS. ')
+    if weights.shape[0] != d_train.shape[0]:
+        raise ValueError('weights and d_train must have the same number of observations '
+                         'after applying w_index. Got '
+                         f'weights.shape={weights.shape}, d_train.shape={d_train.shape}.'
+                         )
+    if with_x and x_train.shape[1] != x_pred.shape[1]:
+        raise ValueError('Prediction and training data have different numbers of columns in '
+                         f'version_wregr_cuda(): x_train.shape={x_train.shape}, '
+                         f'x_pred.shape={x_pred.shape}. This usually means that score '
+                         'variables were added to one matrix but not the other.'
+                         )
+    x_score_train_all = x_train if with_x else None
+    x_score_pred_all = x_pred if with_x else None
 
-    if standardize_x and x_train is not None:
-        x_train, x_pred = scale_by_sd_of_first_cuda(x_train, x_pred, ddof=0, zero_tol=zero_tol)
-    # --- Select within same main treatment AND positive weights
-    # Keep main_treat_val as a tensor scalar for GPU compare;
-    # only .item() for Python control-flow/text.
     main_treat_val = d_all_values[treat_idx, 0]
-    # select_data = (d_train[:, 0] == main_treat_val) & (weights > zero_tol)
-    select_data = (torch.isclose(d_train[:, 0], main_treat_val, atol= zero_tol, rtol=zero_tol)
+    select_data = (torch.isclose(d_train[:, 0], main_treat_val,
+                                 atol=zero_tol, rtol=zero_tol,
+                                 )
                    & (weights > zero_tol)
                    )
-    # First time this main treatment is seen by this function
     if treat_idx == 0:
         first_time_main = True
     else:
-        # sync point
-        first_time_main = (main_treat_val != d_all_values[treat_idx - 1, 0]).item()
+        first_time_main = not torch.isclose(main_treat_val,
+                                            d_all_values[treat_idx - 1, 0],
+                                            atol=zero_tol,
+                                            rtol=zero_tol,
+                                            ).item()
+
     if first_time_main:
-        # Select data
+        # Rescale only when computing this main treatment's cached regression results.
+        if standardize_x and with_x:
+            x_train, x_pred = scale_by_sd_of_first_cuda(x_train, x_pred,
+                                                        ddof=0, zero_tol=zero_tol,
+                                                        )
         y_tr = y_train[select_data]
+        y_tr_tune = y_tr if y_tr.ndim == 1 else y_tr[:, y_tree_index]
         d_sub_tr = d_train[select_data, 1]
-        x_tr = x_train[select_data, :]
+        x_tr = x_train[select_data, :] if with_x else None
         w_tr = weights[select_data].to(dtype=int_dtype)
 
-        # Container: Python list holding CUDA tensors (no GPU<->CPU data copies)
-        container_w = [None] * n_sub
-        container_r = [None] * n_sub
+        container_w, container_r = [None] * n_sub, [None] * n_sub
 
-        # 1) small-cell check (assumed GPU-aware inside)
-        subtreat_idx_too_small = too_small_cuda(d_sub_tr, d_sub_only, tv_min_subtreat,
-                                                zero_tol=zero_tol
+        subtreat_idx_too_small = too_small_cuda(d_sub_tr, d_sub_only,
+                                                tv_min_subtreat,
+                                                zero_tol=zero_tol,
                                                 )
-        # expected: list[int] (indices), or empty list/None
 
-        # 2) dummies (assumed to return a CUDA tensor)
-        d_dummy = dummies_ordered_cuda(d_sub_tr, d_sub_only, dtype=int_dtype, unknown='error')
-        # Drop columns with too small cells
-        # (replace np.delete with boolean column mask)
-        if subtreat_idx_too_small:
-            col_mask = torch.ones(d_dummy.shape[1],
-                                  device=device, dtype=torch.bool
-                                  )
-            col_mask[subtreat_idx_too_small] = False
-            d_dummy = d_dummy[:, col_mask]
-
-            txt += ('\nThe following subtreatments are too small for version '
-                    f'regression: Main_treatment: {main_treat_val.item()} '
-                    f'Subtreatments: {" ".join(map(str, subtreat_idx_too_small))}'
+        if len(subtreat_idx_too_small) == n_sub:
+            txt += ('\nAll subtreatments are too small for version regression. '
+                    f'Main_treatment: {main_treat_val.item()}. Original weights '
+                    'are kept.'
                     )
-        # Replace np.concat with torch.cat
-        regr_tr = torch.cat((d_dummy, x_tr.to(dtype=int_dtype)), dim=1)
+            for sub_idx in range(n_sub):
+                container_w[sub_idx] = weights.clone()
+                container_r[sub_idx] = (torch.zeros_like(y_train, dtype=weights.dtype)
+                                        if return_residuals else None
+                                        )
+        else:
+            d_dummy = dummies_ordered_cuda(d_sub_tr, d_sub_only, dtype=int_dtype, unknown='error')
 
-        # Construct list of regressors for predicting subeffects (GPU)
-        regr_eval_list_o = []
-        col_1 = 0
-        n_pred = x_pred.shape[0]
-        n_dummy_cols = d_dummy.shape[1]
+            if subtreat_idx_too_small:
+                col_mask = torch.ones(d_dummy.shape[1], device=device,
+                                      dtype=torch.bool)
+                col_mask[subtreat_idx_too_small] = False
+                d_dummy = d_dummy[:, col_mask]
 
-        for sub_idx in range(n_sub):
-            if subtreat_idx_too_small and sub_idx in subtreat_idx_too_small:
-                continue
-            dummy_eval = torch.zeros((n_pred, n_dummy_cols), device=device, dtype=int_dtype)
-            dummy_eval[:, col_1] = 1.0
-            regr_eval = torch.cat((dummy_eval, x_pred.to(dtype=int_dtype)), dim=1)
-            regr_eval_list_o.append(regr_eval)  # no need to clone unless later mutated
-            col_1 += 1
+                txt += ('\nThe following subtreatments are too small for version '
+                        f'regression: Main_treatment: {main_treat_val.item()} '
+                        f'Subtreatments: {" ".join(map(str, subtreat_idx_too_small))}'
+                        )
 
-        if ridge:
-            # Replace np.zeros + np.logspace with torch equivalents on GPU
-            grid_length = 30
-            if penalize_version:
-                grid =  torch.logspace(-5, 2, steps=grid_length, base=10.0,
-                                       device=device, dtype=int_dtype
-                                       )
-                not_penalize_first_k = 1
-                # --- training ---
-                constant_tr = torch.ones((regr_tr.shape[0], 1),
-                                         dtype=regr_tr.dtype, device=regr_tr.device
+            if cfg is not None:
+                score_type = cfg.score_type or ()
+                if isinstance(score_type, str):
+                    score_type = (score_type,)
+
+                ps_version_yes = cfg.addscores and 'prop_version' in score_type
+                pg_version_yes = cfg.addscores and 'prog_version' in score_type
+                version_yes = ps_version_yes or pg_version_yes
+
+                local_version_scores = allow_local_version_scores and cfg.score_version_local
+                global_version_scores = not cfg.score_version_local
+                version_scores = version_yes and (local_version_scores or global_version_scores)
+
+                if local_version_scores and version_yes:
+                    raise NotImplementedError('Local version scores are not implemented in the '
+                                              'CUDA path. Use the CPU path or precompute global '
+                                              'version scores.'
+                                              )
+                if with_x and cfg.addscores and version_scores:
+                    if not global_version_scores:
+                        raise NotImplementedError('Only global version scores are implemented in '
+                                                  'the CUDA path.'
+                                                  )
+                    if not use_train_score_cache:
+                        raise NotImplementedError('CUDA global version scores require '
+                                                  'use_train_score_cache=True.'
+                                                  )
+                    if w_index is None:
+                        raise ValueError('CUDA training-score cache requires w_index.')
+
+                    if scores_train is None or scores_pred is None:
+                        raise ValueError('Global CUDA version scores require scores_train '
+                                         'and scores_pred.'
                                          )
-                regr_tr = torch.cat((constant_tr, regr_tr), dim=1)
-                # --- eval list ---
-                regr_eval_list = [torch.cat((torch.ones((regr_eval.shape[0], 1),
-                                                        dtype=regr_eval.dtype,
-                                                        device=regr_eval.device), regr_eval),
-                                            dim=1)
-                                  ]
-            else:
-                grid = torch.cat((torch.zeros(1, device=device, dtype=int_dtype),
-                                  torch.logspace(-5, 2, steps=grid_length, base=10.0,
-                                                 device=device, dtype=int_dtype),),
-                                 dim=0
-                                 )
-                not_penalize_first_k = d_dummy.shape[1]
-                regr_eval_list = regr_eval_list_o
+                    if x_score_train_all is None or x_score_pred_all is None:
+                        raise ValueError('Version-score variables require x_train and x_pred.')
 
-            best_lam, _ = mcf_ewr.ridge_cv_penalty_cuda(regr_tr, y_tr,
-                                                        w_tr.reshape(-1, 1),
-                                                        lambdas=grid,
-                                                        k=cv_k,
-                                                        shuffle=True,
-                                                        seed=1234566,
-                                                        not_penalize_first_k=not_penalize_first_k,
-                                                        dtype=int_dtype,
-                                                        )
-        else:
-            regr_eval_list = regr_eval_list_o
-        if ridge:
-            weights_tv_list, resid_tv_list = mcf_ewr.ridge_equivalent_weights_for_mean_cuda(
-                regr_tr,
-                w_tr.reshape(-1, 1),
-                y=y_tr if return_residuals else None,
-                lam=best_lam,
-                x_eval=regr_eval_list,
-                int_dtype=int_dtype,
-                out_dtype=out_dtype,
-                weights_eval=None,
-                not_penalize_first_k=not_penalize_first_k,
-                return_residuals=return_residuals,
-                )
-        else:
-            weights_tv_list, resid_tv_list = mcf_ewr.wls_equivalent_weights_for_mean_cuda(
-                regr_tr,
-                w_tr.reshape(-1, 1),
-                y=y_tr if return_residuals else None,
-                x_eval=regr_eval_list,
-                int_dtype=int_dtype,
-                out_dtype=out_dtype,
-                weights_eval=None,
-                return_residuals=return_residuals,
-                )
-        # Fill container (replace .copy() with .clone())
-        col_1 = 0
-        for sub_idx in range(n_sub):
-            weights_return = weights.clone()
-            if return_residuals:
-                residuals_return = torch.zeros_like(weights_return, dtype=weights.dtype)
-            if not (subtreat_idx_too_small and sub_idx in subtreat_idx_too_small):
-                weights_return[select_data] = weights_tv_list[col_1].reshape(-1).to(
-                    dtype=weights.dtype)
-                if return_residuals:
-                    residuals_return[select_data] = resid_tv_list[col_1].reshape(-1).to(
-                        dtype=weights.dtype)
+                    score_rows = w_index[select_data].to(dtype=torch.long)
+                    score_tr = scores_train[score_rows, :].to(device=device, dtype=x_tr.dtype)
+                    score_pr = scores_pred.to(device=device, dtype=x_pred.dtype)
+
+                    x_tr = torch.cat((x_tr, score_tr), dim=1)
+                    x_pred = torch.cat((x_pred, score_pr), dim=1)
+
+            x_tr_use = None if x_tr is None else x_tr.to(dtype=int_dtype)
+            regr_tr = build_tv_regressors_train_cuda(d_dummy, x_tr_use, interacted=interacted)
+
+            regr_eval_list_o = []
+            col_1 = 0
+            n_dummy_cols = d_dummy.shape[1]
+            # Average the augmented covariates only after all scores have been added.
+            x_pred_use = (None if x_pred is None
+                          else x_pred.to(dtype=int_dtype).mean(dim=0, keepdim=True)
+                          )
+
+            for sub_idx in range(n_sub):
+                if subtreat_idx_too_small and sub_idx in subtreat_idx_too_small:
+                    continue
+
+                dummy_eval = torch.zeros((1, n_dummy_cols), device=device, dtype=int_dtype)
+                dummy_eval[:, col_1] = 1.0
+
+                regr_eval = build_tv_regressors_eval_cuda(dummy_eval, x_pred_use,
+                                                          interacted=interacted,
+                                                          )
+                regr_eval_list_o.append(regr_eval)
                 col_1 += 1
-            container_w[sub_idx] = weights_return
-            if return_residuals:
-                container_r[sub_idx] = residuals_return
+
+            if ridge:
+                grid_length = 30
+                if penalize_version:
+                    grid = torch.logspace(-5, 2,
+                                          steps=grid_length,
+                                          base=10.0,
+                                          device=device,
+                                          dtype=int_dtype,
+                                          )
+                    not_penalize_first_k = 1
+
+                    constant_tr = torch.ones((regr_tr.shape[0], 1),
+                                             dtype=regr_tr.dtype,
+                                             device=regr_tr.device,
+                                             )
+                    regr_tr = torch.cat((constant_tr, regr_tr), dim=1)
+
+                    regr_eval_list = [torch.cat((torch.ones((regr_eval.shape[0], 1),
+                                                            dtype=regr_eval.dtype,
+                                                            device=regr_eval.device,
+                                                            ),
+                                                 regr_eval,
+                                                 ),
+                                                dim=1,
+                                                )
+                                      for regr_eval in regr_eval_list_o
+                                      ]
+                else:
+                    grid = torch.cat((torch.zeros(1, device=device,
+                                                  dtype=int_dtype),
+                                      torch.logspace(-5, 2, steps=grid_length,
+                                                     base=10.0,
+                                                     device=device,
+                                                     dtype=int_dtype,
+                                                     ),
+                                      ),
+                                     dim=0,
+                                     )
+                    not_penalize_first_k = d_dummy.shape[1]
+                    regr_eval_list = regr_eval_list_o
+
+                # Use the tree-building outcome to select one common penalty.
+                best_lam, _ = mcf_ewr.ridge_cv_penalty_cuda(regr_tr, y_tr_tune,
+                                                            w_tr.reshape(-1, 1),
+                                                            lambdas=grid, k=cv_k,
+                                                            shuffle=True, seed=1234566,
+                                                            not_penalize_first_k=
+                                                                not_penalize_first_k,
+                                                            dtype=int_dtype,
+                                                            )
+                weights_tv_list, resid_tv_list = (
+                    mcf_ewr.ridge_equivalent_weights_for_mean_cuda(
+                        regr_tr,
+                        w_tr.reshape(-1, 1),
+                        y=y_tr if return_residuals else None,
+                        lam=best_lam,
+                        x_eval=regr_eval_list,
+                        int_dtype=int_dtype,
+                        out_dtype=out_dtype,
+                        weights_eval=None,
+                        not_penalize_first_k=not_penalize_first_k,
+                        return_residuals=return_residuals,
+                        )
+                    )
+            else:
+                regr_eval_list = regr_eval_list_o
+                weights_tv_list, resid_tv_list = (
+                    mcf_ewr.wls_equivalent_weights_for_mean_cuda(
+                        regr_tr,
+                        w_tr.reshape(-1, 1),
+                        y=y_tr if return_residuals else None,
+                        x_eval=regr_eval_list,
+                        int_dtype=int_dtype,
+                        out_dtype=out_dtype,
+                        weights_eval=None,
+                        return_residuals=return_residuals,
+                        )
+                    )
+            col_1 = 0
+            for sub_idx in range(n_sub):
+                weights_return = weights.clone()
+                residuals_return = (torch.zeros_like(y_train, dtype=weights.dtype)
+                                    if return_residuals else None
+                                    )
+                if subtreat_idx_too_small and sub_idx in subtreat_idx_too_small:
+                    container_w[sub_idx] = weights_return
+                    container_r[sub_idx] = residuals_return
+                    continue
+
+                weights_return[select_data] = (weights_tv_list[col_1].reshape(-1)
+                                               .to(dtype=weights.dtype)
+                                               )
+                container_w[sub_idx] = weights_return
+
+                if return_residuals:
+                    residuals_return[select_data] = resid_tv_list[col_1].to(dtype=weights.dtype)
+                    container_r[sub_idx] = residuals_return
+                else:
+                    container_r[sub_idx] = None
+
+                col_1 += 1
+
+    if container_w is None:
+        raise ValueError('container_w must be provided for non-first subtreatment calls.')
+    if return_residuals and container_r is None:
+        raise ValueError('container_r must be provided when return_residuals=True.')
 
     weight_new = container_w[subtreat_idx]
     residual_new = container_r[subtreat_idx] if return_residuals else None
 
-    # Update indices
     if subtreat_idx == n_sub - 1:
         maintreat_idx += 1
         subtreat_idx = 0
@@ -391,30 +534,56 @@ def scale_by_sd_of_first_cuda(a: torch.Tensor,
                               zero_tol: float = 1e-10,
                               ) -> tuple[torch.Tensor, torch.Tensor]:
     """
-    Scale two (N, K) tensors by the column-wise SD of `a` (GPU friendly).
+    Scale two (N, K) tensors by the column-wise SD of `a`.
 
-    - If a or b is 1D, reshapes to (1, K).
-    - Uses column-wise std of a over dim=0.
-    - Avoids divide-by-zero for constant columns by replacing 0 SD with 1.
+    Returns (a_scaled, b_scaled).
     """
     if a.ndim == 1:
-        a = a.reshape(1, -1)
+        a = a.reshape(-1, 1)
     if b.ndim == 1:
-        b = b.reshape(1, -1)
+        b = b.reshape(-1, 1)
 
     if a.ndim != 2 or b.ndim != 2:
-        raise ValueError('a and b must be 1D or 2D (N, K)')
+        raise ValueError('a and b must be 1D or 2D arrays/tensors.')
 
     if a.shape[1] != b.shape[1]:
         raise ValueError('a and b must have the same number of columns (K)')
 
-    # torch.std: correction == ddof (PyTorch 1.8+; in newer versions it's the preferred API)
-    sd = a.std(dim=0, correction=ddof)  # shape (K,)
-
-    # Replace zeros with ones to prevent division by zero; keep dtype/device
-    # sd_safe = torch.where(sd == 0, torch.ones_like(sd), sd)
-    sd_safe = torch.where(torch.isclose(sd, 0, rtol=zero_tol, atol=zero_tol),
-                          torch.ones_like(sd), sd
+    sd = a.std(dim=0, correction=ddof)
+    sd_safe = torch.where(torch.isclose(sd, torch.zeros_like(sd), atol=zero_tol, rtol=zero_tol),
+                          torch.ones_like(sd),
+                          sd,
                           )
-
     return a / sd_safe, b / sd_safe
+
+
+def build_tv_regressors_train_cuda(d_dummy: torch.Tensor,
+                                   x_tr: torch.Tensor | None, *,
+                                   interacted: bool,
+                                   ) -> torch.Tensor:
+    """Build training regressor matrix for treatment-version regression."""
+    if x_tr is None:
+        return d_dummy
+
+    if interacted:
+        interact_tr = (d_dummy[:, :, None] * x_tr[:, None, :]).reshape(d_dummy.shape[0], -1)
+        return torch.cat((d_dummy, interact_tr), dim=1)
+
+    return torch.cat((d_dummy, x_tr), dim=1)
+
+
+def build_tv_regressors_eval_cuda(dummy_eval: torch.Tensor,
+                                  x_pred: torch.Tensor | None, *,
+                                  interacted: bool,
+                                  ) -> torch.Tensor:
+    """Build evaluation regressor matrix for treatment-version regression."""
+    if x_pred is None:
+        return dummy_eval
+
+    if interacted:
+        interact_eval = (dummy_eval[:, :, None] * x_pred[:, None, :]).reshape(
+            dummy_eval.shape[0], -1
+            )
+        return torch.cat((dummy_eval, interact_eval), dim=1)
+
+    return torch.cat((dummy_eval, x_pred), dim=1)

@@ -44,7 +44,7 @@ def make_default_tree_dict(n_leaf_min: int,
     else:
         dtype = np.int64
 
-    max_cols_int, max_cols_float = 10, 3
+    max_cols_int, max_cols_float = 10, 4
     leaf_info_int = -np.ones((leaves_max, max_cols_int), dtype=dtype)
     leaf_ids = np.arange(leaves_max, dtype=dtype)
 
@@ -76,6 +76,7 @@ def make_default_tree_dict(n_leaf_min: int,
     # leaf_info_float 0: ID of leaf
     #                 1: Cut-of value of ordered variables
     #                 2: OOB value of leaf
+    #                 3: OOB aggregation weight
 
     # Primes need to stored separately as np.int64 may not be sufficient to
     # store extra large values
@@ -109,14 +110,15 @@ def make_default_tree_dict(n_leaf_min: int,
 
 
 def cut_back_empty_cells_tree(tree: dict) -> dict:
-    """Cut back matrices and vector to max element."""
+    """Trim node storage and detach arrays from unused capacity."""
     no_leaves = 0
     for active in tree['leaf_info_int'][:, 7]:
         if active == -1:
             break
         no_leaves += 1
-    tree['leaf_info_int'] = tree['leaf_info_int'][:no_leaves, :]
-    tree['leaf_info_float'] = tree['leaf_info_float'][:no_leaves, :]
+
+    tree['leaf_info_int'] = tree['leaf_info_int'][:no_leaves, :].copy()
+    tree['leaf_info_float'] = tree['leaf_info_float'][:no_leaves, :].copy()
     tree['cats_prime'] = tree['cats_prime'][:no_leaves]
     tree['train_data_list'] = tree['train_data_list'][:no_leaves]
     tree['oob_data_list'] = tree['oob_data_list'][:no_leaves]

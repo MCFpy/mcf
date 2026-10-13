@@ -18,7 +18,7 @@ import pandas as pd
 
 from mcf import mcf_ate
 from mcf import mcf_common_support as mcf_cs
-from mcf import mcf_data as mcf_data
+from mcf import mcf_data
 from mcf import mcf_estimation as mcf_est
 from mcf import mcf_init_update_helper as mcf_init_update
 from mcf import mcf_general as mcf_gp
@@ -65,7 +65,6 @@ def predict_different_allocations_main(self,
     """
     time_start = time()
     report = {}
-    txt = ''
 
     data_df, _ = mcf_data.data_frame_vars_lower(data_df)
     if allocations_df is not None:
@@ -154,10 +153,9 @@ def predict_different_allocations_main(self,
 
         time_i_start = time()
         if allocations_df is not None:
-            w_alloc_f_np, w_alloc_var_f_np, names, txt_w_f = alloc_est(self,
-                                                                       data_df, weights_dic,
-                                                                       alloc_names=alloc_names
-                                                                       )
+            w_alloc_f_np, w_alloc_var_f_np, names, _ = alloc_est(self, data_df, weights_dic,
+                                                                alloc_names=alloc_names,
+                                                                )
             if fold == 0:
                 w_alloc_np = np.zeros_like(w_alloc_f_np)
                 w_alloc_var_np = np.zeros_like(w_alloc_f_np)
@@ -165,7 +163,6 @@ def predict_different_allocations_main(self,
 
             w_alloc_np += w_alloc_f_np
             w_alloc_var_np += w_alloc_var_f_np
-            txt += txt_w_f
         time_delta_alloc += time() - time_i_start
 
     if allocations_df is not None:
@@ -192,24 +189,30 @@ def predict_different_allocations_main(self,
                                                              )
     time_delta_ate += time() - time_a_start
 
+    report_tables: list[tuple[str, pd.DataFrame, str]] = []
     if allocations_df is not None:
         time_i_start = time()
         alloc_df, txt_alloc = alloc_effects_print(self,
                                                   w_alloc_np, w_alloc_var_np,
                                                   y_pred_x_df, len(data_df),
                                                   alloc_names=alloc_all_names,
-                                                  alloc_single_names=alloc_names
+                                                  alloc_single_names=alloc_names,
+                                                  report_tables=report_tables,
                                                   )
         time_delta_alloc += time() - time_i_start
     else:
         alloc_df, txt_alloc = None, ''
+
     # Collect results
     results = {
         # Keep well tested & well formated structure + names of predict method
         'ate': ate, 'ate_se': ate_se, 'ate_effect_list': ate_effect_list, 'alloc_df': alloc_df,
         }
+
     if self.gen_cfg.with_output:
         report['alloc_mcf_pred_results'] = results
+        report['alloc_welfare_tables'] = report_tables
+        report['alloc_welfare_allocations'] = txt_alloc
         self.report['predict_list'].append(report.copy())
         self.report['alloc_welfare_allocations'] = txt_alloc
 
@@ -262,10 +265,9 @@ def alloc_est(mcf_: 'ModifiedCausalForest',
     """
     txt = ''
     int_cfg = mcf_.int_cfg
-    p_ba_yes = mcf_.p_ba_cfg
+    p_ba_yes = mcf_.p_ba_cfg.yes
     # Training data
     y_dat = weights_dic['y_dat_np']
-    w_dat = weights_dic['w_dat_np'] if mcf_.gen_cfg.weighted else None
 
     if mcf_.gen_cfg.d_type == 'continuous':
         raise NotImplementedError('Evaluation of allocations is only available'
@@ -368,12 +370,19 @@ def alloc_est(mcf_: 'ModifiedCausalForest',
     welfare_level_var = np.empty_like(welfare_level)
     for alloc_idx in range(no_of_alloc):
         for out_idx in range(no_of_out):
-            # TODO: hier bias adjustment, oder vorher? Oder gar nicht
+# TODO: hier bias adjustment, oder vorher? Oder gar nicht
+# Answer to the TODO: adjustment belongs before pooling the treatment-specific contributions
+# and before censoring and inference. Applying one regression to the final vector would mix
+#  observations from different treatments. The corrected weights must also feed the variances
+#  and policy differences.
+
+# An implementation consistent with the ATE/GATE approach would retain and adjust weights
+#  separately for each policy and treatment, preserving their policy shares. The evaluation
+#  distribution, particularly for weighted_train_obs, requires an explicit estimator decision.
             ret = mcf_est.weight_var(
                 w_alloc[alloc_idx, :], y_dat[:, out_idx],
                 cl_dat, mcf_.p_cfg,
                 residual_dat=None,
-                weighted=mcf_.gen_cfg.weighted, weights=w_dat,
                 bootstrap=mcf_.p_cfg.se_boot_ate,
                 keep_all=int_cfg.keep_w0,
                 se_yes=True,
@@ -397,21 +406,22 @@ def alloc_est(mcf_: 'ModifiedCausalForest',
         for alloc2_idx, alloc2_name in enumerate(alloc2_names, start=alloc1_idx + 1):
             alloc_diff_names.append(alloc1_name + '_m_' + alloc2_name)
             for out_idx in range(no_of_out):
-                ret = mcf_est.weight_var(w_alloc[alloc1_idx, :] - w_alloc[alloc2_idx, :],
-                                         y_dat[:, out_idx],
-                                         cl_dat, mcf_.p_cfg,
-                                         residual_dat=None,
-                                         weighted=mcf_.gen_cfg.weighted, weights=w_dat,
-                                         bootstrap=mcf_.p_cfg.se_boot_ate,
-                                         keep_all=int_cfg.keep_w0,
-                                         se_yes=True,
-                                         normalize=False,
-                                         zero_tol=int_cfg.zero_tol, sum_tol = int_cfg.sum_tol,
-                                         seed=123345, min_obs=5,
-                                         )
+                ret = mcf_est.weight_var(
+                    w_alloc[alloc1_idx, :] - w_alloc[alloc2_idx, :],
+                    y_dat[:, out_idx],
+                    cl_dat, mcf_.p_cfg,
+                    residual_dat=None,
+                    bootstrap=mcf_.p_cfg.se_boot_ate,
+                    keep_all=int_cfg.keep_w0,
+                    se_yes=True,
+                    normalize=False,
+                    zero_tol=int_cfg.zero_tol, sum_tol=int_cfg.sum_tol,
+                    seed=123345, min_obs=5,
+                    )
                 welfare_diff[alloc_diff_idx, out_idx] = ret[0]
                 welfare_diff_var[alloc_diff_idx, out_idx] = ret[1]
-                alloc_diff_idx += 1
+
+            alloc_diff_idx += 1
 
     all_names = [*alloc_names, *alloc_diff_names]
     welfare = np.concatenate((welfare_level, welfare_diff))
@@ -426,9 +436,10 @@ def alloc_effects_print(mcf_: 'ModifiedCausalForest',
                         y_pred_lc: NDArray[Any],
                         obs: int, *,
                         alloc_names: list[str] | None = None,
-                        alloc_single_names: list[str] | None = None
+                        alloc_single_names: list[str] | None = None,
+                        report_tables: list[tuple[str, pd.DataFrame, str]] | None = None,
                         ) -> tuple[DataFrame, str]:
-    """Compute ate's from potential outcomes and print them."""
+    """Compute effects from potential outcomes and print them."""
     txt = ''
     if isinstance(y_pred_lc, (pd.Series, pd.DataFrame)):
         lc_yes, y_pred_lc_avg = True, np.mean(y_pred_lc, axis=0)
@@ -442,7 +453,8 @@ def alloc_effects_print(mcf_: 'ModifiedCausalForest',
         txt += '\n' + '-' * 100
         if mcf_.p_cfg.se_boot_ate > 1:
             txt += ('\nBootstrap standard errors with '
-                    '{mcf_.p_cfg.se_boot_ate:<6} replications')
+                    f'{mcf_.p_cfg.se_boot_ate:<6} replications'
+                    )
         for out_idx, out_name in enumerate(mcf_.var_cfg.y_name):
             out_name_txt = out_name[:-3] if lc_yes else out_name
             txt += '\nOutcome variable: ' + out_name_txt
@@ -455,12 +467,14 @@ def alloc_effects_print(mcf_: 'ModifiedCausalForest',
             stderr, t_val, p_val = mcf_est.compute_inference(w_alloc_np[:, out_idx],
                                                              w_alloc_var_np[:, out_idx]
                                                              )
+            report_rows = [] if report_tables is not None else None
             txt += mcf_ps.print_effect(w_alloc_np[:, out_idx],  # Effect
                                        stderr,
                                        t_val,
                                        p_val,
                                        alloc_names,
-                                       no_comparison=True
+                                       no_comparison=True,
+                                       report_rows=report_rows,
                                        )
 
             add_txt = (f'\nNumber of observations used for these calculations: {obs}.'
@@ -470,10 +484,17 @@ def alloc_effects_print(mcf_: 'ModifiedCausalForest',
                        '\nNote that cross-fitting and efficient estimation of '
                        'IATEs (if used) is not accounted for.'
                        )
-            txt += mcf_ps.print_se_info(mcf_.p_cfg.cluster_std,
-                                        mcf_.p_cfg.se_boot_ate,
-                                        additional_info=add_txt
-                                        )
+            se_info = mcf_ps.print_se_info(mcf_.p_cfg.cluster_std,
+                                            mcf_.p_cfg.se_boot_ate,
+                                            additional_info=add_txt,
+                                            )
+            txt += se_info
+            if report_tables is not None:
+                table_df = pd.DataFrame([values for _, values in report_rows],
+                                        index=[label for label, _ in report_rows],
+                                        columns=['Estimate', 'SE', 't-value', 'p-value', 'Sig.'])
+                note = ' '.join(se_info.replace('-' * 100, '').split())
+                report_tables.append((out_name_txt, table_df, note))
         txt += '\n' + '-' * 100
         mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=True, non_summary=True)
 

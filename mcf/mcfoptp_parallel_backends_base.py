@@ -14,7 +14,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from itertools import count
 from math import ceil
-from platform import system
+import sys
 from typing import Any, Callable, ClassVar, Generic, Literal, TypeVar, TYPE_CHECKING
 from mcf.mcf_print_stats import print_mcf
 try:
@@ -23,7 +23,7 @@ except ImportError:  # pragma: no cover
     Parallel = delayed = None
 try:
     import ray
-except ImportError:
+except (ImportError, OSError):
     ray = None
 
 if TYPE_CHECKING:
@@ -417,7 +417,7 @@ def make_executor(cfg: ParallelCfg) -> ParallelExecutor:
         return SequentialExecutor()
 
     if cfg.backend == 'joblib':
-        n_jobs = 60 if system() == 'Windows' and cfg.n_jobs > 60 else cfg.n_jobs
+        n_jobs = 60 if sys.platform.startswith('win') and cfg.n_jobs > 60 else cfg.n_jobs
         return JoblibExecutor(n_jobs=n_jobs,
                               backend=cfg.joblib_backend,
                               verbose=cfg.joblib_verbose,

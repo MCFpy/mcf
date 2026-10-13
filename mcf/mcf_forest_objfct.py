@@ -20,7 +20,6 @@ except (ImportError, OSError):
     torch = None  # type: ignore[assignment]
 
 from mcf import mcf_cuda as mcf_c
-# from mcf import mcf_forest_cy as mcf_cy
 
 
 def mcf_mse(y_dat: NDArray[np.float64],
@@ -37,6 +36,7 @@ def mcf_mse(y_dat: NDArray[np.float64],
             cython: bool = True,
             compare_only_to_zero: bool = False,
             pen_mult: float = 0,
+            mce_type: str = 'cross_error',
             zero_tol: float = 1e-10,
             ) -> tuple[NDArray[np.float64],
                        NDArray[np.float64],
@@ -59,6 +59,7 @@ def mcf_mse(y_dat: NDArray[np.float64],
     cuda : Boolean. Use cuda if True.
     compare_only_to_zero : Boolean. Use reduced MSE matrix.
     pen_mult : Multiplier of penalty related to MSE of treatment prediction.
+    mce_type : 'covariance'  or 'cross_error' (default); validated by CfCfg.
 
     Returns
     -------
@@ -66,6 +67,8 @@ def mcf_mse(y_dat: NDArray[np.float64],
     treat_share: 1D Numpy array. Treatment shares.
 
     """
+    cross_error = mce_type == 'cross_error'
+
     min_obs_for_cuda = 10000000000  # No gain in speed compared to Numba
 
     # CUDA is currently not used here (ineffective when used from many
@@ -80,6 +83,7 @@ def mcf_mse(y_dat: NDArray[np.float64],
                                                                  compare_only_to_zero=
                                                                      compare_only_to_zero,
                                                                  pen_mult=pen_mult, precision=32,
+                                                                 cross_error=cross_error,
                                                                  zero_tol=zero_tol,
                                                                  )
     else:
@@ -88,7 +92,7 @@ def mcf_mse(y_dat: NDArray[np.float64],
                 y_dat, y_nn, d_dat, w_dat,
                 n_obs=n_obs, mtot=mtot, no_of_treat=no_of_treat, treat_values=treat_values,
                 w_yes=w_yes, splitting=splitting, compare_only_to_zero=compare_only_to_zero,
-                pen_mult=pen_mult, zero_tol=zero_tol,
+                pen_mult=pen_mult, cross_error=cross_error, zero_tol=zero_tol,
                 )
         else:
             if cython:
@@ -100,7 +104,8 @@ def mcf_mse(y_dat: NDArray[np.float64],
                 n_obs=n_obs, mtot=mtot, no_of_treat=no_of_treat,
                 treat_values=np.array(treat_values, dtype=np.int8),
                 compare_only_to_zero=compare_only_to_zero,
-                pen_mult=pen_mult, penalty=pen_mult > 0, zero_tol=zero_tol,
+                pen_mult=pen_mult, penalty=pen_mult > 0,
+                cross_error=cross_error, zero_tol=zero_tol,
                 )
     return mse_mce, treat_shares, no_of_obs_by_treat
 
@@ -118,9 +123,10 @@ def mcf_mse_cuda(y_dat_np: NDArray[np.float64],
                  compare_only_to_zero: bool = False,
                  pen_mult: float | int = 0,
                  precision: int = 32,
+                 cross_error: bool = True,
                  zero_tol: float = 1e-10,
                  ) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any]]:
-    """Compute average MSE / MCE for the data passed (CUDA)."""
+    """Compute MSE and covariance or cross-error MCE on CUDA."""
     isclose = torch.isclose
     # Move inputs to GPU
     y_dat, y_nn, d_dat, w_dat, treat_values = tensors_to_gpu(y_dat_np, y_nn_np, d_dat_np, w_dat_np,
@@ -143,11 +149,12 @@ def mcf_mse_cuda(y_dat_np: NDArray[np.float64],
 
     mse_mce = torch.zeros((no_of_treat, no_of_treat), device=device, dtype=float_dtype,)
     no_of_obs_by_treat = torch.zeros(no_of_treat, device=device, dtype=int_dtype,)
+    y_means: list[torch.Tensor | None] = [None] * no_of_treat
     for m_idx in range(no_of_treat):
         d_m = isclose(d_dat, treat_values[m_idx], atol=zero_tol, rtol=zero_tol)
         y_m = y_dat[d_m]
 
-        if n_m := int(y_m.shape[0]) == 0:
+        if (n_m := int(y_m.shape[0])) == 0:
             # No observations in this treatment cell
             continue
 
@@ -179,6 +186,12 @@ def mcf_mse_cuda(y_dat_np: NDArray[np.float64],
         if mtot in (1, 3, 4):
             mse_mce[m_idx, m_idx] = mse_m
 
+        y_means[m_idx] = y_m_mean
+
+    for m_idx in range(no_of_treat):
+        y_m_mean = y_means[m_idx]
+        if y_m_mean is None:
+            continue
         # Off-diagonal entries (cross terms)
         if (mtot != 3) and (m_idx == 0 or not compare_only_to_zero):
             for v_idx in range(m_idx + 1, no_of_treat):
@@ -206,7 +219,18 @@ def mcf_mse_cuda(y_dat_np: NDArray[np.float64],
                     if y_nn_m.shape[0] == 0:
                         continue
 
-                    if w_yes:
+                    if cross_error:
+                        mean_l = y_means[v_idx]
+                        if mean_l is None:
+                            mce_ml = torch.full_like(y_m_mean, float('nan'))
+                        else:
+                            errors = (y_m_mean - y_nn_m) * (mean_l - y_nn_l)
+                            if w_yes:
+                                w_ml = w_dat[d_ml].reshape(-1)
+                                mce_ml = mean_t_w(errors, w_ml, dim=0)
+                            else:
+                                mce_ml = torch.mean(errors, dim=0)
+                    elif w_yes:
                         w_ml = w_dat[d_ml].reshape(-1)
                         if splitting and (no_of_treat == 2):
                             mce_ml = (mean_t_w(y_nn_m, w_ml, dim=0) * mean_t_w(y_nn_l, w_ml, dim=0)
@@ -311,6 +335,7 @@ def mcf_mse_not_numba(y_dat: NDArray[np.float64],
                       splitting: bool = False,
                       compare_only_to_zero: bool = False,
                       pen_mult: float | int | None = 0,
+                      cross_error: bool = True,
                       zero_tol: float = 1e-10,
                       ) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any]]:
     """Compute average mse for the data passed. Based on different methods.
@@ -329,6 +354,7 @@ def mcf_mse_not_numba(y_dat: NDArray[np.float64],
     treat_values : List of INT. Treatment values.
     w_yes: Boolean. Weighted estimation.
     splitting: Boolean. Default is False.
+    cross_error: Boolean. Use observed leaf means to center MCE errors.
 
     Returns
     -------
@@ -341,6 +367,7 @@ def mcf_mse_not_numba(y_dat: NDArray[np.float64],
     treat_shares = np.empty(no_of_treat) if mtot in (1, 4) else 0
     mse_mce = np.zeros((no_of_treat, no_of_treat))
     no_of_obs_by_treat = np.zeros(no_of_treat)
+    y_means = [0.0] * no_of_treat
     if w_yes:
         n_obs = np.sum(w_dat)
 
@@ -369,16 +396,21 @@ def mcf_mse_not_numba(y_dat: NDArray[np.float64],
             treat_shares[m_idx] = n_m / n_obs
         if mtot in (1, 3, 4):
             mse_mce[m_idx, m_idx] = mse_m
+        y_means[m_idx] = y_m_mean
+
+    for m_idx in range(no_of_treat):
+        y_m_mean = y_means[m_idx]
         if (mtot != 3) and (m_idx == 0 or not compare_only_to_zero):
-            mce_ml = 0
             for v_idx in range(m_idx + 1, no_of_treat):
                 if mtot == 2:  # Variance of effects mtot = 2
                     d_l = isclose(d_dat, treat_values[v_idx], atol=zero_tol, rtol=zero_tol)
                     if w_yes:
-                        y_l_mean = np.average(y_dat[d_l], weights=w_dat[d_l], axis=0)
+                        y_l = y_dat[d_l].reshape(-1)
+                        w_l = w_dat[d_l].reshape(-1)
+                        y_l_mean = np.average(y_l, weights=w_l)
                     else:
                         y_l_mean = np.average(y_dat[d_l], axis=0)
-                    mce_ml = (y_m_mean - y_l_mean)**2
+                    mce_ml = (y_m_mean - y_l_mean) ** 2
                 else:
                     d_ml = (isclose(d_dat, treat_values[v_idx], atol=zero_tol, rtol=zero_tol)
                             | isclose(d_dat, treat_values[m_idx], atol=zero_tol, rtol=zero_tol)
@@ -386,7 +418,13 @@ def mcf_mse_not_numba(y_dat: NDArray[np.float64],
                     if d_ml.ndim > 1:
                         d_ml = d_ml[:, 0]
                     y_nn_m, y_nn_l = y_nn[d_ml, m_idx], y_nn[d_ml, v_idx]
-                    if w_yes:
+                    if cross_error:
+                        errors = (y_m_mean - y_nn_m) * (y_means[v_idx] - y_nn_l)
+                        if w_yes:
+                            mce_ml = np.average(errors, weights=w_dat[d_ml].reshape(-1))
+                        else:
+                            mce_ml = np.mean(errors)
+                    elif w_yes:
                         w_ml = w_dat[d_ml].reshape(-1)
                         if splitting and (no_of_treat == 2):
                             mce_ml = ((np.average(y_nn_m, weights=w_ml, axis=0)) *
@@ -407,7 +445,6 @@ def mcf_mse_not_numba(y_dat: NDArray[np.float64],
     return mse_mce, treat_shares, no_of_obs_by_treat
 
 
-# Faster version as implemented in June, 6, 2024, 4.7.2025
 @njit
 def mcf_mse_numba(y_dat: NDArray[np.float64],
                   y_nn: NDArray[np.float64],
@@ -419,6 +456,7 @@ def mcf_mse_numba(y_dat: NDArray[np.float64],
                   compare_only_to_zero: bool,
                   pen_mult: float,
                   penalty: bool,
+                  cross_error: bool = True,
                   zero_tol: float = 1e-10,
                   ) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any]]:
     """Compute average mse for the data passed. Based on different methods.
@@ -436,6 +474,7 @@ def mcf_mse_numba(y_dat: NDArray[np.float64],
     no_of_treat : INT. Number of treated.
     treat_values : 1D Numpy array of INT. Treatment values.
     compare_only_to_zero : BOOLEAN. Compare only to zero.
+    cross_error : BOOLEAN. Use observed leaf means to center MCE errors.
     ...
 
     Returns
@@ -455,6 +494,7 @@ def mcf_mse_numba(y_dat: NDArray[np.float64],
     treat_shares = np.zeros(no_of_treat, dtype=np.float64)
     mse_mce = np.zeros((no_of_treat, no_of_treat), dtype=np.float64)
     no_of_obs_by_treat = np.zeros(no_of_treat, dtype=np.float64)
+    y_means = np.full(no_of_treat, np.nan, dtype=np.float64)
 
     for m_idx in range(no_of_treat):
         tv = treat_values[m_idx]
@@ -473,6 +513,7 @@ def mcf_mse_numba(y_dat: NDArray[np.float64],
 
         if n_m > 0:
             y_mean_m = sum_y / n_m
+            y_means[m_idx] = y_mean_m
             mse_m = (sum_y2 / n_m) - (y_mean_m * y_mean_m)
 
             if penalty:
@@ -484,6 +525,10 @@ def mcf_mse_numba(y_dat: NDArray[np.float64],
                 mse_mce[m_idx, m_idx] = mse_m
         else:
             y_mean_m = 0
+
+    for m_idx in range(no_of_treat):
+        tv = treat_values[m_idx]
+        y_mean_m = y_means[m_idx]
         # Get off-diagonal elements
         if mtot_not_3 and (m_idx == 0 or not compare_only_to_zero):
             for v_idx in range(m_idx + 1, no_of_treat):
@@ -503,66 +548,66 @@ def mcf_mse_numba(y_dat: NDArray[np.float64],
                         mce_ml = diff * diff
 
                 elif mtot_in_14:
-                    # covariance of matched outcomes for m and v over d∈{m,v}
                     n_ml = 0
-                    sum_m = 0.0
-                    sum_l = 0.0
-                    sum_ml = 0.0
-                    for i in range(n_obs):
-                        di = d_dat[i]
-                        if (isclose(di, tv, atol=zero_tol, rtol=zero_tol)
-                                or isclose(di, tv2, atol=zero_tol, rtol=zero_tol)):
-                            ym = y_nn[i, m_idx]
-                            yl = y_nn[i, v_idx]
-                            n_ml += 1
-                            sum_m += ym
-                            sum_l += yl
-                            sum_ml += ym * yl
-                    if n_ml > 0:
-                        mce_ml = ((sum_ml / n_ml)
-                                  - (sum_m / n_ml) * (sum_l / n_ml)
-                                  )
+                    if cross_error:
+                        mean_l = y_means[v_idx]
+                        sum_error = 0.0
+                        for i in range(n_obs):
+                            di = d_dat[i]
+                            if (isclose(di, tv, atol=zero_tol, rtol=zero_tol)
+                                    or isclose(di, tv2, atol=zero_tol, rtol=zero_tol)):
+                                error_m = y_mean_m - y_nn[i, m_idx]
+                                error_l = mean_l - y_nn[i, v_idx]
+                                n_ml += 1
+                                sum_error += error_m * error_l
+                        if n_ml > 0:
+                            mce_ml = sum_error / n_ml
+                    else:
+                        # Covariance over observations with treatment m or v.
+                        sum_m = 0.0
+                        sum_l = 0.0
+                        sum_ml = 0.0
+                        for i in range(n_obs):
+                            di = d_dat[i]
+                            if (isclose(di, tv, atol=zero_tol, rtol=zero_tol)
+                                    or isclose(di, tv2, atol=zero_tol, rtol=zero_tol)):
+                                ym = y_nn[i, m_idx]
+                                yl = y_nn[i, v_idx]
+                                n_ml += 1
+                                sum_m += ym
+                                sum_l += yl
+                                sum_ml += ym * yl
+                        if n_ml > 0:
+                            mce_ml = ((sum_ml / n_ml)
+                                      - (sum_m / n_ml) * (sum_l / n_ml)
+                                      )
                 mse_mce[m_idx, v_idx] = mce_ml
 
     return mse_mce, treat_shares if mtot_in_134 else np.zeros(1), no_of_obs_by_treat
 
 
-# Faster version as implemented in June, 6, 2024, und July, 4, 2025
 @njit
 def compute_mse_mce(mse_mce: NDArray[np.float64],
                     mtot: int,
                     no_of_treat: int,
                     compare_only_to_zero: bool
                     ) -> np.floating:
-    """Sum up MSE parts for use in splitting rule and else."""
+    """Sum up MSE parts for use in splitting rule and elsewhere."""
     mtot_in_14 = mtot in (1, 4)
-    if no_of_treat > 4 and not compare_only_to_zero:
-        trace_mse_mce = np.trace(mse_mce)
-        sum_mse_mce = mse_mce.sum()
+    mse = 0.0
+    mce = 0.0
+
+    for m_idx in range(no_of_treat):
         if mtot_in_14:
-            mse = no_of_treat * trace_mse_mce - sum_mse_mce
-        elif mtot == 2:
-            mse = 2 * trace_mse_mce - sum_mse_mce
-        elif mtot == 3:
-            mse = trace_mse_mce
-    else:
-        mse = 0.0
-        mce = 0.0
-        for m_idx in range(no_of_treat):
-            if mtot_in_14:
-                mse_a = (no_of_treat - 1) * mse_mce[m_idx, m_idx]
-            else:
-                mse_a = mse_mce[m_idx, m_idx]
+            mse += (no_of_treat - 1) * mse_mce[m_idx, m_idx]
+        else:
+            mse += mse_mce[m_idx, m_idx]
 
-            mse += mse_a
+        if mtot != 3 and (m_idx == 0 or not compare_only_to_zero):
+            for v_idx in range(m_idx + 1, no_of_treat):
+                mce += mse_mce[m_idx, v_idx]
 
-            if (mtot != 3) and (m_idx == 0 or not compare_only_to_zero):
-                for v_idx in range(m_idx + 1, no_of_treat):
-                    mce += mse_mce[m_idx, v_idx]
-
-        mse -= 2 * mce
-
-    return mse
+    return mse - 2 * mce
 
 
 # Optimized version of June, 6, 2024

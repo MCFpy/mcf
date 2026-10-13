@@ -5,6 +5,7 @@ Created on Sun Jul 16 13:10:45 2023
 # -*- coding: utf-8 -*-
 @author: MLechner
 """
+from dataclasses import fields
 from hashlib import sha256
 from typing import Any, TYPE_CHECKING
 
@@ -20,6 +21,17 @@ from mcf import mcf_print_stats as mcf_ps
 if TYPE_CHECKING:
     from mcf.optpolicy_main import OptimalPolicy
     from mcf.optpolicy_init import VarCfg
+
+
+def check_generated_names(var_cfg: 'VarCfg', generated_names: list[str]) -> None:
+    """Reject generated columns that replace another configured input column."""
+    input_names = {name.casefold() for item in fields(var_cfg)
+                    for name in (getattr(var_cfg, item.name) or [])}
+    conflicts = input_names.intersection(name.casefold() for name in generated_names)
+    if conflicts:
+        raise ValueError('Adjusted column names conflict with configured input variables: '
+                         f'{", ".join(sorted(conflicts))}. Rename these input columns.'
+                         )
 
 
 def check_data_estrisk(optp_: 'OptimalPolicy', data_df: pd.DataFrame) -> None:
@@ -40,12 +52,19 @@ def check_data_estrisk(optp_: 'OptimalPolicy', data_df: pd.DataFrame) -> None:
                          'standard errors must be of same length.'
                          f'{len_ps} policy scores, {len_ps_se} standard errors.'
                          )
-    # Any missing values?
-    if data_df[optp_.var_cfg.polscore_name].isna().any().any():
-        raise ValueError('Missing values detected in policy score.')
+    # Check numerical values
+    try:
+        scores_np = data_df[optp_.var_cfg.polscore_name].to_numpy(dtype=float, copy=False)
+        scores_se_np = data_df[optp_.var_cfg.polscore_se_name].to_numpy(dtype=float, copy=False)
+    except (TypeError, ValueError) as exc:
+        raise ValueError('Policy scores and their standard errors must be numeric.') from exc
 
-    if data_df[optp_.var_cfg.polscore_se_name].isna().any().any():
-        raise ValueError('Missing values detected in standard errors of policy score.')
+    if not np.all(np.isfinite(scores_np)):
+        raise ValueError('Policy scores must contain only finite values.')
+    if not np.all(np.isfinite(scores_se_np)):
+        raise ValueError('Standard errors of policy scores must contain only finite values.')
+    if np.any(scores_se_np < 0):
+        raise ValueError('Standard errors of policy scores must be nonnegative.')
 
 
 def prepare_data_fair(optp_: 'OptimalPolicy', data_df: pd.DataFrame,) -> pd.DataFrame:
@@ -308,26 +327,6 @@ def prepare_data_for_classifiers(
     else:
         x_dummies_np = None
 
-    if x_name_train is not None:
-        if x_name != x_name_train:
-            x_name_not = [var for var in x_name if var not in x_name_train]
-            x_name_pred_not = [var for var in x_name_train if var not in x_name]
-            raise ValueError('Names (order) of features in transformed data does not fit to '
-                             'training names.'
-                             f'\nNames used in training: {" ".join(x_name)}'
-                             f'\nNames used in prediction: {" ".join(x_name_train)}'
-                             '\nVariables in training data that are not in prediction data: '
-                             f'{" ".join(x_name_not)}'
-                             '\nVariables in prediction data that are not in training data: '
-                             f'{" ".join(x_name_pred_not)}'
-                             '\nWarning: Note that a potential problem could be that the '
-                             'the categorical values of the prediction data do not have all '
-                             'values which are observed for the training data. In this case '
-                             ', (as a hack) artificial observations with this observations '
-                             'can be added for the allocation method (and subsequently '
-                             'removed from the resulting datafrome containing the '
-                             'allocation (before using the evaluate method).'
-                             )
     match (bool(x_ordered), bool(x_unordered)):
         case (True, True):
             x_dat_np = np.concatenate((x_ord_np, x_dummies_np), axis=1)
@@ -337,6 +336,25 @@ def prepare_data_for_classifiers(
             x_dat_np = x_dummies_np.copy()
         case _:
             raise ValueError('No features available for bps_classifier.')
+
+    if x_name_train is not None:
+        x_name_train = list(x_name_train)
+        unexpected_names = [name for name in x_name if name not in x_name_train]
+        if unexpected_names:
+            raise ValueError('Prediction data contain categorical values that were not observed '
+                             'during training. Corresponding variables: '
+                             f'{" ".join(unexpected_names)}'
+                             )
+
+        if x_name != x_name_train:
+            position = {name: idx for idx, name in enumerate(x_name)}
+            x_dat_aligned_np = np.zeros((len(data_df), len(x_name_train)), dtype=x_dat_np.dtype)
+            for idx, name in enumerate(x_name_train):
+                if name in position:
+                    x_dat_aligned_np[:, idx] = x_dat_np[:, position[name]]
+
+            x_dat_np = x_dat_aligned_np
+            x_name = x_name_train
 
     # Rescaling features by subtracting mean and dividing by std
     # (save in scaler object for later use in allocation method)
@@ -350,10 +368,11 @@ def prepare_data_for_classifiers(
 
 def prepare_data_bb_pt(optp_: 'OptimalPolicy',
                        data_df: pd.DataFrame,
-                       ) -> tuple[pd.DataFrame, None]:
+                       ) -> tuple[pd.DataFrame, bool | None]:
     """Prepare and check data for Black-Box allocations."""
     var_cfg, gen_cfg = optp_.var_cfg, optp_.gen_cfg
     data_df, var_names = mcf_data.data_frame_vars_lower(data_df)
+    bb_rest_variable = None
     # Check status of variables, available and in good shape
     if var_available(var_cfg.polscore_name, var_names, needed='must_have'):
         names_to_inc = var_cfg.polscore_name.copy()
@@ -406,7 +425,7 @@ def prepare_data_bb_pt(optp_: 'OptimalPolicy',
      optp_.report['removed_vars']
      ) = mcf_data.screen_adjust_variables(optp_, data_new_df)
 
-    return data_new_df, None
+    return data_new_df, bb_rest_variable
 
 
 def classify_var_for_pol_tree(optp_: 'OptimalPolicy',
@@ -460,20 +479,31 @@ def classify_var_for_pol_tree(optp_: 'OptimalPolicy',
 
 def prepare_data_eval(optp_: 'OptimalPolicy',
                       data_df: pd.DataFrame,
-                      ) -> tuple[pd.DataFrame, bool, bool, bool, list]:
+                      ) -> tuple[pd.DataFrame, bool, bool, bool, list, list[str] | None]:
     """Prepare and check data for evaluation."""
     var_cfg = optp_.var_cfg
     data_df, var_names = mcf_data.data_frame_vars_lower(data_df)
     no_of_treat = len(optp_.gen_cfg.d_values)
     # var_available(var_cfg.polscore_name, var_names, needed='nice_to_have')
     d_ok = var_available(var_cfg.d_name, var_names, needed='nice_to_have')
-    polscore_desc_ok = var_available(var_cfg.polscore_desc_name, var_names, needed='nice_to_have')
-    if (var_cfg.polscore_desc_name is not None
-            and (not polscore_desc_ok and len(var_cfg.polscore_desc_name) > no_of_treat)):
-        # Try again, when removing the adjusted variable
-        var_cfg.polscore_desc_name = var_cfg.polscore_desc_name[:-no_of_treat]
-        polscore_desc_ok = var_available(var_cfg.polscore_desc_name, var_names,
-                                         needed='nice_to_have')
+    polscore_desc_name_all = (var_cfg.polscore_desc_name.copy()
+                              if var_cfg.polscore_desc_name is not None
+                              else []
+                              )
+    polscore_desc_name = []
+
+    for start in range(0, len(polscore_desc_name_all), no_of_treat):
+        score_block = polscore_desc_name_all[start:start + no_of_treat]
+        if len(score_block) != no_of_treat:
+            continue
+
+        if var_available(score_block, var_names, needed='nice_to_have'):
+            polscore_desc_name.extend(score_block)
+
+    polscore_desc_ok = bool(polscore_desc_name)
+    if not polscore_desc_ok:
+        polscore_desc_name = None
+
     polscore_ok = var_available(var_cfg.polscore_name, var_names, needed='nice_to_have')
     desc_var_list = []
     if var_available(var_cfg.bb_restrict_name, var_names, needed='nice_to_have'):
@@ -487,18 +517,8 @@ def prepare_data_eval(optp_: 'OptimalPolicy',
     if var_available(var_cfg.protected_unord_name, var_names, needed='nice_to_have'):
         desc_var_list.extend(var_cfg.protected_unord_name)
 
-    if optp_.gen_cfg.variable_importance:
-        x_in = var_available(optp_.var_cfg.vi_x_name, var_names, needed='nice_to_have')
-        dum_in = var_available(optp_.var_cfg.vi_to_dummy_name, var_names, needed='nice_to_have')
-        if not (x_in or dum_in):
-            print('WARNING: Variable importance requires the specification '
-                  'of at least "var_vi_x_name" or "vi_to_dummy_name". '
-                  'Since they are not specified, variable_importance is not conducted.'
-                  )
-            optp_.gen_cfg.variable_importance = False
-
     return (data_df, d_ok, polscore_ok, polscore_desc_ok,
-            mcf_gp.remove_dupl_keep_order(desc_var_list)
+            mcf_gp.remove_dupl_keep_order(desc_var_list), polscore_desc_name,
             )
 
 
@@ -549,12 +569,14 @@ def case_insensitve(variables: list | tuple | None) -> list | tuple | None:
     return variables
 
 
-def dataframe_checksum(data_df: pd.DataFrame) -> Any:
+def dataframe_checksum(data_df: pd.DataFrame) -> str:
     """Get a checksum for dataframe."""
-    # Convert the DataFrame to a string representation
-    df_string = data_df.to_string()
+    row_hashes = pd.util.hash_pandas_object(data_df, index=True, categorize=True)
+    metadata = repr((tuple(data_df.columns), tuple(map(str, data_df.dtypes)), data_df.shape,)
+                    ).encode()
 
-    # Use hashlib to create a hash of the string
-    hash_object = sha256(df_string.encode())
+    hash_object = sha256()
+    hash_object.update(metadata)
+    hash_object.update(row_hashes.to_numpy(dtype=np.uint64, copy=False).tobytes())
 
     return hash_object.hexdigest()

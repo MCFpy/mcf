@@ -4,10 +4,12 @@ Contains the functions needed for initialising the parameters.
 @author: MLechner
 -*- coding: utf-8 -*-
 """
+from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import StrEnum
+from numbers import Real
 from pathlib import Path
-from platform import system
+import sys
 from typing import Any, ClassVar, Literal, TYPE_CHECKING
 
 import numpy as np
@@ -64,24 +66,18 @@ class LegendLoc(StrEnum):
 
 @dataclass(slots=True, kw_only=True)
 class DataCleanCfg:
-    """Parameters for data cleaning (normalized)."""
+    """Parameters for covariate screening (normalized)."""
 
     check_perfectcorr: bool
-    clean_data: bool
-    screen_covariates: bool
     min_dummy_obs: int
 
     @classmethod
-    def from_args(cls, *,
+    def from_args(cls: type['DataCleanCfg'], *,
                   check_perfectcorr: BoolLike = None,
-                  clean_data: BoolLike = None,
                   min_dummy_obs: NumberLike = None,
-                  screen_covariates: BoolLike = None,
                   ) -> 'DataCleanCfg':
         """Define parameters from input."""
         return cls(check_perfectcorr=check_perfectcorr is not False,
-                   clean_data=clean_data is not False,
-                   screen_covariates=screen_covariates is not False,
                    min_dummy_obs=(10 if (min_dummy_obs is None or float(min_dummy_obs) < 1)
                                   else int(round(float(min_dummy_obs))))
                    )
@@ -93,7 +89,8 @@ class EstRiskCfg:
 
     # always starts False
     estrisk_used: bool = field(default=False, init=False)
-
+    polscore_name_org: list[str] | None = field(default=None, init=False)
+    var_cfg_original: 'VarCfg | None' = field(default=None, init=False, repr=False)
     # numeric value, defaults to 1 if input isn't numeric
     value: int | float = 1
 
@@ -101,6 +98,9 @@ class EstRiskCfg:
     def from_args(cls, *, value: object | None = None) -> 'EstRiskCfg':
         """Modify input."""
         val = value if isinstance(value, (int, float)) else 1
+        if isinstance(val, float) and not np.isfinite(val):
+            raise ValueError('estrisk_value must be finite.')
+
         return cls(value=val)
 
 
@@ -115,7 +115,7 @@ class FairCfg:
     adj_type: str = 'Quantiled'
 
     # discretization
-    discretization_methods: tuple[str, ...] = ('EqualCell', 'Kmeans', 'NoDiscretization',)
+    discretization_methods: tuple[str, ...] = ('EqualCell', 'Kmeans', 'ExactCell',)
     default_disc_method: str = 'Kmeans'
     protected_disc_method: str = 'Kmeans'
     material_disc_method: str = 'Kmeans'
@@ -137,6 +137,8 @@ class FairCfg:
     data_train_for_pred_df: DataFrame | None = field(default=None, init=False)
     protected_matrel: DataFrame | None = field(default=None, init=False)
     org_name_dict: dict | None = field(default=None, init=False)
+    var_cfg_original: 'VarCfg | None' = field(default=None, init=False, repr=False)
+    settings_original: dict[str, str] | None = field(default=None, init=False, repr=False)
 
     @classmethod
     def from_args(cls,
@@ -174,12 +176,19 @@ class FairCfg:
             cmv = int(round(cont_min_values))
 
         # validated strings
+        default_adjust_target = ('scores' if gen_cfg.method == 'best_policy_score' else 'xvariables'
+                                 )
         adj_tgt = check_valid_user_str(gen_cfg,
                                        title='fair_adjust_target',
                                        user_input=adjust_target,
-                                       default='xvariables',
+                                       default=default_adjust_target,
                                        valid_strings=ok_adjustments,
                                        )
+        if gen_cfg.method == 'best_policy_score' and adj_tgt == 'xvariables':
+            raise ValueError("fair_adjust_target='xvariables' has no effect with "
+                             "gen_method='best_policy_score'. Use 'scores' or "
+                             "'scores_xvariables'."
+                             )
         regr = check_valid_user_str(gen_cfg,
                                     title='fair_regression_method',
                                     user_input=regression_method,
@@ -209,12 +218,16 @@ class FairCfg:
         cons_test = consistency_test is True
 
         if isinstance(protected_max_groups, (int, float)):
-            prot_max = int(round(protected_max_groups))
+            if isinstance(protected_max_groups, float) and not np.isfinite(protected_max_groups):
+                raise ValueError('fair_protected_max_groups must be finite.')
+            prot_max = max(1, int(round(protected_max_groups)))
         else:
             prot_max = 5
 
         if isinstance(material_max_groups, (int, float)):
-            mat_max = round(material_max_groups)
+            if isinstance(material_max_groups, float) and not np.isfinite(material_max_groups):
+                raise ValueError('fair_material_max_groups must be finite.')
+            mat_max = max(1, int(round(material_max_groups)))
         else:
             mat_max = 5
 
@@ -227,7 +240,7 @@ class FairCfg:
                    consistency_test=cons_test,
                    protected_max_groups=prot_max,
                    material_max_groups=mat_max,
-                   discretization_methods=('EqualCell', 'Kmeans', 'NoDiscretization',),
+                   discretization_methods=('EqualCell', 'Kmeans', 'ExactCell',),
                    default_disc_method=default_disc,
                    fairscores_used=False,
                    solvefair_used=False,
@@ -294,7 +307,11 @@ class GenCfg:
         vi = variable_importance is not False
 
         # output_type -> print switches
-        out_t = 2 if output_type is None else int(output_type)
+        if output_type is not None and not isinstance(output_type, Real):
+            raise TypeError('gen_output_type must be specified as a number.')
+        out_t = 2 if output_type is None else int(round(output_type))
+        if out_t not in (0, 1, 2):
+            raise TypeError('gen_output_type must round to one of: 0, 1, 2.')
         match out_t:
             case 0: ptf, ptt = False, True
             case 1: ptf, ptt = True, False
@@ -342,7 +359,7 @@ class IntCfg:
 
     cuda: bool = False
     output_no_new_dir: bool = False
-    report: bool = True
+    show_plots: bool = True
     with_numba: bool = True
     with_output: bool = True
     xtr_parallel: bool = False
@@ -400,7 +417,7 @@ class IntCfg:
                   *,
                   cuda: BoolLike = None,
                   output_no_new_dir: BoolLike = None,
-                  report: BoolLike = None,
+                  show_plots: BoolLike = None,
                   with_numba: BoolLike = None,
                   with_output: BoolLike = None,
                   xtr_parallel: BoolLike = True,
@@ -420,7 +437,7 @@ class IntCfg:
 
         # backend
         if mp_backend is None:
-            mp_backend_s = 'joblib' if system() == 'Windows' or ray is None else 'ray'
+            mp_backend_s = 'joblib' if sys.platform.startswith('win') or ray is None else 'ray'
         else:
             if not isinstance(mp_backend, str):
                 raise ValueError('Backend must be specified as string.')
@@ -462,7 +479,7 @@ class IntCfg:
 
         return cls(cuda=False,
                    output_no_new_dir=cls._bool_or_default(output_no_new_dir, False),
-                   report=cls._bool_or_default(report, True),
+                   show_plots=cls._bool_or_default(show_plots, True),
                    with_numba=cls._bool_or_default(with_numba, True),
                    with_output=cls._bool_or_default(with_output, True),
                    xtr_parallel=cls._bool_or_default(xtr_parallel, True),
@@ -489,17 +506,38 @@ class IntCfg:
 
 
 def init_rnd_shares(optp_: 'OptimalPolicy', data_df: DataFrame, d_in_data: bool,) -> None:
-    """Reinitialise the shares if they are not consistent with use."""
+    """Reinitialise the shares if they are not specified."""
     no_of_treat = optp_.gen_cfg.no_of_treat
+    d_values = optp_.gen_cfg.d_values
     rnd_cfg, var_cfg = optp_.rnd_cfg, optp_.var_cfg
-    if rnd_cfg.shares is None or len(rnd_cfg.shares) < no_of_treat:
+
+    if not rnd_cfg.shares_user_specified:
         if d_in_data:
-            obs_shares = data_df[var_cfg.d_name].value_counts(normalize=True).sort_index()
+            observed_treat = data_df[var_cfg.d_name[0]]
+            invalid_treat = np.setdiff1d(observed_treat.unique(), d_values)
+            if invalid_treat.size:
+                raise ValueError(f'Unknown observed treatment values: {invalid_treat.tolist()}')
+
+            obs_shares = observed_treat.value_counts(normalize=True)
+            obs_shares = obs_shares.reindex(d_values, fill_value=0)
             rnd_cfg.shares = obs_shares.tolist()
         else:
             rnd_cfg.shares = [1/no_of_treat] * no_of_treat
-    if sum(rnd_cfg.shares) < 0.999999 or sum(rnd_cfg.shares) > 1.0000001:
-        raise ValueError('"random shares" do not add to 1.')
+    elif len(rnd_cfg.shares) != no_of_treat:
+        raise ValueError(f'rnd_shares must contain exactly {no_of_treat} values.')
+
+    shares_np = np.asarray(rnd_cfg.shares, dtype=float)
+    if shares_np.shape != (no_of_treat,):
+        raise ValueError(f'rnd_shares must contain exactly {no_of_treat} scalar values.')
+    if not np.all(np.isfinite(shares_np)) or np.any(shares_np < 0):
+        raise ValueError('Random shares must be finite and nonnegative.')
+
+    shares_sum = shares_np.sum()
+    if not np.isclose(shares_sum, 1, rtol=0, atol=1e-6):
+        raise ValueError('Random shares do not add to 1.')
+
+    shares_np /= shares_sum
+    rnd_cfg.shares = shares_np.tolist()
     optp_.rnd_cfg = rnd_cfg
 
 
@@ -590,24 +628,32 @@ class RndCfg:
     """Contains shares for random allocation."""
 
     shares: list[NumberLike] | tuple[NumberLike] | None = None
+    shares_user_specified: bool = field(default=False, init=False)
 
     @classmethod
     def from_args(cls, *,
-                  rnd_shares: list[NumberLike] | tuple[NumberLike] | None = None
+                  rnd_shares: list[NumberLike] | tuple[NumberLike] | None = None,
                   ) -> 'RndCfg':
         """Get input."""
-        return cls(shares=rnd_shares)
+        cfg = cls(shares=rnd_shares)
+        cfg.shares_user_specified = rnd_shares is not None
+
+        return cfg
 
 
 def init_pt_solve(optp_: 'OptimalPolicy', no_of_obs: int | float) -> None:
     """Initialise parameters related to policy tree."""
     if optp_.pt_cfg.min_leaf_size is None or optp_.pt_cfg.min_leaf_size < 0:
-        optp_.pt_cfg.min_leaf_size = 0.1 * no_of_obs / ((optp_.pt_cfg.depth - 1) * 2)
+        no_of_leaves = 2 ** optp_.pt_cfg.total_depth_adj
+        min_leaf_size = 0.1 * no_of_obs / no_of_leaves
+
         if optp_.other_cfg.restricted:
-            min_share = np.min(optp_.other_cfg.max_shares)
-            optp_.pt_cfg.min_leaf_size = min(round(optp_.pt_cfg.min_leaf_size * min_share), 100)
+            positive_shares = [share for share in optp_.other_cfg.max_shares if share > 0]
+            min_leaf_size *= min(positive_shares)
+
+        optp_.pt_cfg.min_leaf_size = max(round(min_leaf_size), 1)
     else:
-        optp_.pt_cfg.min_leaf_size = round(optp_.pt_cfg.min_leaf_size)
+        optp_.pt_cfg.min_leaf_size = max(round(optp_.pt_cfg.min_leaf_size), 1)
 
 
 @dataclass(slots=True, kw_only=True)
@@ -629,32 +675,74 @@ class OtherCfg:
                   other_max_shares=None,
                   ) -> 'OtherCfg':
         """Get inputs."""
+
         return cls(costs_of_treat=other_costs_of_treat,
                    costs_of_treat_mult=other_costs_of_treat_mult,
                    max_shares=other_max_shares,
                    )
 
 
-def init_other_solve(optp_: 'OptimalPolicy') -> None:
+def init_other_solve(optp_: 'OptimalPolicy', no_obs: int) -> None:
     """Initialise treatment costs (needs info on number of treatments."""
     no_of_treat = optp_.gen_cfg.no_of_treat
     other_cfg = optp_.other_cfg
-    if other_cfg.max_shares is None or len(other_cfg.max_shares) < no_of_treat:
-        other_cfg.max_shares = [1] * no_of_treat
-    no_zeros = sum(1 for share in other_cfg.max_shares if share == 0)
-    if no_zeros == len(other_cfg.max_shares):
-        raise ValueError('All restrictions are zero. No allocation possible.')
-    if sum(other_cfg.max_shares) < 1:
-        raise ValueError('Sum of restrictions < 1. No allocation possible.')
-    other_cfg.restricted = any(share < 1 for share in other_cfg.max_shares)
-    if (other_cfg.costs_of_treat is None or len(other_cfg.costs_of_treat) < no_of_treat):
-        other_cfg.costs_of_treat = [0] * no_of_treat
 
-    if (other_cfg.costs_of_treat_mult is None or len(other_cfg.costs_of_treat_mult) < no_of_treat):
-        mult = 1
-        other_cfg.costs_of_treat_mult = [mult] * no_of_treat
-    if any(cost <= 0 for cost in other_cfg.costs_of_treat_mult):
+    if other_cfg.max_shares is None:
+        other_cfg.max_shares = [1] * no_of_treat
+    elif len(other_cfg.max_shares) != no_of_treat:
+        raise ValueError(f'other_max_shares must contain exactly {no_of_treat} values.')
+
+    max_shares_np = np.asarray(other_cfg.max_shares, dtype=float)
+    if (not np.all(np.isfinite(max_shares_np))
+            or np.any(max_shares_np < 0)
+            or np.any(max_shares_np > 1)
+            ):
+        raise ValueError('Maximum treatment shares must be finite and between 0 and 1.')
+    if np.all(max_shares_np == 0):
+        raise ValueError('All restrictions are zero. No allocation possible.')
+    max_shares_sum = max_shares_np.sum()
+    if (max_shares_sum < 1 and not np.isclose(max_shares_sum, 1, rtol=0, atol=1e-12)):
+        raise ValueError('Sum of restrictions < 1. No allocation possible.')
+
+    max_by_cat = np.floor(no_obs * max_shares_np).astype(np.int64)
+
+    capacity_shortfall = no_obs - max_by_cat.sum()
+
+    if capacity_shortfall == 1:
+        next_feasible_shares = (max_by_cat + 1) / no_obs
+        required_increase = next_feasible_shares - max_shares_np
+
+        adjustable = np.flatnonzero(max_shares_np > 0)
+        adjustment_idx = adjustable[np.argmin(required_increase[adjustable])]
+        max_by_cat[adjustment_idx] += 1
+
+    elif capacity_shortfall > 1:
+        raise ValueError('Restrictions are too tight. They do not allow the allocation of all '
+                         'observations. Relax them somewhat.')
+
+    other_cfg.max_shares = max_shares_np.tolist()
+
+    other_cfg.restricted = any(share < 1 for share in other_cfg.max_shares)
+
+    if other_cfg.costs_of_treat is None:
+        other_cfg.costs_of_treat = [0] * no_of_treat
+    elif len(other_cfg.costs_of_treat) != no_of_treat:
+        raise ValueError(f'other_costs_of_treat must contain exactly {no_of_treat} values.')
+    other_cfg.costs_of_treat = [float(cost) for cost in other_cfg.costs_of_treat]
+    if not np.all(np.isfinite(other_cfg.costs_of_treat)):
+        raise ValueError('Treatment costs must be finite.')
+
+    if other_cfg.costs_of_treat_mult is None:
+        other_cfg.costs_of_treat_mult = [1] * no_of_treat
+    elif len(other_cfg.costs_of_treat_mult) != no_of_treat:
+        raise ValueError(f'other_costs_of_treat_mult must contain exactly {no_of_treat} values.')
+    other_cfg.costs_of_treat_mult = [float(mult) for mult in other_cfg.costs_of_treat_mult]
+    if not np.all(np.isfinite(other_cfg.costs_of_treat_mult)):
+        raise ValueError('Treatment cost multipliers must be finite.')
+    if any(mult <= 0 for mult in other_cfg.costs_of_treat_mult):
         raise ValueError('Cost multiplier must be positive.')
+
+    other_cfg.max_by_treat = max_by_cat
     optp_.other_cfg = other_cfg
 
 
@@ -664,8 +752,6 @@ class VarCfg:
 
     bb_restrict_name: list[str]
     d_name: list[str]
-    effect_vs_0: list[str]
-    effect_vs_0_se: list[str]
     id_name: list[str]
     material_ord_name: list[str]
     material_unord_name: list[str]
@@ -694,11 +780,9 @@ class VarCfg:
     material_name: list[str] = field(default_factory=list, init=False)
 
     @classmethod
-    def from_args(cls, *,
+    def from_args(cls: type['VarCfg'], *,
                   bb_restrict_name: NameLike = None,
                   d_name: NameLike = None,
-                  effect_vs_0: NameLike = None,
-                  effect_vs_0_se: NameLike = None,
                   id_name: NameLike = None,
                   material_ord_name: NameLike = None,
                   material_unord_name: NameLike = None,
@@ -715,8 +799,6 @@ class VarCfg:
         """Read and transform input."""
         return cls(bb_restrict_name=check_var(bb_restrict_name),
                    d_name=check_var(d_name),
-                   effect_vs_0=check_var(effect_vs_0),
-                   effect_vs_0_se=check_var(effect_vs_0_se),
                    id_name=check_var(id_name),
                    polscore_desc_name=check_var(polscore_desc_name),
                    polscore_name=check_var(polscore_name),
@@ -734,65 +816,92 @@ class VarCfg:
 
 @dataclass(slots=True, kw_only=True)
 class VersionCfg:
-    """Configure the treatment versions specific inputs and parameters."""
+    """Configure treatment-version inputs and parameters."""
 
-    policyscores_dict: dict | None
-    depth_version_tree: list[NumberLike] | tuple[NumberLike] | NumberLike | None
-    params_optpol: dict | None
+    policyscores_dict: dict
+    depth_version_tree: list[int]
+    params_optpol: dict
     d_name: list[str] | None = None
 
     @classmethod
     def from_args(cls, *,
                   policyscores_dict: dict | None,
-                  depth_version_tree: list[NumberLike] | tuple[NumberLike] | NumberLike = None,
-                  params_optpol: dict | None = None, d_name: list[str] | None = None,
+                  depth_version_tree: list[NumberLike] | tuple[NumberLike, ...] | NumberLike = None,
+                  params_optpol: dict | None = None,
+                  d_name: list[str] | tuple[str, ...] | None = None,
                   ) -> 'VersionCfg':
         """Read and transform inputs."""
         if not isinstance(policyscores_dict, dict):
-            raise TypeError('policyscores_dict must be specified as dictionary with main '
-                            'treatments (as keys) and corresponding treatment versions (as values.'
+            raise TypeError('policyscores_dict must be specified as a '
+                            'dictionary with main treatments as keys and '
+                            'corresponding treatment versions as values.'
                             )
-        for keys, values in policyscores_dict.items():
-            if not isinstance(keys, str):
+        if not policyscores_dict:
+            raise ValueError('policyscores_dict must not be empty.')
+
+        for key, values in policyscores_dict.items():
+            if not isinstance(key, str):
                 raise TypeError('The keys of policyscores_dict must be strings.')
-            if values is not None and not isinstance(values, (str, list, tuple)):
-                raise TypeError('The values of policyscores_dict must either be None, a single '
-                                'string or a tuple/list of strings.'
+
+            if values is None or isinstance(values, str):
+                continue
+
+            if not isinstance(values, (list, tuple)):
+                raise TypeError('The values of policyscores_dict must be None, '
+                                'a string, or a tuple/list of strings.'
                                 )
-        if (depth_version_tree is not None
-                and not isinstance(depth_version_tree, (list, tuple, int , float))):
-            raise TypeError('depth_version_tree must be an integer or list/tuple of integers.')
+            if not values:
+                raise ValueError('Treatment-version lists must not be empty.')
+
+            if not all(isinstance(value, str) for value in values):
+                raise TypeError('All elements of treatment-version lists must be strings.')
+
+        no_main_treatments = len(policyscores_dict)
 
         if depth_version_tree is None:
-            depth_version_tree_n = 2
-        elif isinstance(depth_version_tree, (int, float)) and not 1 < depth_version_tree_n < 11:
-            raise ValueError('Treedepth must be between 2 and 10.')
-        elif isinstance(depth_version_tree, (list, tuple)):
-            if len(depth_version_tree) != len(policyscores_dict):
-                raise ValueError('When depth_version_tree is specified as a list or tuple, it '
-                                 'must have the same length as number of keys in policyscores_dict.'
-                                 )
-            if min(depth_version_tree) < 2 or max(depth_version_tree) > 10:
-                raise ValueError('All elements of depth_version_tree must be between 2 and 10.')
-            depth_version_tree_n = depth_version_tree
-        else:
-            depth_version_tree_n = depth_version_tree
+            depth_version_tree_n = [2] * no_main_treatments
 
-        if params_optpol is not None and not isinstance(params_optpol, dict):
-            raise ValueError('params_optpol must be a dictionary or None.')
+        elif isinstance(depth_version_tree, (int, float)):
+            if not 2 <= depth_version_tree <= 10:
+                raise ValueError('Tree depth must be between 2 and 10.')
+            depth_version_tree_n = [round(depth_version_tree)] * no_main_treatments
+
+        elif isinstance(depth_version_tree, (list, tuple)):
+            if len(depth_version_tree) != no_main_treatments:
+                raise ValueError('When depth_version_tree is a list or tuple, '
+                                 'it must have the same length as the number '
+                                 'of keys in policyscores_dict.'
+                                 )
+            if not all(isinstance(depth, (int, float)) for depth in depth_version_tree):
+                raise TypeError('All elements of depth_version_tree must be numeric.')
+            if any(not 2 <= depth <= 10 for depth in depth_version_tree):
+                raise ValueError('All elements of depth_version_tree must be between 2 and 10.')
+            depth_version_tree_n = [round(depth) for depth in depth_version_tree]
+
+        else:
+            raise TypeError('depth_version_tree must be numeric, a list or tuple of numbers, '
+                            'or None.'
+                            )
+        if params_optpol is None:
+            params_optpol_n = {'gen_method': 'best_policy_score',}
+        elif not isinstance(params_optpol, dict):
+            raise TypeError('params_optpol must be a dictionary or None.')
+        else:
+            params_optpol_n = deepcopy(params_optpol)
+            params_optpol_n.setdefault('gen_method', 'best_policy_score')
 
         if d_name is None:
             d_name_n = None
         else:
-            if not isinstance(d_name, (list, tuple)):
-                raise ValueError('d_name must be a list with elements.')
-            if not (isinstance(d_name[0], str) and isinstance(d_name[1], str)):
-                raise ValueError('Elements of d_name must be a strings.')
-            d_name_n = gp.cleaned_var_names(d_name)
+            if (not isinstance(d_name, (list, tuple)) or len(d_name) != 2):
+                raise ValueError('d_name must contain exactly two elements.')
+            if not all(isinstance(name, str) for name in d_name):
+                raise TypeError('Both elements of d_name must be strings.')
+            d_name_n = [name.casefold() for name in d_name]
 
         return cls(policyscores_dict=policyscores_dict,
                    depth_version_tree=depth_version_tree_n,
-                   params_optpol=params_optpol,
+                   params_optpol=params_optpol_n,
                    d_name=d_name_n,
                    )
 
@@ -849,12 +958,28 @@ def check_valid_user_str(gen_cfg: 'GenCfg',
 def init_gen_solve(optp_: 'OptimalPolicy', data_df: DataFrame) -> None:
     """Add and update some dictionary entry based on data."""
     var_cfg, gen_cfg = optp_.var_cfg, optp_.gen_cfg
-    if var_cfg.d_name and var_cfg.d_name[0] in data_df.columns:
-        d_dat = data_df[var_cfg.d_name].to_numpy()
-        gen_cfg.d_values = tuple(np.unique(np.round(d_dat).astype(np.int32)))
+    no_of_treat = len(var_cfg.polscore_name)
+    gen_cfg.d_values = tuple(np.int32(range(no_of_treat)))
+    gen_cfg.no_of_treat = no_of_treat
 
-    else:
-        gen_cfg.d_values = tuple(np.int32(range(len(var_cfg.polscore_name))))
-    gen_cfg.no_of_treat = len(gen_cfg.d_values)
+    if var_cfg.d_name and var_cfg.d_name[0] in data_df.columns:
+        d_dat = data_df[var_cfg.d_name[0]].to_numpy(copy=False)
+        try:
+            d_dat_float = np.asarray(d_dat, dtype=float)
+        except (TypeError, ValueError) as exc:
+            raise ValueError('Observed treatment values must be numeric.') from exc
+
+        d_dat_rounded = np.rint(d_dat_float)
+        if (not np.all(np.isfinite(d_dat_float))
+                or not np.allclose(d_dat_float, d_dat_rounded, rtol=0, atol=1e-8)
+                ):
+            raise ValueError('Observed treatment values must be finite integers.')
+
+        observed_values = np.unique(d_dat_rounded.astype(np.int64))
+        invalid_values = np.setdiff1d(observed_values, gen_cfg.d_values)
+        if invalid_values.size:
+            raise ValueError('Observed treatment values are inconsistent with the policy scores. '
+                             f'Unknown values: {invalid_values.tolist()}'
+                             )
 
     optp_.gen_cfg = gen_cfg

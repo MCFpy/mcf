@@ -15,7 +15,7 @@ from psutil import virtual_memory
 
 try:
     import ray
-except ImportError:
+except (ImportError, OSError):
     ray = None
 
 from mcf.mcf_print_stats import print_mcf
@@ -70,46 +70,72 @@ def init_ray_with_fallback(maxworkers: int,
     """Start ray in cases when this can be problematic."""
     if ray is None:
         raise RuntimeError('Ray has not been loaded.')
+
+    if mem_object_store is not None:
+        store_attempts = [mem_object_store]
+        if (mem_object_store_2 is not None
+                and mem_object_store_2 != mem_object_store):
+            store_attempts.append(mem_object_store_2)
+        store_attempts.append(None)
+    else:
+        store_attempts = [None]
+        if mem_object_store_2 is not None:
+            store_attempts.append(mem_object_store_2)
+
     while maxworkers >= 2:
-        try:
-            if mem_object_store is None:
-                ray.init(num_cpus=maxworkers, include_dashboard=False, ignore_reinit_error=False,)
-            else:
-                ray.init(num_cpus=maxworkers, include_dashboard=False, ignore_reinit_error=False,
-                         object_store_memory=mem_object_store,
-                         )
-            print_mcf(gen_cfg, f'\nRay started with {maxworkers} workers', summary=False)
+        for store_memory in store_attempts:
+            try:
+                if store_memory is None:
+                    ray.init(num_cpus=maxworkers, include_dashboard=False,
+                             ignore_reinit_error=False,
+                             )
+                else:
+                    ray.init(num_cpus=maxworkers, include_dashboard=False,
+                             ignore_reinit_error=False,
+                             object_store_memory=store_memory,
+                             )
+                print_mcf(gen_cfg,
+                          f'\nRay started with {maxworkers} workers',
+                          summary=False,
+                          )
 
-            return True, maxworkers
+                return True, maxworkers
 
-        except (OSError, RuntimeError, ValueError):
-            if mem_object_store_2 is not None:  # Check memory needed
-                memory = virtual_memory()
-                memory_needed = mem_object_store * 1.1
-                if memory.free < memory_needed and gen_cfg.with_output and gen_cfg.verbose:
-                    _, _, _, _, txt_memory = memory_statistics()
-                    txt = ('\n' + ray_err_txt
-                           + ' Potential lack of memory for object store. '
-                           f'\nMemory needed: {round(memory_needed / (1024 * 1024), 2)} MB '
-                           '\n' + txt_memory
-                           )
-                    print_mcf(gen_cfg, txt, summary=False)
+            except (OSError, RuntimeError, ValueError):
+                if store_memory is not None:
+                    memory = virtual_memory()
+                    memory_needed = store_memory * 1.1
+                    if (memory.free < memory_needed
+                            and gen_cfg.with_output and gen_cfg.verbose):
+                        _, _, _, _, txt_memory = memory_statistics()
+                        txt = ('\n' + ray_err_txt
+                               + ' Potential lack of memory for object store. '
+                               f'\nMemory needed: '
+                               f'{round(memory_needed / (1024 * 1024), 2)} MB '
+                               '\n' + txt_memory
+                               )
+                        print_mcf(gen_cfg, txt, summary=False)
 
-            ray.shutdown()
-            if maxworkers > 50:
-                maxworkers = maxworkers // 2
-            elif maxworkers > 10:
-                maxworkers = round(maxworkers * 0.75)
-            elif maxworkers > 5:
-                maxworkers -= 2
-            else:
-                maxworkers -= 1
-            if gen_cfg.with_output and gen_cfg.verbose:
-                txt = '\n' + ray_err_txt + f' Number of workers reduced to {maxworkers}'
-                print_mcf(gen_cfg, txt, summary=False)
+                ray.shutdown()
+
+        if maxworkers > 50:
+            maxworkers = maxworkers // 2
+        elif maxworkers > 10:
+            maxworkers = round(maxworkers * 0.75)
+        elif maxworkers > 5:
+            maxworkers -= 2
+        else:
+            maxworkers -= 1
+
+        if gen_cfg.with_output and gen_cfg.verbose:
+            txt = ('\n' + ray_err_txt
+                   + f' Number of workers reduced to {maxworkers}')
+            print_mcf(gen_cfg, txt, summary=False)
 
     if gen_cfg.with_output and gen_cfg.verbose:
-        txt = '\n' + ray_err_txt + 'RAY NOT USED. No multiprocessing. This will slow down execution'
+        txt = ('\n' + ray_err_txt
+               + 'RAY NOT USED. No multiprocessing. '
+               'This will slow down execution')
         print_mcf(gen_cfg, txt, summary=False)
 
     return False, maxworkers

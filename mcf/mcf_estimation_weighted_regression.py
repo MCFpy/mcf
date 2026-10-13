@@ -14,6 +14,7 @@ from typing import Any, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray, DTypeLike
+from scipy.linalg import cho_solve
 
 try:
     import torch  # type: ignore[import]
@@ -88,18 +89,19 @@ def ridge_equivalent_weights_for_mean(x: NDArray[Any],
                                       w: NDArray[np.floating],
                                       lam: float, *,
                                       y: NDArray[np.floating] | None = None,
-                                      x_eval: ArrayLike | None = None,
+                                      x_eval: ArrayLike | list[NDArray[Any]] = None,
                                       int_dtype: DTypeLike = np.float64,
                                       out_dtype: DTypeLike = np.float64,
-                                      weights_eval: ArrayLike | None = None,
-                                      # Do not penalize first k elements;
-                                      # 0: penalize all
+                                      weights_eval: ArrayLike = None,
                                       not_penalize_first_k: int = 1,
                                       return_residuals: bool = True,
-                                      ) -> tuple[NDArray[np.floating], NDArray[np.floating] | None]:
-    """Compute ridge 'equivalent weights' for the mean across rows of x_eval.
+                                      ) -> tuple[NDArray[Any] | list[NDArray[Any]],
+                                                 ArrayLike | list[ArrayLike]]:
+    """Compute ridge equivalent weights and optional outcome-specific residuals.
 
-    Returns shape (n, 1). If x_eval is None, averages over the training x.
+    Return (weights, residuals), or two lists when x_eval is a list.
+    Weights have shape (n, 1). Residuals have shape (n,) for one outcome and
+    (n, n_outcomes) for multiple outcomes. If x_eval is None, evaluate on x.
     """
     proj = RidgeProjector(x, w, lam=lam, dtype=int_dtype,
                           not_penalize_first_k=not_penalize_first_k,
@@ -108,25 +110,27 @@ def ridge_equivalent_weights_for_mean(x: NDArray[Any],
         x_eval = np.asarray(x, dtype=int_dtype)
 
     if isinstance(x_eval, list):
-        weight_list = []
-        resid_list = []
+        if not x_eval:
+            return [], []
+
+        resid = (proj.residuals(y, int_dtype=int_dtype, out_dtype=out_dtype)
+                 if return_residuals and y is not None else None
+                 )
+        weight_list, resid_list = [], []
         for x_ev in x_eval:
-            weight, resid = proj.weights_matrix_for_mean(x_ev,
-                                                         y=y if return_residuals else None,
-                                                         avg_w=weights_eval,
-                                                         int_dtype=int_dtype,
-                                                         out_dtype=out_dtype,
-                                                         )
+            weight, _ = proj.weights_matrix_for_mean(x_ev,
+                                                     y=None, avg_w=weights_eval,
+                                                     int_dtype=int_dtype, out_dtype=out_dtype,
+                                                     )
             weight_list.append(weight)
-            resid_list.append(resid)
+            resid_list.append(None if resid is None else resid.copy())
 
         return weight_list, resid_list
 
     return proj.weights_matrix_for_mean(x_eval,
                                         y=y if return_residuals else None,
                                         avg_w=weights_eval,
-                                        int_dtype=int_dtype,
-                                        out_dtype=out_dtype,
+                                        int_dtype=int_dtype, out_dtype=out_dtype,
                                         )
 
 
@@ -162,7 +166,7 @@ class RidgeProjector:
         p = x64.shape[1]
 
         pen_diag = np.ones(p, dtype=dtype)
-        if self.not_penalize_first_k > 1:
+        if self.not_penalize_first_k > 0:
             pen_diag[:not_penalize_first_k] = 0.0
 
         a = g + self.lam * np.diag(pen_diag)
@@ -180,8 +184,7 @@ class RidgeProjector:
                  ) -> NDArray[np.floating]:
         b = np.asarray(b, dtype=dtype)
         if self._use_chol:
-            y = np.linalg.solve(self._l, b)
-            return np.linalg.solve(self._l.T, y)
+            return cho_solve((self._l, True), b)
 
         return self._a_pinv @ b
 
@@ -191,12 +194,11 @@ class RidgeProjector:
                                 avg_w: ArrayLike | None = None,
                                 int_dtype: DTypeLike = np.float64,
                                 out_dtype: DTypeLike = np.float64,
-                                ) -> NDArray[Any]:
-        """
-        Compute equivalent weights (n, 1); if y is provided also return residuals (n,).
-         
-        Weights that produce the average (or weighted avg) prediction over rows of x_new under
-        ridge.
+                                ) -> tuple[NDArray[Any], NDArray[Any] | None]:
+        """Compute equivalent weights and optional outcome-specific residuals.
+
+        Weights have shape (n, 1). Residuals have shape (n,) for a vector or
+        single-column outcome, and (n, n_outcomes) for multiple outcomes.
         """
         xn = np.asarray(x_new, dtype=int_dtype)
         if xn.ndim == 1:
@@ -218,12 +220,35 @@ class RidgeProjector:
         if y is None:
             return w_eq, None
 
-        y_vec = np.asarray(y, dtype=int_dtype).reshape(-1)      # (n,)
-        r_rhs = self.x.T @ (self.w.reshape(-1) * y_vec)                     # (p,)
-        beta = self._solve_a(r_rhs, dtype=int_dtype)            # (p,)
-        resid = (y_vec - (self.x @ beta)).astype(out_dtype, copy=False)  # (n,)
+        resid = self.residuals(y, int_dtype=int_dtype, out_dtype=out_dtype)
 
         return w_eq, resid
+
+    def residuals(self,
+                  y: NDArray[Any], *,
+                  int_dtype: DTypeLike = np.float64,
+                  out_dtype: DTypeLike = np.float64,
+                  ) -> NDArray[Any]:
+        """Compute outcome-specific residuals using the existing ridge system.
+
+        A vector or single-column outcome retains the legacy (n,) return shape.
+        Multiple outcomes return (n, n_outcomes), with the same penalty for all.
+        """
+        y_arr = np.asarray(y, dtype=int_dtype)
+        if y_arr.ndim not in (1, 2) or y_arr.shape[0] != self.x.shape[0]:
+            raise ValueError('y must be a vector or matrix with one row per training observation.')
+        if y_arr.ndim == 2 and y_arr.shape[1] == 0:
+            raise ValueError('y must contain at least one outcome.')
+
+        if y_arr.ndim == 1 or y_arr.shape[1] == 1:
+            y_arr = y_arr.reshape(-1)
+            rhs = self.x.T @ (self.w.reshape(-1) * y_arr)
+        else:
+            rhs = self.x.T @ (self.w.reshape(-1, 1) * y_arr)
+
+        beta = self._solve_a(rhs, dtype=int_dtype)
+
+        return (y_arr - self.x @ beta).astype(out_dtype, copy=False)
 
 
 # The following procedures are only needed for finding MSE-minimizing penalty
@@ -237,8 +262,7 @@ def _ridge_solve_beta(g: NDArray[np.floating],
     a = g + lam * np.diag(pen_diag)
     try:
         l = np.linalg.cholesky(a)
-        y = np.linalg.solve(l, r)
-        return np.linalg.solve(l.T, y)
+        return cho_solve((l, True), r)
 
     except np.linalg.LinAlgError:
         try:
@@ -288,8 +312,12 @@ def ridge_cv_penalty(x: ArrayLike,
         rng.shuffle(idx)
     folds = np.array_split(idx, k)
 
-    # precompute per-fold Gram and rhs on TRAIN, and cache VAL pieces
-    g_list, r_list, x_val_list, y_val_list, w_val_list = [], [], [], [], []
+    ls = lambdas.size
+    wmse = np.zeros(ls, dtype=float)
+    wmse_per_fold = np.empty((ls, k), dtype=float)
+    w_sum = 0.0
+
+    # Evaluate all penalties for one fold before constructing the next fold's Gram matrix.
     for i in range(k):
         val_idx = folds[i]
         train_idx = np.concatenate([folds[j] for j in range(k) if j != i])
@@ -298,34 +326,27 @@ def ridge_cv_penalty(x: ArrayLike,
         yt = y[train_idx]
         wt = w[train_idx]
         wx = xt * wt.reshape(-1, 1)
-        g = xt.T @ wx                          # X'WX
-        r = xt.T @ (wt * yt)                   # X'Wy
+        g = xt.T @ wx
+        r = xt.T @ (wt * yt)
 
-        g_list.append(g)
-        r_list.append(r)
-        x_val_list.append(x[val_idx])
-        y_val_list.append(y[val_idx])
-        w_val_list.append(w[val_idx])
+        x_val = x[val_idx]
+        y_val = y[val_idx]
+        w_val = w[val_idx]
+        wv = float(np.sum(w_val))
+        w_sum += wv
 
-    ls = lambdas.size
-    wmse = np.empty(ls, dtype=float)
-    wmse_per_fold = np.empty((ls, k), dtype=float)
-
-    # evaluate each lambda
-    for li, lam in enumerate(lambdas):
-        se_sum = 0.0
-        w_sum = 0.0
-        for i in range(k):
-            beta = _ridge_solve_beta(g_list[i], r_list[i], lam, pen_diag)
-            y_hat = x_val_list[i] @ beta
-            resid = y_val_list[i] - y_hat
-            se = float(np.sum(w_val_list[i] * resid * resid))
-            wv = float(np.sum(w_val_list[i]))
+        for li, lam in enumerate(lambdas):
+            beta = _ridge_solve_beta(g, r, lam, pen_diag)
+            y_hat = x_val @ beta
+            resid = y_val - y_hat
+            se = float(np.sum(w_val * resid * resid))
             wmse_per_fold[li, i] = se / max(wv, 1e-300)
-            se_sum += se
-            w_sum += wv
-        wmse[li] = se_sum / max(w_sum, 1e-300)
+            wmse[li] += se
 
+        # Release this fold before allocating the next fold's training arrays and Gram matrix.
+        del xt, yt, wt, wx, g, r, x_val, y_val, w_val
+
+    wmse /= max(w_sum, 1e-300)
     # pick the lambda with smallest mean WMSE (tie → smallest lambda)
     best_idx = int(np.argmin(wmse))
     best_lambda = float(lambdas[best_idx])
@@ -340,29 +361,39 @@ def ridge_cv_penalty(x: ArrayLike,
 
 def wls_equivalent_weights_for_mean(x: NDArray[Any],
                                     w: NDArray[np.floating], *,
-                                    x_eval: ArrayLike | list = None,
+                                    x_eval: ArrayLike | list[NDArray[Any]] = None,
                                     y: NDArray[Any] | None = None,
                                     int_dtype: DTypeLike = np.float64,
                                     out_dtype: DTypeLike = np.float64,
                                     weights_eval: ArrayLike = None,
                                     return_residuals: bool = True,
-                                    ) -> NDArray[np.floating]:
-    """Compute new weights for mean."""
+                                    ) -> tuple[NDArray[Any] | list[NDArray[Any]],
+                                               ArrayLike | list[ArrayLike]]:
+    """Compute WLS equivalent weights and optional outcome-specific residuals.
+
+    Return (weights, residuals), or two lists when x_eval is a list.
+    Weights have shape (n, 1). Residuals have shape (n,) for one outcome and
+    (n, n_outcomes) for multiple outcomes. If x_eval is None, evaluate on x.
+    """
     proj = WLSProjector(x, w, dtype=int_dtype)
     if x_eval is None:
         x_eval = np.asarray(x, dtype=int_dtype)
 
     if isinstance(x_eval, list):
-        weight_list = []
-        resid_list = []
+        if not x_eval:
+            return [], []
+
+        resid = (proj.residuals(y, int_dtype=int_dtype, out_dtype=out_dtype)
+                 if return_residuals and y is not None else None
+                 )
+        weight_list, resid_list = [], []
         for x_ev in x_eval:
-            weight, resid = proj.weights_matrix_for_mean(x_ev,
-                                                         y=y if return_residuals else None,
-                                                         avg_w=weights_eval,
-                                                         int_dtype=int_dtype, out_dtype=out_dtype,
-                                                         )
+            weight, _ = proj.weights_matrix_for_mean(x_ev,
+                                                     y=None, avg_w=weights_eval,
+                                                     int_dtype=int_dtype, out_dtype=out_dtype,
+                                                     )
             weight_list.append(weight)
-            resid_list.append(resid)
+            resid_list.append(None if resid is None else resid.copy())
 
         return weight_list, resid_list
 
@@ -408,8 +439,7 @@ class WLSProjector:
                  ) -> NDArray[np.floating]:
         b = np.asarray(b, dtype=dtype)
         if self._use_chol:
-            y = np.linalg.solve(self._l, b)
-            return np.linalg.solve(self._l.T, y)
+            return cho_solve((self._l, True), b)
 
         return self._g_pinv @ b
 
@@ -420,10 +450,12 @@ class WLSProjector:
                                 avg_w: ArrayLike = None,
                                 int_dtype: DTypeLike = np.float64,
                                 out_dtype: DTypeLike = np.float64,
-                                ) -> NDArray[Any]:
-        """Equivalent weights (n, 1); if y is provided also return residuals (n,).
-        
-        If avg_w is given, it uses a weighted average over rows (avg_w >= 0, sums to 1).
+                                ) -> tuple[NDArray[Any], NDArray[Any] | None]:
+        """Compute equivalent weights and optional outcome-specific residuals.
+
+        Weights have shape (n, 1). Residuals have shape (n,) for a vector or
+        single-column outcome, and (n, n_outcomes) for multiple outcomes.
+        If avg_w is given, use a weighted average over the rows of x_new.
         """
         xn = np.asarray(x_new, dtype=int_dtype)
         if xn.ndim == 1:
@@ -445,12 +477,35 @@ class WLSProjector:
         if y is None:
             return w_eq, None
 
-        y_vec = np.asarray(y, dtype=int_dtype).reshape(-1)      # (n,)
-        r_rhs = self.x.T @ (self.w.reshape(-1) * y_vec)         # (p,)
-        beta = self._solve_g(r_rhs, dtype=int_dtype)            # (p,)
-        resid = (y_vec - (self.x @ beta)).astype(out_dtype, copy=False)  # (n,)
+        resid = self.residuals(y, int_dtype=int_dtype, out_dtype=out_dtype)
 
         return w_eq, resid
+
+    def residuals(self,
+                  y: NDArray[Any], *,
+                  int_dtype: DTypeLike = np.float64,
+                  out_dtype: DTypeLike = np.float64,
+                  ) -> NDArray[Any]:
+        """Compute outcome-specific residuals using the existing WLS system.
+
+        A vector or single-column outcome retains the legacy (n,) return shape.
+        Multiple outcomes return (n, n_outcomes).
+        """
+        y_arr = np.asarray(y, dtype=int_dtype)
+        if y_arr.ndim not in (1, 2) or y_arr.shape[0] != self.x.shape[0]:
+            raise ValueError('y must be a vector or matrix with one row per training observation.')
+        if y_arr.ndim == 2 and y_arr.shape[1] == 0:
+            raise ValueError('y must contain at least one outcome.')
+
+        if y_arr.ndim == 1 or y_arr.shape[1] == 1:
+            y_arr = y_arr.reshape(-1)
+            rhs = self.x.T @ (self.w.reshape(-1) * y_arr)
+        else:
+            rhs = self.x.T @ (self.w.reshape(-1, 1) * y_arr)
+
+        beta = self._solve_g(rhs, dtype=int_dtype)
+
+        return (y_arr - self.x @ beta).astype(out_dtype, copy=False)
 
 
     def weights_for(self,
@@ -691,18 +746,16 @@ def ridge_cv_penalty_cuda(x: torch.Tensor,
     folds = _make_k_folds_cuda(n, k, device=device, shuffle=shuffle, seed=seed)
     k_eff = len(folds)
 
-    # precompute per-fold Gram and rhs on TRAIN, and cache VAL pieces
-    g_list: list[torch.Tensor] = []
-    r_list: list[torch.Tensor] = []
-    x_val_list: list[torch.Tensor] = []
-    y_val_list: list[torch.Tensor] = []
-    w_val_list: list[torch.Tensor] = []
+    ls = int(lambdas.numel())
+    se_sum = torch.zeros(ls, device=device, dtype=dtype)
+    w_sum = torch.zeros((), device=device, dtype=dtype)
+    wmse_per_fold = torch.empty((ls, k_eff), device=device, dtype=torch.float64)
+    eps = torch.tensor(1e-300, device=device, dtype=dtype)
 
+    # Evaluate all penalties for one fold before constructing the next fold's Gram matrix.
     all_idx = torch.arange(n, device=device)
     for i in range(k_eff):
         val_idx = folds[i]
-        # train_idx = all indices except val_idx
-        # (boolean mask avoids concatenating k-1 tensors repeatedly)
         mask = torch.ones(n, device=device, dtype=torch.bool)
         mask[val_idx] = False
         train_idx = all_idx[mask]
@@ -710,44 +763,28 @@ def ridge_cv_penalty_cuda(x: torch.Tensor,
         xt = x[train_idx]
         yt = y[train_idx]
         wt = w[train_idx]
-
-        # g = X' W X ; r = X' W y
         wx = xt * wt.unsqueeze(1)
         g = xt.transpose(0, 1) @ wx
         r = xt.transpose(0, 1) @ (wt * yt)
 
-        g_list.append(g)
-        r_list.append(r)
-        x_val_list.append(x[val_idx])
-        y_val_list.append(y[val_idx])
-        w_val_list.append(w[val_idx])
+        x_val = x[val_idx]
+        y_val = y[val_idx]
+        w_val = w[val_idx]
+        wv = w_val.sum()
+        w_sum = w_sum + wv
 
-    ls = int(lambdas.numel())
-    wmse = torch.empty(ls, device=device, dtype=torch.float64)
-    wmse_per_fold = torch.empty((ls, k_eff), device=device, dtype=torch.float64)
+        for li in range(ls):
+            beta = _ridge_solve_beta_cuda(g, r, lambdas[li], pen_diag)
+            y_hat = x_val @ beta
+            resid = y_val - y_hat
+            se = (w_val * resid.square()).sum()
+            wmse_per_fold[li, i] = (se / torch.maximum(wv, eps)).to(dtype=torch.float64)
+            se_sum[li] = se_sum[li] + se
 
-    eps = torch.tensor(1e-300, device=device, dtype=dtype)
+        # Release this fold before allocating the next fold's large arrays.
+        del xt, yt, wt, wx, g, r, x_val, y_val, w_val
 
-    for li in range(ls):
-        lam = lambdas[li]  # scalar tensor
-        se_sum = torch.zeros((), device=device, dtype=dtype)
-        w_sum = torch.zeros((), device=device, dtype=dtype)
-
-        for i in range(k_eff):
-            beta = _ridge_solve_beta_cuda(g_list[i], r_list[i], lam, pen_diag)
-            y_hat = x_val_list[i] @ beta
-            resid = y_val_list[i] - y_hat
-
-            se = (w_val_list[i] * resid.square()).sum()
-            wv = w_val_list[i].sum()
-
-            denom = torch.maximum(wv, eps)
-            wmse_per_fold[li, i] = (se / denom).to(dtype=torch.float64)
-
-            se_sum = se_sum + se
-            w_sum = w_sum + wv
-
-        wmse[li] = (se_sum / torch.maximum(w_sum, eps)).to(dtype=torch.float64)
+    wmse = (se_sum / torch.maximum(w_sum, eps)).to(dtype=torch.float64)
 
     # pick smallest wmse (tie-breaking: argmin returns first occurrence => smallest lambda)
     best_idx = int(torch.argmin(wmse).item())
@@ -820,15 +857,27 @@ class RidgeProjectorCuda:
         a.diagonal().add_(lam_t * pen_diag)
 
         # Cholesky factorization (ridge should make SPD for lam>0)
-        # If you need a fallback for lam=0 edge cases, add try/except here.
-        self._chol = torch.linalg.cholesky(a)  # pylint: disable=E1102
+        # Keep the selected penalty, including zero for rank-deficient designs.
+        try:
+            self._chol = torch.linalg.cholesky(a)  # pylint: disable=E1102
+            self._use_chol = True
+        except torch.linalg.LinAlgError:
+            self._use_chol = False
+            self._a_pinv = torch.linalg.pinv(a)  # pylint: disable=E1102
 
     def _solve_g_cuda(self, xbar: torch.Tensor) -> torch.Tensor:
-        """Solve (X'WX + lam*D) u = xbar for u (shape (p,))."""
-        b = xbar.to(device=self.device, dtype=self.dtype).reshape(-1, 1)
-        u = torch.cholesky_solve(b, self._chol).reshape(-1)
+        """Solve the ridge system for a vector or matrix of right-hand sides."""
+        b = xbar.to(device=self.device, dtype=self.dtype)
+        if b.ndim not in (1, 2) or b.shape[0] != self.x.shape[1]:
+            raise ValueError('The right-hand side must have one row per regressor.')
 
-        return u
+        vector_rhs = b.ndim == 1
+        if vector_rhs:
+            b = b.reshape(-1, 1)
+
+        u = torch.cholesky_solve(b, self._chol) if self._use_chol else self._a_pinv @ b
+
+        return u.reshape(-1) if vector_rhs else u
 
     def weights_matrix_for_mean_cuda(self,
                                      x_new: torch.Tensor,
@@ -837,11 +886,12 @@ class RidgeProjectorCuda:
                                      avg_w: TensorLike = None,
                                      int_dtype: TorchDType | None = None,
                                      out_dtype: TorchDType | None = None,
-                                     ) -> torch.Tensor:
-        """Equivalent weights (n, 1); if y is provided also return residuals (n,).
-        
-        If avg_w is given, uses a weighted average over rows (avg_w >= 0, sums to 1 after
-        normalization).
+                                     ) -> tuple[torch.Tensor, TensorLike]:
+        """Compute equivalent weights and optional outcome-specific residuals.
+
+        Weights have shape (n, 1). Residuals have shape (n,) for a vector or
+        single-column outcome, and (n, n_outcomes) for multiple outcomes.
+        If avg_w is given, use a weighted average over the rows of x_new.
         """
         require_torch()  # Deals with default values to make it save for failed torch import
         if int_dtype is None:
@@ -871,87 +921,117 @@ class RidgeProjectorCuda:
         # return (self.w * z.reshape(-1, 1)).to(dtype=out_dtype)
         # (n, 1) and cast
         w_eq = (self.w * z.reshape(-1, 1)).to(dtype=out_dtype)
-        if y is None:
-            return w_eq
 
-        y_vec = y.to(device=self.device, dtype=int_dtype).reshape(-1)      # (n,)
-        r_rhs = self.x.transpose(0, 1) @ (self.w.reshape(-1) * y_vec)      # (p,)
-        beta = self._solve_g_cuda(r_rhs)                                   # (p,)
-        resid = (y_vec - (self.x @ beta)).to(dtype=out_dtype)              # (n,)
+        if y is None:
+            return w_eq, None
+
+        resid = self.residuals_cuda(y, int_dtype=int_dtype, out_dtype=out_dtype)
 
         return w_eq, resid
+
+    def residuals_cuda(self,
+                       y: torch.Tensor, *,
+                       int_dtype: TorchDType | None = None,
+                       out_dtype: TorchDType | None = None,
+                       ) -> torch.Tensor:
+        """Compute outcome-specific residuals using the existing ridge system.
+
+        A vector or single-column outcome retains the legacy (n,) return shape.
+        Multiple outcomes return (n, n_outcomes), with the same penalty for all.
+        """
+        if int_dtype is None:
+            int_dtype = torch.float64
+        if out_dtype is None:
+            out_dtype = torch.float64
+
+        y_arr = y.to(device=self.device, dtype=int_dtype)
+        if y_arr.ndim not in (1, 2) or y_arr.shape[0] != self.x.shape[0]:
+            raise ValueError('y must be a vector or matrix with one row per training observation.')
+        if y_arr.ndim == 2 and y_arr.shape[1] == 0:
+            raise ValueError('y must contain at least one outcome.')
+
+        if y_arr.ndim == 1 or y_arr.shape[1] == 1:
+            y_arr = y_arr.reshape(-1)
+            rhs = self.x.transpose(0, 1) @ (self.w.reshape(-1) * y_arr)
+        else:
+            rhs = self.x.transpose(0, 1) @ (self.w * y_arr)
+
+        beta = self._solve_g_cuda(rhs)
+
+        return (y_arr - self.x @ beta).to(dtype=out_dtype)
 
 
 def ridge_equivalent_weights_for_mean_cuda(x: torch.Tensor,
                                            w: torch.Tensor,
                                            lam: float,
                                            y: torch.Tensor | None, *,
-                                           x_eval: Any | None = None,
+                                           x_eval: TensorLike | list[torch.Tensor] = None,
                                            int_dtype: TorchDType | None = None,
                                            out_dtype: TorchDType | None = None,
                                            weights_eval: TensorLike = None,
                                            not_penalize_first_k: int = 1,
                                            return_residuals: bool = True,
-                                           ):
-    """Compute ridge 'equivalent weights' for the mean across rows of x_eval.
+                                           ) -> tuple[torch.Tensor | list[torch.Tensor],
+                                                      TensorLike | list[TensorLike]]:
+    """Compute ridge equivalent weights and optional outcome-specific residuals.
 
-    Returns
-    -------
-      - torch.Tensor of shape (n, 1) if x_eval is a tensor or None
-      - list[torch.Tensor] if x_eval is a list of tensors
-
+    Return (weights, residuals), or two lists when x_eval is a list.
+    Weights have shape (n, 1). Residuals have shape (n,) for one outcome and
+    (n, n_outcomes) for multiple outcomes. If x_eval is None, evaluate on x.
     """
-    require_torch()  # Deals with default values to make it save for failed torch import
+    require_torch()
     if int_dtype is None:
         int_dtype = torch.float64
     if out_dtype is None:
         out_dtype = torch.float64
-    proj = RidgeProjectorCuda(x,
-                              w,
-                              lam=lam,
-                              dtype=int_dtype,
+
+    proj = RidgeProjectorCuda(x, w, lam=lam, dtype=int_dtype,
                               not_penalize_first_k=not_penalize_first_k,
                               )
     if x_eval is None:
         x_eval = x.to(dtype=int_dtype)
 
     if isinstance(x_eval, list):
+        if not x_eval:
+            return [], []
+
+        resid = (proj.residuals_cuda(y, int_dtype=int_dtype, out_dtype=out_dtype)
+                 if return_residuals and y is not None else None
+                 )
         weight_list: list[torch.Tensor] = []
-        resid_list: list[torch.Tensor] = []
+        resid_list: list[TensorLike] = []
         for x_ev in x_eval:
-            weight, resid = proj.weights_matrix_for_mean_cuda(x_ev,
-                                                              y=y if return_residuals else None,
-                                                              avg_w=weights_eval,
-                                                              int_dtype=int_dtype,
-                                                              out_dtype=out_dtype,
-                                                              )
+            weight, _ = proj.weights_matrix_for_mean_cuda(x_ev,
+                                                          y=None, avg_w=weights_eval,
+                                                          int_dtype=int_dtype,
+                                                          out_dtype=out_dtype,
+                                                          )
             weight_list.append(weight)
-            resid_list.append(resid)
+            resid_list.append(None if resid is None else resid.clone())
+
         return weight_list, resid_list
 
     return proj.weights_matrix_for_mean_cuda(x_eval,
                                              y=y if return_residuals else None,
                                              avg_w=weights_eval,
-                                             int_dtype=int_dtype,
-                                             out_dtype=out_dtype,
+                                             int_dtype=int_dtype, out_dtype=out_dtype,
                                              )
-
 
 def wls_equivalent_weights_for_mean_cuda(x: torch.Tensor,
                                          w: torch.Tensor, *,
                                          y: torch.Tensor | None = None,
-                                         x_eval: Any | list | None = None,
+                                         x_eval: TensorLike | list[torch.Tensor] = None,
                                          int_dtype: TorchDType | None = None,
                                          out_dtype: TorchDType | None = None,
                                          weights_eval: TensorLike = None,
                                          return_residuals: bool = True,
-                                         ):
-    """Compute WLS equivalent weights for mean on GPU.
+                                         ) -> tuple[torch.Tensor | list[torch.Tensor],
+                                                    TensorLike | list[TensorLike]]:
+    """Compute WLS equivalent weights and optional outcome-specific residuals.
 
-    Returns
-    -------
-      - torch.Tensor of shape (n, 1) if x_eval is a tensor or None
-      - list[torch.Tensor] if x_eval is a list of tensors
+    Return (weights, residuals), or two lists when x_eval is a list.
+    Weights have shape (n, 1). Residuals have shape (n,) for one outcome and
+    (n, n_outcomes) for multiple outcomes. If x_eval is None, evaluate on x.
     """
     require_torch()
     if int_dtype is None:
@@ -965,25 +1045,29 @@ def wls_equivalent_weights_for_mean_cuda(x: torch.Tensor,
         x_eval = x.to(dtype=int_dtype)
 
     if isinstance(x_eval, list):
+        if not x_eval:
+            return [], []
+
+        resid = (proj.residuals_cuda(y, int_dtype=int_dtype, out_dtype=out_dtype)
+                 if return_residuals and y is not None else None
+                 )
         weight_list: list[torch.Tensor] = []
-        resid_list: list[torch.Tensor] = []
+        resid_list: list[TensorLike] = []
         for x_ev in x_eval:
-            weight, resid = proj.weights_matrix_for_mean_cuda(x_ev,
-                                                              y=y if return_residuals else None,
-                                                              avg_w=weights_eval,
-                                                              int_dtype=int_dtype,
-                                                              out_dtype=out_dtype,
-                                                              )
-        weight_list.append(weight)
-        resid_list.append(resid)
+            weight, _ = proj.weights_matrix_for_mean_cuda(x_ev,
+                                                          y=None, avg_w=weights_eval,
+                                                          int_dtype=int_dtype,
+                                                          out_dtype=out_dtype,
+                                                          )
+            weight_list.append(weight)
+            resid_list.append(None if resid is None else resid.clone())
 
         return weight_list, resid_list
 
     return proj.weights_matrix_for_mean_cuda(x_eval,
                                              y=y if return_residuals else None,
                                              avg_w=weights_eval,
-                                             int_dtype=int_dtype,
-                                             out_dtype=out_dtype,
+                                             int_dtype=int_dtype, out_dtype=out_dtype,
                                              )
 
 
@@ -1041,10 +1125,18 @@ class WLSProjectorCuda:
             self._g_pinv = torch.linalg.pinv(g)  # pylint: disable=E1102
 
     def _solve_g_cuda(self, b: torch.Tensor) -> torch.Tensor:
-        """Solve G u = b for u (shape (p,))."""
-        b = b.to(device=self.device, dtype=self.dtype).reshape(-1, 1)
+        """Solve the WLS system for a vector or matrix of right-hand sides."""
+        b = b.to(device=self.device, dtype=self.dtype)
+        if b.ndim not in (1, 2) or b.shape[0] != self.x.shape[1]:
+            raise ValueError('The right-hand side must have one row per regressor.')
+
+        vector_rhs = b.ndim == 1
+        if vector_rhs:
+            b = b.reshape(-1, 1)
+
         u = torch.cholesky_solve(b, self._chol) if self._use_chol else self._g_pinv @ b
-        return u.reshape(-1)
+
+        return u.reshape(-1) if vector_rhs else u
 
     def weights_matrix_for_mean_cuda(self,
                                      x_new: torch.Tensor,
@@ -1053,11 +1145,12 @@ class WLSProjectorCuda:
                                      avg_w: TensorLike = None,
                                      int_dtype: TorchDType | None = None,
                                      out_dtype: TorchDType | None = None,
-                                     ) -> torch.Tensor:
-        """Equivalent weights (n, 1); if y is provided also return residuals (n,).
-        
-        If avg_w is given, uses a weighted average over rows (avg_w >= 0, sums to 1 after
-        normalization).
+                                     ) -> tuple[torch.Tensor, TensorLike]:
+        """Compute equivalent weights and optional outcome-specific residuals.
+
+        Weights have shape (n, 1). Residuals have shape (n,) for a vector or
+        single-column outcome, and (n, n_outcomes) for multiple outcomes.
+        If avg_w is given, use a weighted average over the rows of x_new.
         """
         require_torch()
         if int_dtype is None:
@@ -1089,13 +1182,40 @@ class WLSProjectorCuda:
         if y is None:
             return w_eq, None
 
-        y_vec = y.to(device=self.device, dtype=int_dtype).reshape(-1)      # (n,)
-        r_rhs = self.x.transpose(0, 1) @ (self.w.reshape(-1) * y_vec)      # (p,)
-        beta = self._solve_g_cuda(r_rhs)                                   # (p,)
-        resid = (y_vec - (self.x @ beta)).to(dtype=out_dtype)              # (n,)
+        resid = self.residuals_cuda(y, int_dtype=int_dtype, out_dtype=out_dtype)
 
         return w_eq, resid
 
+    def residuals_cuda(self,
+                       y: torch.Tensor, *,
+                       int_dtype: TorchDType | None = None,
+                       out_dtype: TorchDType | None = None,
+                       ) -> torch.Tensor:
+        """Compute outcome-specific residuals using the existing WLS system.
+
+        A vector or single-column outcome retains the legacy (n,) return shape.
+        Multiple outcomes return (n, n_outcomes).
+        """
+        if int_dtype is None:
+            int_dtype = torch.float64
+        if out_dtype is None:
+            out_dtype = torch.float64
+
+        y_arr = y.to(device=self.device, dtype=int_dtype)
+        if y_arr.ndim not in (1, 2) or y_arr.shape[0] != self.x.shape[0]:
+            raise ValueError('y must be a vector or matrix with one row per training observation.')
+        if y_arr.ndim == 2 and y_arr.shape[1] == 0:
+            raise ValueError('y must contain at least one outcome.')
+
+        if y_arr.ndim == 1 or y_arr.shape[1] == 1:
+            y_arr = y_arr.reshape(-1)
+            rhs = self.x.transpose(0, 1) @ (self.w.reshape(-1) * y_arr)
+        else:
+            rhs = self.x.transpose(0, 1) @ (self.w * y_arr)
+
+        beta = self._solve_g_cuda(rhs)
+
+        return (y_arr - self.x @ beta).to(dtype=out_dtype)
 
 
 def safe_cholesky(a: torch.Tensor,

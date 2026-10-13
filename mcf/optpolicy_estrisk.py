@@ -21,8 +21,10 @@ if TYPE_CHECKING:
 def adjust_scores_for_estimation_risk(optp_: 'OptimalPolicy',
                                       data_df: pd.DataFrame
                                       ) -> tuple[pd.DataFrame, list[str]]:
-    """Remove effect of protected variables from policy score."""
+    """Adjust policy scores for estimation uncertainty."""
     gen_cfg, estriskcfg = optp_.gen_cfg, optp_.estriskcfg
+    if estriskcfg.polscore_name_org is None:
+        estriskcfg.polscore_name_org = optp_.var_cfg.polscore_name.copy()
 
     if gen_cfg.with_output:
         txt_report = ('\nAdjusting for estimation uncertainty by adjusting '
@@ -35,11 +37,15 @@ def adjust_scores_for_estimation_risk(optp_: 'OptimalPolicy',
         txt_report = ''
 
     # Change data to numpy arrays
-    scores_np = data_df[optp_.var_cfg.polscore_name].to_numpy(copy=True)
-    scores_se_np = data_df[optp_.var_cfg.polscore_se_name].to_numpy(copy=True)
+    scores_np = data_df[optp_.var_cfg.polscore_name].to_numpy(dtype=float, copy=True)
+    scores_se_np = data_df[optp_.var_cfg.polscore_se_name].to_numpy(dtype=float, copy=True)
 
     # Adjusted scores
-    scores_estrisk_np = scores_np - estriskcfg.value * scores_se_np
+    try:
+        with np.errstate(over='raise', invalid='raise'):
+            scores_estrisk_np = scores_np - estriskcfg.value * scores_se_np
+    except (FloatingPointError, OverflowError) as exc:
+        raise ValueError('Estimation-risk adjustment produced non-finite scores.') from exc
 
     # Convert numpy array of fair scores to pandas dataframe
     score_estrisk_name = [name + '_estrisk'
@@ -60,6 +66,53 @@ def adjust_scores_for_estimation_risk(optp_: 'OptimalPolicy',
     return data_estrisk_df, score_estrisk_name
 
 
+def adjust_scores_for_estimation_risk_prediction(optp_: 'OptimalPolicy',
+                                                 data_df: pd.DataFrame,
+                                                 ) -> tuple[pd.DataFrame, str]:
+    """Create estimation-risk-adjusted policy scores for prediction data."""
+    score_names = optp_.estriskcfg.polscore_name_org
+    if score_names is None:
+        raise RuntimeError('Original policy-score names for estimation-risk adjustment are missing.'
+                           )
+
+    adjusted_names = [name + '_estrisk' for name in score_names]
+
+    if all(name in data_df.columns for name in adjusted_names):
+        return data_df, ''
+
+    se_names = optp_.var_cfg.polscore_se_name
+    required_names = [*score_names, *se_names]
+    missing_names = [name for name in required_names if name not in data_df.columns]
+
+    if missing_names:
+        raise ValueError('Prediction data are missing variables required for estimation-risk '
+                         f'adjustment: {" ".join(missing_names)}'
+                         )
+    scores_np = data_df[score_names].to_numpy(dtype=float, copy=False)
+    scores_se_np = data_df[se_names].to_numpy(dtype=float, copy=False)
+
+    if not np.all(np.isfinite(scores_np)):
+        raise ValueError('Policy scores must contain only finite values.')
+    if not np.all(np.isfinite(scores_se_np)):
+        raise ValueError('Standard errors of policy scores must contain only finite values.')
+    if np.any(scores_se_np < 0):
+        raise ValueError('Standard errors of policy scores must be nonnegative.')
+
+    try:
+        with np.errstate(over='raise', invalid='raise'):
+            scores_adjusted_np = scores_np - optp_.estriskcfg.value * scores_se_np
+    except (FloatingPointError, OverflowError) as exc:
+        raise ValueError('Estimation-risk adjustment produced non-finite scores.') from exc
+
+    data_new_df = data_df.copy()
+    data_new_df[adjusted_names] = scores_adjusted_np
+
+    txt = ('\nEstimation-risk-adjusted policy scores were not available in the prediction data. '
+           'They were computed from the original policy scores and their standard errors.'
+           )
+    return data_new_df, txt
+
+
 def estrisk_stats(optp_: 'OptimalPolicy',
                   data_df: pd.DataFrame,
                   score_estrisk_name: list[str],
@@ -72,9 +125,9 @@ def estrisk_stats(optp_: 'OptimalPolicy',
     corr = np.round(data_df[all_scores].corr() * 100)
     corr = corr.dropna(how='all', axis=0)
     corr = corr.dropna(how='all', axis=1)
-    txt += '\n' + str(stats)
+    txt += '\n' + stats.to_string()
     txt += '\n\nCorrelation of adjusted and unadjusted scores in %'
-    txt += '\n' + str(corr)
+    txt += '\n' + corr.to_string()
 
     mcf_ps.print_mcf(optp_.gen_cfg, txt, summary=True)
 

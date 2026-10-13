@@ -24,14 +24,141 @@ if TYPE_CHECKING:
     from mcf.mcf_init_predict import PCfg
 
 
+def compute_inference_cuda(estimate: torch.Tensor,
+                           variance: torch.Tensor, *,
+                           var_floor: float = 1e-6,
+                           ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Compute inference, CUDA version."""
+    est = estimate.to(dtype=torch.float64 if estimate.dtype == torch.float64 else estimate.dtype)
+    var = variance.to(dtype=est.dtype)
+
+    est = torch.nan_to_num(est, nan=0.0)
+    var = torch.nan_to_num(var, nan=float('nan'))  # Preserve unavailable variance.
+    var = torch.clamp(var, min=var_floor)
+
+    stderr = torch.sqrt(var)
+    t_val = torch.full_like(est, float('nan'))
+    valid = stderr > 0
+    t_val[valid] = torch.abs(est[valid]) / stderr[valid]
+    p_val = torch.erfc(torch.abs(t_val) / sqrt(2.0))
+
+    return stderr, t_val, p_val
+
+
+def joint_d_values_cuda(main_values: list[int] | torch.Tensor,
+                        sub_values: list[list[int]] | torch.Tensor,
+                        as_string: bool = False,
+                        ) -> list[int] | list[str]:
+    """Create joint labels of main and subtreatments."""
+    main_vals = main_values.tolist() if isinstance(main_values, torch.Tensor) else main_values
+    sub_vals = sub_values.tolist() if isinstance(sub_values, torch.Tensor) else sub_values
+
+    if as_string:
+        return [f'{main_val}_{sub_val}'
+                for main_idx, main_val in enumerate(main_vals)
+                for sub_val in sub_vals[main_idx]
+                ]
+
+    return [main_val * 1000 + sub_val
+            for main_idx, main_val in enumerate(main_vals)
+            for sub_val in sub_vals[main_idx]
+            ]
+
+
+def effect_from_potential_cuda(
+        pot_y: torch.Tensor,
+        pot_y_var: torch.Tensor,
+        d_values_in: list[int | float] | torch.Tensor, *,
+        se_yes: bool = True,
+        continuous: bool = False,
+        return_comparison: bool = True,
+        sequential: bool = False,
+        sequential_dic: dict | None = None,
+        d_sub_values: list[list[int]] | torch.Tensor | None = None,
+        ) -> tuple[torch.Tensor,
+                   torch.Tensor | None,
+                   torch.Tensor | None,
+                   torch.Tensor | None,
+                   torch.Tensor | None,
+                   ]:
+    """Compute effects and stats from potential outcomes, CUDA version."""
+    mcf_c.require_torch()
+
+    device = pot_y.device
+    d_values = d_values_in if d_sub_values is None else joint_d_values_cuda(
+        d_values_in, d_sub_values)
+
+    d_vals = torch.as_tensor(d_values, device=device)
+
+    if sequential:
+        if continuous:
+            raise NotImplementedError(
+                'QIATEs are not yet implemented for continuous treatments.'
+            )
+        if sequential_dic is None:
+            raise ValueError('sequential_dic must be provided if sequential=True.')
+
+        est = pot_y[:, 1] - pot_y[:, 0]
+        if se_yes:
+            var = pot_y_var[:, 1] + pot_y_var[:, 0]
+            stderr, t_val, p_val = compute_inference_cuda(est, var)
+        else:
+            stderr = t_val = p_val = None
+
+        if return_comparison:
+            comparison = torch.empty((est.shape[0], 2),
+                                     device=device,
+                                     dtype=d_vals.dtype,
+                                     )
+            for values in sequential_dic.values():
+                comparison[values[0], 0] = d_vals[values[2]]
+                comparison[values[0], 1] = d_vals[values[1]]
+        else:
+            comparison = None
+
+        return est, stderr, t_val, p_val, comparison
+
+    if continuous:
+        est = pot_y[1:] - pot_y[:-1]
+        if se_yes:
+            var = torch.clamp(pot_y_var[1:] + pot_y_var[:-1], min=0)
+            stderr, t_val, p_val = compute_inference_cuda(est, var)
+        else:
+            stderr = t_val = p_val = None
+
+        if return_comparison:
+            comparison = torch.stack((d_vals[1:], d_vals[:-1]), dim=1)
+        else:
+            comparison = None
+
+        return est, stderr, t_val, p_val, comparison
+
+    no_of_treat = len(d_values)
+    idx, jnd = torch.triu_indices(no_of_treat, no_of_treat, offset=1, device=device)
+    est = pot_y[jnd] - pot_y[idx]
+
+    if se_yes:
+        var = pot_y_var[jnd] + pot_y_var[idx]
+        stderr, t_val, p_val = compute_inference_cuda(est, var)
+    else:
+        stderr = t_val = p_val = None
+
+    if return_comparison:
+        comparison = torch.empty((idx.numel(), 2), device=device, dtype=d_vals.dtype)
+        comparison[:, 0] = d_vals[jnd]
+        comparison[:, 1] = d_vals[idx]
+    else:
+        comparison = None
+
+    return est, stderr, t_val, p_val, comparison
+
+
 def weight_var_cuda(w0_dat: torch.Tensor,
                     y0_dat: torch.Tensor,
                     cl_dat: torch.Tensor | None,
                     p_cfg: 'PCfg', *,
-                    weighted: bool = False,
                     normalize: bool = True,
                     w_for_diff: torch.Tensor | None = None,
-                    weights: torch.Tensor | None = None,
                     bootstrap: int = 0,
                     keep_some_0: bool = False,
                     se_yes: bool = True,
@@ -40,6 +167,8 @@ def weight_var_cuda(w0_dat: torch.Tensor,
                     zero_tol: float = 1e-10,
                     sum_tol: float = 1e-8,
                     residual_dat: torch.Tensor | None = None,
+                    seed: int = 123345,
+                    min_obs: int = 5,
                     ) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor]:
     """Generate the weight-based variance (CUDA version)."""
     mcf_c.require_torch()  # Raises error if torch import failed
@@ -50,24 +179,27 @@ def weight_var_cuda(w0_dat: torch.Tensor,
     y_dat = y0_dat.to(device=device, dtype=dtype).clone()
     cl = cl_dat.to(device=device) if cl_dat is not None else None
 
+    if residual_dat is None:
+        residual_vec = None
+    else:
+        residual_vec = residual_dat.to(device=device, dtype=dtype).reshape(-1)
+
     # Cluster aggregation for non-bootstrap SEs
-    if p_cfg.cluster_std and (cl is not None) and (bootstrap < 1):
-        if not weighted:
-            weights = None
-        w_dat, y_dat, _, _, residual_dat = aggregate_cluster_pos_w_cuda(cl, w_dat,
-                                                                        y_dat=y_dat,
-                                                                        r_dat=residual_dat,
-                                                                        norma=normalize,
-                                                                        sweights=weights,
-                                                                        precision=precision,
-                                                                        zero_tol=zero_tol,
-                                                                        sum_tol=sum_tol,
-                                                                        )
+    if p_cfg.cluster_std and cl is not None and bootstrap < 1:
+        # w_dat already includes any sampling-weight adjustment.
+        w_dat, y_dat, _, _, residual_dat = aggregate_cluster_nonzero_w_cuda(
+            cl, w_dat, y_dat=y_dat, r_dat=residual_dat, norma=normalize,
+            precision=precision, zero_tol=zero_tol, sum_tol=sum_tol,
+            )
         if w_for_diff is not None:
             w_dat = w_dat - w_for_diff.to(device=device, dtype=dtype)
+        if residual_dat is None:
+            residual_vec = None
+        else:
+            residual_vec = residual_dat.to(device=device, dtype=dtype).reshape(-1)
 
     # If no SEs, no bootstrap / extra zero handling
-    if not p_cfg.iate_se:
+    if not se_yes:
         keep_some_0 = False
         bootstrap = 0
 
@@ -75,21 +207,27 @@ def weight_var_cuda(w0_dat: torch.Tensor,
     if normalize:
         sum_w_dat = w_dat.sum().abs()
         sum_w_val = float(sum_w_dat)
-        close_to_zero = sum_w_val < zero_tol
+        close_to_zero = sum_w_val < sum_tol
         close_to_one = abs(sum_w_val - 1.0) < sum_tol
         if not (close_to_zero or close_to_one):
             w_dat = w_dat / sum_w_dat
 
     w_ret = w_dat.clone()
 
-    if residual_dat is not None and bootstrap < 2 and torch.any(residual_dat.abs() > zero_tol):
+    if (residual_vec is not None and bootstrap < 2
+            and torch.any(torch.abs(w_dat * residual_vec) > zero_tol)):
         # Versions estimator
-        est = torch.dot(w_dat, y_dat)
+        est = torch.dot(w_dat, y_dat.reshape(-1))
         if se_yes:
-            var = torch.dot(w_dat**2, residual_dat**2) # Variance formula for OLS & Ridge regression
+            var = torch.dot(w_dat ** 2, residual_vec ** 2) # Variance formula for OLS & Ridge
             return  est, var, w_ret
 
         return  est, None, w_ret
+
+    if (not se_yes) and (bootstrap < 1) and (not p_cfg.cond_var) and (not p_cfg.cluster_std):
+        est = torch.dot(w_dat, y_dat.reshape(-1))
+
+        return est, None, w_ret
 
     # Mask of observations to keep
     if keep_all:
@@ -115,7 +253,7 @@ def weight_var_cuda(w0_dat: torch.Tensor,
             zeros_to_switch = min(zeros_to_switch, int(zero_idx.numel()))
             if zeros_to_switch > 0:
                 g_cuda = torch.Generator(device=device)
-                g_cuda.manual_seed(123345)
+                g_cuda.manual_seed(seed)
                 perm = torch.randperm(zero_idx.numel(), generator=g_cuda, device=device,
                                       )[:zeros_to_switch]
                 idx_to_true = zero_idx[perm]
@@ -131,35 +269,36 @@ def weight_var_cuda(w0_dat: torch.Tensor,
         y_use = y_dat[w_pos]
         cl_use = cl[w_pos] if cl is not None else None
 
-    obs = int(w_dat2.numel())
-    if obs < 5:
-        est = torch.tensor(0.0, device=device, dtype=dtype)
-        variance = torch.tensor(1.0, device=device, dtype=dtype,) if se_yes else None
-        return est, variance, w_ret
+    y_use = y_use.reshape(-1)
 
-    # Point estimate
+    obs = int(w_dat2.numel())
     est = torch.dot(w_dat2, y_use.reshape(-1))
+
+    if obs < min_obs:
+        variance = torch.full_like(est, float('nan')) if se_yes else None
+
+        return est, variance, w_ret
 
     variance: torch.Tensor | None
     if se_yes:
         # Bootstrap SE
         if bootstrap > 1:
             # Precompute cluster info for block bootstrap
-            if p_cfg.cluster_std and (cl_use is not None) and not only_copy:
-                cl_rounded = torch.round(cl_use)
-                unique_cl = torch.unique(cl_rounded)
+            if p_cfg.cluster_std and cl_use is not None:
+                cl_sub = cl_use.reshape(-1)
+                unique_cl = torch.unique(cl_sub)
                 obs_cl = int(unique_cl.numel())
             else:
-                cl_rounded = None
+                cl_sub = None
                 unique_cl = None
                 obs_cl = 0
 
             g_cuda = torch.Generator(device=device)
-            g_cuda.manual_seed(123345)
+            g_cuda.manual_seed(seed)
             est_b = torch.empty(bootstrap, device=device, dtype=dtype)
 
             for b_idx in range(bootstrap):
-                if p_cfg.cluster_std and (cl_rounded is not None) and not only_copy:
+                if p_cfg.cluster_std and cl_sub is not None:
                     # Block bootstrap on clusters
                     idx_cl = torch.randint(low=0, high=obs_cl, size=(obs_cl,), generator=g_cuda,
                                            device=device, dtype=torch.long,
@@ -168,7 +307,7 @@ def weight_var_cuda(w0_dat: torch.Tensor,
 
                     idx_list: list[torch.Tensor] = []
                     for cl_i in cl_boot:
-                        mask = cl_rounded == cl_i
+                        mask = cl_sub == cl_i
                         idx_i = torch.nonzero(mask, as_tuple=False,).view(-1)
                         if idx_i.numel() > 0:
                             idx_list.append(idx_i)
@@ -185,14 +324,14 @@ def weight_var_cuda(w0_dat: torch.Tensor,
                 if normalize:
                     sum_w_b = w_b.sum().abs()
                     sum_w_b_val = float(sum_w_b)
-                    close_zero = sum_w_b_val < zero_tol
+                    close_zero = sum_w_b_val < sum_tol
                     close_one = abs(sum_w_b_val - 1.0) < sum_tol
                     if not (close_zero or close_one):
                         w_b = w_b / sum_w_b
 
                 est_b[b_idx] = torch.dot(w_b, y_use[idx])
 
-            variance = torch.var(est_b)
+            variance = torch.var(est_b, unbiased=False)
 
         # Analytic SE
         else:
@@ -203,8 +342,7 @@ def weight_var_cuda(w0_dat: torch.Tensor,
 
                 if p_cfg.knn:
                     k = int(round(p_cfg.knn_const * sqrt(obs) * 2.0))
-                    k = max(k, p_cfg.knn_min_k)
-                    k = min(k, obs // 2)
+                    k = max(p_cfg.knn_min_k, min(k, obs // 2))
 
                     exp_y_cond_w, var_y_cond_w = moving_avg_mean_var_cuda(y_s, k,
                                                                           precision=precision,
@@ -221,30 +359,34 @@ def weight_var_cuda(w0_dat: torch.Tensor,
                                                         zero_tol=zero_tol,
                                                          )
                 variance = torch.dot(w_s ** 2, var_y_cond_w)
-                variance = variance + obs * torch.var(w_s * exp_y_cond_w)
+                variance = variance + obs * torch.var(w_s * exp_y_cond_w, unbiased=False)
+                variance = variance * obs / (obs - 1)
             else:
-                variance = obs * torch.var(w_dat2 * y_use)
+                variance = obs * torch.var(w_dat2 * y_use.reshape(-1), unbiased=False)
+                variance = variance * obs / (obs - 1)
     else:
         variance = None
 
     return est, variance, w_ret
 
 
-def aggregate_cluster_pos_w_cuda(cl_dat: torch.Tensor,
-                                 w_dat: torch.Tensor, *,
-                                 y_dat: torch.Tensor | None = None,
-                                 r_dat: torch.Tensor | None = None,
-                                 norma: bool = True,
-                                 w2_dat: torch.Tensor | None = None,
-                                 sweights: torch.Tensor | None = None,
-                                 y2_compute: bool = False,
-                                 precision: int = 32,
-                                 zero_tol: float = 1e-10,
-                                 sum_tol: float = 1e-8,
-                                 ) -> tuple[torch.Tensor,
-                                            torch.Tensor | None,
-                                            torch.Tensor | None,
-                                            torch.Tensor | None,]:
+def aggregate_cluster_nonzero_w_cuda(cl_dat: torch.Tensor,
+                                     w_dat: torch.Tensor, *,
+                                     y_dat: torch.Tensor | None = None,
+                                     r_dat: torch.Tensor | None = None,
+                                     norma: bool = True,
+                                     w2_dat: torch.Tensor | None = None,
+                                     sweights: torch.Tensor | None = None,
+                                     y2_compute: bool = False,
+                                     precision: int = 32,
+                                     zero_tol: float = 1e-10,
+                                     sum_tol: float = 1e-8,
+                                     ) -> tuple[torch.Tensor,
+                                                torch.Tensor | None,
+                                                torch.Tensor | None,
+                                                torch.Tensor | None,
+                                                torch.Tensor | None,
+                                                ]:
     """Aggregate weighted cluster means (CUDA version).
 
     Parameters
@@ -293,11 +435,18 @@ def aggregate_cluster_pos_w_cuda(cl_dat: torch.Tensor,
         else:
             y_dat = y_dat.reshape(-1, y_dat.shape[1])
         q_obs = y_dat.shape[1]
-
+        y_dat = y_dat.to(device=device, dtype=dtype)
         y_agg = torch.zeros((n_clusters, q_obs), device=device, dtype=dtype,)
     else:
         y_agg = None
         q_obs = 0  # not used if y_dat is None
+
+    if r_dat is not None:
+        if r_dat.ndim == 1:
+            r_dat = r_dat.reshape(-1, 1)
+        else:
+            r_dat = r_dat.reshape(-1, r_dat.shape[1])
+        r_dat = r_dat.to(device=device, dtype=dtype)
 
     if r_dat is None:
         r_agg = None
@@ -312,7 +461,7 @@ def aggregate_cluster_pos_w_cuda(cl_dat: torch.Tensor,
 
     # Second weight set
     if w2_dat is not None:
-        w2_flat = w2_dat.reshape(-1)
+        w2_flat = w2_dat.to(device=device, dtype=dtype).reshape(-1)
         w2_agg = torch.zeros(n_clusters, device=device, dtype=dtype)
         w2_pos = w2_flat.abs() > zero_tol
     else:
@@ -320,7 +469,7 @@ def aggregate_cluster_pos_w_cuda(cl_dat: torch.Tensor,
 
     # Optional sampling weights
     if sweights is not None:
-        sweights_flat = sweights.reshape(-1)
+        sweights_flat = sweights.to(device=device, dtype=dtype).reshape(-1)
     else:
         sweights_flat = None
 
@@ -385,7 +534,7 @@ def aggregate_cluster_pos_w_cuda(cl_dat: torch.Tensor,
     if norma:
         sum_w_agg = w_agg.sum()
         sum_w_agg_val = sum_w_agg.item()
-        if not 1.0 - sum_tol < sum_w_agg_val < 1.0 + sum_tol:
+        if not -sum_tol < sum_w_agg_val < sum_tol:
             w_agg = w_agg / sum_w_agg_val
 
         if w2_agg is not None:
@@ -497,12 +646,12 @@ def bandwidth_nw_rule_of_thumb_cuda(data: torch.Tensor,
     dtype = data.dtype
 
     # IQR / 1.349
-    q = torch.tensor([75.0, 25.0], device=device)
-    q75, q25 = torch.percentile(data, q)
+    q = torch.tensor([0.75, 0.25], device=device, dtype=dtype)
+    q75, q25 = torch.quantile(data, q)
     iqr = (q75 - q25) / 1.349
 
     # Standard deviation
-    std = torch.std(data)
+    std = torch.std(data, correction=0)
 
     # sss = min(std, iqr) if iqr > zero_tol else std  (all in tensor-land)
     sss = torch.where(iqr > zero_tol, torch.minimum(std, iqr), std,)
@@ -588,7 +737,7 @@ def kernel_density_cuda(data: torch.Tensor,
         raise ValueError(f'Bandwidth must be positive, got {float(bw)}.')
 
     # differ has shape (n, m)
-    differ = torch.subtract.outer(data, grid)
+    differ = data.unsqueeze(1) - grid.unsqueeze(0)
 
     # Kernel evaluation; expects tensor on correct device
     y_dach_i = kernel_proc_cuda(differ / bw, kernel)
@@ -709,6 +858,8 @@ def analyse_weights_cuda(weights: torch.Tensor,
                          iv: bool = False,
                          sum_tol: float = 1e-8,
                          zero_tol: float = 1e-10,
+                         line_length: int = 100,
+                         min_obs: int = 5,
                          ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor,
                                     torch.Tensor, torch.Tensor, torch.Tensor,
                                     torch.Tensor, torch.Tensor, torch.Tensor,
@@ -723,7 +874,7 @@ def analyse_weights_cuda(weights: torch.Tensor,
     txt = ''
 
     if ate:
-        txt += '\n' * 2 + '=' * 100
+        txt += '\n' * 2 + '=' * line_length
         if iv:
             txt += '\nAnalysis of weights: '
         else:
@@ -742,13 +893,13 @@ def analyse_weights_cuda(weights: torch.Tensor,
         no_of_treat = gen_tv_total_treat
 
     # Allocate result containers on correct device / dtype
-    larger_0 = torch.zeros(no_of_treat, device=device, dtype=int_dtype,)
-    equal_0 = torch.zeros_like(larger_0)
+    nonzero = torch.zeros(no_of_treat, device=device, dtype=int_dtype,)
+    equal_0 = torch.zeros_like(nonzero)
 
-    mean_pos = torch.zeros( no_of_treat, device=device, dtype=float_dtype,)
-    std_pos = torch.zeros_like(mean_pos)
-    gini_all = torch.zeros_like(mean_pos)
-    gini_pos = torch.zeros_like(mean_pos)
+    mean_nonzero = torch.zeros( no_of_treat, device=device, dtype=float_dtype,)
+    std_pos = torch.zeros_like(mean_nonzero)
+    gini_all = torch.zeros_like(mean_nonzero)
+    gini_nonzero = torch.zeros_like(mean_nonzero)
 
     share_largest_q = torch.zeros((no_of_treat, 3), device=device, dtype=float_dtype,)
     sum_larger = torch.zeros((no_of_treat, len(p_cfg.q_w)), device=device, dtype=float_dtype,)
@@ -765,7 +916,7 @@ def analyse_weights_cuda(weights: torch.Tensor,
         sum_j = float(sum_weights[j])
 
         close_to_one = abs(sum_j - 1.0) < sum_tol
-        close_to_zero = abs(sum_j) < sum_tol
+        close_to_zero = abs(sum_j) < zero_tol
 
         if (not (close_to_one or close_to_zero)) and (not iv):
             w_j = weights[j] / sum_weights[j]
@@ -773,34 +924,33 @@ def analyse_weights_cuda(weights: torch.Tensor,
             w_j = weights[j]
 
         # Positive / relevant weights (by absolute value > sum_tol)
-        w_pos = w_j[torch.abs(w_j) > sum_tol]
+        w_pos = w_j[torch.abs(w_j) > zero_tol]
         n_pos = int(w_pos.numel())
         n_all = int(w_j.numel())
 
-        larger_0[j] = n_pos
+        nonzero[j] = n_pos
         equal_0[j] = n_all - n_pos
 
         if n_pos > 0:
-            mean_pos[j] = w_pos.mean()
-            std_pos[j] = w_pos.std()
+            mean_nonzero[j] = w_pos.mean()
+            std_pos[j] = w_pos.std(unbiased=False)
 
-            gini_all[j] = gini_coeff_pos_cuda(w_j, zero_tol=zero_tol) * 100.0
-            gini_pos[j] = gini_coeff_pos_cuda(w_pos, zero_tol=zero_tol) * 100.0
+            gini_all[j] = gini_coeff_pos_cuda(w_j, zero_tol=zero_tol)
+            gini_nonzero[j] = gini_coeff_pos_cuda(w_pos, zero_tol=zero_tol)
 
             w_pos_abs = w_pos.abs()
+            w_pos_sum = w_pos_abs.sum()
 
-            if n_pos > 5:
-                # Shares of total weight in upper quantiles
+            if n_pos > min_obs:
                 qqq = torch.quantile(w_pos_abs, quantiles)
                 for i in range(3):
                     thr = qqq[i] - zero_tol
-                    share_largest_q[j, i] = w_pos_abs[w_pos_abs >= thr].sum() * 100.0
+                    share_largest_q[j, i] = w_pos_abs[w_pos_abs >= thr].sum() / w_pos_sum * 100.0
 
-                # Shares and counts above fixed thresholds q_w
                 for idx_q, val in enumerate(p_cfg.q_w):
                     thr = val - zero_tol
                     mask = w_pos_abs >= thr
-                    sum_larger[j, idx_q] = w_pos_abs[mask].sum() * 100.0
+                    sum_larger[j, idx_q] = w_pos_abs[mask].sum() / w_pos_sum * 100.0
                     obs_larger[j, idx_q] = mask.sum().float() / n_pos * 100.0
             else:
                 if gen_cfg.with_output:
@@ -814,32 +964,30 @@ def analyse_weights_cuda(weights: torch.Tensor,
         txt += '\nLess than 5 observations in some groups.'
 
     if ate:
-        txt += mcf_ps.txt_weight_stat(nonzero=larger_0, equalzero=equal_0, mean_nonzero=mean_pos,
-                                      std_nonzero=std_pos, gini_all=gini_all, gini_nonzero=gini_pos,
+        txt += mcf_ps.txt_weight_stat(nonzero=nonzero, equalzero=equal_0, mean_nonzero=mean_nonzero,
+                                      std_nonzero=std_pos, gini_all=gini_all,
+                                      gini_nonzero=gini_nonzero,
                                       share_largest_q=share_largest_q, sum_larger=sum_larger,
                                       obs_larger=obs_larger, gen_cfg=gen_cfg, p_cfg=p_cfg,
                                       continuous=continuous, d_values_cont=d_values_cont,
                                       )
-    return (larger_0, equal_0, mean_pos, std_pos, gini_all, gini_pos, share_largest_q, sum_larger,
-            obs_larger, txt,
+    return (nonzero, equal_0, mean_nonzero, std_pos, gini_all, gini_nonzero, share_largest_q,
+            sum_larger, obs_larger, txt,
             )
 
 
 def gini_coeff_pos_cuda(x_dat: torch.Tensor, zero_tol: float = 1e-10,) -> torch.Tensor:
-    """Compute Gini coefficient of a tensor with values >= 0 (CUDA version)."""
+    """Compute Gini coefficient of absolute tensor values."""
     mcf_c.require_torch()
-    x_flat = x_dat.reshape(-1)
+
+    x_flat = torch.abs(x_dat.reshape(-1))
     sss = x_flat.sum()
 
-    # sss is a tensor - use .item() for the scalar comparison
-    if (sss > zero_tol).item():
-        n = x_flat.numel()
-        rrr = torch.argsort(-x_flat)
-        ranks = torch.arange(1, n + 1, device=x_flat.device, dtype=x_flat.dtype,)
-        num = torch.sum((ranks - 1) * x_flat[rrr]) + sss
-        gini = 1 - 2 * num / (n * sss)
+    if not (sss > zero_tol).item():
+        return torch.zeros((), device=x_flat.device, dtype=x_flat.dtype)
 
-        return gini
+    x_sorted = torch.sort(x_flat).values
+    n_obs = x_sorted.numel()
+    ranks = torch.arange(1, n_obs + 1, device=x_flat.device, dtype=x_flat.dtype)
 
-    # If total weight is ~0, return 0 as a scalar tensor on same device/dtype
-    return torch.zeros((), device=x_flat.device, dtype=x_flat.dtype)
+    return 2 * torch.sum(ranks * x_sorted) / (n_obs * sss) - (n_obs + 1) / n_obs

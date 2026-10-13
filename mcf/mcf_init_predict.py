@@ -166,7 +166,7 @@ class PCfg:
         else:
             cbgate_b = cbgate is True
             bgate_b = bgate is True
-            bt_yes_b = bt_yes is True
+            bt_yes_b = bt_yes is not False
             iate_b = iate is not False
             iate_se_b = iate_se is True
             iate_m_ate_b = iate_m_ate is True
@@ -231,9 +231,9 @@ class PCfg:
 
         # kNN / NW
         knn_b = knn is not False
-        knn_min_v = 10 if knn_min_k is None or knn_min_k < 0 else knn_min_k
+        knn_min_v = 10 if knn_min_k is None or knn_min_k <= 0 else knn_min_k
         knn_const_v = 1 if knn_const is None or knn_const < 0 else knn_const
-        nw_bandw_v = 1 if nw_bandw is None or nw_bandw < 0 else nw_bandw
+        nw_bandw_v = 1 if nw_bandw is None or nw_bandw <= 0 else nw_bandw
         nw_kern_v = 1 if nw_kern is None or nw_kern != 2 else 2
 
         # bootstrap sizes (or False)
@@ -389,6 +389,8 @@ class PBiasAdjustmentCfg:
             cv_k_n: IntLike = None
         else:
             cv_k_n = round(float(cv_k))
+            if cv_k_n < 2:
+                cv_k_n = None
 
         if not (ridge is None or isinstance(ridge, bool)):
             raise TypeError('Bias adjustment: ridge must be Boolean or None.')
@@ -422,7 +424,7 @@ class PostCfg:
     bin_corr_threshold: NumberLike = 0.1
     bin_corr_yes: bool = True
     est_stats: bool = False
-    kmeans_no_of_groups: NumberLike = None
+    kmeans_no_of_groups: list[int] | None = None
     kmeans_max_tries: int = 1000
     kmeans_single: bool = False
     kmeans_replications: int = 10
@@ -435,13 +437,11 @@ class PostCfg:
     tree_depths: tuple[int, ...] = (2, 3, 4, 5)
 
     @classmethod
-    def from_args(cls,
-                  p_cfg,  # transient; not stored
-                  *,
+    def from_args(cls: type['PostCfg'], p_cfg: PCfg, *,
                   bin_corr_threshold: NumberLike = None,
                   bin_corr_yes: BoolLike = None,
                   est_stats: BoolLike = None,
-                  kmeans_no_of_groups: NumberLike = None,
+                  kmeans_no_of_groups: mcf_initvals.KmeansGroupsInput = None,
                   kmeans_max_tries: NumberLike = None,
                   kmeans_replications: NumberLike = None,
                   kmeans_yes: BoolLike = None,
@@ -471,7 +471,7 @@ class PostCfg:
         if kmeans_replications is None or kmeans_replications < 0:
             kmeans_replications_v = 10
         else:
-            kmeans_replications_v = int(round(kmeans_replications))
+            kmeans_replications_v = max(int(round(kmeans_replications)), 1)
 
         if kmeans_max_tries is None:
             kmeans_max_tries_v = 1000
@@ -493,7 +493,7 @@ class PostCfg:
                    bin_corr_threshold=bin_corr_threshold_v,
                    bin_corr_yes=bin_corr_yes_b,
                    est_stats=est_stats_b,
-                   kmeans_no_of_groups=kmeans_no_of_groups,
+                   kmeans_no_of_groups=mcf_initvals.kmeans_groups_fct(kmeans_no_of_groups),
                    kmeans_max_tries=kmeans_max_tries_v,
                    kmeans_single=kmeans_single_b,
                    kmeans_replications=kmeans_replications_v,
@@ -517,10 +517,7 @@ class LowMemCfg:
     def from_args(cls, *,
                   yes: bool = True,
                   max_chunksize: IntLike = None,
-                  p_iate_m_ate: bool = False,
-                  p_qiate: bool = False,
-                  weight_as_sparse: bool = False,
-                  ):
+                  ) -> 'LowMemCfg':
         """Read, check, and normalize inputs."""
         if max_chunksize is not None:
             if yes and (not isinstance(max_chunksize, (int, float)) or max_chunksize < 0.1):

@@ -134,11 +134,14 @@ def sensitivity_main(mcf_: 'ModifiedCausalForest',
                                       )
     if mcf_.gen_cfg.with_output:
         time_start = time()
+    report_tables: list[tuple[str, pd.DataFrame]] = []
     results_avg, plots_iate, txt_ate = sensitivity_analysis(
         mcf_, train_df, predict_df, mcf_.gen_cfg.with_output, iate_df=iate_df, seed=9345467,
+        report_tables=report_tables,
         )
     mcf_.report['sens_plots_iate'] = plots_iate
     mcf_.report['sens_txt_ate'] = txt_ate
+    mcf_.report['sens_ate_tables'] = report_tables
     if mcf_.gen_cfg.with_output:
         time_difference = [time() - time_start]
         time_string = ['Total time for sensitivity analysis:            ']
@@ -154,17 +157,19 @@ def sensitivity_analysis(mcf_: 'ModifiedCausalForest',
                          with_output: bool, *,
                          iate_df: pd.DataFrame | None = None,
                          seed: int = 12345,
+                         report_tables: list[tuple[str, pd.DataFrame]] | None = None,
                          ) -> tuple[dict, list[Path], str]:
     """Check sensitivity with respect to possible violations."""
     mcf_.p_cfg.bt_yes = False
     if with_output:
         mcf_ps.print_mcf(mcf_.gen_cfg,
                          '\n' + '=' * 100 + '\nSensitivity analysis',
-                         summary=True)
+                         summary=True,
+                         )
     if mcf_.gen_cfg.d_type == 'continuous':
         raise NotImplementedError('Sensitivity tests not (yet) implemented'
-                                  'for continuous treatments.')
-
+                                  'for continuous treatments.'
+                                  )
     # 1) Estimate treatment propabilities with cross-fitting and delete treated
     treat_probs_np, train_reduced_df, treat_name, treat_values = get_treat_probs_del_treat(
         mcf_, train_df.copy(), with_output
@@ -219,7 +224,9 @@ def sensitivity_analysis(mcf_: 'ModifiedCausalForest',
                              '\n' + '-' * 100 + f'\nSensitivity - Result scenario: {scenario}',
                              summary=True
                              )
-            txt_ate = print_output_ate(mcf_repl, results_avg_dict, scenario)
+            txt_ate = print_output_ate(mcf_repl, results_avg_dict, scenario,
+                                       report_tables=report_tables,
+                                       )
             if mcf_.sens_cfg.gate or mcf_.sens_cfg.bgate or mcf_.sens_cfg.cbgate:
                 print_output_gate(mcf_repl, results_avg_dict, scenario)
             if mcf_.sens_cfg.iate:
@@ -382,7 +389,6 @@ def print_output_gate(mcf_: 'ModifiedCausalForest', results_avg_dict: dict, scen
     effect_list = results_scen_dict['ate_effect_list']
     gates = ('gate', 'bgate', 'cbgate')
     gates_se = ('gate_se', 'bgate_se', 'cbgate_se')
-    txt = ''
     z_values_dic = results_scen_dict['gate_names_values']
     z_names_order_list = results_scen_dict['gate_names_values']['z_names_list']
     for gidx, gate in enumerate(gates):
@@ -435,7 +441,11 @@ def print_output_gate(mcf_: 'ModifiedCausalForest', results_avg_dict: dict, scen
             mcf_ps.print_mcf(mcf_.gen_cfg, txt, summary=True)
 
 
-def print_output_ate(mcf_: 'ModifiedCausalForest', results_avg_dict: dict, scenario: str,) -> str:
+def print_output_ate(mcf_: 'ModifiedCausalForest',
+                     results_avg_dict: dict,
+                     scenario: str, *,
+                     report_tables: list[tuple[str, pd.DataFrame]] | None = None,
+                     ) -> str:
     """Print output of sensitivity analysis for ate."""
     results_scen_dict = results_avg_dict[scenario]
     txt = '\n' + '- ' * 50 + '\nATEs (only if p-value < 10%)'
@@ -454,9 +464,20 @@ def print_output_ate(mcf_: 'ModifiedCausalForest', results_avg_dict: dict, scena
             txt += '\n' + '- ' * 50
             est, stderr = ate[o_idx, a_idx], ate_se[o_idx, a_idx]
             t_val, p_val = get_t_val_pal(est, stderr)
+            report_rows = [] if report_tables is not None else None
             txt += mcf_ps.print_effect(est, stderr, t_val, p_val, effect_list,
-                                       continuous=continuous, small_p_val_only=True
+                                       continuous=continuous, small_p_val_only=True,
+                                       report_rows=report_rows,
                                        )
+            if report_tables is not None:
+                population = ('All' if a_idx == 0 else
+                              f'Treatment group {d_values[a_idx - 1]}')
+                title = f'ATE sensitivity ({scenario}) for {out_name}; population: {population}'
+                table_df = pd.DataFrame([values for _, values in report_rows],
+                                        index=[label for label, _ in report_rows],
+                                        columns=['Estimate', 'SE', 't-value', 'p-value', 'Sig.'])
+                report_tables.append((title, table_df))
+
             if continuous and a_idx == 0:
                 mcf_ate.dose_response_figure(out_name, mcf_.var_cfg.d_name[0], est, stderr,
                                              d_values=d_values[1:], int_cfg=mcf_.int_cfg,
@@ -571,7 +592,7 @@ def get_treat_probs_del_treat(mcf_: 'ModifiedCausalForest',
     mcf_copy = deepcopy(mcf_)
     mcf_copy.gen_cfg.with_output = False
     data_df, _ = mcf_data.data_frame_vars_lower(data_df)
-    data_df = mcf_data.check_recode_treat_variable(mcf_copy, data_df)
+    data_df = mcf_data.check_recode_treat_variable(mcf_copy, data_df, train=True)
 
     # Initialise again with data information (only relevant for simulation,
     # not the other steps outside this function.)
@@ -606,12 +627,12 @@ def get_treat_probs_del_treat(mcf_: 'ModifiedCausalForest',
     x_name, x_type = mcf_gp.get_key_values_in_list(var_x_type)
     names_unordered = [x_name[j] for j, val in enumerate(x_type) if val > 0]
     x_df, obs = mcf_data.get_x_data(data_df, x_name)
-    x_np = mcf_gp.to_numpy_big_data(x_df, int_cfg.obs_bigdata)
     d_np = mcf_gp.to_numpy_big_data(data_df[d_name], int_cfg.obs_bigdata).ravel()
-    if names_unordered:  # List is not empty
-        x_df, dummy_names = mcf_data.dummies_for_unord(x_df, names_unordered,
-                                                       data_train_dict=data_train_dic
-                                                       )
+    if names_unordered:
+        x_df, _ = mcf_data.dummies_for_unord(x_df, names_unordered,
+                                              data_train_dict=data_train_dic)
+
+    x_np = mcf_gp.to_numpy_big_data(x_df, int_cfg.obs_bigdata)
     max_workers = 1 if int_cfg.replication else gen_cfg.mp_parallel
     classif = RandomForestClassifier(n_estimators=mcf_copy.cf_cfg.boot, max_features='sqrt',
                                      bootstrap=True, oob_score=False, n_jobs=max_workers,

@@ -8,11 +8,13 @@ Contains classes and methods needed for mcf and optimal policy reporting.
 """
 from datetime import datetime
 from dataclasses import dataclass
+from io import BytesIO
 from typing import TYPE_CHECKING
 from pathlib import Path
 
 from fpdf import FPDF
 from fpdf.enums import XPos, YPos
+from fpdf.fonts import FontFace
 from pandas import DataFrame
 
 from mcf import mcf_general_sys as mcf_sys
@@ -21,6 +23,7 @@ from mcf import reporting_content as content
 from mcf import reporting_content_optp as content_optp
 
 if TYPE_CHECKING:
+    from mcf.optpolicy_tree_plot import TreeFigure
     from mcf.reporting import McfOptPolReport
 
 
@@ -32,8 +35,13 @@ class PDF(FPDF):
         # Setting font: helvetica bold 12
         self.set_font("helvetica", "B", 16)
         # Calculating width of title and setting cursor position:
+        available_width = self.w - self.l_margin - self.r_margin
         width = self.get_string_width(self.title) + 6
-        self.set_x((210 - width) / 2)
+        if width > available_width:
+            font_size = 16 * (available_width - 6) / (width - 6)
+            self.set_font('helvetica', 'B', font_size)
+            width = available_width
+        self.set_x(self.l_margin + (available_width - width) / 2)
         # Setting colors for frame, background and text: red, green, blue
         self.set_draw_color(0, 128, 0)
         self.set_fill_color(144+30, 238+17, 144+30)
@@ -103,15 +111,9 @@ class PDF(FPDF):
                 self.set_fill_color(200)  # grey
 
         # Printing section name:
-        self.cell(
-            0,
-            6,
-            f"Section {num}: {label}",
-            new_x="LMARGIN",
-            new_y="NEXT",
-            align="L",
-            fill=True,
-        )
+        self.cell(0, 6, f"Section {num}: {label}",
+                  new_x="LMARGIN", new_y="NEXT", align="L", fill=True,
+                  )
         # Performing a line break:
         self.ln(4)
 
@@ -153,6 +155,36 @@ class PDF(FPDF):
         # Set the current position below the figure
         self.set_y(y_before_image + height)
 
+    def add_policy_tree_figure(self, figure: 'TreeFigure', context: str = '') -> None:
+        """Insert a vector tree page and resume the previous page format."""
+        previous_orientation = self.cur_orientation
+        previous_format = (self.w, self.h)
+        short, long = sorted(previous_format)
+        horizontal_margin = self.l_margin + self.r_margin
+        vertical_margin = self.t_margin + self.b_margin + 25
+        portrait_scale = min((short - horizontal_margin) / figure['width'],
+                             (long - vertical_margin) / figure['height'],
+                             )
+        landscape_scale = min((long - horizontal_margin) / figure['width'],
+                              (short - vertical_margin) / figure['height'],
+                              )
+        orientation = 'L' if landscape_scale > portrait_scale else 'P'
+        self.add_page(orientation=orientation)
+        self.set_font('helvetica', size=11)
+        self.set_text_color(0)
+        if context.strip():
+            self.multi_cell(0, h=5, text=context.strip(), align='L',
+                            new_x=XPos.LMARGIN, new_y=YPos.NEXT,
+                            )
+            self.ln(3)
+        image_y = self.get_y()
+        self.image(BytesIO(figure['svg']), x=self.l_margin, y=image_y,
+                   w=self.w - self.l_margin - self.r_margin,
+                   h=self.page_break_trigger - image_y - 2,
+                   keep_aspect_ratio=True)
+        # The caller writes the training text and leaf table on this next page.
+        self.add_page(orientation=previous_orientation, format=previous_format)
+
     def add_figure_row(self,
                        title: str,
                        image_paths: list[Path, ...], *,
@@ -167,14 +199,14 @@ class PDF(FPDF):
         # Calculate the available width for each figure in a row
         available_width = self.w - 20  # 10 units margin on each side
         figure_width = available_width / 2
-        # Loop through image paths and add figures in rows
+        # Filter unavailable figures before grouping them into rows.
+        image_paths = [path for path in image_paths if path is not None and path.is_file()]
+
         for i in range(0, len(image_paths), 2):
-            if image_paths[i] is None or not image_paths[i].is_file():
-                continue
             # Start a new row
             self.ln()
-            # Check page is full
-            if self.get_y() + height > self.h:
+            # Keep the figure row above the bottom margin.
+            if self.get_y() + height > self.page_break_trigger:
                 self.add_page()
 
             # Add the first figure in the row
@@ -188,96 +220,120 @@ class PDF(FPDF):
                     self.image(second_path,
                                x=figure_width + 20, y=self.get_y(), w=width, h=height,
                                )
-            if self.get_y() + height > self.h:
-                self.add_page()
-            else:
-                self.set_y(self.get_y() + height)
+            self.set_y(self.get_y() + height)
 
         if note is not None:
             self.set_font("helvetica", size=8)
-            self.multi_cell(0, h=5, text=note, align='L')
+            self.multi_cell(0, h=5, text=note, align='L', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
         else:
             self.ln()
 
-    def add_table(self,
-                  title: str,
-                  data: DataFrame, *,
-                  col_width: int = 30,
-                  note: str | None = None,
-                  font_size_table: int = 10,
-                  index_label: str = 'Comparison'
-                  ) -> None:
-        """Add table."""
-        col_height = 7
-        self.set_font("helvetica", 'I', size=12)
-        self.cell(0, col_height, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
+    def add_table(self, title: str, data: DataFrame, *, col_width: int = 30,
+                  note: str | None = None, font_size_table: int = 10,
+                  index_label: str = 'Comparison', keep_first_columns: int = 0) -> None:
+        """Print wrapped tables with repeated headings and panels for excess columns.
 
-        # Calculate available page width
+        Keep up to keep_first_columns leading data columns together in the first panel.
+        """
+        if col_width <= 0 or font_size_table <= 0 or keep_first_columns < 0:
+            raise ValueError('Table widths and font sizes must be positive; column counts >= 0.')
+
+        font_size_table = max(8, font_size_table)
+        padding = 1.2
         available_width = self.w - self.l_margin - self.r_margin
+        headers = [str(index_label), *(str(name) for name in data.columns)]
+        rows = [[str(value) for value in row] for row in data.itertuples(index=True, name=None)]
 
-        # Check if labels in first (index) column are too long
-        max_width = max(len(str(row.name)) for _, row in data.iterrows())
-        col_width_idx = max(max_width*1.6, col_width)
-        col_width_idx = min(46, col_width_idx)
+        # Measure the displayed strings in their actual fonts, including cell padding.
+        self.set_font('helvetica', size=font_size_table)
+        body_widths = [max((self.get_string_width(row[col]) for row in rows), default=0.0)
+                       for col in range(len(headers))
+                       ]
+        self.set_font('helvetica', 'I', size=font_size_table)
+        header_widths = [self.get_string_width(text) for text in headers]
+        label_width = min(max(float(col_width), body_widths[0] + 2 * padding,
+                              header_widths[0] + 2 * padding), 0.35 * available_width)
+        widths = [label_width]
+        for body_width, header_width in zip(body_widths[1:], header_widths[1:], strict=True):
+            width = max(12.0, body_width + 2 * padding + 0.2,
+                        min(float(col_width), header_width + 2 * padding + 0.2)
+                        )
+            widths.append(min(width, available_width - label_width))
 
-        # Ensure total column width does not exceed page width
-        total_col_width = col_width_idx + len(data.columns) * col_width
-        if total_col_width > available_width:
-            # Adjust column widths proportionally
-            col_width_idx *= available_width / total_col_width
-            col_width *= available_width / total_col_width
-            font_size_table -= 1
+        # Preserve column order and keep the label column in every panel.
+        keep_first_columns = min(keep_first_columns, len(headers) - 1)
+        panel = list(range(1, keep_first_columns + 1))
+        used_width = label_width + sum(widths[col] for col in panel)
+        if used_width > available_width + 1e-8:
+            raise ValueError('The columns requested together do not fit on this page.')
+        panels: list[list[int]] = []
+        for col in range(keep_first_columns + 1, len(headers)):
+            if panel and used_width + widths[col] > available_width + 1e-8:
+                panels.append(panel)
+                panel = []
+                used_width = label_width
+            panel.append(col)
+            used_width += widths[col]
+        panels.append(panel)
 
-        self.set_font("helvetica", 'I', size=font_size_table)
-
-        # Add index header
-        self.cell(col_width_idx, col_height, index_label, border='TB',
-                  align='L')
-
-        # Add headers
-        for col in data.columns:
-            self.cell(col_width, col_height, str(col), border='TB', align='C')
-        self.ln()
-        self.set_font("helvetica", size=font_size_table)
-        if font_size_table < 10:
-            col_height = 5
-        # Add data
-        for _, row in data.iterrows():
-            # Add index cell
-            if self.get_y() + col_height > self.page_break_trigger:
+        for panel_idx, panel in enumerate(panels):
+            if panel_idx:
                 self.add_page()
-            row_str = str(row.name)
-            max_width_str = int(col_width_idx * 0.7)
-            # Adjustment for overly long row names
-            if len(row_str) > max_width_str:
-                self.cell(col_width_idx, col_height, row_str, border='T', align='L')
-                self.ln()
-                self.cell(col_width_idx, col_height, ' ', border='B', align='L')
+            self.set_x(self.l_margin)
+            self.set_font('helvetica', size=font_size_table)
+            columns = [0, *panel]
+            panel_widths = [widths[col] for col in columns]
+            if panel:
+                extra_width = max(0.0, available_width - sum(panel_widths)) / len(panel)
+                panel_widths = [label_width, *(width + extra_width for width in panel_widths[1:])]
             else:
-                self.cell(col_width_idx, col_height, row_str, border='B', align='L')
+                panel_widths = [available_width]
+            panel_title = title
+            if len(panels) > 1:
+                panel_title += f' (part {panel_idx + 1} of {len(panels)})'
 
-            for col in data.columns:
-                self.cell(col_width, col_height, str(row[col]), border='B', align='C')
-            self.ln()
+            # Both title and column labels repeat on continuation pages.
+            saved_line_width = self.line_width
+            self.set_line_width(0.2)
+            with self.table(width=available_width, col_widths=panel_widths, align='LEFT',
+                            text_align='RIGHT', v_align='MIDDLE', padding=padding,
+                            line_height=self.font_size * 1.3, borders_layout='HORIZONTAL_LINES',
+                            headings_style=FontFace(emphasis='ITALICS'), num_heading_rows=2,
+                            repeat_headings='ON_TOP_OF_EVERY_PAGE'
+                            ) as table:
+                title_row = table.row()
+                title_row.cell(panel_title, colspan=len(columns), align='CENTER',
+                               style=FontFace(size_pt=12))
+                heading_row = table.row()
+                for col in columns:
+                    heading_row.cell(headers[col], align='LEFT' if col == 0 else 'CENTER')
+                if not rows:
+                    table.row().cell('No rows to report.', colspan=len(columns), align='LEFT')
+                for values in rows:
+                    row = table.row()
+                    for col in columns:
+                        row.cell(values[col], align='LEFT' if col == 0 else 'RIGHT')
+            self.set_line_width(saved_line_width)
+            self.ln(3)
+
         if note is not None:
-            self.set_font("helvetica", size=8)
-            self.multi_cell(0, h=5, text='Note: ' + note, align='L')
-        self.ln()
+            self.set_font('helvetica', size=8)
+            self.multi_cell(available_width, h=5, text='Note: ' + note, align='L',
+                            new_x=XPos.LMARGIN, new_y=YPos.NEXT
+                            )
+            self.ln(3)
 
 
 def create_pdf_file(rep_o: 'McfOptPolReport') -> None:
     """Create a pdf report from the text."""
     pdf = PDF()
     pdf.set_title(rep_o.text['header'])
-    pdf.set_author("The mcf estimation package")
+    pdf.set_author('The mcf estimation package')
     # grey: General info; green: mcf; red: sensitivity; blue: optimal policy
-    pdf.print_section((1,), "General information", rep_o.text['general'], color='grey')
+    pdf.print_section((1,), 'General information', rep_o.text['general'], color='grey')
     idx1 = 2
     if rep_o.mcf_o is not None:
         report_mcf_core(pdf, rep_o, idx1, iv=rep_o.iv)
-        idx1 += 1
-    if rep_o.blind_o is not None:
-        report_mcf_blind(pdf, idx1)
         idx1 += 1
     if rep_o.sens_o is not None:
         report_mcf_sense(pdf, rep_o, idx1)
@@ -286,6 +342,22 @@ def create_pdf_file(rep_o: 'McfOptPolReport') -> None:
         report_optpol(pdf, rep_o, idx1)
 
     pdf.output(rep_o.gen_cfg.outfilename)
+
+
+def optpol_section_text(opt_o: OptimalPolicy, empty_lines_end: int) -> dict[str, object]:
+    """Build section content for one optimal-policy instance."""
+    text: dict[str, object] = {}
+    if opt_o.report['training']:
+        text['opt_training'] = content_optp.opt_training(opt_o, empty_lines_end)
+    if opt_o.report['allocation']:
+        text['opt_allocation'] = content_optp.opt_allocation(opt_o, empty_lines_end)
+    if opt_o.report['evaluation']:
+        text['opt_evaluation'] = content_optp.opt_evaluation(opt_o)
+    if opt_o.report.get('solvefair', False) or opt_o.report.get('fairscores', False):
+        text['opt_fairness'] = content_optp.opt_fairness(opt_o, empty_lines_end)
+    if opt_o.report['estriskscores']:
+        text['opt_estriskscores'] = content_optp.opt_estimationrisk(opt_o, empty_lines_end)
+    return text
 
 
 def report_optpol(pdf: PDF, rep_o: 'McfOptPolReport', idx1: int) -> None:
@@ -314,39 +386,47 @@ def report_optpol(pdf: PDF, rep_o: 'McfOptPolReport', idx1: int) -> None:
                 add_text = f'\n\nTREATMENT VERSION OF MAIN TREATMENT {idx-1}\n\n'
         else:
             add_text = ''
-        if optp.report['fairscores']:
+        opt_text = rep_o.text if idx == 0 else optpol_section_text(optp, empty_lines_end=2)
+        if optp.report.get('solvefair', False) or optp.report.get('fairscores', False):
             pdf.print_section((idx1, idx2),
                               "Optimal Policy: Protected variables (fairness)",
-                              rep_o.text['opt_fairness'], 'blue'
+                              opt_text['opt_fairness'], 'blue'
                               )
             idx2 += 1
+
         if optp.report['estriskscores']:
             pdf.print_section((idx1, idx2),
                               'Optimal Policy: Adjustments for estimation risk of policy scores',
-                              rep_o.text['opt_estriskscores'], 'blue'
+                              opt_text['opt_estriskscores'], 'blue'
                               )
             idx2 += 1
         if optp.report['training']:
-            pdf.print_section((idx1, idx2), "Optimal Policy: Training",
-                              add_text + rep_o.text['opt_training'], 'blue'
+            tree_figure = optp.report.get('training_tree_figure')
+            if tree_figure is not None:
+                pdf.add_policy_tree_figure(tree_figure, context=add_text)
+            pdf.print_section((idx1, idx2), 'Optimal Policy: Training',
+                              add_text + opt_text['opt_training'], 'blue',
                               )
             idx2 += 1
+
         if optp.report['allocation'] and report_allocation:
             pdf.print_section((idx1, idx2), "Optimal Policy: Allocation",
-                              add_text + rep_o.text['opt_allocation'], 'blue'
+                              add_text + opt_text['opt_allocation'], 'blue',
                               )
             idx2 += 1
+
         if optp.report['evaluation']:
-            general_text, txt_table_list = rep_o.text['opt_evaluation']
+            general_text, txt_table_list = opt_text['opt_evaluation']
             pdf.print_section((idx1, idx2),
-                              "Optimal Policy: Evaluation of Allocation(s)",
+                              'Optimal Policy: Evaluation of Allocation(s)',
                               add_text + general_text, 'blue'
                               )
+            idx2 += 1
+
             for idx, txt_table in enumerate(txt_table_list):
-                pdf.add_table(f'Treatment allocation ({idx})',
-                              txt_table[1],
+                pdf.add_table(f'Treatment allocation ({idx})', txt_table[1],
                               col_width=30, font_size_table=10, note=txt_table[0],
-                              index_label='Allocation'
+                              index_label='Allocation', keep_first_columns=2
                               )
 
 
@@ -356,7 +436,7 @@ def report_mcf_core(pdf: PDF,
                     iv: bool = False
                     ) -> None:
     """Write report on mcf training, prediction, and analysis."""
-    idx2 = idx3 = idx4 = 1
+    idx2 = idx3 = 1
     pdf.print_section((idx1,), 'MCF estimation', rep_o.text['mcf_general'], 'green')
     pdf.print_section((idx1, idx2), 'MCF Training',
                       rep_o.text['mcf_training'], 'greenT')
@@ -368,35 +448,57 @@ def report_mcf_core(pdf: PDF,
     if rep_o.mcf_o.fs_cfg.yes:
         pdf.print_section((idx1, idx2, idx3),
                           "Feature selection (mcf training)",
-                          rep_o.text['mcf_feature_selection'], 'greenT'
+                          rep_o.text['mcf_feature_selection'], 'greenT',
                           )
         idx3 += 1
     if rep_o.mcf_o.cs_cfg.type_ > 0:
         pdf.print_section((idx1, idx2, idx3),
                           "Common support (mcf training)",
-                          rep_o.text['mcf_t_common_support'], 'greenT'
+                          rep_o.text['mcf_t_common_support'], 'greenT',
                           )
         idx3 += 1
         title = "Common support plots"
         if iv:
             title += (' (instrument propensity score)')
-        pdf.add_figure_row(title, rep_o.mcf_o.report['cs_t_figs'][0][1:], width=70, height=60)
+        cs_figures = rep_o.mcf_o.report['cs_t_figs'][0] or []
+        if cs_figures and rep_o.mcf_o.cs_cfg.type_ == 1:
+            first_stem = cs_figures[0].stem.split('_page', 1)[0]
+            cs_figures = [path for path in cs_figures
+                          if path.stem.split('_page', 1)[0] != first_stem
+                          ]
+        if any('_page' in path.stem for path in cs_figures):
+            for path in cs_figures:
+                if not path.is_file():
+                    continue
+                pdf.add_page()
+                pdf.set_font('helvetica', 'I', size=12)
+                pdf.cell(0, 10, title, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align='C')
+                image_y = pdf.get_y()
+                image_width = pdf.w - pdf.l_margin - pdf.r_margin
+                image_height = pdf.page_break_trigger - image_y
+                pdf.image(path, x=pdf.l_margin, y=image_y, w=image_width, h=image_height,
+                          keep_aspect_ratio=True)
+                pdf.set_y(pdf.page_break_trigger)
+        else:
+            pdf.add_figure_row(title, cs_figures, width=70, height=60)
     if rep_o.mcf_o.lc_cfg.yes:
         pdf.print_section((idx1, idx2, idx3),
                           "Local centering (mcf training)",
-                          rep_o.text['mcf_local_center'], 'greenT'
+                          rep_o.text['mcf_local_center'], 'greenT',
                           )
         idx3 += 1
     if rep_o.mcf_o.gen_tv_cfg.yes:
         pdf.print_section((idx1, idx2, idx3),
                           "Version estimation (mcf training and prediction)",
-                          rep_o.text['mcf_version'], 'greenT'
+                          rep_o.text['mcf_version'], 'greenT',
                           )
         idx3 += 1
     pdf.print_section((idx1, idx2, idx3), "Forest", rep_o.text['mcf_forest'], 'greenT')
     idx2 += 1
     idx3 = 1
-    if rep_o.mcf_o.predict_done or rep_o.mcf_o.predict_iv_done:
+    if any(key in rep_o.mcf_o.report for key in ('mcf_pred_results', 'mcf_pred_results_global',
+                                                 'mcf_pred_results_local')
+           ):
         pdf.print_section((idx1,), "MCF estimation", ' ', 'green')
         pdf.print_section((idx1, idx2), "MCF Prediction of Effects",
                           rep_o.text['mcf_prediction'], 'greenP'
@@ -421,19 +523,24 @@ def report_mcf_core(pdf: PDF,
                     y_name = y_name[:-3]
                 table_df.columns = [name.replace('p_val', 'p-value') for name in table_df.columns]
                 table_df.columns = [name.replace('t-val', 't-value') for name in table_df.columns]
-                iv_add = 'L' if iv else ''
-                pdf.add_table(iv_add + 'ATE for ' + y_name, table_df, col_width=30,
+                if not iv:
+                    effect_label = 'ATE'
+                elif idx_table == 1 and 'mcf_pred_results_global' in rep_o.mcf_o.report:
+                    effect_label = 'LATE (global compliers)'
+                else:
+                    effect_label = 'Averaged local complier effects'
+                pdf.add_table(f'{effect_label} for {y_name}', table_df, col_width=30,
                               note=rep_o.text['mcf_ate'][3]
                               )
         idx4 += 1
-        if rep_o.mcf_o.p_cfg.gate:
+        if ('fig_gate_local' if iv else 'fig_gate') in rep_o.mcf_o.report:
             title = 'LGATE' if iv else 'GATE'
-            pdf.print_section((idx1, idx2, idx3, idx4), "GATE", ' ', 'greenP')
+            pdf.print_section((idx1, idx2, idx3, idx4), title, ' ', 'greenP')
             pdf.add_figure_row(title, rep_o.text['mcf_gate'][0], width=70, height=60,
                                note=rep_o.text['mcf_gate'][1]
                                )
             idx4 += 1
-        if rep_o.mcf_o.p_cfg.bgate:
+        if ('fig_bgate_local' if iv else 'fig_bgate') in rep_o.mcf_o.report:
             title = 'LBGATE' if iv else 'BGATE'
             pdf.print_section((idx1, idx2, idx3, idx4), title,
                               rep_o.text['mcf_bgate'][2], 'greenP')
@@ -441,7 +548,7 @@ def report_mcf_core(pdf: PDF,
                                note=rep_o.text['mcf_bgate'][1]
                                )
             idx4 += 1
-        if rep_o.mcf_o.p_cfg.cbgate:
+        if ('fig_cbgate_local' if iv else 'fig_cbgate') in rep_o.mcf_o.report:
             title = 'LCBGATE' if iv else 'CBGATE'
             pdf.print_section((idx1, idx2, idx3, idx4), title, 'All covariates are balanced.',
                               'greenP'
@@ -450,18 +557,43 @@ def report_mcf_core(pdf: PDF,
                                note=rep_o.text['mcf_cbgate'][1]
                                )
             idx4 += 1
-        if rep_o.mcf_o.p_cfg.iate:
-            pdf.print_section((idx1, idx2, idx3, idx4), "IATE",
-                              rep_o.text['iate_part1'], color='greenP'
+
+        qiate_figures = [path for path in (rep_o.mcf_o.report.get('fig_qiate') or [])
+                         if path is not None and path.is_file()
+                         ]
+        if not iv and qiate_figures:
+            pdf.print_section((idx1, idx2, idx3, idx4), 'QIATE',
+                              'Quantile Individualized Average Treatment Effects.', 'greenP'
+                              )
+            pdf.add_figure_row('QIATE', qiate_figures, width=70, height=60,
+                              note=('The figures compare treatments with the reference treatment. '
+                                    'Their titles distinguish QIATE(q) from '
+                                    'QIATE(q) - QIATE(0.5). Further results are available in the '
+                                    'output files.')
                               )
             idx4 += 1
+
+        if 'iate_text' in rep_o.mcf_o.report:
+            title = 'LIATE' if iv else 'IATE'
+            pdf.print_section((idx1, idx2, idx3, idx4), title, rep_o.text['iate_part1'],
+                              color='greenP',
+                              )
+            for y_name, effect_type, table_df in rep_o.text['iate_tables']:
+                table_title = title
+                note = None
+                if effect_type == 1:
+                    table_title += ' minus average effect'
+                    note = 'Weights are not censored for effects minus the average effect.'
+                pdf.add_table(f'{table_title} for {y_name}', table_df, note=note)
+            idx4 += 1
+
         if rep_o.mcf_o.p_cfg.bt_yes:
             pdf.print_section((idx1, idx2, idx3, idx4),
                               "Balancing checks (experimental)",
                               rep_o.text['mcf_balance'], 'greenP'
                               )
         idx2 += 1
-        idx3 = idx4 = 1
+        idx3 = 1
         if (rep_o.mcf_o.gen_cfg.with_output
             and rep_o.mcf_o.post_cfg.est_stats
             and rep_o.mcf_o.gen_cfg.return_iate_sp
@@ -493,7 +625,7 @@ def report_mcf_core(pdf: PDF,
                               ' Categorical variables are recoded to indicator (dummy) variables.'
                               )
 
-    if rep_o.mcf_o.predict_different_allocations_done:
+    if 'alloc_mcf_pred_results' in rep_o.mcf_o.report:
         pdf.print_section((idx1,), "MCF estimation", ' ', 'green')
         pdf.print_section((idx1, idx2),
                           'MCF Prediction of average outcomes of different allocations',
@@ -519,39 +651,38 @@ def report_mcf_core(pdf: PDF,
             table_df.columns = [name.replace('p_val', 'p-value') for name in table_df.columns]
             table_df.columns = [name.replace('t-val', 't-value') for name in table_df.columns]
             pdf.add_table('Average outcome differences for ' + y_name, table_df,
-                          col_width=30, note=rep_o.text['alloc_mcf_ate'][2]
+                          col_width=30, note=rep_o.text['alloc_mcf_ate'][3],
                           )
         idx4 += 1
 
-        if rep_o.mcf_o.report['alloc_welfare_allocations']:
+        welfare_tables = rep_o.mcf_o.report.get('alloc_welfare_tables') or []
+        if welfare_tables or rep_o.mcf_o.report['alloc_welfare_allocations']:
             pdf.print_section((idx1, idx2, idx3, idx4),
                               'Welfare of different allocations',
                               rep_o.text['alloc_welfare_allocations'],
-                              color='greenP'
+                              color='greenP',
                               )
-            idx4 += 1
-
-
-def report_mcf_blind(pdf: PDF, idx1: int) -> None:
-    """Write report on blinded IATEs."""
-    pdf.print_section((idx1,), "MCF Blinder IATEs",
-                      'Blinding IATEs is experimental. Some results '
-                      'can be found in the output files. ', 'yellow'
-                      )
+            for outcome, table_df, note in welfare_tables:
+                pdf.add_table(f'Allocation welfare for {outcome}', table_df,
+                              note=note, index_label='Allocation',
+                              )
 
 
 def report_mcf_sense(pdf: PDF, rep_o: 'McfOptPolReport', idx1: int) -> None:
     """Write report on sensitivity analysis."""
     pdf.print_section((idx1,), "MCF Sensitivity Analysis", rep_o.text['sensitivity'], 'red')
+    for title, table_df in rep_o.sens_o.report.get('sens_ate_tables') or []:
+        pdf.add_table(title, table_df, note='Effects with p-values above 10% are omitted.')
     if rep_o.sens_o.report['sens_plots_iate'] is not None:
         pdf.add_figure_row('Placebo and estimated IATEs', rep_o.sens_o.report['sens_plots_iate'],
-                           width=70, height=60, note='\n'
+                           width=70, height=60, note='\n',
                            )
 
 
 def create_text(rep_o: 'McfOptPolReport') -> None:
     """Create the dictionary containing all information to be printed."""
     empty_lines_end = 2
+    iv = rep_o.iv
     rep_o.text['header'] = header_title(rep_o)
     rep_o.text['general'] = content.general(rep_o)
     if rep_o.mcf_o is not None:
@@ -582,57 +713,71 @@ def create_text(rep_o: 'McfOptPolReport') -> None:
                                                             iv=rep_o.iv,
                                                             )
 
-        # When predict and analyse is used more than once, only first occurance
-        #  is reported
-        if rep_o.mcf_o.report['predict_list']:
-            sub_dict = rep_o.mcf_o.report['predict_list'][0].copy()
-            rep_o.mcf_o.report.update(sub_dict)
+        # Keep the first effect prediction and latest allocation prediction.
+        # Allocation welfare text also refers to the latest allocation run.
+        predictions = rep_o.mcf_o.report['predict_list']
+        if predictions:
+            effect_keys = ('mcf_pred_results', 'mcf_pred_results_global',
+                           'mcf_pred_results_local',
+                           )
+            for prediction in predictions:
+                if any(key in prediction for key in effect_keys):
+                    rep_o.mcf_o.report.update(prediction.copy())
+                    break
+            for prediction in reversed(predictions):
+                if 'alloc_mcf_pred_results' in prediction:
+                    rep_o.mcf_o.report.update(prediction.copy())
+                    break
             rep_o.mcf_o.report['predict_list'] = []
         if rep_o.mcf_o.report['analyse_list']:
             sub_dict = rep_o.mcf_o.report['analyse_list'][0].copy()
             rep_o.mcf_o.report.update(sub_dict)
             rep_o.mcf_o.report['analyse_list'] = []
 
-        if rep_o.mcf_o.predict_done or rep_o.mcf_o.predict_iv_done:
+        if any(key in rep_o.mcf_o.report for key in ('mcf_pred_results', 'mcf_pred_results_global',
+                                                     'mcf_pred_results_local')
+               ):
             rep_o.text['mcf_prediction'] = content.mcf_prediction(
                 rep_o.mcf_o, empty_lines_end)
             if rep_o.mcf_o.cs_cfg.type_ > 0:
                 rep_o.text['mcf_p_common_support'] = content.mcf_common_support(rep_o.mcf_o,
                                                                                 empty_lines_end - 1,
                                                                                 train=False,
-                                                                                iv=rep_o.iv
+                                                                                iv=rep_o.iv,
                                                                                 )
             rep_o.text['mcf_results'] = content.mcf_results(rep_o.mcf_o,
                                                             empty_lines_end,
                                                             iv=rep_o.iv
                                                             )
             rep_o.text['mcf_ate'] = content.mcf_ate_proc(rep_o.mcf_o, empty_lines_end,
-                                                         iv=rep_o.iv, alloc=False
+                                                         iv=rep_o.iv, alloc=False,
                                                          )
-            if rep_o.mcf_o.p_cfg.gate:
+            if ('fig_gate_local' if iv else 'fig_gate') in rep_o.mcf_o.report:
                 rep_o.text['mcf_gate'] = content.mcf_gate(rep_o.mcf_o, empty_lines_end,
-                                                          gate_type='gate', iv=rep_o.iv
+                                                          gate_type='gate', iv=rep_o.iv,
                                                           )
-            if rep_o.mcf_o.p_cfg.bgate:
+            if ('fig_bgate_local' if iv else 'fig_bgate') in rep_o.mcf_o.report:
                 rep_o.text['mcf_bgate'] = content.mcf_gate(rep_o.mcf_o, empty_lines_end,
-                                                           gate_type='bgate', iv=rep_o.iv
+                                                           gate_type='bgate', iv=rep_o.iv,
                                                            )
-            if rep_o.mcf_o.p_cfg.cbgate:
+            if ('fig_cbgate_local' if iv else 'fig_cbgate') in rep_o.mcf_o.report:
                 rep_o.text['mcf_cbgate'] = content.mcf_gate(rep_o.mcf_o, empty_lines_end,
-                                                            gate_type='cbgate', iv=rep_o.iv
+                                                            gate_type='cbgate', iv=rep_o.iv,
                                                             )
             if rep_o.mcf_o.p_cfg.bt_yes:
                 rep_o.text['mcf_balance'] = content.mcf_balance(empty_lines_end, iv=rep_o.iv)
-            if rep_o.mcf_o.p_cfg.iate:
+            if 'iate_text' in rep_o.mcf_o.report:
                 rep_o.text['iate_part1'] = content.mcf_iate_part1(rep_o.mcf_o, empty_lines_end,
-                                                                  iv=rep_o.iv
+                                                                  iv=rep_o.iv,
                                                                   )
+                rep_o.text['iate_tables'] = rep_o.mcf_o.report.get('iate_tables') or []
+
             if (rep_o.mcf_o.gen_cfg.with_output
                 and rep_o.mcf_o.post_cfg.est_stats
                     and rep_o.mcf_o.gen_cfg.return_iate_sp):
                 rep_o.text['mcf_iate_part2'] = content.mcf_iate_analyse(rep_o.mcf_o, 1, iv=rep_o.iv)
 
-        if rep_o.mcf_o.predict_different_allocations_done:
+        if 'alloc_mcf_pred_results' in rep_o.mcf_o.report:
             rep_o.text['alloc_mcf_prediction'] = content.mcf_prediction(rep_o.mcf_o, empty_lines_end
                                                                         )
             if rep_o.mcf_o.cs_cfg.type_ > 0:
@@ -664,17 +809,7 @@ def create_text(rep_o: 'McfOptPolReport') -> None:
 
         # If version estimation, use only the main treatments for reporting here
         rep_o.text['opt_general'] = content_optp.opt_general(opt_o, empty_lines_end)
-        if opt_o.report['training']:
-            rep_o.text['opt_training'] = content_optp.opt_training(opt_o, empty_lines_end)
-        if opt_o.report['allocation']:
-            rep_o.text['opt_allocation'] = content_optp.opt_allocation(opt_o, empty_lines_end)
-        if opt_o.report['evaluation']:
-            rep_o.text['opt_evaluation'] = content_optp.opt_evaluation(opt_o)
-        if opt_o.report['fairscores']:
-            rep_o.text['opt_fairness'] = content_optp.opt_fairness(opt_o, empty_lines_end)
-        if opt_o.report['estriskscores']:
-            rep_o.text['opt_estriskscores'] = content_optp.opt_estimationrisk(opt_o, empty_lines_end
-                                                                              )
+        rep_o.text.update(optpol_section_text(opt_o, empty_lines_end))
     if rep_o.sens_o is not None:
         rep_o.text['sensitivity'] = content.sensitivity(rep_o.sens_o, empty_lines_end)
 
@@ -687,8 +822,6 @@ def header_title(rep_o: 'McfOptPolReport') -> str:
         methods.append('Estimation')
     if rep_o.sens:
         methods.append('Sensitivity Analysis')
-    if rep_o.blind:
-        methods.append('Blinded IATEs')
     if rep_o.opt:
         methods.append('Optimal Policy Estimation')
 

@@ -8,7 +8,6 @@ Contains the functions needed for computing the IATE.
 @author: MLechner
 -*- coding: utf-8 -*-
 """
-from collections import namedtuple
 from typing import Any, TYPE_CHECKING
 import warnings
 
@@ -31,7 +30,7 @@ from mcf import mcf_iate_cuda
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_sys
 from mcf import mcf_print_stats as mcf_ps
-from mcf.mcf_versions import get_tv_data, version_wregr
+from mcf.mcf_versions import get_tv_data, version_wregr, GenTvData, predict_version_scores
 from mcf import mcfoptp_parallel_backend_ray_classical as mcf_ray
 from mcf.mcfoptp_parallel_backend_forest_executor import (forest_executor_with_shared,
                                                           map_task_batches, forest_executor_context,
@@ -47,17 +46,17 @@ if TYPE_CHECKING:
     from mcf.mcf_init_predict import PCfg
 
 
-def iate_est_mp(
-        mcf_: 'ModifiedCausalForest',
-        weights_dic: dict,
-        w_ate: NDArray[Any], *,
-        reg_round: bool = True,
-        iv_scaling: bool = False,
-        iv: bool = False,
-        x_tv_df: pd.DataFrame | None = None,
-        x_tv_pred_np: NDArray[Any] | None = None,
-        print_progress: bool = True,
-        ) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any], NDArray[Any], str]:
+def iate_est_mp(mcf_: 'ModifiedCausalForest',
+                weights_dic: dict,
+                w_ate: NDArray[Any], *,
+                reg_round: bool = True,
+                iv_scaling: bool = False,
+                iv: bool = False,
+                x_tv_df: pd.DataFrame | None = None,
+                x_tv_pred_np: NDArray[Any] | None = None,
+                print_progress: bool = True,
+                tv_scores_pred_precomp: list[NDArray[Any] | None] | None = None,
+                ) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any], NDArray[Any], str]:
     """
     Estimate IATE and their standard errors, MP version.
 
@@ -93,15 +92,18 @@ def iate_est_mp(
     progress = gen_cfg.with_output and gen_cfg.verbose and print_progress
     use_tqdm, output_clean = mcf_gp.tqdm_setup(tqdm, progress)
 
+    iate_m_ate_flag = p_cfg.iate_m_ate and not iv_scaling
     if reg_round and not iv_scaling:
         iate_se_flag, se_boot_iate = p_cfg.iate_se, p_cfg.se_boot_iate
-        iate_m_ate_flag = p_cfg.iate_m_ate
     else:
-        iate_se_flag = se_boot_iate = iate_m_ate_flag = False
+        iate_se_flag = se_boot_iate = False
+
     if gen_cfg.with_output and gen_cfg.verbose:
         print('\nComputing IATEs 1/2 (potential outcomes)')
+
     weights, y_dat = weights_dic['weights'], weights_dic['y_dat_np']
     w_dat = weights_dic['w_dat_np'] if gen_cfg.weighted else None
+
     if p_cfg.cluster_std and iate_se_flag:
         cl_dat = weights_dic['cl_dat_np']
         no_of_cluster = len(np.unique(cl_dat))
@@ -116,18 +118,19 @@ def iate_est_mp(
 
     if gen_tv_cfg.yes:
         d_train, x_tv_train, x_tv_pred = get_tv_data(x_tv_df, weights_dic, mcf_.var_cfg,
-                                                     zero_tol=zero_tol, x_tv_pred_np=x_tv_pred_np,
+                                                     zero_tol=zero_tol,
+                                                     x_tv_pred_np=x_tv_pred_np,
+                                                     score_names=gen_tv_cfg.score_names,
                                                      )
-        # Namedtuple is easy to pass through all function and access it
-        Tv_data = namedtuple('TV_data', ['d_train', 'x_tv_train', 'x_tv_pred'])
-        gen_tv_data = Tv_data(d_train, x_tv_train, x_tv_pred)
+        gen_tv_data = GenTvData(d_train=d_train, x_tv_train=x_tv_train, x_tv_pred=x_tv_pred,)
     else:
         gen_tv_data = None
+    tv_scores_train_np = tv_scores_pred_np = None  # Prepared global version scores
 
     n_x = weights[0].shape[0] if int_cfg.weight_as_sparse else len(weights)
     n_y, no_of_out = len(y_dat), len(var_cfg.y_name)
     if gen_cfg.d_type == 'continuous':
-        no_of_treat, d_values = ct_cfg.grid_w, ct_cfg.grid_w_val
+        no_of_treat = ct_cfg.grid_w
         d_values_dr = ct_cfg.d_values_dr_np
         no_of_treat_dr = len(d_values_dr)
     else:
@@ -178,9 +181,81 @@ def iate_est_mp(
               )
         cuda = False
 
+    if gen_tv_cfg.yes:
+        score_type = gen_tv_cfg.score_type or ()
+        if isinstance(score_type, str):
+            score_type = (score_type,)
+
+        global_tv_scores = (gen_tv_cfg.addscores
+                            and not gen_tv_cfg.score_version_local
+                            and ('prop_version' in score_type or 'prog_version' in score_type)
+                            )
+        if global_tv_scores:
+            if gen_tv_cfg.scores_version_round is None:
+                raise ValueError('Global version scores require gen_tv_cfg.scores_version_round.')
+            if len(gen_tv_cfg.scores_version_round) != no_of_treat:
+                raise ValueError('Global version scores must contain one entry per main treatment.')
+            if gen_tv_data is None or gen_tv_data.x_tv_pred is None:
+                raise ValueError('Global version scores require x_tv_pred.')
+            if x_tv_df is None:
+                raise ValueError('Global version-score prediction requires named covariates in '
+                                 'x_tv_df, even when x_tv_pred_np is supplied.'
+                                 )
+            if len(x_tv_df) != n_x or gen_tv_data.x_tv_pred.shape[0] != n_x:
+                raise ValueError('Prediction covariates must have one row per IATE observation.')
+
+            ps_v_yes = 'prop_version' in score_type
+            pg_v_yes = 'prog_version' in score_type
+            if cuda:
+                dtype_vers = mcf_est.dtype_score(obs_bigdata=int_cfg.obs_bigdata, obs1=0, obs2=n_x)
+            else:
+                # Defer CPU downcasting to the existing per-regression precision rule.
+                dtype_vers = np.float64
+
+            tv_scores_train_np = []
+            for score_dc in gen_tv_cfg.scores_version_round:
+                if score_dc.names is None or len(score_dc.names) == 0:
+                    tv_scores_train_np.append(None)
+                    continue
+                if score_dc.scores_np is None:
+                    raise ValueError('Global version-score IATE requires cached outcome scores.')
+                if score_dc.scores_np.shape != (n_y, len(score_dc.names)):
+                    raise ValueError('Cached version scores do not match the forest outcome rows '
+                                     'and score columns.'
+                                     )
+                tv_scores_train_np.append(score_dc.scores_np)
+
+            tv_scores_pred_np = predict_version_scores(x_tv_df,
+                                                       gen_tv_cfg.scores_version_round,
+                                                       ps_yes=ps_v_yes, pg_yes=pg_v_yes,
+                                                       dtype=dtype_vers, zero_tol=zero_tol,
+                                                       scores_precomputed
+                                                           =tv_scores_pred_precomp,
+                                                       )
+            if not cuda:
+                gen_tv_data = GenTvData(d_train=d_train,
+                                        x_tv_train=x_tv_train, x_tv_pred=x_tv_pred,
+                                        scores_pred=tv_scores_pred_np,
+                                        )
     if gen_cfg.mp_parallel < 1.5 or cuda:
         #  Pytorch does not work well with ray. Need to set max_workers to 1.
         maxworkers = 1
+
+    if maxworkers > 1 and int_cfg.mp_use_old_ray:
+        if ray is None or ray_iate_func1_for_mp_many_obs is None:
+            raise ImportError('int_cfg.mp_use_old_ray=True, but ray is not installed. '
+                              'Install ray or use the new backend with '
+                              'mp_use_old_ray=False.'
+                              )
+        if not ray.is_initialized():
+            ray_is_running, maxworkers = mcf_ray.init_ray_with_fallback(
+                maxworkers, gen_cfg,
+                mem_object_store=int_cfg.mem_object_store_3,
+                mem_object_store_2=int_cfg.mem_object_store_2,
+                ray_err_txt='Ray does not startup in IATE estimation 1/2',
+                )
+            if not ray_is_running:
+                maxworkers = 1
 
     print_runtime_info(gen_cfg, int_cfg, maxworkers, txt_method='IATE 1/2')
 
@@ -226,8 +301,13 @@ def iate_est_mp(
                 else:
                     weights_ba = weights[idx_ba[0]:idx_ba[-1]+1]
 
-                x_tv_pred_ba = x_tv_pred[idx_ba, :] if gen_tv_cfg.yes else None
-
+                x_tv_pred_ba = (x_tv_pred[idx_ba, :]
+                                if gen_tv_cfg.yes and x_tv_pred is not None else None
+                                )
+                tv_scores_pred_ba = ([None if arr is None else arr[idx_ba, :]
+                                      for arr in tv_scores_pred_np]
+                                     if tv_scores_pred_np is not None else None
+                                     )
                 (pot_y_ba, pot_y_var_ba, pot_y_m_ate_ba, pot_y_m_ate_var_ba, l1_to_9_ba,
                  share_censored_ba
                  ) = mcf_iate_cuda.iate_cuda(weights_ba,
@@ -235,9 +315,14 @@ def iate_est_mp(
                                              w_dat_np=w_dat, w_ate_np=w_ate, y_dat_np=y_dat,
                                              **kw_args,
                                              # ba_data, p_ba_cfg,bias adjustment not yet implemented
-                                             d_tv_train_np=d_tv_train, x_tv_train_np=x_tv_train,
-                                             x_tv_pred_np=x_tv_pred_ba, n_x=len(idx_ba),
+                                             d_tv_train_np=d_tv_train,
+                                             x_tv_train_np=x_tv_train,
+                                             x_tv_pred_np=x_tv_pred_ba,
+                                             tv_scores_train_np=tv_scores_train_np,
+                                             tv_scores_pred_np=tv_scores_pred_ba,
+                                             n_x=len(idx_ba),
                                              no_of_treat_dr=no_of_treat_dr,
+                                             iv=iv,
                                              )
                 pot_y[idx_ba, :] = pot_y_ba
                 if pot_y_var is not None:
@@ -296,7 +381,7 @@ def iate_est_mp(
                                                ray_err_txt=ray_err_txt,
                                                )
             mcf_ray.print_object_store(gen_cfg, int_cfg.mem_object_store_3)
-            y_dat_ref = mcf_ray.ray_put_all(y_dat)
+            y_dat_ref, gen_tv_data_ref = mcf_ray.ray_put_all(y_dat, gen_tv_data)
 
             if int_cfg.weight_as_sparse:
                 still_running = [ray_iate_func1_for_mp_many_obs.remote(
@@ -304,7 +389,7 @@ def iate_est_mp(
                     cl_dat=cl_dat, no_of_cluster=no_of_cluster, w_dat=w_dat, w_ate=w_ate,
                     y_dat=y_dat_ref,
                     **kw_args,
-                    ba_data=ba_data, p_ba_cfg=p_ba_cfg, gen_tv_data=gen_tv_data, iv=iv,
+                    ba_data=ba_data, p_ba_cfg=p_ba_cfg, gen_tv_data=gen_tv_data_ref, iv=iv,
                     ) for idx in obs_idx_list
                     ]
                 if gen_cfg.with_output and gen_cfg.verbose:
@@ -315,7 +400,7 @@ def iate_est_mp(
                     cl_dat=cl_dat, no_of_cluster=no_of_cluster, w_dat=w_dat, w_ate=w_ate,
                     y_dat=y_dat_ref,
                     **kw_args,
-                    ba_data=ba_data, p_ba_cfg=p_ba_cfg, gen_tv_data=gen_tv_data, iv=iv,
+                    ba_data=ba_data, p_ba_cfg=p_ba_cfg, gen_tv_data=gen_tv_data_ref, iv=iv,
                     )
                     for idx in obs_idx_list
                     ]
@@ -349,7 +434,7 @@ def iate_est_mp(
                                                               mp_ray_del=int_cfg.mp_ray_del,
                                                               )
         else:
-            shared_iate_data = {'y_dat': y_dat}
+            shared_iate_data = {'y_dat': y_dat, 'gen_tv_data': gen_tv_data}
             fail_txt='Failed to make executor in IATE estimation 1/2.'
             with forest_executor_with_shared(int_cfg=int_cfg, maxworkers=maxworkers,
                                              shared_obj=shared_iate_data,
@@ -373,7 +458,6 @@ def iate_est_mp(
                                               'kw_args': kw_args,
                                               'ba_data': ba_data,
                                               'p_ba_cfg': p_ba_cfg,
-                                              'gen_tv_data': gen_tv_data,
                                               'iv': iv,
                                               },
                                       name=f'iate_func1_{jdx}',
@@ -392,7 +476,6 @@ def iate_est_mp(
                                               'kw_args': kw_args,
                                               'ba_data': ba_data,
                                               'p_ba_cfg': p_ba_cfg,
-                                              'gen_tv_data': gen_tv_data,
                                               'iv': iv,
                                               },
                                       name=f'iate_func1_{jdx}',
@@ -467,14 +550,13 @@ def iate_func1_many_obs_backend(*, obs_idx: Any,
                                 kw_args: dict[str, Any],
                                 ba_data: Any,
                                 p_ba_cfg: Any,
-                                gen_tv_data: Any,
                                 iv: bool,
                                 ) -> Any:
     """Backend-agnostic wrapper for one IATE chunk."""
     return iate_func1_for_mp_many_obs(obs_idx, weights_chunk,
                                       cl_dat=cl_dat, no_of_cluster=no_of_cluster, w_dat=w_dat,
                                       w_ate=w_ate, y_dat=data['y_dat'], **kw_args, ba_data=ba_data,
-                                      p_ba_cfg=p_ba_cfg, gen_tv_data=gen_tv_data, iv=iv,
+                                      p_ba_cfg=p_ba_cfg, gen_tv_data=data['gen_tv_data'], iv=iv,
                                       )
 
 
@@ -485,8 +567,9 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
                        extra_title: str = '',
                        iv: bool = False,
                        print_progress: bool = True,
+                       report: dict | None = None,
                        ) -> tuple[NDArray[Any], NDArray[Any], list[NDArray[Any], NDArray[Any]],
-                                  pd.DataFrame, str
+                                  pd.DataFrame | None, str
                                   ]:
     """Compute, print effects, add potential outcomes to prediction data."""
     p_cfg, int_cfg, gen_cfg = mcf_.p_cfg, mcf_.int_cfg, mcf_.gen_cfg
@@ -498,7 +581,7 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
     use_tqdm, output_clean = mcf_gp.tqdm_setup(tqdm, progress)
 
     if gen_cfg.d_type == 'continuous':
-        no_of_treat, d_values = ct_cfg.grid_w, ct_cfg.grid_w_val
+        no_of_treat = ct_cfg.grid_w
         d_values_dr = ct_cfg.d_values_dr_np
         no_of_treat_dr = len(d_values_dr)
         d_sub_values = None
@@ -506,6 +589,13 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
         no_of_treat, d_values = gen_cfg.no_of_treat, gen_cfg.d_values
         no_of_treat_dr, d_values_dr = no_of_treat, d_values
         d_sub_values = gen_tv_cfg.d_dict['sub_treat'] if gen_tv_cfg.yes else None
+
+    if gen_tv_cfg.yes:
+        no_of_treat_pot = gen_tv_cfg.no_of_treat_all
+        d_values_pot = gen_tv_cfg.d_all_values_one_label
+    else:
+        no_of_treat_pot = no_of_treat_dr
+        d_values_pot = d_values_dr
 
     if gen_cfg.with_output and gen_cfg.verbose:
         if iv:
@@ -542,6 +632,26 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
                                                     )
         else:
             maxworkers = gen_cfg.mp_parallel
+
+    ray_err_txt = 'Ray not starting up in IATE estimation 2/2'
+    if maxworkers > 1 and int_cfg.mp_use_old_ray:
+        if (ray is None
+            or ray_iate_func2_for_mp_single is None
+                or ray_iate_func2_for_mp_mult is None
+                ):
+            raise ImportError('int_cfg.mp_use_old_ray=True, but ray is not installed. '
+                              'Install ray or use the new backend with '
+                              'mp_use_old_ray=False.'
+                              )
+        if not ray.is_initialized():
+            ray_is_running, maxworkers = mcf_ray.init_ray_with_fallback(
+                maxworkers, gen_cfg,
+                mem_object_store=int_cfg.mem_object_store_3,
+                mem_object_store_2=int_cfg.mem_object_store_2,
+                ray_err_txt=ray_err_txt,
+                )
+            if not ray_is_running:
+                maxworkers = 1
 
     print_runtime_info(gen_cfg, int_cfg, maxworkers, txt_method='IATE 2/2')
 
@@ -595,9 +705,6 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
     else:
         if int_cfg.iate_chunk_size is None:
             # This function is executed after the low_mem branch
-            # if low_mem_cfg.yes:
-            #     number_indices_chunk = low_mem_cfg.max_chunksize
-            # else:
             number_indices_chunk = np.ceil(n_x / maxworkers)
         else:
             number_indices_chunk = int_cfg.iate_chunk_size
@@ -614,21 +721,7 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
             print('Maximum number of observations in each chunk: '
                   f'{number_indices_chunk}'
                   )
-        ray_err_txt = 'Ray not starting up in IATE estimation 2/2'
         if int_cfg.mp_use_old_ray:
-            if (ray is None
-                or ray_iate_func2_for_mp_single is None
-                    or ray_iate_func2_for_mp_mult is None
-                    ):
-                raise ImportError('int_cfg.mp_use_old_ray=True, but ray is not installed. '
-                                   'Install ray or use the new backend with mp_use_old_ray=False.'
-                                   )
-            if not ray.is_initialized():
-                mcf_ray.init_ray_with_fallback(maxworkers, gen_cfg,
-                                               mem_object_store=int_cfg.mem_object_store_3,
-                                               mem_object_store_2=int_cfg.mem_object_store_2,
-                                               ray_err_txt=ray_err_txt,
-                                               )
             mcf_ray.print_object_store(gen_cfg, int_cfg.mem_object_store_3)
 
             if p_cfg.iate_se and p_cfg.iate_m_ate:
@@ -636,10 +729,10 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
                     still_running = [
                         ray_iate_func2_for_mp_single.remote(idx,
                                                             **kw_args,
-                                                            y_pot_i=y_pot[idx],
-                                                            y_pot_var_i=y_pot_var[idx],
-                                                            y_pot_m_ate_i=y_pot_m_ate[idx],
-                                                            y_pot_m_ate_var_i=y_pot_m_ate_var[idx],
+                                                            pot_y_i=y_pot[idx],
+                                                            pot_y_var_i=y_pot_var[idx],
+                                                            pot_y_m_ate_i=y_pot_m_ate[idx],
+                                                            pot_y_m_ate_var_i=y_pot_m_ate_var[idx],
                                                             iate_se_flag=True, iate_m_ate_flag=True,
                                                             d_sub_values=d_sub_values,
                                                             )
@@ -664,10 +757,10 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
                     still_running = [
                         ray_iate_func2_for_mp_single.remote(idx,
                                                             **kw_args,
-                                                            y_pot_i=y_pot[idx],
-                                                            y_pot_var_i=y_pot_var[idx],
-                                                            y_pot_m_ate_i=None,
-                                                            y_pot_m_ate_var_i=None,
+                                                            pot_y_i=y_pot[idx],
+                                                            pot_y_var_i=y_pot_var[idx],
+                                                            pot_y_m_ate_i=None,
+                                                            pot_y_m_ate_var_i=None,
                                                             iate_se_flag=True,
                                                             iate_m_ate_flag=False,
                                                             d_sub_values=d_sub_values,
@@ -692,9 +785,9 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
                     still_running = [
                         ray_iate_func2_for_mp_single.remote(idx,
                                                             **kw_args,
-                                                            y_pot_i=y_pot[idx], y_pot_var_i=None,
-                                                            y_pot_m_ate_i=y_pot_m_ate[idx],
-                                                            y_pot_m_ate_var_i=None,
+                                                            pot_y_i=y_pot[idx], pot_y_var_i=None,
+                                                            pot_y_m_ate_i=y_pot_m_ate[idx],
+                                                            pot_y_m_ate_var_i=None,
                                                             iate_se_flag=False,
                                                             iate_m_ate_flag=True,
                                                             d_sub_values=d_sub_values,
@@ -719,9 +812,9 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
                     still_running = [
                         ray_iate_func2_for_mp_single.remote(idx,
                                                             **kw_args,
-                                                            y_pot_i=y_pot[idx], y_pot_var_i=None,
-                                                            y_pot_m_ate_i=None,
-                                                            y_pot_m_ate_var_i=None,
+                                                            pot_y_i=y_pot[idx], pot_y_var_i=None,
+                                                            pot_y_m_ate_i=None,
+                                                            pot_y_m_ate_var_i=None,
                                                             iate_se_flag=False,
                                                             iate_m_ate_flag=False,
                                                             d_sub_values=d_sub_values,
@@ -801,65 +894,6 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
                 finally:
                     if pbar is not None:
                         pbar.close()
-            # chunk_jdx = 0
-            # obs_jdx = 0
-            # pbar = (tqdm(total=len(indices_chuncks), desc='IATE 2/2', leave=False,
-            #              dynamic_ncols=True
-            #              )
-            #         if use_tqdm else None
-            #         )
-            # try:
-            #     while len(still_running) > 0:
-            #         finished, still_running = ray.wait(still_running, num_returns=1)
-            #         finished_res = ray.get(finished)
-            #         for ret_all_i2_all in finished_res:
-            #             for ret_all_i2 in ret_all_i2_all:
-            #                 iix = ret_all_i2[0]
-            #                 iate[iix, :, :, :] = ret_all_i2[1]
-            #                 if p_cfg.iate_se:
-            #                     iate_se[iix, :, :, :] = ret_all_i2[2]
-            #                     iate_p[iix, :, :, :] = ret_all_i2[3]
-            #                 if obs_jdx == n_x-1:
-            #                     effect_list = ret_all_i2[4]
-            #                 obs_jdx += 1
-            #             chunk_jdx += 1
-            #             mcf_gp.progress_clean_memory(output=output_clean, current_idx=chunk_jdx,
-            #                                          total=len(indices_chuncks),
-            #                                          )
-            #         # if number_indices_chunk == 1:
-            #         #     for ret_all_i2 in finished_res:
-            #         #         iix = ret_all_i2[0]
-            #         #         iate[iix, :, :, :] = ret_all_i2[1]
-            #         #         if p_cfg.iate_se:
-            #         #             iate_se[iix, :, :, :] = ret_all_i2[2]
-            #         #             iate_p[iix, :, :, :] = ret_all_i2[3]
-            #         #         if jdx == n_x-1:
-            #         #             effect_list = ret_all_i2[4]
-            #         #         mcf_gp.progress_clean_memory(
-            #         #             output=gen_cfg.with_output and gen_cfg.verbose
-            #                         and print_progress,
-            #         #             current_idx=jdx+1, total=n_x,
-            #         #             )
-            #         #         jdx += 1
-            #         # else:
-            #         #     for ret_all_i2_all in finished_res:
-            #         #         for ret_all_i2 in ret_all_i2_all:
-            #         #             iix = ret_all_i2[0]
-            #         #             iate[iix, :, :, :] = ret_all_i2[1]
-            #         #             if p_cfg.iate_se:
-            #         #                 iate_se[iix, :, :, :] = ret_all_i2[2]
-            #         #                 iate_p[iix, :, :, :] = ret_all_i2[3]
-            #         #             if jdx == n_x-1:
-            #         #                 effect_list = ret_all_i2[4]
-            #         #             mcf_gp.progress_clean_memory(
-            #         #                 output=gen_cfg.with_output and gen_cfg.verbose and
-            #  print_progress,
-            #         #                 current_idx=jdx+1, total=len(indices_chuncks),
-            #         #                 )
-            #         #             jdx += 1
-            # finally:
-            #     if pbar is not None:
-            #         pbar.close()
 
             *_, finished_res, finished = mcf_ray.ray_del_refs(f1=finished_res, f2=finished,
                                                               mp_ray_del=int_cfg.mp_ray_del,
@@ -876,12 +910,12 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
                     tasks = [TaskSpec(func=iate_func2_single_backend,
                                       kwargs={'idx': idx,
                                               'kw_args': kw_args,
-                                              'y_pot_i': y_pot[idx],
-                                              'y_pot_var_i': (y_pot_var[idx] if iate_se_flag
+                                              'pot_y_i': y_pot[idx],
+                                              'pot_y_var_i': (y_pot_var[idx] if iate_se_flag
                                                              else None),
-                                              'y_pot_m_ate_i': (y_pot_m_ate[idx] if iate_m_ate_flag
+                                              'pot_y_m_ate_i': (y_pot_m_ate[idx] if iate_m_ate_flag
                                                                 else None),
-                                              'y_pot_m_ate_var_i': (y_pot_m_ate_var[idx]
+                                              'pot_y_m_ate_var_i': (y_pot_m_ate_var[idx]
                                                   if iate_se_flag and iate_m_ate_flag else None),
                                               'iate_se_flag': iate_se_flag,
                                               'iate_m_ate_flag': iate_m_ate_flag,
@@ -982,21 +1016,26 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
                         if pbar is not None:
                             pbar.close()
     if gen_cfg.with_output:
+        report_tables = [] if report is not None else None
         txt_iate_long, txt_iate = mcf_ps.print_iate(iate, iate_se,
-                                                    iate_p=iate_p, effect_list=effect_list,
-                                                    gen_cfg=gen_cfg, p_cfg=p_cfg,
-                                                    var_cfg=var_cfg, extra_title=extra_title,
-                                                    gen_tv_cfg_yes=gen_tv_cfg.yes,
-                                                    zero_tol=zero_tol,
-                                                    )
-        mcf_ps.print_mcf(gen_cfg, txt_iate_long, summary=True, non_summary=False)
+                                                  iate_p=iate_p, effect_list=effect_list,
+                                                  gen_cfg=gen_cfg, p_cfg=p_cfg,
+                                                  var_cfg=var_cfg, extra_title=extra_title,
+                                                  gen_tv_cfg_yes=gen_tv_cfg.yes,
+                                                  zero_tol=zero_tol,
+                                                  report_tables=report_tables,
+                                                  )
+        if report is not None:
+            report['iate_tables'] = report_tables
+        mcf_ps.print_mcf(gen_cfg, txt_iate_long, summary=True)
+
         if p_cfg.iate_m_ate:
             mcf_ps.print_mcf(gen_cfg, effect_dic['txt_weights'], summary=False)
     else:
         txt_iate = ''
 
     # Add results to data file
-    y_pot_np = np.empty((n_x, no_of_out * no_of_treat_dr))
+    y_pot_np = np.empty((n_x, no_of_out * no_of_treat_pot))
     if p_cfg.iate_se:
         y_pot_se_np = np.empty_like(y_pot_np)
     if gen_cfg.d_type == 'continuous':
@@ -1015,7 +1054,7 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
     name_pot, name_eff, name_eff0 = [], [], []
     y_pot_unlc_np = None
     if lc_cfg.uncenter_po and isinstance(y_pred_x_df, (pd.Series, pd.DataFrame)):
-        name_pot_unlc, y_pot_unlc_np = [], np.empty((n_x, no_of_treat_dr))
+        name_pot_unlc, y_pot_unlc_np = [], np.empty((n_x, no_of_treat_pot))
 
         if isinstance(var_cfg.y_tree_name, list):
             y_tree_name = var_cfg.y_tree_name[0]
@@ -1024,8 +1063,9 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
         y_pred_x_np = mcf_gp.to_numpy_big_data(y_pred_x_df, int_cfg.obs_bigdata)
     else:
         name_pot_unlc = y_tree_name = name_y_pot_unlc = y_pred_x_np = None
+
     for o_idx, o_name in enumerate(var_cfg.y_name):
-        for t_idx, t_name in enumerate(d_values_dr):
+        for t_idx, t_name in enumerate(d_values_pot):
             name_pot += [o_name + str(t_name)]
             y_pot_np[:, jdx] = y_pot[:, t_idx, o_idx]
 
@@ -1111,8 +1151,9 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
 
         results_df = pd.concat(df_list, axis=1)
         if gen_cfg.with_output:
-            mcf_ps.print_mcf(gen_cfg, '\nIndividualized ATE ' + extra_title, summary=True)
-            mcf_ps.print_descriptive_df(gen_cfg, results_df, varnames='all', summary=True)
+            mcf_ps.print_mcf(gen_cfg, '\nIndividualized ATE ' + extra_title, summary=False)
+            mcf_ps.print_descriptive_df(gen_cfg, results_df, varnames='all', summary=False)
+
     names_pot_iate = {'names_y_pot': name_y_pot, 'names_y_pot_se': name_y_pot_se,
                       'names_iate': name_iate, 'names_iate_se': name_iate_se,
                       'names_iate_mate': name_iate_mate, 'names_iate_mate_se': name_iate_mate_se,
@@ -1133,10 +1174,10 @@ def iate_effects_print(mcf_: 'ModifiedCausalForest',
 
 def iate_func2_single_backend(*, idx: int,
                               kw_args: dict[str, Any],
-                              y_pot_i: Any,
-                              y_pot_var_i: Any,
-                              y_pot_m_ate_i: Any,
-                              y_pot_m_ate_var_i: Any,
+                              pot_y_i: Any,
+                              pot_y_var_i: Any,
+                              pot_y_m_ate_i: Any,
+                              pot_y_m_ate_var_i: Any,
                               iate_se_flag: bool,
                               iate_m_ate_flag: bool,
                               d_sub_values: Any,
@@ -1144,9 +1185,9 @@ def iate_func2_single_backend(*, idx: int,
     """Backend-agnostic wrapper for one-observation IATE post-processing."""
     return iate_func2_for_mp_single(idx,
                                     **kw_args,
-                                    y_pot_i=y_pot_i, y_pot_var_i=y_pot_var_i,
-                                    y_pot_m_ate_i=y_pot_m_ate_i,
-                                    y_pot_m_ate_var_i=y_pot_m_ate_var_i,
+                                    pot_y_i=pot_y_i, pot_y_var_i=pot_y_var_i,
+                                    pot_y_m_ate_i=pot_y_m_ate_i,
+                                    pot_y_m_ate_var_i=pot_y_m_ate_var_i,
                                     iate_se_flag=iate_se_flag, iate_m_ate_flag=iate_m_ate_flag,
                                     d_sub_values=d_sub_values,
                                     )
@@ -1175,26 +1216,26 @@ def iate_func2_mult_backend(*,
 
 
 def iate_func1_for_mp(idx: int,
-                      weights_i: list[int], *,
+                      weights_i: list[Any], *,
                       cl_dat: ArrayLike,
                       no_of_cluster: int,
                       w_dat: ArrayLike,
                       w_ate: ArrayLike,
-                      y_dat: ArrayLike,
+                      y_dat: NDArray[Any],
                       no_of_out: int,
                       n_y: int,
                       ct_cfg: 'CtGrid', int_cfg: 'IntCfg', gen_cfg: 'GenCfg', p_cfg: 'PCfg',
                       ba_data: Any,
                       p_ba_cfg: 'PBaCfg',
-                      gen_tv_data: Any,
+                      gen_tv_data: GenTvData | None,
                       gen_tv_cfg: 'GenTvCfg',
                       iate_se_flag: bool,
-                      se_boot_iate: bool,
+                      se_boot_iate: int,
                       iate_m_ate_flag: bool,
                       iv: bool = False,
                       ) -> tuple[int,
-                                 NDArray[Any], NDArray[Any], NDArray[Any], NDArray[Any],
-                                 tuple[NDArray[Any], ..., str],
+                                 NDArray[Any], ArrayLike, ArrayLike, ArrayLike,
+                                 tuple[NDArray[Any] | str, ...],
                                  NDArray[Any],
                                  ]:
     """
@@ -1203,8 +1244,7 @@ def iate_func1_for_mp(idx: int,
     Parameters
     ----------
     idx : Int. Counter. Element of prediction data.
-    weights_i : List of int. Indices of non-zero weights.
-                Alternative: Sparse csr matrix
+    weights_i : List of index/weight pairs or sparse rows exposing col and data.
     cl_dat : Numpy vector. Cluster variable.
     no_of_cluster : Int. Number of clusters.
     w_dat : Numpy vector. Sampling weights.
@@ -1227,14 +1267,21 @@ def iate_func1_for_mp(idx: int,
     pot_y_m_ate_var_i: Numpy array.
     l1_to_9: Tuple of lists.
     """
-    def get_walli(w_index, n_y, w_i, w_i_unc):
+    def get_walli(w_index: NDArray[np.integer],
+                   n_y: int,
+                   w_i: NDArray[Any],
+                   w_i_unc: NDArray[Any],
+                   ) -> tuple[NDArray[Any], NDArray[Any]]:
         w_all_i = np.zeros(n_y)
         w_all_i[w_index] = w_i
         w_all_i_unc = np.zeros_like(w_all_i)
         w_all_i_unc[w_index] = w_i_unc
         return w_all_i, w_all_i_unc
 
-    def get_weights_idx(weights_i, t_idx, weight_as_sparse):
+    def get_weights_idx(weights_i: list[Any],
+                         t_idx: int,
+                         weight_as_sparse: bool,
+                         ) -> tuple[NDArray[Any], NDArray[np.integer]]:
         """Extract weights and their position in training data."""
         if weight_as_sparse:
             w_index = weights_i[t_idx].col    # scr with indices
@@ -1244,7 +1291,11 @@ def iate_func1_for_mp(idx: int,
             w_i = weights_i[t_idx][1].copy()
         return w_i, w_index
 
-    def adjust_for_weighting(w_i, w_dat, w_index, weight_as_sparse):
+    def adjust_for_weighting(w_i: NDArray[Any],
+                              w_dat: NDArray[Any],
+                              w_index: NDArray[np.integer],
+                              weight_as_sparse: bool,
+                              ) -> tuple[NDArray[Any], NDArray[Any]]:
         """Adjust for sample weights."""
         w_t = w_dat[w_index].ravel()
         if weight_as_sparse:
@@ -1253,7 +1304,7 @@ def iate_func1_for_mp(idx: int,
             w_i *= w_t
         return w_i, w_t
 
-    def normalise_w(w_i, eps):
+    def normalise_w(w_i: NDArray[Any], eps: float) -> NDArray[Any]:
         """Normalize weights."""
         w_i_sum = np.sum(w_i)
         if abs(w_i_sum) > zero_tol and not (1 - eps) < w_i_sum < (1 + eps):
@@ -1274,6 +1325,45 @@ def iate_func1_for_mp(idx: int,
     aggregate_cluster_nonzero_w = mcf_est.aggregate_cluster_nonzero_w
 
     cluster_std = p_cfg.cluster_std if iate_se_flag else False
+
+    def weight_var_iate(w_i: NDArray[Any],
+                        w_index: NDArray[np.integer],
+                        y_col: NDArray[Any],
+                        cl_i: NDArray[Any] | None,
+                        residual_dat: NDArray[Any] | None, *,
+                        y_local: NDArray[Any] | None = None,
+                        ) -> tuple[NDArray[Any] | np.floating | float,
+                                   NDArray[Any] | np.floating | float | None, NDArray[Any]]:
+        """Keep the full variance sample and return weights in caller order."""
+        expand = keep_w0 and iate_se_flag
+        if expand:
+            w_use = np.zeros(n_y, dtype=w_i.dtype)
+            w_use[w_index] = w_i
+            y_use = y_col
+            cl_use = cl_dat if cluster_std else None
+            if residual_dat is None:
+                r_use = None
+            else:
+                r_use = np.zeros(n_y, dtype=residual_dat.dtype)
+                r_use[w_index] = residual_dat.reshape(-1)
+                if cluster_std and cl_use is not None and se_boot_iate < 1:
+                    r_use = r_use.reshape(-1, 1)
+        else:
+            w_use = w_i
+            y_use = y_col[w_index] if y_local is None else y_local
+            cl_use = cl_i
+            r_use = residual_dat
+
+        est, variance, w_ret = weight_var(
+            w_use, y_use, cl_use, p_cfg,
+            residual_dat=r_use, se_yes=iate_se_flag, bootstrap=se_boot_iate,
+            keep_all=keep_w0, normalize=not iv, zero_tol=zero_tol, sum_tol=sum_tol,
+            seed=123345, min_obs=5,
+            )
+        if expand and not (cluster_std and cl_use is not None and se_boot_iate < 1):
+            w_ret = w_ret[w_index]
+
+        return est, variance, w_ret
 
     bound_norm_weights_not_one = mcf_gp.bound_norm_weights_not_one
     bound_norm_weights = mcf_gp.bound_norm_weights
@@ -1298,8 +1388,6 @@ def iate_func1_for_mp(idx: int,
     if gen_tv:
         treat_main = gen_tv_cfg.no_of_treat_per_main
         pot_y_i = np.repeat(pot_y_i, repeats=treat_main, axis=0)
-    else:
-        treat_main = None
 
     pot_y_m_ate_i = np.empty_like(pot_y_i) if iate_m_ate_flag else None
 
@@ -1317,9 +1405,8 @@ def iate_func1_for_mp(idx: int,
         for t_idx in range(no_of_treat):
             w_i, w_index = get_weights_idx(weights_i, t_idx, weight_as_sparse)
             if weighted:
-                w_i, w_t = adjust_for_weighting(w_i, w_dat, w_index, weight_as_sparse)
-            else:
-                w_t = None
+                w_i, _ = adjust_for_weighting(w_i, w_dat, w_index, weight_as_sparse)
+
             if not (continuous or iv):
                 w_i = normalise_w(w_i, sum_tol)
             w_iate[t_idx, w_index] = w_i
@@ -1359,11 +1446,13 @@ def iate_func1_for_mp(idx: int,
             w_index_both = w_index
             w_i = w_i_t
 
-        w_t_p1 = w_dat[w_index_p1].ravel() if weighted and extra_weight_p1 else None
         if weighted:
-            w_i, w_t = adjust_for_weighting(w_i, w_dat, w_index, weight_as_sparse)
-        else:
-            w_t = None
+            weight_index = w_index_both if extra_weight_p1 else w_index
+            w_t = w_dat[weight_index].ravel()
+            w_i = w_i * w_t
+
+            if extra_weight_p1:
+                w_i_p1 = w_i_p1 * w_t
 
         if not (continuous or iv):
             w_i = normalise_w(w_i, sum_tol)
@@ -1380,13 +1469,20 @@ def iate_func1_for_mp(idx: int,
                                                ridge=p_ba_cfg.ridge,
                                                cv_k=p_ba_cfg.cv_k,
                                                )
+        # Select prediction scores in prediction-row order, not outcome-weight order.
+        scores_pred_t = None
+        if gen_tv and gen_tv_data.scores_pred is not None:
+            scores_main = gen_tv_data.scores_pred[t_m_idx]
+            if scores_main is not None:
+                scores_pred_t = scores_main[idx:idx + 1, :]
+
         # Expand weights
         results_container_w, results_container_r = None, None
         for t_sub_idx in range(no_treat_per_main[t_m_idx]):
             if gen_tv:
                 (w_i, results_container_w, version_res_dat, results_container_r, _, _, _
                  ) = version_wregr(w_i,
-                                   y_train=y_dat[:, 0],
+                                   y_train=y_dat,
                                    d_train=d_tv_train,
                                    x_train=x_tv_train,
                                    x_pred=x_tv_pred,
@@ -1403,18 +1499,21 @@ def iate_func1_for_mp(idx: int,
                                    penalize_version=gen_tv_cfg.penalize_version[t_m_idx],
                                    return_residuals=True,
                                    standardize_x=True,
+                                   mp_parallel=gen_cfg.mp_parallel,
+                                   obs_bigdata=int_cfg.obs_bigdata,
+                                   allow_local_version_scores=False,
+                                   scores_pred=scores_pred_t,
+                                   use_train_score_cache=True,
                                    )
             else:
                 version_res_dat = None
             w_i_unc = w_i.copy()
 
             if max_weight_share < 1 and not continuous and not p_ba:
-                denom = w_i.sum()
-                # handle degenerate all-zero case gracefully
-                if np.abs(denom) > sum_tol:
-                    max_share_now = w_i.max() / denom
-                    if max_share_now > (max_weight_share + zero_tol):
-                        # only call the heavier routine if it’s actually needed
+                denom_abs = np.sum(np.abs(w_i))
+                if denom_abs > sum_tol:
+                    max_share_now = np.max(np.abs(w_i)) / denom_abs
+                    if max_share_now > max_weight_share + zero_tol:
                         if iv:
                             w_i, _, share_i[t_idx] = bound_norm_weights_not_one(
                                 w_i, max_weight_share,
@@ -1423,45 +1522,48 @@ def iate_func1_for_mp(idx: int,
                         else:
                             w_i, _, share_i[t_idx] = bound_norm_weights(
                                 w_i,
-                                max_weight_share=max_weight_share, zero_tol=zero_tol,
-                                sum_tol=sum_tol, negative_weights_possible=p_ba or gen_tv,
+                                max_weight_share=max_weight_share,
+                                zero_tol=zero_tol, sum_tol=sum_tol,
+                                negative_weights_possible=p_ba or gen_tv,
                                 )
                     else:
-                        # keep weights as-is and record the current max share
-                        # (for diagnostics)
-                        share_i[t_idx] = max_share_now
+                        share_i[t_idx] = 0.0
                 else:
                     share_i[t_idx] = 0.0
 
             if extra_weight_p1:
                 w_i_unc_p1 = np.copy(w_i_p1)
             if cluster_std:
-                w_all_i, w_all_i_unc = get_walli(w_index, n_y, w_i, w_i_unc)
-                cl_i = cl_dat[w_index]
+                weight_index = w_index_both if extra_weight_p1 else w_index
+                w_all_i, w_all_i_unc = get_walli(
+                    weight_index, n_y, w_i, w_i_unc)
+                cl_i = cl_dat[weight_index]
+
                 if extra_weight_p1:
-                    w_all_i_p1, w_all_i_unc_p1 = get_walli(w_index_p1, n_y, w_i_p1, w_i_unc_p1)
+                    w_all_i_p1, w_all_i_unc_p1 = get_walli(w_index_both, n_y, w_i_p1, w_i_unc_p1)
                     cl_i_both = cl_dat[w_index_both]
                 else:
-                    cl_i_both = None
+                    cl_i_both = cl_i
             else:
                 cl_i = cl_i_both = None
 
             for o_idx in range(no_of_out):
                 y_col = y_dat[:, o_idx]
+                if version_res_dat is None or version_res_dat.ndim == 1:
+                    vres = version_res_dat
+                else:
+                    vres = version_res_dat[:, o_idx]
                 if continuous:
                     y_dat_cont = y_col[w_index_both]
                     for i, (w01, w10) in enumerate(zip(i_w01, i_w10)):
                         if extra_weight_p1:
                             w_i_cont = w10 * w_i + w01 * w_i_p1
                             w_i_unc_cont = w10 * w_i_unc + w01 * w_i_unc_p1
-                            w_t_cont = None if w_t is None else w10 * w_t + w01 * w_t_p1
                             cl_i_cont = cl_i_both
                         else:
-                            w_i_cont, w_t_cont, cl_i_cont = w_i, w_t, cl_i_both
+                            w_i_cont, cl_i_cont = w_i, cl_i_both
                             w_i_unc_cont = w_i_unc
                         w_i_cont = w_i_cont / np.sum(w_i_cont)
-                        if w_t_cont is not None:
-                            w_t_cont = w_t_cont / np.sum(w_t_cont)
                         w_i_unc_cont = w_i_unc_cont / np.sum(w_i_unc_cont)
 
                         if max_weight_share < 1:
@@ -1478,15 +1580,9 @@ def iate_func1_for_mp(idx: int,
                                     )
                             if i == 0:
                                 share_i[t_idx] = share_cont
-                        ret = weight_var(
-                            w_i_cont, y_dat_cont, cl_i_cont, p_cfg,
-                            residual_dat=version_res_dat,
-                            weighted=gen_cfg.weighted, weights=w_t_cont, se_yes=iate_se_flag,
-                            bootstrap=se_boot_iate, keep_all=keep_w0,
-                            normalize=not iv,
-                            zero_tol=zero_tol, sum_tol=sum_tol,
-                            seed=123345, min_obs=5,
-                            )
+                        ret = weight_var_iate(w_i_cont, w_index_both, y_col,
+                                              cl_i_cont, vres, y_local=y_dat_cont,
+                                              )
                         ti_idx = index_full[t_idx, i]  # pylint: disable=E1136
                         pot_y_i[ti_idx, o_idx] = ret[0]
                         if iate_se_flag:
@@ -1518,15 +1614,13 @@ def iate_func1_for_mp(idx: int,
                                         else:
                                             w_diff = w_all_i_unc - w_ate[t_idx, :]
                             if iate_m_ate_flag:
-                                ret = weight_var(
-                                    w_diff, y_col, cl_dat, p_cfg,
-                                    residual_dat=None,
-                                    weighted=gen_cfg.weighted, normalize=False, weights=w_dat,
-                                    bootstrap=se_boot_iate, se_yes=iate_se_flag,
-                                    keep_all=keep_w0,
-                                    zero_tol=zero_tol, sum_tol = sum_tol,
-                                    seed=123345, min_obs=5,
-                                )
+                                ret = weight_var(w_diff, y_col, cl_dat, p_cfg,
+                                                 residual_dat=None, normalize=False,
+                                                 bootstrap=se_boot_iate, se_yes=iate_se_flag,
+                                                 keep_all=keep_w0,
+                                                 zero_tol=zero_tol, sum_tol = sum_tol,
+                                                 seed=123345, min_obs=5,
+                                                 )
                         else:
                             if o_idx == 0:
                                 w_add[ti_idx, w_index_both] = ret[2]
@@ -1553,8 +1647,7 @@ def iate_func1_for_mp(idx: int,
 
                             if iate_m_ate_flag:
                                 ret = weight_var(w_diff, y_col, None, p_cfg,
-                                                 residual_dat=None, weighted=gen_cfg.weighted,
-                                                 normalize=False, weights=w_dat,
+                                                 residual_dat=None, normalize=False,
                                                  bootstrap=se_boot_iate, se_yes=iate_se_flag,
                                                  keep_all=keep_w0, zero_tol=zero_tol,
                                                  sum_tol=sum_tol, seed=123345, min_obs=5,
@@ -1566,13 +1659,7 @@ def iate_func1_for_mp(idx: int,
                         if not extra_weight_p1:
                             break
                 else:  # discrete treatment
-                    ret = weight_var(w_i, y_col[w_index], cl_i, p_cfg,
-                                     residual_dat=version_res_dat,
-                                     weighted=gen_cfg.weighted, weights=w_t, se_yes=iate_se_flag,
-                                     bootstrap=se_boot_iate, keep_all=keep_w0,
-                                     normalize=not iv, zero_tol=zero_tol, sum_tol=sum_tol,
-                                     seed=123345, min_obs=5,
-                                     )
+                    ret = weight_var_iate(w_i, w_index, y_col, cl_i, vres)
                     pot_y_i[t_idx, o_idx] = ret[0]
                     if iate_se_flag:
                         pot_y_var_i[t_idx, o_idx] = ret[1]
@@ -1589,8 +1676,7 @@ def iate_func1_for_mp(idx: int,
                         if iate_m_ate_flag:
                             ret = weight_var(
                                 w_diff, y_col, cl_dat, p_cfg,
-                                residual_dat=None,
-                                weighted=gen_cfg.weighted, normalize=False, weights=w_dat,
+                                residual_dat=None, normalize=False,
                                 bootstrap=se_boot_iate,
                                 se_yes=iate_se_flag, keep_all=keep_w0,
                                 zero_tol=zero_tol, sum_tol=sum_tol,
@@ -1612,8 +1698,7 @@ def iate_func1_for_mp(idx: int,
                         if iate_m_ate_flag:
                             ret = weight_var(
                                 w_diff, y_col, None, p_cfg,
-                                residual_dat=None,
-                                weighted=gen_cfg.weighted, normalize=False, weights=w_dat,
+                                residual_dat=None, normalize=False,
                                 bootstrap=se_boot_iate, se_yes=iate_se_flag,
                                 keep_all=keep_w0,
                                 zero_tol=zero_tol, sum_tol=sum_tol,
@@ -1732,8 +1817,8 @@ def _ray_iate_func2_for_mp_single_impl(idx, *,
 
 
 ray_iate_func2_for_mp_single = (ray.remote(_ray_iate_func2_for_mp_single_impl)
-                                  if ray is not None else None
-                                  )
+                                if ray is not None else None
+                                )
 
 
 def iate_func2_for_mp_single(idx, *,
@@ -1888,12 +1973,13 @@ def iate_func2_for_mp(idx, *,
         dim = (no_of_out, no_of_treat - 1, 2)
     else:
         dim = (no_of_out, round(no_of_treat * (no_of_treat - 1) / 2), 2)
-    iate_i = np.empty(dim)
+    iate_i = np.full(dim, np.nan)
     if iate_se_flag:
-        iate_se_i = np.empty(dim)  # obs x outcome x effects x type_of_effect
-        iate_p_i = np.empty_like(iate_se_i)
+        iate_se_i = np.full(dim, np.nan)
+        iate_p_i = np.full(dim, np.nan)
     else:
         iate_se_i = iate_p_i = None
+
     iterator = 2 if iate_m_ate_flag else 1
     compute_comparison_label = True
 
@@ -1928,9 +2014,11 @@ def iate_func2_for_mp(idx, *,
     return idx, iate_i, iate_se_i, iate_p_i, effect_list
 
 
-def get_chunck_of_indices(n_x, size_per_chunk):
-    """Create chuncks of indices as list to be used for array splitting."""
+def get_chunck_of_indices(n_x: int,
+                          size_per_chunk: int | float | np.integer | np.floating,
+                          ) -> list[NDArray[np.intp]]:
+    """Create chunks of indices as list to be used for array splitting."""
     indices = np.arange(n_x)
-    num_chunks = np.ceil(size_per_chunk)
+    num_chunks = int(np.ceil(n_x / size_per_chunk))
 
     return np.array_split(indices, num_chunks)

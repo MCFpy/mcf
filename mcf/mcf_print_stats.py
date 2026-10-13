@@ -57,6 +57,7 @@ def print_dic_values(mcf_: 'ModifiedCausalForest',
                      ]
     if mcf_.sens_cfg is not None:
         dc_list.append(mcf_.sens_cfg)
+        dc_label_list.append('sens_cfg')
     print_str_list = [string_dc(dc_inst, dc_label_list[idx]) for idx, dc_inst in enumerate(dc_list)]
     print_str = '\n'.join(print_str_list)
     print_mcf(mcf_.gen_cfg, print_str, summary=summary)
@@ -143,13 +144,9 @@ def print_f(file_to_print_to: Path | str, *strings: str) -> None:
     None.
 
     """
-    with open(file_to_print_to, mode="a", encoding="utf-8") as file:
+    with open(file_to_print_to, mode='a', encoding='utf-8') as file:
         file.write('\n')
-        for text in strings:
-            if not isinstance(text, str):
-                file.write(str(text))
-            else:
-                file.write(text)
+        file.write(' '.join(str(text) for text in strings))
 
 
 def print_dic(dic: dict,
@@ -345,11 +342,20 @@ def variable_features(mcf_: 'ModifiedCausalForest', summary: bool = False) -> No
     print_mcf(mcf_.gen_cfg, txt, summary=summary)
 
 
+def print_efficiency_se_info() -> str:
+    """Print inference information for efficient effect estimates."""
+    return ('\nEfficient estimation: Point estimates average the two X-fitting '
+            'estimates. For inference, the corresponding variances are averaged rather than '
+            'estimating their covariance. The resulting variance estimate is conservative.'
+            '\n' + '-' * 100
+            )
+
+
 def print_effect(est: NDArray[Any],
-                 stderr: NDArray[Any],
-                 t_val: NDArray[Any],
-                 p_val: NDArray[Any],
-                 effect_list: list[int], *,
+                 stderr: NDArray[Any] | None,
+                 t_val: NDArray[Any] | None,
+                 p_val: NDArray[Any] | None,
+                 effect_list: list[Any], *,
                  add_title: str | None = None,
                  continuous: bool = False,
                  print_first_line: bool = True,
@@ -357,6 +363,7 @@ def print_effect(est: NDArray[Any],
                  small_p_val_only: bool = False,
                  no_comparison: bool = False,
                  gen_tv_cfg_yes: bool = False,
+                 report_rows: list[tuple[str, list[str]]] | None = None,
                  ) -> str:
     """Print treatment effects.
 
@@ -368,12 +375,12 @@ def print_effect(est: NDArray[Any],
     p_val : Numpy array. p-value.
     effect_list : List of Int. Treatment values involved in comparison.
     add_title : None or string. Additional title.
-    add_info : None or Int. Additional information about parameter.
     continuous : Boolean. True if treatment is continuous.
     print_first_line : Boolean. If False, do not print first line. Default is True.
     small_p_val_only :Boolean. If True, print effects only if p_value is less than 10%.
                                Default is False.
     no_comparison : Boolean, optional. Do not print comparisons.
+    ...
 
     Returns
     -------
@@ -404,10 +411,11 @@ def print_effect(est: NDArray[Any],
                 compf = f'{effect_list[j][0]:<9.5f} vs {effect_list[j][1]:>9.5f}'
             else:
                 compf = f'{effect_list[j][0]:<9} vs {effect_list[j][1]:>9}'
+        if report_rows is not None:
+            report_row_start = len(print_str) + len(compf) + 1
         print_str += compf + ' '
-        if add_title is not None:
-            print_str += 'f{add_info:6.2f} '
         print_str += f'{est[j]:12.6f}'
+
         if stderr is not None:
             print_str += f'  {stderr[j]:12.6f} '
             print_str += f'{t_val[j]:8.2f}  {p_val[j]:8.3%} '
@@ -419,6 +427,14 @@ def print_effect(est: NDArray[Any],
                 print_str += '  **'
             elif p_val[j] < 0.1:
                 print_str += '   *'
+
+        if report_rows is not None:
+            cells = print_str[report_row_start:].split()
+            if stderr is not None and len(cells) == 4:
+                cells.append('')
+            label = compf.strip() if no_comparison else ' '.join(compf.split())
+            report_rows.append((label, cells))
+
         print_str += '\n'
 
     if print_last_line:
@@ -520,7 +536,6 @@ def print_se_info(cluster_std: bool,
         print_str += f'Bootstrap replications: {se_boot:d}' + '\n' + '-' * 100
     if additional_info is not None:
         print_str += '\n' + additional_info
-    print(print_str)
 
     return print_str
 
@@ -612,7 +627,8 @@ def print_iate(iate: NDArray[Any],
                gen_tv_cfg_yes: bool = False,
                extra_title: str = '',
                zero_tol: float = 1e-10,
-               ) -> str:
+               report_tables: list[tuple[str, int, pd.DataFrame]] | None = None,
+               ) -> tuple[str, str]:
     """Print statistics for the two types of IATEs.
 
     Parameters
@@ -639,12 +655,14 @@ def print_iate(iate: NDArray[Any],
                  + extra_title + '\n' + str_m)
     print_str_short = ''
     iterator = 2 if p_cfg.iate_m_ate else 1
+
     for types in range(iterator):
         if types == 0:
-            print_str += '\nEffect: IATE\n' + str_l
+            effect_title = '\nEffect: IATE\n' + str_l
         else:
-            print_str += ('Effect: IATE minus ATE '
-                          + '(weights not censored)\n' + str_l)
+            effect_title = '\nEffect: IATE minus ATE ' + '(weights not censored)\n' + str_l
+        print_str += effect_title
+        print_str_short += effect_title
         for o_idx in range(no_outcomes):
             y_name = var_cfg.y_name[o_idx]
             if len(y_name) > 3 and y_name[-3:] == '_lc':
@@ -659,6 +677,8 @@ def print_iate(iate: NDArray[Any],
                 string = str1 + '  Effect > 0'
             print_str_short += string + '\n'
             print_str += string
+            table_rows: list[list[str]] = []
+            table_index: list[str] = []
             for jdx, effects in enumerate(effect_list):
                 fdstring = (f'{effects[0]:<9.5f} vs {effects[1]:>9.5f}'
                             if gen_cfg.d_type == 'continuous'
@@ -674,19 +694,32 @@ def print_iate(iate: NDArray[Any],
                            f'{np.count_nonzero(est > zero_tol) / n_obs:7.2%}'
                            )
                 if p_cfg.iate_se:
-                    string += (
-                        f' {np.mean(stderr):12.5f}'
-                        f' {np.count_nonzero(p_val < 0.1)/n_obs:8.2%}'
-                        f' {np.count_nonzero(p_val < 0.05)/n_obs:8.2%}'
-                        f' {np.count_nonzero(p_val < 0.01)/n_obs:8.2%}'
-                        )
+                    string += (f' {np.mean(stderr):12.5f}'
+                               f' {np.count_nonzero(p_val < 0.1)/n_obs:8.2%}'
+                               f' {np.count_nonzero(p_val < 0.05)/n_obs:8.2%}'
+                               f' {np.count_nonzero(p_val < 0.01)/n_obs:8.2%}'
+                               )
+                if report_tables is not None:
+                    table_index.append(' '.join(fdstring.split()))
+                    table_rows.append(string[1 + len(fdstring):].split())
                 print_str_short += string
                 print_str += string
+            if report_tables is not None:
+                columns = ['Mean', 'Median', 'Std', 'Effect > 0']
+                if p_cfg.iate_se:
+                    columns += ['Mean SE', 'sig 10%', 'sig 5%', 'sig 1%']
+                table_df = pd.DataFrame(table_rows, index=table_index, columns=columns)
+                report_tables.append((y_name, types, table_df))
         print_str += '\n' + str_m + '\n'
     print_str += '\n' + str_m
     if p_cfg.iate_se:
         print_str += '\n' + print_se_info(p_cfg.cluster_std, p_cfg.se_boot_iate)
-        print_str += print_minus_ate_info(gen_cfg.weighted, print_it=False, gate_or_iate='IATE')
+
+        if gen_cfg.iate_eff:
+            print_str += print_efficiency_se_info()
+
+        print_str += print_minus_ate_info(gen_cfg.weighted, gate_or_iate='IATE')
+
         if gen_tv_cfg_yes:
             print_str += print_se_tv_warning()
 
@@ -694,7 +727,6 @@ def print_iate(iate: NDArray[Any],
 
 
 def print_minus_ate_info(weighted: bool,
-                         print_it: bool = True,
                          gate_or_iate: str = 'GATE'
                          ) -> str:
     """Print info about effects minus ATE."""
@@ -706,9 +738,6 @@ def print_minus_ate_info(weighted: bool,
         print_str += ('Such differences may be particulary pronounced when sampling weights are '
                       'used.'
                       )
-    if print_it:
-        print(print_str)
-
     return print_str
 
 
@@ -717,7 +746,6 @@ def print_effect_z(g_r: list[Any] | tuple[Any],
                    z_values: list[int],
                    gate_str: str,
                    ate_str: str, *,
-                   print_output: bool = True,
                    gates_minus_previous: bool = False,
                    iv: bool = False,
                    qiate: bool = False,
@@ -727,6 +755,7 @@ def print_effect_z(g_r: list[Any] | tuple[Any],
                    ) -> str:
     """Print treatment effects."""
     no_of_effect_per_z = np.size(g_r[0][0])
+    qiate_no_se = qiate and g_r[0][1] is None
     if gates_minus_previous:
         print_str = ('- ' * 50 + f'\n                   {gate_str}'
                      + f'                                {gate_str}(change)')
@@ -740,7 +769,13 @@ def print_effect_z(g_r: list[Any] | tuple[Any],
             print_str = ('- ' * 50 + f'\n                   {lgate_str}'
                          f'                                {lgate_str} - '
                          f'{ate_str}')
-    if qiate:
+    if qiate_no_se:
+        print_str += ('\nComparison Quantile          Est'
+                      '                    Est'
+                      '                     Est\n'
+                      + '- ' * 50 + '\n'
+                      )
+    elif qiate:
         print_str += ('\nComparison Quantile    Est         SE  t-val   p-val'
                       + '         Est        SE  t-val   p-val'
                       + '         Est        SE  t-val   p-val\n'
@@ -759,6 +794,20 @@ def print_effect_z(g_r: list[Any] | tuple[Any],
         for zind, z_val in enumerate(z_values):
             treat_s = f'{g_r[zind][4][j][0]:<3} vs {g_r[zind][4][j][1]:>3}'
             val_s = f'{z_val:>7.{prec}f} '
+
+            if qiate_no_se:
+                est_s = f'{g_r[zind][0][j]:>14.5f}'
+                est_m_s = f'{gm_r[zind][0][j]:>23.5f}' if gm_r is not None else ' ' * 23
+                if gmopp_r is None:
+                    est_opp_s = ' ' * 24
+                elif 0.4999 < z_val < 0.501:
+                    est_opp_s = f'{0:>24.5f}'
+                else:
+                    est_opp_s = f'{gmopp_r[zind][0][j]:>24.5f}'
+
+                print_str += treat_s + val_s + est_s + est_m_s + est_opp_s + '\n'
+                continue
+
             estse_s = f'{g_r[zind][0][j]:>9.5f}  {g_r[zind][1][j]:>9.5f}'
             t_p_s = f'{g_r[zind][2][j]:>6.2f}  {g_r[zind][3][j]:>6.2%}'
             s_s = stars(g_r[zind][3][j])
@@ -795,9 +844,6 @@ def print_effect_z(g_r: list[Any] | tuple[Any],
 
     if gen_tv_cfg_yes:
         print_str += print_se_tv_warning()
-
-    if print_output:
-        print(print_str)
 
     return print_str
 
@@ -856,3 +902,25 @@ def change_name_value_df(indata_df: pd.DataFrame,
             outdata_df = outdata_df.drop(in_name, axis=1)
 
     return outdata_df
+
+
+def treatment_label_map(mcf_: 'ModifiedCausalForest') -> dict[str, str]:
+    """Map discrete effect codes to treatment and, where present, version labels."""
+    tv_cfg = mcf_.gen_tv_cfg
+    if not tv_cfg.yes:
+        return {str(value): f'T{value}' for value in mcf_.gen_cfg.d_values}
+
+    codes, pairs = tv_cfg.d_all_values_one_label, tv_cfg.d_all_values
+    if codes is None or pairs is None or tv_cfg.d_dict is None:
+        raise ValueError('Treatment/version metadata are required for effect labels.')
+
+    versioned_main = {
+        main for main, versions in zip(tv_cfg.d_dict['main_treat'],
+                                       tv_cfg.d_dict['sub_treat'], strict=True)
+        if versions
+        }
+    labels: dict[str, str] = {}
+    for code, (main, version) in zip(codes, pairs, strict=True):
+        labels[str(code)] = f'T{main}/V{version}' if main in versioned_main else f'T{main}'
+
+    return labels

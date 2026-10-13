@@ -70,8 +70,8 @@ def score_combinations(scores_fair_np: NDArray[Any],
     index = 0
     for idx in range(0, no_scores):
         for jdx in range(idx+1, no_scores):
-            test_np[:, index] = s_np[:, jdx] - s_np[:, idx]
-            test_fair_np[:, index] = fs_np[:, jdx] - fs_np[:, idx]
+            test_np[:, index] = np.subtract(s_np[:, jdx], s_np[:, idx], dtype=np.float64)
+            test_fair_np[:, index] = np.subtract(fs_np[:, jdx], fs_np[:, idx], dtype=np.float64)
             test_name.append(s_name[jdx] + '_m_' + s_name[idx])
             test_fair_name.append(fs_name[jdx] + '_m_' + fs_name[idx])
             index += 1
@@ -121,7 +121,7 @@ def change_variable_names_fair(var_cfg: 'VarCfg',
 
     if var_cfg.vi_to_dummy_name is not None and var_cfg.protected_unord_name is not None:
         var_cfg.vi_to_dummy_name.extend(var_cfg.protected_unord_name)
-    elif var_cfg.vi_to_dummy_name is None and var_cfg.protected_ord_name is not None:
+    elif var_cfg.vi_to_dummy_name is None and var_cfg.protected_unord_name is not None:
         var_cfg.vi_to_dummy_name = var_cfg.protected_unord_name
 
     if var_cfg.vi_x_name is not None:
@@ -171,17 +171,17 @@ def fair_stats(gen_cfg: 'GenCfg',
 
     corr = corr.dropna(how='all', axis=0)
     corr = corr.dropna(how='all', axis=1)
-    txt += '\n' + str(stats) + '\n\n'
+    txt += '\n' + stats.to_string() + '\n\n'
     txt += f'{measure} of adjusted and unadjusted variables in %'
-    txt += '\n' + str(corr)
+    txt += '\n' + corr.to_string()
     correlations_np = np.zeros((len(all_variables), len(prot_names)))
     correlations_df = pd.DataFrame(correlations_np, index=all_variables, columns=prot_names)
     # Determine which protected variables are continuous (correlation or CramV)
     unique_count = data_df[prot_names].nunique(axis=0)
     prot_continuous = [count >= cont_min_values for count in unique_count]
-    labels = ['    Corr' if (c or var_continuous) else '   CramV' for c in prot_continuous]
-    longest_var = max(len(v) for v in all_variables)
-    label = ' ' * longest_var + ' '.join(labels)
+    labels = {name: 'Corr' if (continuous or var_continuous) else 'CramV'
+              for name, continuous in zip(prot_names, prot_continuous)
+              }
     for var in all_variables:
         for prot_idx, prot in enumerate(prot_names):
 
@@ -193,9 +193,13 @@ def fair_stats(gen_cfg: 'GenCfg',
 
     correlations_df = correlations_df.dropna(how='all', axis=0)
     correlations_df = correlations_df.dropna(how='all', axis=1)
-    txt += ('\n' * 2
-            + 'Bivariate dependence of (modified) decision and protected variables in %'
-            + '\n' + label + '\n' + str(correlations_df)
+    correlations_df = correlations_df.rename(columns={name: f'{name} ({labels[name]})'
+                                                      for name in correlations_df.columns
+                                                      }
+                                             )
+    txt += ('\n\nBivariate dependence of adjusted and unadjusted variables '
+            'with protected variables in %\n'
+            + correlations_df.to_string()
             )
     mcf_ps.print_mcf(gen_cfg, txt, summary=True)
 
@@ -243,12 +247,14 @@ def data_quantilized(fair_cfg: 'FairCfg',
                 material_np = discretize_equalcell(material_in_np, mat_max_groups)
             case 'Kmeans':
                 material_np = discretize_kmeans(material_in_np, mat_max_groups, seed=seed)
-            case 'NoDiscretization':
+            case 'ExactCell':
                 material_np = recode_no_discretization(material_in_np)
+            case 'NoDiscretization':
+                material_np = material_in_np.copy()
             case _:
                 raise ValueError(f'Unknown discretization method: {method!r}')
 
-        if fair_cfg.material_disc_method != 'NoDiscretization':
+        if fair_cfg.material_disc_method in ('EqualCell', 'Kmeans'):
             txt += ('\nMaterially relevant features discretized: '
                     f'{len(np.unique(material_np))} cells.'
                     )
@@ -262,12 +268,14 @@ def data_quantilized(fair_cfg: 'FairCfg',
             protected_np = discretize_equalcell(protected_in_np, k)
         case 'Kmeans':
             protected_np = discretize_kmeans(protected_in_np, k, seed=seed + 124335)
-        case 'NoDiscretization':
+        case 'ExactCell':
             protected_np = recode_no_discretization(protected_in_np)
+        case 'NoDiscretization':
+            protected_np = protected_in_np.copy()
         case _:
             raise ValueError(f'Unknown discretization method: {method!r}')
 
-    if fair_cfg.protected_disc_method != 'NoDiscretization':
+    if fair_cfg.protected_disc_method in ('EqualCell', 'Kmeans'):
         txt += f'\nProtected features discretized: {len(np.unique(protected_np))} cells.'
 
     return protected_np, material_np, txt
@@ -278,7 +286,8 @@ def discretize_kmeans(data_in_np: NDArray[Any],
                       seed: int = 12345
                       ) -> NDArray[Any]:
     """Discretize using cells of similar size (for cont. features)."""
-    data_np = KMeans(n_clusters=max_groups,
+    no_clusters = min(int(round(max_groups)), len(np.unique(data_in_np, axis=0)))
+    data_np = KMeans(n_clusters=no_clusters,
                      init='k-means++',
                      n_init='auto',
                      max_iter=1000,
@@ -302,7 +311,9 @@ def discretize_equalcell(data_in_np: NDArray[Any],
     for col_idx in range(cols):
         unique_val = np.unique(data_in_np[:, col_idx])
         if len(unique_val) > max_groups:
-            data_np[:, col_idx] = pd.qcut(data_in_np[:, col_idx], q=max_groups, labels=False)
+            data_np[:, col_idx] = pd.qcut(data_in_np[:, col_idx], q=max_groups,
+                                          labels=False, duplicates='drop',
+                                          )
     if cols > 1:
         _, data_np = np.unique(data_np, axis=0, return_inverse=True)
 
@@ -361,16 +372,18 @@ def reshuffle_share_rows(data_org_np: NDArray[Any],
 
 def add_noise_discrete(xvars_in_np: NDArray[Any],
                        seed: int = 1234567,
-                       ) -> tuple[NDArray[Any], list[float], list[list[float]]]:
+                       ) -> tuple[NDArray[Any], list[NDArray[Any]]]:
     """Add a little noise to discrete variables."""
     rng = np.random.default_rng(seed=seed)
     noise = rng.uniform(-0.05, 0.05, size=(xvars_in_np.shape[0],))
-    xvars_noise_np = xvars_in_np.copy()
+    xvars_noise_np = xvars_in_np.astype(float, copy=True)
     unique_values_all = []
     for col in range(xvars_in_np.shape[1]):
         unique_col = np.unique(xvars_in_np[:, col])  # values are sorted
         unique_values_all.append(unique_col)
-        min_dist = np.abs(np.min(np.diff(unique_col)))
+        if unique_col.size < 2:
+            continue
+        min_dist = np.min(np.diff(unique_col))
         if min_dist < 1:
             xvars_noise_np[:, col] = xvars_in_np[:, col] + min_dist * noise
         else:
@@ -383,13 +396,25 @@ def remove_noise_discrete(xvars_noise_np: NDArray[Any],
                           unique_values_all: list[list[float]],
                           ) -> NDArray[Any]:
     """Remove the noise from discrete variables."""
-    xvars_np = np.zeros_like(xvars_noise_np)
+    xvars_np = np.empty_like(xvars_noise_np)
 
     for k in range(xvars_noise_np.shape[1]):
-        valid_values = np.array(unique_values_all[k])
-        diffs = np.abs(xvars_noise_np[:, k, None] - valid_values[None, :])
-        # shape: (N, len(valid_values))
-        closest_indices = np.argmin(diffs, axis=1)
-        xvars_np[:, k] = valid_values[closest_indices]
+        valid_values = np.asarray(unique_values_all[k])
+
+        if valid_values.size == 0:
+            raise ValueError(f'No valid values supplied for column {k}.')
+
+        if valid_values.size == 1:
+            xvars_np[:, k] = valid_values[0]
+            continue
+
+        positions = np.searchsorted(valid_values, xvars_noise_np[:, k])
+        positions = np.clip(positions, 1, valid_values.size - 1)
+
+        left = valid_values[positions - 1]
+        right = valid_values[positions]
+
+        choose_right = (np.abs(xvars_noise_np[:, k] - right) < np.abs(xvars_noise_np[:, k] - left))
+        xvars_np[:, k] = np.where(choose_right, right, left)
 
     return xvars_np

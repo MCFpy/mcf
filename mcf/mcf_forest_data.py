@@ -14,10 +14,10 @@ from numba import njit, prange
 import numpy as np
 from numpy.typing import NDArray
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor
 try:
     import ray
-except ImportError:
+except (ImportError, OSError):
     ray = None
 try:
     import torch  # type: ignore[import]
@@ -26,6 +26,7 @@ except (ImportError, OSError):
 
 from mcf import mcf_cuda as mcf_c
 from mcf import mcf_data
+from mcf.mcf_estimation_generic import NumericOutcomeClassifier
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_general_sys as mcf_gp_sys
 from mcf import mcf_print_stats as mcf_ps
@@ -98,7 +99,7 @@ def prepare_data_for_forest(mcf_: 'ModifiedCausalForest',
         raise RuntimeError(f'Duplicate variable names.{duplicates}'
                            ' Names are NOT case sensitive')
     y_dat = data_df[var_cfg.y_tree_name].to_numpy(copy=True)
-    pen_mult = cf_cfg.p_diff_penalty * np.var(y_dat) if cf_cfg.mtot in (1, 4) else 0
+    pen_mult = cf_cfg.p_diff_penalty * np.var(y_dat) if cf_cfg.mtot == 1 else 0
 
     len_d_name = 1  # Only main treatment used
     len_y_match_name = len(var_cfg.y_match_name)
@@ -171,7 +172,7 @@ def m_n_grid(cf_cfg: 'CfCfg', no_vars: int) -> dict:
 
     """
     m_min = max(round(cf_cfg.m_share_min * no_vars), 1)
-    m_max = round(cf_cfg.m_share_max * no_vars)
+    m_max = max(m_min, round(cf_cfg.m_share_max * no_vars))
     if m_min == m_max:
         cf_cfg.m_grid = 1
         grid_m = m_min
@@ -287,11 +288,8 @@ def nn_matched_outcomes_072(mcf_: 'ModifiedCausalForest',
             and (len(x_df.columns) >= 2 * no_of_treat)):
 
         if gen_cfg.with_output and gen_cfg.verbose:
-            mcf_ps.print_mcf(gen_cfg,
-                             '\nComputing prognostic score for matching',
-                             summary=False
-                             )
-        cf_cfg.nn_main_diag_only = False   # Use full Mahalanobis matrix
+            mcf_ps.print_mcf(gen_cfg, '\nComputing prognostic score for matching', summary=False)
+
         x_dat_neu = np.empty((obs, no_of_treat))
 
         params = {'n_estimators': cf_cfg.boot,
@@ -300,10 +298,10 @@ def nn_matched_outcomes_072(mcf_: 'ModifiedCausalForest',
                   'oob_score': False,
                   'n_jobs': gen_cfg.mp_parallel,
                   'random_state': 42,
-                  'verbose': False}
-
+                  'verbose': False,
+                  }
         if len(np.unique(y_dat_match)) < 10:
-            y_rf_obj_all = RandomForestClassifier(**params)
+            y_rf_obj_all = NumericOutcomeClassifier(**params)
         else:
             y_rf_obj_all = RandomForestRegressor(**params)
 
@@ -353,12 +351,26 @@ def nn_matched_outcomes_072(mcf_: 'ModifiedCausalForest',
                                                                )
                 else:
                     maxworkers = gen_cfg.mp_parallel
+
+        if maxworkers > 1 and int_cfg.mp_use_old_ray:
+            if ray is None or ray_nn_neighbour_mcf2 is None:
+                raise ImportError('int_cfg.mp_use_old_ray=True, but ray is not installed. '
+                                  'Install ray or use the new backend with mp_use_old_ray=False.'
+                                  )
+            if not ray.is_initialized():
+                ray_is_running, maxworkers = mcf_ray.init_ray_with_fallback(
+                    maxworkers, gen_cfg,
+                    mem_object_store_2=int_cfg.mem_object_store_2,
+                    ray_err_txt='Ray did not start in nearest neighbour matching.',
+                    )
+                if not ray_is_running:
+                    maxworkers = 1
+
         if gen_cfg.with_output and gen_cfg.verbose:
             print('Method used: Matching')
+            txt = ''
             if maxworkers > 1:
                 print_runtime_info(gen_cfg, int_cfg, maxworkers, txt_method='matching')
-            else:
-                txt = ''
             if int_cfg.cuda and not cuda:
                 txt += (' (GPU is currently not used for NN matching as it is'
                         ' too slow)')
@@ -366,6 +378,7 @@ def nn_matched_outcomes_072(mcf_: 'ModifiedCausalForest',
                 txt += '  GPU is used instead of multiple CPUs.'
             if txt != '':
                 mcf_ps.print_mcf(gen_cfg, txt, summary=False)
+
         kw_args = {'obs': obs, 'zero_tol': int_cfg.zero_tol}
         if maxworkers == 1:
             for i_treat, i_value in enumerate(d_values):
@@ -393,16 +406,6 @@ def nn_matched_outcomes_072(mcf_: 'ModifiedCausalForest',
         else:
             ray_err_txt='Ray did not start in nearest neighbour matching.'
             if int_cfg.mp_use_old_ray:
-                if ray is None or ray_nn_neighbour_mcf2 is None:
-                    raise ImportError('int_cfg.mp_use_old_ray=True, but ray is not installed. '
-                                      'Install ray or use the new backend with '
-                                      'mp_use_old_ray=False.'
-                                      )
-                if not ray.is_initialized():
-                    mcf_ray.init_ray_with_fallback(maxworkers, gen_cfg,
-                                                   mem_object_store_2=int_cfg.mem_object_store_2,
-                                                   ray_err_txt=ray_err_txt,
-                                                   )
                 (x_dat_ref, y_dat_ref, d_dat_ref, cov_x_inv_ref
                  ) = mcf_ray.ray_put_all(x_dat, y_dat, d_dat, cov_x_inv)
 
@@ -439,7 +442,6 @@ def nn_matched_outcomes_072(mcf_: 'ModifiedCausalForest',
                                       kwargs={'data': data_handle,
                                               'treat_value': d_values[idx],
                                               'i_treat': idx,
-                                              'cuda': cuda,
                                               'kw_args': kw_args,
                                               },
                                       name=f'nn_match_{idx}',
@@ -483,7 +485,6 @@ def nn_matched_outcomes_072(mcf_: 'ModifiedCausalForest',
 def nn_neighbour_mcf2_backend(*, data: dict[str, Any],
                               treat_value: Any,
                               i_treat: int,
-                              cuda: bool,
                               kw_args: dict[str, Any],
                               ) -> tuple[Any, int]:
     """
@@ -499,7 +500,6 @@ def nn_neighbour_mcf2_backend(*, data: dict[str, Any],
 
     return nn_neighbour_mcf2(y_dat, x_dat, d_dat,
                              cov_x_inv=cov_x_inv, treat_value=treat_value, i_treat=i_treat,
-                             cuda=cuda,
                              **kw_args,
                              )
 
@@ -745,7 +745,7 @@ def get_inv_cov(x_dat: NDArray[Any],
             if counter == 20:
                 cov_x = cov_x * torch.eye(cols_x, device='cuda')
             if counter > 20:
-                cov_x_inv = torch.eye(cols_x, device='cuda')
+                cov_x_inv_t = torch.eye(cols_x, device='cuda')
                 break
             if torch.linalg.matrix_rank(cov_x) < cols_x:   # pylint: disable=not-callable
                 cov_x += 0.5 * torch.diag(cov_x) * torch.eye(cols_x, device='cuda')
@@ -916,14 +916,14 @@ def nn_matched_outcomes_issue_17(df: pd.DataFrame, *,
 
                 # Create a model, either a classifier or a regressor
                 if np.unique(np_match_y).shape[0] < 10:
-                    rfc = RandomForestClassifier(**params)
+                    rfc = NumericOutcomeClassifier(**params)
                 else:
                     rfc = RandomForestRegressor(**params)
 
                 # Train on the treatment group
-                treatments = np.isclose(np_d, d_treatment, atol=zero_tol, rtol=zero_tol).squeeze()
+                treatments = np.isclose(np_d, d_treatment, atol=zero_tol, rtol=zero_tol).ravel()
                 tmp_np_x = np_x[treatments].copy()
-                tmp_np_y = np_match_y[treatments].squeeze().copy()
+                tmp_np_y = np_match_y[treatments].ravel().copy()
 
                 # train the model
                 rfc.fit(tmp_np_x, tmp_np_y)

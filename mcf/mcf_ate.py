@@ -101,11 +101,41 @@ def ate_est(mcf_: 'ModifiedCausalForest',
         continuous = False
         no_of_treat, d_values = gen_cfg.no_of_treat, gen_cfg.d_values
 
+    tv_scores_pred = None
     if gen_tv_cfg.yes:
         # Obtain the data for the later regression step (treatment versions)
-        d_train, x_tv_train, x_tv_pred = mcf_tv.get_tv_data(
-            data_df, weights_dic, mcf_.var_cfg, zero_tol=zero_tol,
-            )
+        d_train, x_tv_train, x_tv_pred = mcf_tv.get_tv_data(data_df, weights_dic, mcf_.var_cfg,
+                                                            zero_tol=zero_tol,
+                                                            score_names=gen_tv_cfg.score_names,
+                                                            )
+        score_type = gen_tv_cfg.score_type or ()
+        if isinstance(score_type, str):
+            score_type = (score_type,)
+        global_tv_scores = (gen_tv_cfg.addscores
+                            and not gen_tv_cfg.score_version_local
+                            and ('prop_version' in score_type or 'prog_version' in score_type)
+                            )
+        if global_tv_scores and x_tv_train is not None and x_tv_pred is not None:
+            scores_round = gen_tv_cfg.scores_version_round
+            if scores_round is None or len(scores_round) != gen_cfg.no_of_treat:
+                raise ValueError('Global version scores must contain one entry per main treatment.')
+            if len(x_tv_pred) != len(data_df):
+                raise ValueError('Version-regression covariates do not match prediction rows.')
+            for score_dc in scores_round:
+                if score_dc.names is None or len(score_dc.names) == 0:
+                    continue
+                if score_dc.scores_np is None:
+                    raise ValueError('Global version-score ATE requires cached outcome scores.')
+                if score_dc.scores_np.shape != (len(y_dat), len(score_dc.names)):
+                    raise ValueError('Cached version scores do not match the forest outcome rows '
+                                     'and score columns.'
+                                     )
+            # Reuse these predictions across versions and reference populations.
+            tv_scores_pred = mcf_tv.predict_version_scores(data_df, scores_round,
+                                                           ps_yes='prop_version' in score_type,
+                                                           pg_yes='prog_version' in score_type,
+                                                           dtype=np.float64, zero_tol=zero_tol,
+                                                           )
     else:
         d_train = x_tv_train = x_tv_pred = None
     if p_ba_cfg.yes:
@@ -136,7 +166,10 @@ def ate_est(mcf_: 'ModifiedCausalForest',
     weights = weights_dic['weights']
     if int_cfg.weight_as_sparse:
         for i in range(n_p):
-            w_add = np.zeros((no_of_treat, n_y))
+            t_pos = 0
+            if p_cfg.atet:
+                d_value = d_p[i, 0] if gen_tv_cfg.yes else d_p[i]
+                t_pos = single_treatment_pos(d_value, d_values, ind_d_val, zero_tol=zero_tol)
             for t_ind, _ in enumerate(d_values):
                 w_i_csr = weights[t_ind][i, :]   # copy, but still sparse
                 if gen_cfg.weighted:
@@ -150,33 +183,20 @@ def ate_est(mcf_: 'ModifiedCausalForest',
                     w_i_csr = w_i_csr.multiply(1 / sum_wi)
                 if gen_cfg.weighted:
                     w_i_csr = w_i_csr.multiply(w_p[i])
-                # if p_cfg.choice_based_sampling:
-                #     if gen_tv_cfg.yes:
-                #         i_pos = ind_d_val[isclose(d_p[i, 0], d_values, atol=zero_tol,
-                #                                   rtol=zero_tol)
-                #                           ]
-                #     else:
-                #         i_pos = ind_d_val[isclose(d_p[i], d_values, atol=zero_tol, rtol=zero_tol)]
-                #     w_i_csr = w_i_csr.multiply(t_probs[int(i_pos)])
                 if p_cfg.choice_based_sampling:
                     d_value = d_p[i, 0] if gen_tv_cfg.yes else d_p[i]
                     i_pos = single_treatment_pos(d_value, d_values, ind_d_val, zero_tol=zero_tol)
                     w_i_csr = w_i_csr.multiply(t_probs[i_pos])
-                w_add[t_ind, :] = w_i_csr.todense()
-            w_ate[0, :, :] += w_add
-            # if p_cfg.atet:
-            #     if gen_tv_cfg.yes:
-            #         # w_ate[ind_d_val[d_p[i, 0] == d_values]+1, :, :] += w_add
-            #         w_ate[ind_d_val[isclose(d_p[i, 0], d_values, atol=zero_tol, rtol=zero_tol)]+1,
-            #               :, :] += w_add
-            #     else:
-            #         # w_ate[ind_d_val[d_p[i] == d_values]+1, :, :] += w_add
-            #         w_ate[ind_d_val[isclose(d_p[i], d_values, atol=zero_tol, rtol=zero_tol)]+1,
-            #               :, :] += w_add
-            if p_cfg.atet:
-                d_value = d_p[i, 0] if gen_tv_cfg.yes else d_p[i]
-                t_pos = single_treatment_pos(d_value, d_values, ind_d_val, zero_tol=zero_tol)
-                w_ate[t_pos + 1, :, :] += w_add
+
+                # Add only stored entries; never reconstruct a dense prediction row.
+                w_i_csr = w_i_csr.tocsr()
+                if not w_i_csr.has_canonical_format:
+                    w_i_csr.sum_duplicates()
+                w_index = w_i_csr.indices
+                w_values = w_i_csr.data.astype(w_ate.dtype, copy=False)
+                w_ate[0, t_ind, w_index] += w_values
+                if p_cfg.atet:
+                    w_ate[t_pos + 1, t_ind, w_index] += w_values
     else:
         for i, weight_i in enumerate(weights):
             w_add = np.zeros((no_of_treat, n_y))
@@ -228,9 +248,16 @@ def ate_est(mcf_: 'ModifiedCausalForest',
     if gen_tv_cfg.yes:
         # Expand to new treatment dimension; redefine d_values, no_of_treat
         no_of_treat, d_values, weights_eval, sumw, w_ate, _, _ = mcf_tv.expand_dimension(
-            weights_eval, sumw, w_ate, None, None, gen_tv_cfg=gen_tv_cfg,
+            weights_eval, sumw, w_ate, None, None,
+            gen_tv_cfg=gen_tv_cfg,
             )
-        version_res_dat = np.zeros_like(w_ate)
+        version_res_dat = np.zeros((*w_ate.shape, no_of_out), dtype=w_ate.dtype)
+        if balancing_test:
+            # Keep the original outcome columns first so y_tree_index remains valid.
+            y_tv = np.concatenate((weights_dic['y_dat_np'], y_dat), axis=1)
+            res_start = weights_dic['y_dat_np'].shape[1]
+        else:
+            y_tv, res_start = y_dat, 0
     else:
         version_res_dat = None
 
@@ -271,7 +298,7 @@ def ate_est(mcf_: 'ModifiedCausalForest',
                 (w_ate[a_idx, ta_idx, :], results_container_w, res_tv, results_container_r,
                  maintreat_idx, subtreat_idx, txt_tv,
                  ) = mcf_tv.version_wregr(w_ate[a_idx, ta_idx, :],
-                                          y_train=y_dat[:, 0],
+                                          y_train=y_tv,
                                           d_train=d_train,
                                           x_train=x_tv_train,
                                           x_pred=x_tv_pred,
@@ -288,10 +315,17 @@ def ate_est(mcf_: 'ModifiedCausalForest',
                                                                                        ],
                                           return_residuals=True,
                                           standardize_x=True,
+                                          mp_parallel=gen_cfg.mp_parallel,
+                                          obs_bigdata=int_cfg.obs_bigdata,
+                                          allow_local_version_scores=True,
+                                          use_train_score_cache=tv_scores_pred is not None,
+                                          scores_pred=(None if tv_scores_pred is None
+                                                       else tv_scores_pred[maintreat_idx]),
                                           )
                 txt += txt_tv
                 if res_tv is not None:
-                    version_res_dat[a_idx, ta_idx, :] = res_tv
+                    res_tv = res_tv.reshape(n_y, -1)
+                    version_res_dat[a_idx, ta_idx, :, :] = res_tv[:, res_start:]
             if not continuous:
                 w_ate[a_idx, ta_idx, :] /= sumw[a_idx, ta_idx]
 
@@ -381,11 +415,12 @@ def ate_est(mcf_: 'ModifiedCausalForest',
                                      sum_tol=int_cfg.sum_tol,
                                      negative_weights_possible=p_ba_cfg.yes or gen_tv_cfg.yes,
                                      )
-                        vres = None if version_res_dat is None else version_res_dat[a_idx, t_idx, :]
+                        vres = (None if version_res_dat is None
+                                else version_res_dat[a_idx, t_idx, :, o_idx]
+                                )
                         ret = mcf_est.weight_var(
                             w_ate_cont, y_dat[:, o_idx], cl_dat,  p_cfg,
                             residual_dat=vres,
-                            weighted=gen_cfg.weighted, weights=w_dat,
                             bootstrap=p_cfg.se_boot_ate,
                             keep_all=int_cfg.keep_w0,
                             se_yes=not p_cfg.ate_no_se_only,
@@ -403,10 +438,11 @@ def ate_est(mcf_: 'ModifiedCausalForest',
                         if t_idx == (no_of_treat - 1):  # last element,no inter
                             break
                 else:
-                    vres = None if version_res_dat is None else version_res_dat[a_idx, t_idx, :]
+                    vres = (None if version_res_dat is None
+                            else version_res_dat[a_idx, t_idx, :, o_idx]
+                            )
                     ret = mcf_est.weight_var(w_ate[a_idx, t_idx, :], y_dat[:, o_idx], cl_dat, p_cfg,
                                              residual_dat=vres,
-                                             weighted=gen_cfg.weighted, weights=w_dat,
                                              bootstrap=p_cfg.se_boot_ate,
                                              keep_all=int_cfg.keep_w0,
                                              se_yes=not p_cfg.ate_no_se_only,
@@ -473,6 +509,10 @@ def ate_effects_print(mcf_: 'ModifiedCausalForest',
         else:
             txt += '\nAverage Treatment Effects Estimation ' + extra_title + '\n' + '-' * 100
         txt += '\n'
+
+        if gen_cfg.ate_eff and not p_cfg.ate_no_se_only and not balancing_test:
+            txt += mcf_ps.print_efficiency_se_info()
+
         if pred_alloc:
             txt += 'Average Outcome'
         else:

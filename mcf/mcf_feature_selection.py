@@ -11,19 +11,21 @@ from typing import TYPE_CHECKING, Union
 import pandas as pd
 import numpy as np
 from numpy.typing import NDArray
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.metrics import accuracy_score, r2_score
+from sklearn.metrics import r2_score
+from sklearn.model_selection import train_test_split
+from sklearn.utils.validation import check_consistent_length
 
+from mcf.mcf_estimation_generic import NumericOutcomeClassifier
 from mcf.mcf_general import to_numpy_big_data
 from mcf.mcf_print_stats import print_mcf
 
 if TYPE_CHECKING:
     from mcf.mcf_init import VarCfg as VarCfgMcf
     from mcf.mcf_init import GenCfg as GenCfgMcf
-    from mcfoptpolicy_init import VarCfg as VarCfgOptpol
-    from mcfoptpolicy_init import GenCfg as GenCfgOptpol
-    from mcf.optpolicy_main import OptimalPolicy, OptimalPolicyVersion
+    from mcf.optpolicy_init import VarCfg as VarCfgOptpol
+    from mcf.optpolicy_init import GenCfg as GenCfgOptpol
+    from mcf.optpolicy_main import OptimalPolicy, OptimalPolicyVersions
 
 type BoolLike = bool | None
 type IntLike = int | None
@@ -48,6 +50,7 @@ class FsCfg:
     rel_vi_threshold_y: float = 0.0
     rel_vi_threshold_d: float = 0.0
     rel_vi_keep_if: str = 'y_or_d_relevant'
+    mse_for_classifier: bool = False
     other_sample: bool = True
     other_sample_share: float = 0.33
 
@@ -68,6 +71,7 @@ class FsCfg:
                   rel_vi_threshold_y: NumberLike = None,
                   rel_vi_threshold_d: NumberLike = None,
                   rel_vi_keep_if: str = 'y_or_d_relevant',
+                  mse_for_classifier: BoolLike = None,
                   other_sample: BoolLike = None,
                   other_sample_share: FloatLike = None,
                   yes: BoolLike = None,
@@ -75,6 +79,7 @@ class FsCfg:
         """Get input and normalize parameters."""
         # yes only if explicitly True
         yes_b = yes is True
+        mse_for_classifier_b = mse_for_classifier is True
 
         # rel_vi_threshold: fraction (0-1)
         default = 0.0
@@ -104,6 +109,7 @@ class FsCfg:
                    rel_vi_threshold=rel_vi_frac,
                    rel_vi_threshold_y=rel_vi_frac_y,
                    rel_vi_threshold_d=rel_vi_frac_d,
+                   mse_for_classifier=mse_for_classifier_b,
                    other_sample=other_b,
                    other_sample_share=share,
                    rel_vi_keep_if=keep_if,
@@ -121,7 +127,7 @@ def check_threshold(rel_vi_threshold: NumberLike=0.0, default: float=0.0) -> flo
     return float(rel_vi_threshold)
 
 
-def feature_selection_optpol(optp_: Union['OptimalPolicy', 'OptimalPolicyVersion'],
+def feature_selection_optpol(optp_: Union['OptimalPolicy', 'OptimalPolicyVersions'],
                              data_df: pd.DataFrame,
                              ) -> pd.DataFrame:
     """Perform feature selection for optimal policy."""
@@ -168,15 +174,17 @@ def feature_selection(data_df: pd.DataFrame, *,
     Step 1: Set-aside a random sample for feature selection analysis (option)
     Step 2: Estimate classifier forest for treatment
     Step 3: Estimate regression (>=10 values) or classifier (<10 values) forest
-            for outcome
-            Estimation is 75%, prediction on 25% random sample
-    Step 4: Permutate variable groups; create variable importance measure based
-            on r2 or accuary; compute relative loss compared to baseline.
+            for outcome.
+            Estimation is on a 75%, prediction on a 25% random sample.
+    Step 4: Permute variable groups; create variable importance based on
+            R2, accuracy, or negative MSE of predicted class probabilities.
     Step 5: Deselect variable if loss is less than threshold.
     Step 6: Do not deselect variable if on list of protected variables.
     Repeat steps 2-6 until no variable is deselected.
     """
     welcome_print(gen_cfg)
+    mse_classif = fs_cfg.mse_for_classifier
+
     max_workers = 1 if replication else gen_cfg.mp_parallel
 
     # Only main treatments
@@ -210,7 +218,7 @@ def feature_selection(data_df: pd.DataFrame, *,
                               )
     else:  # Optimal policy
         (scores_train_df, scores_test_df, x_train_df, x_test_df
-         ) = train_test_split(data_fs_df[var_cfg.polscore_name],
+         ) = train_test_split(data_fs_df[var_cfg.polscore_name].astype(float),
                               data_fs_df[x_names],
                               test_size=0.25,
                               random_state=42,
@@ -249,6 +257,7 @@ def feature_selection(data_df: pd.DataFrame, *,
                                                                       y_test_df=d_test_df,
                                                                       x_test_df=x_test_df,
                                                                       classifier=True,
+                                                                      mse_classif=mse_classif,
                                                                       boot=boot,
                                                                       max_workers=max_workers,
                                                                       obs_bigdata=obs_bigdata,
@@ -259,6 +268,7 @@ def feature_selection(data_df: pd.DataFrame, *,
                                                                   y_test_df=y_test_df,
                                                                   x_test_df=x_test_df,
                                                                   classifier=y_as_classifier,
+                                                                  mse_classif=mse_classif,
                                                                   boot=boot,
                                                                   max_workers=max_workers,
                                                                   obs_bigdata=obs_bigdata,
@@ -276,6 +286,7 @@ def feature_selection(data_df: pd.DataFrame, *,
                                             y_test_df=scores_test_df.iloc[:, i],
                                             x_test_df=x_test_df,
                                             classifier=y_as_classifier[i],
+                                            mse_classif=mse_classif,
                                             boot=boot,
                                             max_workers=max_workers,
                                             obs_bigdata=obs_bigdata,
@@ -312,6 +323,7 @@ def feature_selection(data_df: pd.DataFrame, *,
                                                     score_full=score_d_full,
                                                     rf_obj=d_rf_obj,
                                                     classifier=True,
+                                                    mse_classif=mse_classif,
                                                     obs_bigdata=obs_bigdata,
                                                     )
                 y_score, y_rel_diff = score_fct(x_dat_df=x_all_rnd_df,
@@ -319,6 +331,7 @@ def feature_selection(data_df: pd.DataFrame, *,
                                                 score_full=score_y_full,
                                                 rf_obj=y_rf_obj,
                                                 classifier=y_as_classifier,
+                                                mse_classif=mse_classif,
                                                 obs_bigdata=obs_bigdata,
                                                 )
                 if gen_cfg.with_output:
@@ -348,6 +361,7 @@ def feature_selection(data_df: pd.DataFrame, *,
                                                           score_full=score_y_full[i],
                                                           rf_obj=y_rf_obj[i],
                                                           classifier=y_as_classifier[i],
+                                                          mse_classif=mse_classif,
                                                           obs_bigdata=obs_bigdata,
                                                           )
                 if gen_cfg.with_output:
@@ -370,6 +384,7 @@ def feature_selection(data_df: pd.DataFrame, *,
                                            threshold_y=fs_cfg.rel_vi_threshold_y,
                                            threshold_d=fs_cfg.rel_vi_threshold_d,
                                            keep_if=fs_cfg.rel_vi_keep_if,
+                                           mse_classif=mse_classif,
                                            mcf_estimation=mcf_estimation,
                                            summary=False,
                                            )
@@ -483,12 +498,28 @@ def score_fct(*,
               score_full: float,
               rf_obj: RandomForestClassifier | RandomForestRegressor,
               classifier: bool = False,
+              mse_classif: bool = False,
               obs_bigdata: int = 1_000_000,
               ) -> tuple[float, float]:
     """Compute absolute and relative score."""
-    y_pred = rf_obj.predict(to_numpy_big_data(x_dat_df, obs_bigdata))
-    score = score_for_y(y_np, y_pred, classifier)
-    rel_score_diff = (score_full - score) / score_full
+    x_dat_np = to_numpy_big_data(x_dat_df, obs_bigdata)
+
+    if classifier and mse_classif:
+        y_pred = rf_obj.predict_proba(x_dat_np)
+    else:
+        y_pred = rf_obj.predict(x_dat_np)
+
+    score = score_for_y(y_np, y_pred,
+                        classifier=classifier,
+                        classes=rf_obj.classes_ if classifier and mse_classif else None,
+                        mse_classif=mse_classif,
+                        )
+    denom = abs(score_full)
+
+    if np.isclose(denom, 0.0):
+        rel_score_diff = score_full - score
+    else:
+        rel_score_diff = (score_full - score) / denom
 
     return score, rel_score_diff
 
@@ -499,6 +530,7 @@ def randomforests_estimate(*,
                            y_test_df: pd.DataFrame,
                            x_test_df: pd.DataFrame,
                            classifier: bool = False,
+                           mse_classif: bool = False,
                            boot: int = 1_000,
                            max_workers: int = 1,
                            obs_bigdata: int = 1_000_000,
@@ -507,24 +539,61 @@ def randomforests_estimate(*,
                                       RandomForestClassifier | RandomForestRegressor
                                       ]:
     """Estimate with random forest classifier or regressor."""
-    params = {'n_estimators': boot, 'max_features': 'sqrt', 'bootstrap': True,
-              'oob_score': False, 'n_jobs': max_workers, 'random_state': 42, 'verbose': False,
+    params = {'n_estimators': boot,
+              'max_features': 'sqrt',
+              'bootstrap': True,
+              'oob_score': False,
+              'n_jobs': max_workers,
+              'random_state': 42, 'verbose': False,
               }
-    rf_obj = RandomForestClassifier(**params) if classifier else RandomForestRegressor(**params)
+    rf_obj = NumericOutcomeClassifier(**params) if classifier else RandomForestRegressor(**params)
     rf_obj.fit(to_numpy_big_data(x_train_df, obs_bigdata),
                to_numpy_big_data(y_train_df, obs_bigdata).ravel(),
                )
-    y_pred = rf_obj.predict(x_test_df.to_numpy())
+    if classifier and mse_classif:
+        y_pred = rf_obj.predict_proba(x_test_df.to_numpy())  # pylint: disable=E1101
+    else:
+        y_pred = rf_obj.predict(x_test_df.to_numpy())
     y_test = y_test_df.to_numpy().ravel()
-    score = score_for_y(y_test, y_pred, classifier)
-
+    score = score_for_y(y_test, y_pred,
+                        classifier=classifier,
+                        classes=rf_obj.classes_ if classifier and mse_classif else None,
+                        mse_classif=mse_classif,
+                        )
     return score, y_test, rf_obj
 
 
-def score_for_y(y_true: NDArray, y_pred: NDArray, classifier: bool) -> float:
-    """Compute score dependending on type of y."""
+def score_for_y(y_true: NDArray, y_pred: NDArray,
+                *,
+                classifier: bool = False,
+                mse_classif: bool = False,
+                classes: NDArray | list | tuple | None = None,
+                ) -> float:
+    """Compute score depending on type of y (define score as larger is better)."""
+    if classifier and mse_classif:
+        if classes is None:
+            raise ValueError('classes must be provided for classifier MSE.')
+
+        y_true_np = np.asarray(y_true).ravel()
+        classes_np = np.asarray(classes)
+        y_pred_np = np.asarray(y_pred, dtype=float)
+
+        y_onehot = (y_true_np[:, None] == classes_np[None, :]).astype(float)
+
+        if y_onehot.shape != y_pred_np.shape:
+            raise ValueError('Shape mismatch between true classes and predicted probabilities: '
+                             f'{y_onehot.shape} vs. {y_pred_np.shape}.'
+                             )
+        unseen = ~np.isin(y_true_np, classes_np)
+        no_classes = len(classes_np) + len(np.unique(y_true_np[unseen]))
+        squared_error = np.sum((y_onehot - y_pred_np) ** 2, axis=1) + unseen
+        return -float(np.mean(squared_error) / no_classes)  # -MSE over all observed classes
+
     if classifier:
-        return accuracy_score(y_true, y_pred, normalize=True)
+        y_true_np = np.asarray(y_true).ravel()
+        y_pred_np = np.asarray(y_pred).ravel()
+        check_consistent_length(y_true_np, y_pred_np)
+        return float(np.mean(y_true_np == y_pred_np))
 
     return r2_score(y_true, y_pred)
 
@@ -628,6 +697,7 @@ def print_results_of_feature_selection(gen_cfg: Union['GenCfgMcf', 'GenCfgOptpol
                                        threshold: float = 0.0,
                                        threshold_y: float = 0.0,
                                        threshold_d: float | None = 0.0,
+                                       mse_classif: bool = False,
                                        keep_if: str = 'y_or_d_relevant',
                                        mcf_estimation: bool = True,
                                        summary=True,
@@ -638,7 +708,12 @@ def print_results_of_feature_selection(gen_cfg: Union['GenCfgMcf', 'GenCfgOptpol
                + f'\nIntermediate results of Feature Selection based on iteration {iteration} '
                + '\n' + '- ' * 50
                )
-        txt += '\nR2 used as score for regression and Accuracy Score used for classifiers. '
+        if mse_classif:
+            txt += ('\nR2 used for regressions and negative MSE of class probabilities for '
+                    'classifiers. '
+                    )
+        else:
+            txt += '\nR2 used for regressions and Accuracy Score for classifiers. '
         if mcf_estimation:
             txt += f'Method used for selecting variables: {keep_if} '
             txt += f'\nScore for y based on all features: {score_y_full:6.3f}. '

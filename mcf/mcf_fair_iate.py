@@ -13,8 +13,12 @@ import pandas as pd
 
 try:
     import ray
-except ImportError:
+except (ImportError, OSError):
     ray = None
+try:
+    from tqdm.auto import tqdm
+except ImportError:
+    tqdm = None
 
 from mcf import mcf_general as mcf_gp
 from mcf import mcf_print_stats as mcf_ps
@@ -89,30 +93,39 @@ def make_fair_iates(mcf_: 'ModifiedCausalForest',
         # ATEs will returned relative to treatment 0 (which is normalized to 0)
         y_pot_0 = potout_dic[polscore_labels_dic[0]].iloc[:, 0].to_numpy()
         blind_ate_np = np.ones((len(data_df), no_of_treat)) * y_pot_0.reshape(-1, 1)
+        use_tqdm, output_clean = mcf_gp.tqdm_setup(tqdm, bool(with_output))
         if with_output:
             print('\n' + 'Computing blinded potential outcomes')
+
+        if mp_parallel > 1 and mcf_.int_cfg.mp_use_old_ray:
+            if ray is None:
+                raise ImportError('int_cfg.mp_use_old_ray=True, but ray is not installed. '
+                                  'Install ray or use the new backend with mp_use_old_ray=False.'
+                                  )
+            if not ray.is_initialized():
+                ray_is_running, mp_parallel = init_ray_with_fallback(
+                    mp_parallel, mcf_.gen_cfg,
+                    mem_object_store_2=mcf_.int_cfg.mem_object_store_2,
+                    ray_err_txt='Ray initialisation error in fairness adjustment of IATEs.',
+                    )
+                if not ray_is_running:
+                    mp_parallel = 1
+
         if mp_parallel < 1.5:
-            for row_no in range(n_x):
+            row_iter = range(n_x)
+            if use_tqdm:
+                row_iter = tqdm(row_iter, total=n_x, desc='Fair IATE')
+            for row_no in row_iter:
                 blind_pol_score_df.iloc[row_no] = ate_for_blinded(
                     mcf_, row_no, data_reference_df, data_not_blind_df,
                     no_of_treat=no_of_treat, ate_np=blind_ate_np,
                     )
-                mcf_gp.progress_clean_memory(output=with_output, clean_mem=False,
-                                             current_idx=row_no, total=n_x,
+                mcf_gp.progress_clean_memory(output=output_clean, clean_mem=False,
+                                             current_idx=row_no + 1, total=n_x,
                                              )
         else:
             ray_err_txt='Ray initialisation error in fairness adjustment of IATEs.'
             if mcf_.int_cfg.mp_use_old_ray:
-                if ray is None:
-                    raise ImportError('int_cfg.mp_use_old_ray=True, but ray is not installed. '
-                                      'Install ray or use the new backend with '
-                                      'mp_use_old_ray=False.'
-                                      )
-                if not ray.is_initialized():
-                    init_ray_with_fallback(mp_parallel, mcf_.gen_cfg,
-                                           mem_object_store_2=mcf_.int_cfg.mem_object_store_2,
-                                           ray_err_txt=ray_err_txt,
-                                           )
                 (data_reference_df_ref, data_not_blind_df_ref, blind_ate_np_ref
                  ) = ray_put_all(data_reference_df, data_not_blind_df, blind_ate_np)
 
@@ -122,14 +135,24 @@ def make_fair_iates(mcf_: 'ModifiedCausalForest',
                     ) for row_no in range(n_x)
                     ]
                 jdx = 0
-                while len(still_running) > 0:
-                    finished, still_running = ray.wait(still_running, num_returns=1)
-                    finished_res = ray.get(finished)
-                    for res in finished_res:
-                        iix = res[1]
-                        blind_pol_score_df.iloc[iix] = res[0]
-                        mcf_gp.progress_clean_memory(output=with_output, current_idx=jdx, total=n_x)
-                        jdx += 1
+                pbar = tqdm(total=n_x, desc='Fair IATE') if use_tqdm else None
+                try:
+                    while len(still_running) > 0:
+                        finished, still_running = ray.wait(still_running, num_returns=1)
+                        finished_res = ray.get(finished)
+                        for res in finished_res:
+                            iix = res[1]
+                            blind_pol_score_df.iloc[iix] = res[0]
+                            jdx += 1
+                            if pbar is not None:
+                                pbar.update()
+                            mcf_gp.progress_clean_memory(output=output_clean,
+                                                         current_idx=jdx,
+                                                         total=n_x,
+                                                         )
+                finally:
+                    if pbar is not None:
+                        pbar.close()
             else:
                 shared_fairness_data = {'data_reference_df': data_reference_df,
                                         'data_not_blind_df': data_not_blind_df,
@@ -154,18 +177,25 @@ def make_fair_iates(mcf_: 'ModifiedCausalForest',
                             for row_no in range(n_x)
                             ]
                     jdx = 0
-                    for res in map_task_batches(executor=executor, tasks=tasks,
-                                                int_cfg=mcf_.int_cfg, maxworkers=maxworkers,
-                                                min_worker_waves = (
-                                                    4 if mcf_.int_cfg.mp_backend == 'joblib' else 1
-                                                    ),
-                                                ):
+                    result_iter = map_task_batches(executor=executor, tasks=tasks,
+                                                   int_cfg=mcf_.int_cfg,
+                                                   maxworkers=maxworkers,
+                                                   min_worker_waves=
+                                                       (4 if mcf_.int_cfg.mp_backend == 'joblib'
+                                                        else 1
+                                                        ),
+                                                   )
+                    if use_tqdm:
+                        result_iter = tqdm(result_iter, total=n_x, desc='Fair IATE')
+
+                    for res in result_iter:
                         iix = res[1]
                         blind_pol_score_df.iloc[iix] = res[0]
-
                         jdx += 1
-                        mcf_gp.progress_clean_memory(output=with_output, current_idx=jdx, total=n_x)
-
+                        mcf_gp.progress_clean_memory(output=output_clean,
+                                                     current_idx=jdx,
+                                                     total=n_x
+                                                     )
         potout_dic[polscore_labels_dic[-1]] = blind_pol_score_df
 
     # 4. Linear combinations (falls weights nicht nur 0,1)

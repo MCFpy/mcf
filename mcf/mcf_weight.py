@@ -19,7 +19,7 @@ from pandas import DataFrame
 from scipy import sparse
 try:
     import ray
-except ImportError:
+except (ImportError, OSError):
     ray = None
 try:
     from tqdm.auto import tqdm
@@ -84,7 +84,20 @@ def get_weights_mp(data_df: DataFrame,
                 len(forest_dic['y_train_df']) * len(data_df) / cf_cfg.folds / (base_dim ** 2)
                 )
         int_cfg.weight_as_sparse_splits = max(int_cfg.weight_as_sparse_splits, 1)
-    x_dat_all = mcf_gp.to_numpy_big_data(data_df[var_cfg.x_name], int_cfg.obs_bigdata)
+    # Preserve split-variable precision independently of prediction chunk size.
+    x_dat_all = data_df[var_cfg.x_name].to_numpy(copy=True)
+    if p_cfg.bt_yes:
+        balance_data = forest_dic['x_bala_df']
+        balance_names = var_cfg.x_name_balance_test
+        missing = [name for name in balance_names
+                   if balance_data is None or name not in balance_data.columns]
+        if missing:
+            raise ValueError('Balancing variables are unavailable in the saved training data: '
+                             f'{", ".join(missing)}. Retrain with these covariates retained.')
+        if balance_data is None:
+            raise ValueError('No balancing data were saved. Retrain with p_bt_yes=True.')
+        forest_dic = forest_dic.copy()
+        forest_dic['x_bala_df'] = balance_data.loc[:, balance_names]
 
     kw_args_w_inner = {'cf_cfg': deepcopy(cf_cfg), 'ct_cfg': ct_cfg, 'gen_cfg': gen_cfg,
                        'int_cfg': int_cfg, 'p_cfg': p_cfg, 'with_output': with_output,
@@ -93,7 +106,7 @@ def get_weights_mp(data_df: DataFrame,
                        }
     if int_cfg.weight_as_sparse_splits == 1 or not int_cfg.weight_as_sparse:
         (weights, y_dat, x_bala, cl_dat, w_dat, prog_dat, prop_dat, x_ba_dat, d_dat_train,
-         x_dat_train,) = get_weights_mp_inner(forest_dic, x_dat_all, **kw_args_w_inner)
+         tv_x_dat_train,) = get_weights_mp_inner(forest_dic, x_dat_all, **kw_args_w_inner)
     else:
         unique_str = str(int(round(time() * 10000000)))
         temp_weight_name = 'temp_weights' + unique_str
@@ -118,10 +131,10 @@ def get_weights_mp(data_df: DataFrame,
                 no_x_bala_return = False
 
             (weights_i, y_dat, x_bala, cl_dat, w_dat, prog_dat, prop_dat, x_ba_dat, d_dat_train,
-             x_dat_train,) = get_weights_mp_inner(forest_dic, x_dat,
-                                                  **kw_args_w_inner,
-                                                  no_x_bala_return=no_x_bala_return,
-                                                  )
+             tv_x_dat_train,) = get_weights_mp_inner(forest_dic, x_dat,
+                                                     **kw_args_w_inner,
+                                                     no_x_bala_return=no_x_bala_return,
+                                                     )
             if print_yes:
                 print('\nComputing weight matrix (inner loop) took '
                       f'{int(round((time() - time1) / 60))} minutes.'
@@ -182,7 +195,7 @@ def get_weights_mp(data_df: DataFrame,
     return ({'weights': weights,
             'y_dat_np': y_dat, 'x_bala_np': x_bala, 'cl_dat_np': cl_dat, 'w_dat_np': w_dat,
             'prog_dat_np': prog_dat, 'prop_dat_np': prop_dat,
-            'x_ba_dat': x_ba_dat, 'd_dat': d_dat_train, 'x_tv_dat': x_dat_train,
+            'x_ba_dat': x_ba_dat, 'd_dat': d_dat_train, 'x_tv_df': tv_x_dat_train,
             },
             time() - start_time,
             )
@@ -202,7 +215,7 @@ def get_weights_mp_inner(forest_dic: dict,
                                     NDArray[Any] | None, NDArray[Any] | None,
                                     NDArray[Any] | None, NDArray[Any] | None,
                                     NDArray[Any] | None, NDArray[Any] | None,
-                                    NDArray[Any] | None, NDArray[Any] | None,
+                                    NDArray[Any] | None, DataFrame | None,
                                     ]:
     """Get weights for obs in pred_data & outcome and cluster from y_data.
 
@@ -217,6 +230,7 @@ def get_weights_mp_inner(forest_dic: dict,
     p_cfg : PCfg dataclass. Parameters.
     no_x_bala_return: Bool. Do not return X for balancing tests despite
                             p_cfg.bt_yes being True. Default is False.
+    ...
 
     Returns
     -------
@@ -229,42 +243,48 @@ def get_weights_mp_inner(forest_dic: dict,
     prop_dat : N_y x number of treatments-1 Numpy array. Propensity score.
     x_ba_dat : N_y x number of variables in bias adjustment Numpy array.
     d_dat: N_y x 2 Numpy array or None. Treatment info with subtreatments
-    x_dat: N_y x 2 Numpy array or None. X for subtreatment regressions.
+    x_tv_dat_df: N_y x 2 DataFrame or None. X for subtreatment regressions.
     """
+    # Local dictionaries; do not copy or modify the underlying tree arrays and lists.
+    forest_dic = forest_dic.copy()
+    forest_dic['forest'] = [tree.copy() for tree in forest_dic['forest']]
+    for tree in forest_dic['forest']:
+        tree['_lookup_categorical'] = any(cat > 0.5 for cat in tree['cats_prime'])
+
     print_yes = gen_cfg.with_output and gen_cfg.verbose and with_output
     progress = print_yes and print_progress
     use_tqdm, output_clean = mcf_gp.tqdm_setup(tqdm, progress)
     y_dat = mcf_gp.to_numpy_big_data(forest_dic['y_train_df'], int_cfg.obs_bigdata)
 
-    d_dat = np.int32(np.round(forest_dic['d_train_df'].to_numpy(copy=True)))
+    d_dat = forest_dic['d_train_df'].to_numpy(copy=True)
+    if gen_cfg.d_type == 'discrete':
+        d_dat = np.int32(np.round(d_dat))
     if subtreatments:
         d_dat_export = d_dat.copy()
         d_dat = d_dat[:, 0]
-        x_dat_export = forest_dic['x_train_df']
     else:
-        d_dat_export = x_dat_export = None
+        d_dat_export = None
         if d_dat.shape[1] == 2:
             d_dat = d_dat[:, 0]
 
-    prog_dat = forest_dic['prog_dat_np']  # None if bias adj. is not used
-    prop_dat = forest_dic['prop_dat_np']  # None if bias adj. is not used
-    x_ba_dat = forest_dic['x_ba_dat_np']  # None if bias adj. is not used
+    x_tv_train_df = forest_dic['x_tv_train_df']  # None if treatment version is not used
+    prog_dat = forest_dic['prog_dat_np']         # None if bias adj. is not used
+    prop_dat = forest_dic['prop_dat_np']         # None if bias adj. is not used
+    x_ba_dat = forest_dic['x_ba_dat_np']         # None if bias adj. is not used
 
     # This ensures that treatments are integers
     treat_is_integer = d_dat.min() >= 0
-    # Check if treatment has values 0, 1, ..., number_of_treatments-1
+    # Check whether treatment labels are 0, 1, ..., T-1 in this exact order.
     if gen_cfg.d_type != 'continuous':
-        d_values_0_treatm1 = np.array_equal(np.sort(np.asarray(gen_cfg.d_values, dtype=np.intp)),
+        d_values_0_treatm1 = np.array_equal(np.asarray(gen_cfg.d_values),
                                             np.arange(len(gen_cfg.d_values))
                                             )
     else:
         d_values_0_treatm1 = False
 
     n_x, n_y = len(x_dat), len(y_dat)
-    cl_dat = (mcf_gp.to_numpy_big_data(forest_dic['cl_train_df'], int_cfg.obs_bigdata)
-              if p_cfg.cluster_std
-              else 0
-              )
+    # Cluster labels must not depend on the floating-point calculation precision.
+    cl_dat = forest_dic['cl_train_df'].to_numpy(copy=True) if p_cfg.cluster_std else 0
     w_dat = forest_dic['w_train_df'].to_numpy(copy=True) if gen_cfg.weighted else 0
     x_bala = 0
     if p_cfg.bt_yes and not no_x_bala_return:
@@ -282,6 +302,30 @@ def get_weights_mp_inner(forest_dic: dict,
         else:
             maxworkers = gen_cfg.mp_parallel
 
+    if maxworkers > 1 and int_cfg.mp_use_old_ray:
+        if ray is None:
+            raise ImportError('int_cfg.mp_use_old_ray=True, but ray is not installed. '
+                              'Install ray or use the new backend with '
+                              'mp_use_old_ray=False.'
+                              )
+
+        if not ray.is_initialized():
+            if int_cfg.mp_weights_type == 2:
+                mem_object_store = None
+                ray_err_txt = 'Ray does not start in weight estimation.'
+            else:
+                mem_object_store = int_cfg.mem_object_store_3
+                ray_err_txt = 'Ray does not start up in weight estimation 1'
+
+            ray_is_running, maxworkers = mcf_ray.init_ray_with_fallback(
+                maxworkers, gen_cfg,
+                mem_object_store=mem_object_store,
+                mem_object_store_2=int_cfg.mem_object_store_2,
+                ray_err_txt=ray_err_txt,
+                )
+            if not ray_is_running:
+                maxworkers = 1
+
     print_runtime_info(gen_cfg, int_cfg, maxworkers, txt_method='weight matrix')
 
     mp_over_boots = False if maxworkers == 1 else bool(int_cfg.mp_weights_type == 2)
@@ -296,7 +340,7 @@ def get_weights_mp_inner(forest_dic: dict,
         iterator_idx = range(n_x)
         if use_tqdm:
             iterator_idx = tqdm(iterator_idx, total=n_x, desc='Weights',
-                                leave=False, dynamic_ncols=True
+                                leave=False, dynamic_ncols=True,
                                 )
         for idx in iterator_idx:  # Iterate over i
             results_fut_idx = weights_obs_i(idx, n_y, forest_dic['forest'], x_dat, d_dat,
@@ -309,7 +353,7 @@ def get_weights_mp_inner(forest_dic: dict,
                 for d_idx in range(no_of_treat):
                     indices = results_fut_idx[1][d_idx][0]
                     weights_obs = results_fut_idx[1][d_idx][1]
-                    weights[d_idx][idx, indices] = weights_obs
+                    weights[d_idx].set_row(idx, indices, weights_obs)
             else:
                 weights[idx] = results_fut_idx[1]
             empty_leaf_counter += results_fut_idx[2]
@@ -423,24 +467,9 @@ def get_weights_mp_inner(forest_dic: dict,
                             for idx, val_list in enumerate(results_fut_idx[0]):
                                 if int_cfg.weight_as_sparse:
                                     for d_idx in range(no_of_treat):
-                                        # indices = results_fut_idx[1][idx][d_idx][0]
-                                        # weights_obs = results_fut_idx[1][idx][d_idx][1]
-                                        # idx_resized = np.resize( indices, (len(indices), 1))
-                                        # weights[d_idx][val_list, idx_resized] = weights_obs
                                         indices = results_fut_idx[1][idx][d_idx][0]
                                         weights_obs = results_fut_idx[1][idx][d_idx][1]
-
-                                        cols = np.asarray(indices, dtype=np.intp).ravel()
-                                        vals = np.asarray(weights_obs, dtype=np.float32).ravel()
-
-                                        if cols.size != vals.size:
-                                            raise RuntimeError('Weight reconstruction mismatch: '
-                                                               f'row={int(val_list)}, '
-                                                               f'treatment={d_idx}, '
-                                                               f'cols={cols.size}, vals={vals.size}'
-                                                               )
-                                        if cols.size:
-                                            weights[d_idx][int(val_list), cols] = vals
+                                        weights[d_idx].set_row(int(val_list), indices, weights_obs)
                                 else:
                                     weights[val_list] = results_fut_idx[1][idx]
                             empty_leaf_counter += results_fut_idx[2]
@@ -507,24 +536,9 @@ def get_weights_mp_inner(forest_dic: dict,
                             for idx, val_list in enumerate(results_fut_idx[0]):
                                 if int_cfg.weight_as_sparse:
                                     for d_idx in range(no_of_treat):
-                                        # indices = results_fut_idx[1][idx][d_idx][0]
-                                        # weights_obs = results_fut_idx[1][idx][d_idx][1]
-                                        # idx_resized = np.resize(indices, (len(indices), 1))
-                                        # weights[d_idx][val_list, idx_resized] = weights_obs
                                         indices = results_fut_idx[1][idx][d_idx][0]
                                         weights_obs = results_fut_idx[1][idx][d_idx][1]
-
-                                        cols = np.asarray(indices, dtype=np.intp).ravel()
-                                        vals = np.asarray(weights_obs, dtype=np.float32).ravel()
-
-                                        if cols.size != vals.size:
-                                            raise RuntimeError('Weight reconstruction mismatch: '
-                                                               f'row={int(val_list)}, '
-                                                               f'treatment={d_idx}, '
-                                                               f'cols={cols.size}, vals={vals.size}'
-                                                               )
-                                        if cols.size:
-                                            weights[d_idx][int(val_list), cols] = vals
+                                        weights[d_idx].set_row(int(val_list), indices, weights_obs)
                                 else:
                                     weights[val_list] = results_fut_idx[1][idx]
 
@@ -571,7 +585,7 @@ def get_weights_mp_inner(forest_dic: dict,
         mcf_ps.print_mcf(gen_cfg, txt, summary=True)
 
     return (weights, y_dat, x_bala, cl_dat, w_dat, prog_dat, prop_dat, x_ba_dat, d_dat_export,
-            x_dat_export,
+            x_tv_train_df,
             )
 
 
@@ -606,7 +620,7 @@ def normalize_weights(weights: list,
 
 
 def normal_weights_sparse_loop(weights: sparse.csr_matrix, n_x: int) -> sparse.csr_matrix:
-    """Normalize sparse weight matrix (which is the heavy duty case."""
+    """Normalize sparse weight matrix (which is the heavy duty case)."""
     row_sum = 1 / weights.sum(axis=1)
     for i in range(n_x):
         weights[i, :] = weights[i, :].multiply(row_sum[i])
@@ -615,17 +629,91 @@ def normal_weights_sparse_loop(weights: sparse.csr_matrix, n_x: int) -> sparse.c
     return weights
 
 
-def normal_weights_sparse(weights: sparse.csr_matrix, n_x: int) -> sparse.csr_matrix:
-    """Normalize sparse weight matrix (which is the heavy duty case."""
-    row_sum_inv = 1 / weights.sum(axis=1)
-    # Create a diagonal matrix with the reciprocals of row sums
-    diag_matrix = sparse.csr_array((row_sum_inv.toarray().ravel(), (range(n_x), range(n_x))))
-    # Multiply the original sparse matrix by the diagonal matrix
-    normalized_weights = weights @ diag_matrix
-    # Convert to float32
-    normalized_weights = normalized_weights.astype(np.float32, casting='same_kind')
+def normal_weights_sparse(weights: sparse.csr_matrix,
+                          n_x: int
+                          ) -> sparse.csr_matrix:
+    """Normalize rows of sparse weight matrix."""
+    normalized_weights = weights.astype(np.float32,
+                                         casting='same_kind',
+                                         copy=True)
+    row_sum = np.asarray(normalized_weights.sum(axis=1)).ravel()
+    row_sum_inv = np.zeros(n_x, dtype=np.float32)
+    np.divide(1.0, row_sum, out=row_sum_inv, where=row_sum != 0)  # In-place division
+
+    normalized_weights.data *= np.repeat(row_sum_inv, np.diff(normalized_weights.indptr))
 
     return normalized_weights
+
+
+class _SparseWeightBuilder:
+    """Collect complete, sorted weight rows and consume them into one CSR array."""
+
+    __slots__ = ('n_x', 'n_y', 'rows')
+
+    def __init__(self, n_x: int, n_y: int) -> None:
+        if n_x < 0 or n_y < 0:
+            raise ValueError('Weight-matrix dimensions must be nonnegative.')
+        self.n_x, self.n_y = n_x, n_y
+        self.rows: list[tuple[NDArray[Any], NDArray[Any]] | None] | None = [None] * n_x
+
+    def set_row(self, row_idx: int, indices: NDArray[Any], values: NDArray[Any]) -> None:
+        """Copy one complete row; column indices must be sorted and unique."""
+        if self.rows is None:
+            raise RuntimeError('This weight builder has already been converted to CSR.')
+        if not 0 <= row_idx < self.n_x:
+            raise IndexError(f'Weight row {row_idx} is outside the prediction sample.')
+
+        cols = np.asarray(indices).reshape(-1)
+        vals = np.asarray(values, dtype=np.float32).reshape(-1)
+        if cols.size != vals.size:
+            raise RuntimeError(f'Weight reconstruction mismatch: row={row_idx}, '
+                               f'cols={cols.size}, vals={vals.size}'
+                               )
+        if cols.size:
+            if cols.dtype.kind not in 'iu':
+                raise TypeError('Weight column indices must have an integer dtype.')
+            if (cols[0] < 0 or cols[-1] >= self.n_y
+                    or np.any(cols[1:] <= cols[:-1])):
+                raise ValueError('Weight column indices must be in range, sorted and unique.')
+
+        # LIL assignment discards exact zeros after conversion to float32.
+        nonzero = vals != 0
+        index_dtype = np.int32 if self.n_y <= np.iinfo(np.int32).max else np.int64
+        if nonzero.all():
+            cols = cols.astype(index_dtype, copy=True)
+            vals = vals.copy()
+        else:
+            cols = cols[nonzero].astype(index_dtype, copy=False)
+            vals = vals[nonzero]
+        self.rows[row_idx] = (cols, vals) if cols.size else None
+
+    def to_csr(self) -> sparse.csr_array:
+        """Build CSR without numerical aggregation, releasing copied rows as they are written."""
+        if self.rows is None:
+            raise RuntimeError('This weight builder has already been converted to CSR.')
+
+        indptr = np.empty(self.n_x + 1, dtype=np.int64)
+        indptr[0] = 0
+        for row_idx, row in enumerate(self.rows):
+            indptr[row_idx + 1] = 0 if row is None else row[0].size
+        np.cumsum(indptr, out=indptr)
+        nnz = int(indptr[-1])
+
+        index_dtype = (np.int32 if max(self.n_x, self.n_y, nnz) <= np.iinfo(np.int32).max
+                       else np.int64
+                       )
+        indptr = indptr.astype(index_dtype, copy=False)
+        indices = np.empty(nnz, dtype=index_dtype)
+        data = np.empty(nnz, dtype=np.float32)
+        for row_idx, row in enumerate(self.rows):
+            if row is not None:
+                start, stop = indptr[row_idx], indptr[row_idx + 1]
+                indices[start:stop] = row[0]
+                data[start:stop] = row[1]
+                self.rows[row_idx] = None
+        self.rows = None
+
+        return sparse.csr_array((data, indices, indptr), shape=(self.n_x, self.n_y), copy=False)
 
 
 def initialise_weights(n_x: int, n_y: int, no_of_treat: int, weight_as_sparse: bool,) -> list[Any]:
@@ -633,7 +721,7 @@ def initialise_weights(n_x: int, n_y: int, no_of_treat: int, weight_as_sparse: b
     if weight_as_sparse:
         weights = []
         for _ in range(no_of_treat):
-            weights.append(sparse.lil_array((n_x, n_y), dtype=np.float32))
+            weights.append(_SparseWeightBuilder(n_x, n_y))
     else:
         weights = [None for _ in range(n_x)]
 
@@ -691,18 +779,6 @@ def weights_obs_i(idx: int,
         no_of_treat, d_values = gen_cfg.no_of_treat, gen_cfg.d_values
         continuous = False
 
-    # Allocate weight matrix
-    # dtype = np.float32 if bigdata_train else np.float64
-    # weights_i_np = np.zeros((n_y, no_of_treat + 1), dtype=dtype)
-
-    # weights_i = [None for _ in range(no_of_treat)]  # 1 list for each treatment
-    # weights_i_np[:, 0] = np.arange(n_y)  # weight for index of outcomes
-    # x_dat_i = x_dat[idx, :]
-
-    # # weight_with_triplet should be much faster, but funtion for cont. treat
-    # # not yet adjusted
-    # weight_with_triplet = not continuous
-
     x_dat_i = x_dat[idx, :]
 
     weight_with_triplet = not continuous
@@ -713,8 +789,8 @@ def weights_obs_i(idx: int,
         vals_parts: list[NDArray[np.floating]] = []
     else:
         dtype = np.float32 if bigdata_train else np.float64
-        weights_i_np = np.zeros((n_y, no_of_treat + 1), dtype=dtype)
-        weights_i_np[:, 0] = np.arange(n_y)
+        # Row positions identify outcomes; store only treatment weights.
+        weights_i_np = np.zeros((n_y, no_of_treat), dtype=dtype)
         buffer = np.zeros((n_y, no_of_treat), dtype=dtype)
 
     kw_args = {'n_y': n_y, 'no_of_treat': no_of_treat, 'd_values': d_values,
@@ -776,7 +852,7 @@ def weights_obs_i(idx: int,
                         if result[1]:
                             empty_leaf_counter += 1
                         else:
-                            weights_i_np[:, 1:] += result[0]
+                            weights_i_np += result[0]
         else:
             shared_weight_estimation_data = {'d_dat': d_dat}
 
@@ -827,7 +903,7 @@ def weights_obs_i(idx: int,
                         if result[1]:
                             empty_leaf_counter += 1
                         else:
-                            weights_i_np[:, 1:] += result[0]
+                            weights_i_np += result[0]
 
     else:
         # This is the default branch
@@ -856,7 +932,7 @@ def weights_obs_i(idx: int,
                 if empty_leaf:
                     empty_leaf_counter += 1
                 else:
-                    weights_i_np[:, 1:] += weights_ij_np
+                    weights_i_np += weights_ij_np
 
     obs_without_leaf = 1 if empty_leaf_counter == cf_cfg.boot else 0
     normalize = not split_forest
@@ -1052,7 +1128,7 @@ def weights_obs_i_inside_boot_treat_cont(forest_b: dict, *,
     # may be identical, but this does not matter
     for treat in d_values[1:]:
         x_dat_i_t = np.append(x_dat_i, treat)
-        leaf_id = mcf_fo_add.get_terminal_leaf_no(forest_b, x_dat_i_t, zero_tol=zero_tol,)
+        leaf_id = mcf_fo_add.get_terminal_leaf_no(forest_b, x_dat_i_t)
         leaf_id_list.append(leaf_id)
         if fill_y_empty_leave[leaf_id] == 1 or fill_y_indices_list[leaf_id] is None:
             empty_leaf, weights_ij_np = True, 0
@@ -1115,12 +1191,11 @@ def weights_obs_i_inside_boot_treat_disc_triplets(forest_b: dict,
     dtype_float = np.float32 if bigdata_train else np.float64
     if not d_values_0_treatm1:
         d_dat = encode_treatments(d_dat, d_values, zero_tol=zero_tol)
-        d_values = np.arange(no_of_treat)        # now canonical
 
     empty_flags = forest_b['fill_y_empty_leave']
     inds_list = forest_b['fill_y_indices_list']
 
-    leaf_id = mcf_fo_add.get_terminal_leaf_no(forest_b, x_dat_i, zero_tol=zero_tol,)
+    leaf_id = mcf_fo_add.get_terminal_leaf_no(forest_b, x_dat_i)
     leaf_inds = inds_list[leaf_id]
     if empty_flags[leaf_id] == 1 or leaf_inds is None:
         return (np.empty(0, dtype=np.intp), np.empty(0, dtype=np.intp),
@@ -1161,18 +1236,17 @@ def weights_obs_i_inside_boot_treat_disc(forest_b: dict, *,
     # This function is used in the default computations.
     if not d_values_0_treatm1:
         d_dat = encode_treatments(d_dat, d_values, zero_tol=zero_tol)
-        d_values = np.arange(no_of_treat)        # now canonical
         treat_is_integer = True                  # safe from now on
     empty_flags = forest_b['fill_y_empty_leave']
     inds_list = forest_b['fill_y_indices_list']
 
-    leaf_id = mcf_fo_add.get_terminal_leaf_no(forest_b, x_dat_i, zero_tol=zero_tol,)
+    leaf_id = mcf_fo_add.get_terminal_leaf_no(forest_b, x_dat_i)
     leaf_inds = inds_list[leaf_id]
     if empty_flags[leaf_id] == 1 or leaf_inds is None:
         return 0, True
 
-    leaf_inds = np.asarray(leaf_inds, dtype=np.intp)  # 23.10.2025
-    if leaf_inds.size == 0:                           # 23.10.2025
+    leaf_inds = np.asarray(leaf_inds, dtype=np.intp)
+    if leaf_inds.size == 0:
         return 0, True
 
     # 1) pull out the raw treatment slice
@@ -1215,37 +1289,35 @@ def weights_obs_i_inside_boot_treat_disc(forest_b: dict, *,
 def final_trans(weights_i_np: NDArray[Any],
                 no_of_treat: int,
                 normalize: bool = True
-                ) -> list[NDArray[Any], NDArray[Any]]:
+                ) -> list[list[NDArray[Any]]]:
     """
     Compute last transformations of (positive only) weights.
 
     Returns a list of (indices, weights) pairs for each treatment.
+    Row positions identify observations in the forest's outcome sample.
 
     Parameters
     ----------
-    weights_i_np : 2D Numpy array. Weights including zeros.
+    weights_i_np : 2D Numpy array. One column per treatment, without an index column.
     no_of_treat : Int. Number of treatments.
-    normalize : Bool. Normalize weights to row sum of 1. Default is True.
+    normalize : Bool. Normalize each treatment's weights to sum to 1. Default is True.
 
     Returns
     -------
     weights_i: List of arrays.
     """
-    # 1) pull out the “global” row-indices (first column)
-    idx_col = weights_i_np[:, 0].astype(np.int32)
+    if weights_i_np.ndim != 2 or weights_i_np.shape[1] != no_of_treat:
+        raise ValueError('weights_i_np must have one column per treatment and no index column.')
 
-    # 2) grab just the treatment weight columns
-    w_cols = weights_i_np[:, 1: 1 + no_of_treat]
+    index_dtype = np.int32 if weights_i_np.shape[0] - 1 <= np.iinfo(np.int32).max else np.int64
+    weights_i: list[list[NDArray[Any]]] = []
 
-    weights_i: list[list[np.ndarray]] = []
-
-    # 3) per-treatment processing (no_of_treat is small)
     for j in range(no_of_treat):
-        col = w_cols[:, j]
+        col = weights_i_np[:, j]
         mask = col > 1e-14
+        sel_idx = np.flatnonzero(mask).astype(index_dtype, copy=False)
 
-        if mask.any():
-            sel_idx = idx_col[mask]
+        if sel_idx.size:
             sel_w = col[mask]
             if normalize:
                 total = sel_w.sum()
@@ -1253,7 +1325,6 @@ def final_trans(weights_i_np: NDArray[Any],
                     sel_w = sel_w / total
             sel_w = sel_w.astype(np.float32)
         else:
-            sel_idx = np.empty(0, dtype=np.int32)
             sel_w = np.empty(0, dtype=np.float32)
 
         weights_i.append([sel_idx, sel_w])
@@ -1277,7 +1348,6 @@ def final_trans_from_triplets(rows_parts: list[NDArray[np.integer]],
         return [[np.empty(0, dtype=np.int32), np.empty(0, dtype=np.float32)]
                 for _ in range(no_of_treat)
                 ]
-
     rows = np.concatenate(rows_parts).astype(np.int64, copy=False)
     cols = np.concatenate(cols_parts).astype(np.int64, copy=False)
     vals = np.concatenate(vals_parts).astype(np.float64, copy=False)
@@ -1298,24 +1368,31 @@ def final_trans_from_triplets(rows_parts: list[NDArray[np.integer]],
         raise RuntimeError(f'Triplet treatment index out of range: '
                            f'min={cols.min()}, max={cols.max()}, no_of_treat={no_of_treat}'
                            )
-    key = cols * int(n_y) + rows
+    # Reuse the local concatenated columns; no input part is modified.
+    key = cols
+    key *= int(n_y)
+    key += rows
+    del rows, cols
 
     unique_key, inverse = np.unique(key, return_inverse=True)
+    del key
     summed_vals = np.bincount(inverse, weights=vals)
+    del inverse, vals
 
     keep = np.abs(summed_vals) > zero_tol
     unique_key = unique_key[keep]
     summed_vals = summed_vals[keep]
 
-    unique_cols = unique_key // int(n_y)
-    unique_rows = unique_key % int(n_y)
-
+    del keep
     weights_i: list[list[NDArray[Any]]] = []
+    start = 0
 
+    # Sorted keys put each treatment's outcome indices in one contiguous slice.
     for t_idx in range(no_of_treat):
-        mask = unique_cols == t_idx
-        sel_idx = unique_rows[mask].astype(np.int32, copy=False)
-        sel_w = summed_vals[mask]
+        stop = int(np.searchsorted(unique_key, (t_idx + 1) * int(n_y)))
+        sel_idx = (unique_key[start:stop] - t_idx * int(n_y)).astype(np.int32, copy=False)
+        sel_w = summed_vals[start:stop]
+        start = stop
 
         if normalize and sel_w.size:
             total = sel_w.sum()
@@ -1327,12 +1404,11 @@ def final_trans_from_triplets(rows_parts: list[NDArray[np.integer]],
     return weights_i
 
 
-def weights_to_csr(weights: list[sparse.lil_matrix], no_of_treat: int) -> sparse.csr_matrix:
-    """Convert list of lil sparse matrices to csr format."""
-    for d_idx in range(no_of_treat):
-        weights[d_idx] = weights[d_idx].tocsr()
-
-    return weights
+def weights_to_csr(weights: list[_SparseWeightBuilder],
+                   no_of_treat: int,
+                   ) -> list[sparse.csr_array]:
+    """Consume the row builders into CSR arrays, one treatment at a time."""
+    return [weights[d_idx].to_csr() for d_idx in range(no_of_treat)]
 
 
 # @ray.remote
@@ -1427,16 +1503,17 @@ def encode_treatments(d_dat: NDArray[np.floating | np.integer],
 
     raw = np.asarray(d_dat).ravel()
     pos = np.searchsorted(dv_sorted, raw)
+    pos_clip = np.minimum(pos, dvsize - 1)
 
-    in_range = (pos < dvsize) & (np.isclose(dv_sorted[pos], raw, atol=zero_tol, rtol=zero_tol))
+    in_range = ((pos < dvsize)
+                & np.isclose(dv_sorted[pos_clip], raw, atol=zero_tol, rtol=zero_tol)
+                )
     if not in_range.all():
         bad = np.unique(raw[~in_range])
         raise ValueError(f'Unknown treatment label(s) in d_dat: {bad!r}')
 
-    inv_order = np.empty_like(order)
-    inv_order[order] = np.arange(dvsize)
-
-    codes = inv_order[pos].astype(np.intp, copy=False)
+    # Map positions in the sorted labels back to the original treatment order.
+    codes = order[pos].astype(np.intp, copy=False)
 
     return codes.reshape(np.shape(d_dat))
 

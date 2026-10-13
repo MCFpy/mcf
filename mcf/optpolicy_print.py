@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING
 from mcf.mcf_print_stats import print_mcf, string_dc
 
 if TYPE_CHECKING:
-    from mcf.optpolicy_main import OptimalPolicyVersion
+    from mcf.optpolicy_main import OptimalPolicyVersions
     from mcf.mcf_init import GenCfg
 
 
-def print_dic_values_all_optp_version(optpv_: 'OptimalPolicyVersion',
+def print_dic_values_all_optp_version(optpv_: 'OptimalPolicyVersions',
                                       gen_cfg: 'GenCfg',
                                       summary_dic: bool = False,
                                       line_length: int = 100,
@@ -28,7 +28,7 @@ def print_dic_values_all_optp_version(optpv_: 'OptimalPolicyVersion',
     print_dic_values_optpversion(optpv_, gen_cfg, summary=summary_dic)
 
 
-def print_dic_values_optpversion(optp_: 'OptimalPolicyVersion',
+def print_dic_values_optpversion(optp_: 'OptimalPolicyVersions',
                                  gen_cfg: 'GenCfg',
                                  summary: bool = False,
                                  ) -> None:

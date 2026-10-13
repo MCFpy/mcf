@@ -10,16 +10,14 @@ Michael Lechner & SEW Causal Machine Learning Team
 Swiss Institute for Empirical Economics Research
 University of St. Gallen, Switzerland
 
-Version: 0.10.0
+Version: 0.11.0
 
-This is an example to show how the qiates of mcf can be computed relying
-on defaults for parameters not related to QIATE estimation. Note that usually in
-applications it is very likely to be appropriate to deviate from some of the
-default specifications.
+Estimate QIATEs, their standard errors and differences across quantiles.
+QIATEs require discrete treatments, full-weight prediction and no bias adjustment
+or treatment versions. Other estimation settings use API defaults.
 
 """
 from pathlib import Path
-import warnings
 
 from mcf.example_data import example_data
 from mcf.mcf_main import ModifiedCausalForest
@@ -40,7 +38,6 @@ training_df, prediction_df, name_dict = example_data(no_treatments=2,
 # ------------------ Parameters of the ModifiedCausalForest -------------------
 
 VAR_D_NAME = name_dict['d_name']          # Name of treatment variable
-#   Note: Currently, treatment variables are restricted to be binary (IV only)
 
 VAR_Y_NAME = name_dict['y_name']          # Name of outcome variable
 
@@ -48,35 +45,29 @@ VAR_X_NAME_ORD = name_dict['x_name_ord']
 
 VAR_X_NAME_UNORD = name_dict['x_name_unord']
 
-VAR_IV_NAME = name_dict['inst_bin_name']  # Name of instrumental variable
-
-#   Estimation of QIATEs and their standard errors
-P_QIATE = True         # True: QIATEs will be estimated. If True, p_iate will
-#   always be set to True. Default is False.
-P_QIATE_SE = True      # True: SE(QIATE) will be estimated. Default is False.
-#   Estimating IATEs and their standard errors may be time consuming
-P_QIATE_M_MQIATE = True      # True: QIATE(x) - median(IATE(x)) is estimated,
-#   including inference if p_qiate_se == True. Increaes computation time.
-#   Default is False.
-P_QIATE_M_OPP = True      # True: QIATE(x, q) - QIATE(x, 1-q) is estimated,
-#   including inference if p_qiate_se == True. Increaes computation time.
-#   Default is False.
-P_QIATE_NO_OF_QUANTILES = None   # Number of quantiles for which QIATEs are
-#   computed. Default is 99.
-P_QIATE_SMOOTH = None           # True: Smooth estimated QIATEs using kernel
-#   smoothing. Default is True.
-P_QIATE_SMOOTH_BANDWIDTH = None  # Multiplier applied to default bandwidth
-#   used for kernel smoothing of QIATE. Default is 1
-P_QIATE_BIAS_ADJUST = None       # Bias correction procedure for QIATEs.
-#   (see Kutz and Lechner, 2025, for details). Default (or None) is False.
-#   If P_QIATE_BIAS_ADJUST is True, P_IATE_SE is set to True as well.
+# QIATE estimation also enables IATE computation. Default False.
+P_QIATE = True
+# QIATE standard errors also enable IATE standard errors; this alone does not enable QIATEs.
+P_QIATE_SE = True
+# QIATE(q) - QIATE(0.5), with standard errors when P_QIATE_SE=True. Default False.
+# The median reference is computed separately when absent from the quantile grid.
+P_QIATE_M_MQIATE = True
+# QIATE(q) - QIATE(1 - q), on both sides of the median. Default False.
+P_QIATE_M_OPP = True
+# Number Q of midpoint quantiles (j + 0.5) / Q, j=0,...,Q-1. Default 99; minimum 10.
+P_QIATE_NO_OF_QUANTILES = None
+# Smooth forest weights over fractional IATE ranks with an Epanechnikov kernel.
+# Default True; False selects the observation nearest the requested rank.
+P_QIATE_SMOOTH = None
+# Multiplier of the rank-smoothing bandwidth. Default 1.
+P_QIATE_SMOOTH_BANDWIDTH = None
+# Adjust IATE ranks using normal quantiles and IATE standard errors. Default False.
+# True also enables IATE standard errors; it does not change the reported IATE estimates.
+P_QIATE_BIAS_ADJUST = None
 
 # -----------------------------------------------------------------------------
-if not APPLIC_PATH.exists():
-    APPLIC_PATH.mkdir(parents=True)
+APPLIC_PATH.mkdir(parents=True, exist_ok=True)
 
-# Modules may send many irrelevant warnings: Globally ignore them
-warnings.filterwarnings('ignore')
 # -----------------------------------------------------------------------------
 mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
                              var_d_name=VAR_D_NAME,
@@ -96,15 +87,16 @@ mymcf = ModifiedCausalForest(gen_outpath=APPLIC_PATH,
                              _int_low_memory_predict=False,
                              )
 
-mymcf.train(training_df)  # Returns not used here
+mymcf.train(training_df)  # The returned training dictionary is not needed here.
 results = mymcf.predict(prediction_df)
 
-results_with_cluster_id_df = mymcf.analyse(results)
+# analyse() describes IATEs and returns a dictionary with k-means labels by default.
+results_with_clusters = mymcf.analyse(results)
 
-my_report = McfOptPolReport(mcf=mymcf)
+my_report = McfOptPolReport(mcf=mymcf, outputpath=results['path_output'])
 
 my_report.report()
 
-print('End of computations.\n\nThanks for using ModifiedCausalForest (IV).'
+print('End of computations.\n\nThanks for using ModifiedCausalForest (QIATE).'
       ' \n\nYours sincerely\nMCF \U0001F600'
       )

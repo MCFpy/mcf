@@ -4,8 +4,8 @@ Contains the functions needed for local centering.
 @author: MLechner
 -*- coding: utf-8 -*-
 """
-from copy import deepcopy
-from typing import Any, TYPE_CHECKING
+from copy import copy, deepcopy
+from typing import Any, Literal, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
@@ -31,12 +31,35 @@ def local_centering(mcf_: 'ModifiedCausalForest',
                     fill_y_df: pd.DataFrame | None = None,
                     train: bool = True,
                     seed: int = 9324561,
-                    title: str = ''
-                    ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, str]:
-    """Locally center all outcome variables."""
+                    title: str = '',
+                    prepare_additional: bool = True,
+                    prediction_round: Literal['regular', 'additional'] = 'regular',
+                    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None,
+                               pd.DataFrame | None, str | None]:
+    """Center outcomes using the construction sample of each estimation round.
+
+    Cross-fitting prepares a second ensemble when the construction and filling samples will
+    be reversed. Auxiliary columns retain that round's residuals until forest construction.
+    With an independent nuisance holdout, both rounds use the same held-out fit. Prediction
+    uses the requested ensemble, with the regular ensemble as the legacy/holdout fallback.
+    """
     lc_cfg, gen_cfg, var_cfg = mcf_.lc_cfg, mcf_.gen_cfg, mcf_.var_cfg
     var_x_type, data_train_dict = mcf_.var_x_type, mcf_.data_train_dict
     cf_cfg, int_cfg = mcf_.cf_cfg, mcf_.int_cfg
+    if prediction_round not in ('regular', 'additional'):
+        raise ValueError('Invalid local-centering prediction round.')
+    mcf_additional = None
+    if train:
+        lc_cfg.forests_additional = None
+        lc_cfg.additional_names = {}
+        if prepare_additional and gen_cfg.any_eff and fill_y_df is not None and lc_cfg.cs_cv:
+            if len(fill_y_df) < 2 or lc_cfg.cs_cv_k < 2:
+                raise ValueError('Reversed centering requires at least two observations and folds.')
+            # Copy only the configuration that local_centering modifies, before renaming outcomes.
+            mcf_additional = copy(mcf_)
+            mcf_additional.lc_cfg = copy(lc_cfg)
+            mcf_additional.var_cfg = deepcopy(var_cfg)
+            mcf_additional.lc_cfg.cs_cv_k = min(lc_cfg.cs_cv_k, len(fill_y_df))
     if gen_cfg.with_output:
         print_lc_header(gen_cfg, lc_cfg, title=title)
 
@@ -63,11 +86,15 @@ def local_centering(mcf_: 'ModifiedCausalForest',
                 fill_y_mcf_df, fill_y_lc_df = train_test_split(fill_y_df, test_size=lc_cfg.cs_share,
                                                                random_state=seed
                                                                )
-            data_lc_df = pd.concat((tree_lc_df.reset_index(drop=True),
-                                    fill_y_lc_df.reset_index(drop=True)),
-                                   axis=0,
-                                   )
+            if fill_y_lc_df is None:
+                data_lc_df = tree_lc_df.reset_index(drop=True)
+            else:
+                data_lc_df = pd.concat((tree_lc_df.reset_index(drop=True),
+                                        fill_y_lc_df.reset_index(drop=True)),
+                                       axis=0,
+                                       )
             x_lc_df, _ = mcf_data.get_x_data(data_lc_df, x_name)
+
         if fill_y_df is not None:
             x_fy_df, _ = mcf_data.get_x_data(fill_y_mcf_df, x_name)
     else:
@@ -107,9 +134,16 @@ def local_centering(mcf_: 'ModifiedCausalForest',
 
         y_tree_np = to_numpy_big_data(tree_mcf_df[var_cfg.y_name], int_cfg.obs_bigdata)
 
-        # Find best estimator for first outcome
+        # For reversed holdout estimation, selection must also exclude both forest samples.
+        x_select_np, y_select_np = x_tree_np, y_tree_np[:, 0].ravel()
+        if prepare_additional and gen_cfg.any_eff and fill_y_df is not None and not lc_cfg.cs_cv:
+            x_select_np = x_lc_np
+            y_select_np = to_numpy_big_data(data_lc_df[var_cfg.y_name[0]],
+                                             int_cfg.obs_bigdata,
+                                             ).ravel()
+        # Find best estimator for first outcome.
         estimator, params, txt_sel, _, transform_x, txt_mse = mcf_gf.best_regression(
-            x_tree_np,  y_tree_np[:, 0].ravel(), estimator=lc_cfg.estimator,
+            x_select_np, y_select_np, estimator=lc_cfg.estimator,
             boot=cf_cfg.boot, seed=seed, max_workers=max_workers, test_share=lc_cfg.cs_share,
             cross_validation_k=lc_cfg.cs_cv_k if lc_cfg.cs_cv else 0,
             obs_bigdata=int_cfg.obs_bigdata
@@ -268,13 +302,38 @@ def local_centering(mcf_: 'ModifiedCausalForest',
 
         mcf_.lc_cfg = lc_cfg
         mcf_.var_cfg = var_cfg
-        # ---------
+        if mcf_additional is not None:
+            # Start again from raw outcomes: B constructs, A fills the additional forest.
+            additional_tree_df, additional_fill_df, _, additional_txt = local_centering(
+                mcf_additional, fill_y_df, fill_y_df=tree_df, train=True, seed=seed,
+                title=(title + ' additional round').strip(), prepare_additional=False,
+                )
+            lc_cfg.forests_additional = mcf_additional.lc_cfg.forests
+            used_names = set(tree_add_y_lc_df.columns) | set(fill_add_y_lc_df.columns)
+            for name in (*y_cent_name, *y_x_name):
+                additional_name = name + '_additional'
+                while additional_name in used_names:
+                    additional_name += '_'
+                used_names.add(additional_name)
+                lc_cfg.additional_names[name] = additional_name
+                # All cross-fit outputs retain input row order and have reset indices.
+                tree_add_y_lc_df[additional_name] = additional_fill_df[name].to_numpy(copy=True)
+                fill_add_y_lc_df[additional_name] = additional_tree_df[name].to_numpy(copy=True)
+            if additional_txt is not None:
+                lc_r2_txt = ('Regular round: ' + (lc_r2_txt or '')
+                             + '\nAdditional round: ' + additional_txt
+                             )
     else:  # Predict Ey|X
         y_x_np = np.zeros((len(x_tree_np), len(var_cfg.y_name)), dtype=y_0_dtype)
-        if lc_cfg.forests == []:
+        forests = lc_cfg.forests
+        if prediction_round == 'additional':
+            additional_forests = getattr(lc_cfg, 'forests_additional', None)
+            if additional_forests is not None:
+                forests = additional_forests
+        if not forests:
             raise ValueError('Estimator used for centering was not saved for prediction.')
-        no_of_folds = len(lc_cfg.forests)
-        for forest in lc_cfg.forests:   # Loops over training folds
+        no_of_folds = len(forests)
+        for forest in forests:   # Loops over training folds
             for idx, forest_y in enumerate(forest):  # Loops over outcomes
                 scaler = forest_y[1]
                 x_tree_np_ = x_tree_np if scaler is None else scaler.transform(x_tree_np)
@@ -294,6 +353,32 @@ def local_centering(mcf_: 'ModifiedCausalForest',
         print_mememory_statistics(gen_cfg, 'Local centering: End')
 
     return tree_add_y_lc_df, fill_add_y_lc_df, y_x_df, lc_r2_txt
+
+
+def centering_data_for_round(mcf_: 'ModifiedCausalForest',
+                             data_df: pd.DataFrame, *,
+                             additional: bool,
+                             ) -> pd.DataFrame:
+    """Select the round's centered outcomes without changing columns used by the other round."""
+    if not additional or not mcf_.lc_cfg.yes:
+
+        return data_df
+    names = getattr(mcf_.lc_cfg, 'additional_names', {})
+
+    if not names:
+
+        return data_df
+    missing = [name for name in names.values() if name not in data_df.columns]
+
+    if missing:
+        raise ValueError(f'Missing additional-round centering columns: {missing}')
+
+    result = data_df.copy(deep=False)
+    for target, source in names.items():
+        # Whole-column replacement leaves the original frame's shared blocks untouched.
+        result[target] = data_df[source].to_numpy(copy=True)
+
+    return result
 
 
 def print_lc_header(gen_cfg: 'GenCfg', lc_cfg: 'LcCfg', title: str = '') -> None:

@@ -14,12 +14,15 @@ from numpy.typing import NDArray
 import pandas as pd
 try:
     import ray
-except ImportError:
+except (ImportError, OSError):
     ray = None
-
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, r2_score
+try:
+    from tqdm.auto import tqdm
+except ImportError:
+    tqdm = None
 
 from mcf import mcf_forest_add as mcf_fo_add
 from mcf import mcf_forest_data as mcf_data
@@ -99,6 +102,8 @@ def variable_importance(mcf_: 'ModifiedCausalForest',
             maxworkers = gen_cfg.mp_parallel
 
     print_runtime_info(gen_cfg, int_cfg, maxworkers, txt_method='variable importance')
+    output_yes = gen_cfg.with_output and gen_cfg.verbose
+    use_tqdm, output_clean = mcf_gp.tqdm_setup(tqdm, output_yes)
 
     if maxworkers > 1 and int_cfg.mp_use_old_ray:
         if ray is None or ray_get_oob_mcf is None:
@@ -106,31 +111,42 @@ def variable_importance(mcf_: 'ModifiedCausalForest',
                               'Install ray or use the new backend with mp_use_old_ray=False.'
                               )
         if not ray.is_initialized():
-            mcf_ray.init_ray_with_fallback(maxworkers, gen_cfg,
-                                           mem_object_store=int_cfg.mem_object_store_2,
-                                           mem_object_store_2=int_cfg.mem_object_store_2,
-                                           ray_err_txt='Ray does not start up in variable '
-                                           'importance computation.'
-                                           )
-        mcf_ray.print_object_store(gen_cfg, int_cfg.mem_object_store_2)
-        data_np_ref, forest_ref = mcf_ray.ray_put_all(data_np, forest)
+            ray_is_running, maxworkers = mcf_ray.init_ray_with_fallback(
+                maxworkers, gen_cfg,
+                mem_object_store=int_cfg.mem_object_store_2,
+                mem_object_store_2=int_cfg.mem_object_store_2,
+                ray_err_txt='Ray does not start up in variable '
+                            'importance computation.'
+                )
+        else:
+            ray_is_running = True
+
+        if ray_is_running:
+            mcf_ray.print_object_store(gen_cfg, int_cfg.mem_object_store_2)
+            data_np_ref, forest_ref = mcf_ray.ray_put_all(data_np, forest)
+        else:
+            maxworkers = 1
 
     kw_args = {'y_i': y_i, 'y_nn_i': y_nn_i, 'x_i': x_i, 'd_i': d_i, 'w_i': w_i, 'gen_cfg': gen_cfg,
                'int_cfg': int_cfg, 'cf_cfg': cf_cfg, 'single': True, 'group_ind_list': [],
                'cuda': cuda, 'cython': cython, 'zero_tol': int_cfg.zero_tol,
                }
     if maxworkers == 1:
-        for jdx in range(number_of_oobs):
+        oob_iter = range(number_of_oobs)
+        if use_tqdm:
+            oob_iter = tqdm(oob_iter, total=number_of_oobs, desc='VIM single')
+        for jdx in oob_iter:
             oob_values[jdx], _ = get_oob_mcf(data_np,
                                              k=jdx, forest=forest, no_mp=False,
                                              partner_k=partner_k[jdx],
                                              **kw_args,
                                              )
-            mcf_gp.progress_clean_memory(output=gen_cfg.with_output and gen_cfg.verbose,
-                                         current_idx=jdx+1, total=number_of_oobs,
+            mcf_gp.progress_clean_memory(output=output_clean, current_idx=jdx+1,
+                                         total=number_of_oobs,
                                          )
     else:  # Fast but needs a lot of memory because it copies a lot
         if int_cfg.mp_use_old_ray:
+            pbar = tqdm(total=number_of_oobs, desc='VIM single') if use_tqdm else None
             maxworkers = min(maxworkers, number_of_oobs)
             still_running = [ray_get_oob_mcf.remote(data_np_ref,
                                                     k=idx, forest=forest_ref, no_mp=True,
@@ -140,16 +156,22 @@ def variable_importance(mcf_: 'ModifiedCausalForest',
                              for idx in range(number_of_oobs)
                              ]
             jdx = 0
-            while len(still_running) > 0:
-                finished, still_running = ray.wait(still_running, num_returns=1)
-                finished_res = ray.get(finished)
-                for res in finished_res:
-                    iix = res[1]
-                    oob_values[iix] = res[0]
-                    mcf_gp.progress_clean_memory(output=gen_cfg.with_output and gen_cfg.verbose,
-                                                 current_idx=jdx+1, total=number_of_oobs,
-                                                 )
-                    jdx += 1
+            try:
+                while len(still_running) > 0:
+                    finished, still_running = ray.wait(still_running, num_returns=1)
+                    finished_res = ray.get(finished)
+                    for res in finished_res:
+                        iix = res[1]
+                        oob_values[iix] = res[0]
+                        if pbar is not None:
+                            pbar.update()
+                        mcf_gp.progress_clean_memory(output=output_clean, current_idx=jdx+1,
+                                                     total=number_of_oobs,
+                                                     )
+                        jdx += 1
+            finally:
+                if pbar is not None:
+                    pbar.close()
         else:
             maxworkers = min(maxworkers, number_of_oobs)
 
@@ -173,18 +195,25 @@ def variable_importance(mcf_: 'ModifiedCausalForest',
                          for idx in range(number_of_oobs)
                          ]
                 jdx = 0
-                for res in map_task_batches(executor=executor, tasks=tasks, int_cfg=int_cfg,
-                                            maxworkers=maxworkers,
-                                            min_worker_waves = (4 if int_cfg.mp_backend == 'joblib'
-                                                                else 1
-                                                                ),
-                                            ):
+                result_iter = map_task_batches(executor=executor,
+                                               tasks=tasks,
+                                               int_cfg=int_cfg,
+                                               maxworkers=maxworkers,
+                                               min_worker_waves=(4 if int_cfg.mp_backend == 'joblib'
+                                                                 else 1
+                                                                 ),
+                                               )
+                if use_tqdm:
+                    result_iter = tqdm(result_iter, total=number_of_oobs,
+                                       desc='VIM single')
+
+                for res in result_iter:
                     iix = res[1]
                     oob_values[iix] = res[0]
 
                     jdx += 1
-                    mcf_gp.progress_clean_memory(output=gen_cfg.with_output and gen_cfg.verbose,
-                                                 current_idx=jdx, total=number_of_oobs,
+                    mcf_gp.progress_clean_memory(output=output_clean, current_idx=jdx,
+                                                 total=number_of_oobs,
                                                  )
     oob_values = np.array(oob_values)
     oob_values = oob_values.reshape(-1)
@@ -217,19 +246,24 @@ def variable_importance(mcf_: 'ModifiedCausalForest',
                                  for idx in range(n_g)
                                  ]
                 idx = 0
-                while len(still_running) > 0:
-                    finished, still_running = ray.wait(still_running, num_returns=1)
-                    finished_res = ray.get(finished)
-                    for res in finished_res:
-                        iix = res[1]
-                        oob_values[iix] = res[0]
-                        mcf_gp.progress_clean_memory(output=gen_cfg.with_output and gen_cfg.verbose,
-                                                     current_idx=idx+1, total=n_g,
-                                                     )
-                        idx += 1
+                pbar = tqdm(total=n_g, desc='VIM groups') if use_tqdm else None
+                try:
+                    while len(still_running) > 0:
+                        finished, still_running = ray.wait(still_running, num_returns=1)
+                        finished_res = ray.get(finished)
+                        for res in finished_res:
+                            iix = res[1]
+                            oob_values[iix] = res[0]
+                            if pbar is not None:
+                                pbar.update()
+                            mcf_gp.progress_clean_memory(output=output_clean, current_idx=idx+1,
+                                                         total=n_g,
+                                                         )
+                            idx += 1
+                finally:
+                    if pbar is not None:
+                        pbar.close()
             else:
-                shared_oob_data = {'data_np': data_np, 'forest': forest,}
-
                 with forest_executor_context(int_cfg=int_cfg, maxworkers=maxworkers,
                                              ray_err_txt='Ray does not start in OOB estimation.',
                                              fail_txt='Failed to make executor in OOB estimation.',
@@ -248,27 +282,35 @@ def variable_importance(mcf_: 'ModifiedCausalForest',
                              for idx in range(n_g)
                              ]
                     idx = 0
-                    for res in map_task_batches(executor=executor, tasks=tasks, int_cfg=int_cfg,
-                                                maxworkers=maxworkers,
-                                                min_worker_waves = (
-                                                    4 if int_cfg.mp_backend == 'joblib' else 1),
-                                                ):
+                    result_iter = map_task_batches(executor=executor,
+                                                   tasks=tasks,
+                                                   int_cfg=int_cfg,
+                                                   maxworkers=maxworkers,
+                                                   min_worker_waves=(
+                                                       4 if int_cfg.mp_backend == 'joblib' else 1
+                                                       ),
+                                                   )
+                    if use_tqdm:
+                        result_iter = tqdm(result_iter, total=n_g, desc='VIM groups')
+
+                    for res in result_iter:
                         iix = res[1]
                         oob_values[iix] = res[0]
 
                         idx += 1
-                        mcf_gp.progress_clean_memory(output=gen_cfg.with_output and gen_cfg.verbose,
-                                                     current_idx=idx, total=n_g,
+                        mcf_gp.progress_clean_memory(output=output_clean, current_idx=idx,
+                                                     total=n_g,
                                                      )
         else:
-            for idx in range(n_g):
+            group_iter = range(n_g)
+            if use_tqdm:
+                group_iter = tqdm(group_iter, total=n_g, desc='VIM groups')
+            for idx in group_iter:
                 oob_values[idx], _ = get_oob_mcf(data_np,
                                                  k=idx, forest=forest, no_mp=False,
                                                  **kw_args,
                                                  )
-                mcf_gp.progress_clean_memory(output=gen_cfg.with_output and gen_cfg.verbose,
-                                             current_idx=idx+1, total=n_g,
-                                             )
+                mcf_gp.progress_clean_memory(output=output_clean, current_idx=idx + 1, total=n_g)
         vim_g, txt = vim_print(mse_ref, np.array(oob_values),
                                x_name=x_name, ind_list=ind_groups, with_output=gen_cfg.with_output,
                                single=False,
@@ -298,16 +340,24 @@ def variable_importance(mcf_: 'ModifiedCausalForest',
                                  for idx in range(n_g)
                                  ]
                 idx = 0
-                while len(still_running) > 0:
-                    finished, still_running = ray.wait(still_running, num_returns=1)
-                    finished_res = ray.get(finished)
-                    for res in finished_res:
-                        iix = res[1]
-                        oob_values[iix] = res[0]
-                        mcf_gp.progress_clean_memory(output=gen_cfg.with_output and gen_cfg.verbose,
-                                                     current_idx=idx+1, total=n_g,
-                                                     )
-                        idx += 1
+                pbar = tqdm(total=n_g,
+                            desc='VIM group combinations') if use_tqdm else None
+                try:
+                    while len(still_running) > 0:
+                        finished, still_running = ray.wait(still_running, num_returns=1)
+                        finished_res = ray.get(finished)
+                        for res in finished_res:
+                            iix = res[1]
+                            oob_values[iix] = res[0]
+                            if pbar is not None:
+                                pbar.update()
+                            mcf_gp.progress_clean_memory(output=output_clean, current_idx=idx + 1,
+                                                         total=n_g,
+                                                         )
+                            idx += 1
+                finally:
+                    if pbar is not None:
+                        pbar.close()
             else:
                 # shared_oob_data_ng = {'data_np': data_np, 'forest': forest,}
                 ray_err_txt='Ray does not start in OOB estimation (n_g variant).'
@@ -330,27 +380,36 @@ def variable_importance(mcf_: 'ModifiedCausalForest',
                              for idx in range(n_g)
                              ]
                     idx = 0
-                    for res in map_task_batches(executor=executor, tasks=tasks, int_cfg=int_cfg,
-                                                maxworkers=maxworkers,
-                                                min_worker_waves = (
-                                                    4 if int_cfg.mp_backend == 'joblib' else 1
-                                                    ),
-                                                ):
+                    result_iter = map_task_batches(executor=executor,
+                                                   tasks=tasks,
+                                                   int_cfg=int_cfg,
+                                                   maxworkers=maxworkers,
+                                                   min_worker_waves=(
+                                                       4 if int_cfg.mp_backend == 'joblib' else 1
+                                                       ),
+                                                   )
+                    if use_tqdm:
+                        result_iter = tqdm(result_iter, total=n_g, desc='VIM group combinations')
+
+                    for res in result_iter:
                         iix = res[1]
                         oob_values[iix] = res[0]
 
                         idx += 1
-                        mcf_gp.progress_clean_memory(output=gen_cfg.with_output and gen_cfg.verbose,
-                                                     current_idx=idx, total=n_g,
+                        mcf_gp.progress_clean_memory(output=output_clean,
+                                                     current_idx=idx,
+                                                     total=n_g,
                                                      )
         else:
-            for idx in range(n_g):
+            group_iter = range(n_g)
+            if use_tqdm:
+                group_iter = tqdm(group_iter, total=n_g, desc='VIM group combinations')
+            for idx in group_iter:
                 oob_values[idx], _ = get_oob_mcf(data_np, k=idx, forest=forest, no_mp=False,
                                                  **kw_args,
                                                  )
-                mcf_gp.progress_clean_memory(output=gen_cfg.with_output and gen_cfg.verbose,
-                                             current_idx=idx+1, total=n_g,
-                                             )
+                mcf_gp.progress_clean_memory(output=output_clean, current_idx=idx + 1, total=n_g)
+
         _, txt = vim_print(mse_ref, np.array(oob_values),
                            x_name=x_name, ind_list=ind_groups, with_output=gen_cfg.with_output,
                            single=False
@@ -576,7 +635,7 @@ def get_oob_mcf(data_np: NDArray[Any], *,
                 y_nn_i: NDArray[Any],
                 x_i: NDArray[Any],
                 d_i: int,
-                w_i: int,
+                w_i: int | None,
                 gen_cfg: 'GenCfg', int_cfg: 'IntCfg', cf_cfg: 'CfCfg',
                 k: int,
                 single: bool,
@@ -597,7 +656,7 @@ def get_oob_mcf(data_np: NDArray[Any], *,
     y_nn_i : Numpy array.
     x_i : Numpy array.
     d_i : INT.
-    w_i : INT.
+    w_i : INT, None.
     gen_cfg, GenCfg. Dataclasses. Parameters.
     cf_cfg : CfCfg dataclass.
     k: INT. Number of groups/variables.
@@ -656,7 +715,7 @@ def get_oob_mcf(data_np: NDArray[Any], *,
         if split_forest:
             b_ind_list = np.array_split(range(cf_cfg.boot),
                                         no_of_boot_splits)
-            for idx, b_ind in enumerate(b_ind_list):
+            for b_ind in b_ind_list:
                 forest_temp = forest[b_ind[0]:b_ind[-1]+1]
                 oob_value += get_oob_mcf_chuncks(data_np,
                                                  y_i=y_i, y_nn_i=y_nn_i, x_i=x_i, d_i=d_i, w_i=w_i,
@@ -666,6 +725,21 @@ def get_oob_mcf(data_np: NDArray[Any], *,
                                                  partner_k=partner_k, cuda=cuda, cython=cython,
                                                  zero_tol=zero_tol
                                                  )
+        else:
+            for idx in range(cf_cfg.boot):
+                data_np_oob = data_np[forest[idx]['oob_indices']]
+                oob_tree = get_oob_mcf_b(data_np_oob,
+                                         y_i=y_i, y_nn_i=y_nn_i, x_i=x_i,
+                                         d_i=d_i, w_i=w_i,
+                                         gen_cfg=gen_cfg, cf_cfg=cf_cfg,
+                                         k=k, single=single,
+                                         group_ind_list=group_ind_list,
+                                         tree_dict=forest[idx],
+                                         partner_k=partner_k,
+                                         cuda=cuda, cython=cython,
+                                         zero_tol=zero_tol,
+                                         )
+                oob_value += oob_tree
     oob_value = oob_value / cf_cfg.boot
 
     return oob_value, k
@@ -736,13 +810,14 @@ def get_oob_mcf_b(data: NDArray[Any], *,
                 x_dat[:, i] = x_dat[rand_ind, i]
     obs_in_leaf = np.empty((obs, 2), dtype=np.uint32)
     for idx in range(obs):
-        leaf_no = mcf_fo_add.get_terminal_leaf_no(tree_dict, x_dat[idx, :], zero_tol=zero_tol,)
+        leaf_no = mcf_fo_add.get_terminal_leaf_no(tree_dict, x_dat[idx, :])
         obs_in_leaf[idx, 0], obs_in_leaf[idx, 1] = idx, leaf_no
     oob_tree = oob_in_tree(obs_in_leaf, y_dat, y_nn, d_dat, w_dat,
                            mtot=cf_cfg.mtot, no_of_treat=gen_cfg.no_of_treat,
                            treat_values=gen_cfg.d_values, w_yes=gen_cfg.weighted,
                            cont=gen_cfg.d_type == 'continuous', cuda=cuda, cython=cython,
-                           compare_only_to_zero=cf_cfg.compare_only_to_zero, zero_tol=zero_tol,
+                           compare_only_to_zero=cf_cfg.compare_only_to_zero,
+                           mce_type=cf_cfg.mce_type, zero_tol=zero_tol,
                            )
     return oob_tree
 
@@ -820,7 +895,11 @@ def print_variable_importance(clas_obj: BaseEstimator,
         x_all_rnd_df = x_test_df.copy().reset_index(drop=True)
         x_rnd_df = x_test_df[names_to_shuffle].sample(frac=1, random_state=42)
         x_all_rnd_df[names_to_shuffle] = x_rnd_df.reset_index(drop=True)
-        y_pred_rnd = clas_obj.predict(mcf_gp.to_numpy_big_data(x_all_rnd_df, obs_bigdata))
+        x_all_rnd_np = mcf_gp.to_numpy_big_data(x_all_rnd_df, obs_bigdata)
+        if scaler is not None:
+            x_all_rnd_np = scaler.transform(x_all_rnd_np)
+        y_pred_rnd = clas_obj.predict(x_all_rnd_np)
+
         if classification:
             y_score = accuracy_score(y_test_np, y_pred_rnd, normalize=True)
         else:

@@ -7,7 +7,6 @@ Created on Thu Mar 26 06:49:30 2026.
 
 Contain functions for tree splitting.
 """
-from copy import deepcopy
 from typing import Any, TYPE_CHECKING
 
 import numpy as np
@@ -122,6 +121,7 @@ def term_or_data(data_tr_ns: NDArray[np.float64],
                  with_d_oob: bool = True,
                  cont_treat: bool = False,
                  zero_tol: float = 1e-10,
+                 stop_on_constant_y: bool = True,
                  ) -> tuple[NDArray[np.float64],         # y_dat
                             NDArray[np.float64] | None,  # y_oob
                             NDArray[np.float64] | None,  # d_dat
@@ -145,6 +145,8 @@ def term_or_data(data_tr_ns: NDArray[np.float64],
     d_grid_i : List of INT. Indices of d_grid in data.
     x_i_ind_split : List of INT. Ind. of x used for splitting. Pos. in data.
     no_of_treat: INT.
+    stop_on_constant_y : Boolean. Stop for approximately constant outcomes.
+        False when a treatment penalty is active or its node draw is pending.
 
     Returns
     -------
@@ -159,7 +161,7 @@ def term_or_data(data_tr_ns: NDArray[np.float64],
     ...
     """
     y_dat = data_tr_ns[:, y_i]
-    if np.allclose(y_dat, y_dat[0]):    # all elements are equal
+    if stop_on_constant_y and np.allclose(y_dat, y_dat[0]):
         return y_dat, None, None, None, None, None, None, None, True, False, []
     d_grid_dat = None
     y_oob = data_oob_ns[:, y_i]
@@ -181,7 +183,7 @@ def term_or_data(data_tr_ns: NDArray[np.float64],
         return y_dat, y_oob, d_dat, None, d_grid_dat, None, None, None, True, False, []
 
     d_oob = d_grid_oob = x_oob = None
-    x_no_variation = []
+
     if with_d_oob:
         d_oob = data_oob_ns[:, d_i]
         if d_grid_i is not None:
@@ -218,11 +220,11 @@ def next_split(data_train: NDArray[np.floating],
                x_ind: NDArray[np.intp],
                x_ai_ind: NDArray[np.intp] | list[int],
                cf_cfg: 'CfCfg', gen_cfg: 'GenCfg',
-               ct_grid_nn_val: dict | None,
+               ct_grid_nn_val: NDArray[np.floating | np.integer] | list[float] | None,
                mmm: int,
                n_min: int,
                alpha_reg: float,
-               pen_mult: np.floating,
+               pen_mult: float | np.floating,
                rng: np.random.Generator,
                cuda: bool,
                cython: bool,
@@ -232,15 +234,15 @@ def next_split(data_train: NDArray[np.floating],
                           int | None,
                           int | None,
                           int | None,
-                          NDArray[bool] | None,
-                          NDArray[bool] | None,
-                          NDArray[bool] | None,
-                          NDArray[bool] | None,
+                          NDArray[np.bool_] | None,
+                          NDArray[np.bool_] | None,
+                          NDArray[np.bool_] | None,
+                          NDArray[np.bool_] | None,
                           int | None,
                           int | None,
                           float | list[int] | None,
                           ]:
-    """Find best next split of leaf (or terminate splitting for this leaf).
+    """Find a split, retrying the full supported search before termination.
 
     Parameters
     ----------
@@ -258,7 +260,8 @@ def next_split(data_train: NDArray[np.floating],
     mmm : INT. Number of X-variables to choose for splitting.
     n_min : Int. Minimum leaf size.
     alpha_reg : Float. Alpha regularity.
-    pen_mult : Float. Penalty multiplier.
+    pen_mult : Float. Effective penalty multiplier. A positive treatment
+        penalty permits splitting even when observed outcomes are constant.
     rng : Numpy default random number generator object.
     cuda : Boolean. Use cuda if True.
     cython : Boolean. Use cython for faster usage.
@@ -273,11 +276,18 @@ def next_split(data_train: NDArray[np.floating],
     """
     # cache config & funcs once
     compare_only_to_zero = cf_cfg.compare_only_to_zero
+    mce_type = cf_cfg.mce_type
     n_min_treat = cf_cfg.n_min_treat
+    alpha_reg_treat = getattr(cf_cfg, 'alpha_reg_type', 'pooled') == 'treatment'
+    if alpha_reg_treat and gen_cfg.d_type == 'continuous':
+        raise ValueError('cf_alpha_reg_type=treatment requires discrete treatments.')
+
     weighted = gen_cfg.weighted
     penalty_type = cf_cfg.penalty_type
     mtot = cf_cfg.mtot
     random_thresholds = cf_cfg.random_thresholds
+
+    mtot_node = 1 if mtot == 4 else mtot
 
     count_nonzero = np.count_nonzero
     mcf_mse_fn = mcf_fo_obj.mcf_mse
@@ -291,7 +301,13 @@ def next_split(data_train: NDArray[np.floating],
     leaf_size_train = data_train.shape[0]
     leaf_size_oob = data_oob.shape[0]
 
-    pen_mult_d = pen_mult if (penalty_type == 'mse_d' and pen_mult > 0) else 0
+    pen_mult_d = pen_mult if mtot == 1 and penalty_type == 'mse_d' and pen_mult > 0 else 0
+    penalty_in_objective = (mtot == 1 and pen_mult > 0
+                            and penalty_type in ('mse_d', 'diff_d')
+                            )
+    # Keep the random objective draw after candidate selection, as before.
+    defer_y_check = mtot == 4 and cf_cfg.p_diff_penalty > 0
+
     if leaf_size_train < (2 * n_min):
         terminal = True
     elif np.all(np.isclose(data_train[:, d_i], data_train[0, d_i], atol=zero_tol, rtol=zero_tol)):
@@ -312,13 +328,23 @@ def next_split(data_train: NDArray[np.floating],
     else:
         no_of_treat, d_values = gen_cfg.no_of_treat, gen_cfg.d_values
         d_bin_dat, continuous, d_split_in_x_ind = None, False, None
+
+    treatment_index = parent_counts = min_counts = None
+    if alpha_reg_treat and not terminal:
+        _, treatment_index, parent_counts = np.unique(data_train[:, d_i], return_inverse=True,
+                                                      return_counts=True,
+                                                      )
+        min_counts = np.maximum(n_min_treat, np.ceil(alpha_reg * parent_counts)).astype(np.intp)
+        terminal = (len(parent_counts) != no_of_treat
+                    or np.any(parent_counts < 2 * min_counts)
+                    )
     if not terminal:
         obs_min = max(round(leaf_size_train * alpha_reg), n_min)
         best_mse = np.inf
         total_attempts = 2   # New in version 0.9.0; it was 5 before
         all_vars = False
         x_already_used: set[int] = set()   # For faster look-up below
-        # Find valid splitting values, try again if failed
+        # Keep the initial candidate draw and the no-variation recovery.
         for idx in range(total_attempts):
             if idx == 0:
                 x_ind_idx = x_ind.copy()
@@ -338,6 +364,8 @@ def next_split(data_train: NDArray[np.floating],
                               y_i=y_i, d_i=d_i, d_grid_i=d_grid_i, x_i_ind_split=x_i[x_ind_split],
                               no_of_treat=no_of_treat, with_d_oob=with_d_oob, cont_treat=continuous,
                               zero_tol=zero_tol,
+                              stop_on_constant_y=not (penalty_in_objective
+                                                      or defer_y_check),
                               )
             if terminal:  # No variation in d or/and y, game over.
                 break
@@ -354,20 +382,19 @@ def next_split(data_train: NDArray[np.floating],
         if terminal_x:
             terminal = True  # No variation in X. Splitting stops.
 
+    use_penalty = not terminal and mtot == 4 and rng.random() < cf_cfg.p_diff_penalty
+    penalty_in_objective = penalty_in_objective or use_penalty
+    if defer_y_check and not terminal and not penalty_in_objective:
+        terminal = bool(np.allclose(y_dat, y_dat[0]))
+
     best_var_i = best_type = best_n_l = best_n_r = best_leaf_l = None
     best_leaf_r = best_leaf_oob_l = best_leaf_oob_r = best_n_oob_l = None
     best_n_oob_r = best_value = None
     if not terminal:
-        # Added Oct., 22, 2025
-        best = {'j': None, 'type': None, 'value': None, 'mse': np.inf, 'd_cont_split': False,
-                'n_l': 0, 'n_r': 0, 'n_oob_l': 0, 'n_oob_r': 0,
-                # for continuous-D only:
-                'zeros_l': None, 'zeros_l_oob': None
-                }
         if mtot in (1, 4):
             y_nn = data_train[:, y_nn_i]
         else:
-            y_nn = y_nn_l = y_nn_r = 0
+            y_nn = 0
 
         if weighted:
             if w_i is None:
@@ -376,186 +403,237 @@ def next_split(data_train: NDArray[np.floating],
         else:
             w_dat = [1]
 
-        if continuous:
-            d_bin_dat = d_dat > zero_tol   # Binary-boolean treatment indicator
-            x_no_varia.append(np.all(d_bin_dat == d_bin_dat[0]))
-            x_ind_split.append(d_split_in_x_ind)
-            x_type_split = np.append(x_type_split, np.int8(0))
-        p_x = len(x_ind_split)  # indices refer to order of x in data_*
-        d_cont_split = False
-        # x_dat_copy, x_oob_copy = np.copy(x_dat), np.copy(x_oob) NOT NEEDED
-        for j in range(p_x):  # Loops over the variables
-            if not x_no_varia[j]:  # No variation of this x -> no split
-                d_cont_split = continuous and (j == p_x - 1)
-                if d_cont_split:
-                    x_j, x_oob_j = d_dat, d_oob
-                    x_j_pos = x_j[x_j > zero_tol]  # Positive treatment values
-                    nr_pos, nr_all = x_j_pos.size,  x_j.size
-                    nr_0 = nr_all - nr_pos
-                    nr_all_oob = x_oob_j.shape[0]
-                    if nr_0 < 2 or nr_pos < 2:  # Too few controls
-                        continue
-                    split_values = np.unique(x_j_pos).tolist()
-                    if len(split_values) > 1:
-                        split_values = split_values[:-1]  # max not included
+        # Do not repeat an already exhaustive search; constant covariates are covered.
+        searched_vars = x_already_used.union(x_ind_split)
+        full_search_done = (random_thresholds <= 0 and set(x_ind).issubset(searched_vars))
+        zeros_l = zeros_l_oob = None
+        for full_search in (False, True):
+            if full_search:
+                if full_search_done:
+                    break
+                x_ind_split = mcf_fo_add.rnd_variable_for_split(
+                    x_ind, x_ai_ind, cf_cfg, mmm, rng, all_vars=True, first_attempt=False,
+                    )
+                x_type_split = x_type[x_ind_split].copy()
+                x_values_split = [x_values[v_idx].copy() for v_idx in x_ind_split]
+                (y_dat, _, d_dat, d_oob, d_grid_dat, _, x_dat, x_oob, terminal, terminal_x,
+                 x_no_varia) = term_or_data(
+                    data_train, data_oob, y_i=y_i, d_i=d_i, d_grid_i=d_grid_i,
+                    x_i_ind_split=x_i[x_ind_split], no_of_treat=no_of_treat,
+                    with_d_oob=continuous, cont_treat=continuous, zero_tol=zero_tol,
+                    stop_on_constant_y=not penalty_in_objective,
+                    )
+                if terminal or terminal_x:
+                    break
+            thresholds = 0 if full_search else random_thresholds
+            best_mse = np.inf
+            best = {'j': None, 'type': None, 'value': None, 'mse': np.inf, 'd_cont_split': False,
+                    'n_l': 0, 'n_r': 0, 'n_oob_l': 0, 'n_oob_r': 0,
+                    # for continuous-D only:
+                    'zeros_l': None, 'zeros_l_oob': None
+                    }
+            if continuous:
+                d_bin_dat = d_dat > zero_tol   # Binary-boolean treatment indicator
+                x_no_varia.append(np.all(d_bin_dat == d_bin_dat[0]))
+                x_ind_split.append(d_split_in_x_ind)
+                x_type_split = np.append(x_type_split, np.int8(0))
+            p_x = len(x_ind_split)  # indices refer to order of x in data_*
 
-                    # Randomly allocate half the controls to left leaf
-                    # rnd_in = rng.choice([True, False], size=(nr_all, 1))
-                    # # Somewhat inefficient as it is also applied to treated
-                    # treat_0 = (x_j - zero_tol) <= 0
-                    # zeros_l = treat_0 & rnd_in
-                    # rnd_in_oob = rng.choice([True, False], size=(nr_all_oob,
-                    #                                              1))
-                    # # Somewhat inefficient as it is also applied to treated
-                    # treat_0_oob = (x_oob_j - zero_tol) <= 0
-                    # zeros_l_oob = treat_0_oob & rnd_in_oob
-                    # 1-D masks; no .flatten() needed later
-                    treat_0 = x_j <= zero_tol
-                    rnd_in = rng.random(nr_all) < 0.5
-                    zeros_l = treat_0 & rnd_in
+            for j, no_variation in enumerate(x_no_varia):
+                if not no_variation:
+                    d_cont_split = continuous and (j == p_x - 1)
+                    if d_cont_split:
+                        x_j, x_oob_j = d_dat, d_oob
+                        x_j_pos = x_j[x_j > zero_tol]  # Positive treatment values
+                        nr_pos, nr_all = x_j_pos.size,  x_j.size
+                        nr_0 = nr_all - nr_pos
+                        nr_all_oob = x_oob_j.shape[0]
+                        if nr_0 < 2 or nr_pos < 2:  # Too few controls
+                            continue
+                        split_values = np.unique(x_j_pos).tolist()
+                        if len(split_values) > 1:
+                            split_values = split_values[:-1]  # max not included
 
-                    treat_0_oob = x_oob_j <= zero_tol
-                    rnd_in_oob = rng.random(nr_all_oob) < 0.5
-                    zeros_l_oob = treat_0_oob & rnd_in_oob
+                        treat_0 = x_j <= zero_tol
+                        treat_0_oob = x_oob_j <= zero_tol
+                        if zeros_l is None:
+                            # Reuse these allocations if a full-search fallback is needed.
+                            rnd_in = rng.random(nr_all) < 0.5
+                            zeros_l = treat_0 & rnd_in
+                            rnd_in_oob = rng.random(nr_all_oob) < 0.5
+                            zeros_l_oob = treat_0_oob & rnd_in_oob
 
-                else:
-                    x_j, x_oob_j = x_dat[:, j], x_oob[:, j]
-                    if x_type_split[j] > 0:
-                        x_j = x_j.astype(np.int32, copy=False)
-                        x_oob_j = x_oob_j.astype(np.int32, copy=False)
-                    split_values = get_split_values(y_dat, w_dat, x_j,
-                                                    x_type=x_type_split[j],
-                                                    x_values=x_values_split[j],
-                                                    leaf_size=leaf_size_train,
-                                                    random_thresholds= random_thresholds,
-                                                    w_yes=weighted, rng=rng
-                                                    )
-                split_values_unord_j = []
-                cat_mask, cat_mask_oob = None, None
-                # Loops over values of variables
-                for val in split_values:
-                    if x_type_split[j] == 0:
-                        val_eps = np.nextafter(val, np.inf)
-                        if d_cont_split:   # Treated and selected non-treated
-                            treated_l = ~treat_0 & (x_j <= val_eps)
-                            leaf_l = treated_l | zeros_l
-                        else:
-                            leaf_l = x_j <= val_eps
-                            # because of float
-                    else:                      # ordered with few vals.
-                        # Categorial variable: Either in group or not
-                        split_values_unord_j.append(val)
-                        if cat_mask is None:
-                            cat_mask = x_j == val
-                        else:
-                            cat_mask |= (x_j == val)
-
-                        leaf_l = cat_mask
-
-                    n_l = count_nonzero(leaf_l)
-                    n_r = leaf_size_train - n_l
-                    # Check if enough observations available
-                    if (n_l < obs_min) or (n_r < obs_min):
-                        continue
-                    # Next we check if any obs in each treatment
-                    d_dat_l = (d_bin_dat[leaf_l] if continuous else d_dat[leaf_l])
-                    if not_enough_treated_fn(continuous, n_min_treat, d_dat_l, no_of_treat):
-                        continue
-                    leaf_r = ~leaf_l  # Reverses True to False
-                    d_dat_r = d_bin_dat[leaf_r] if continuous else d_dat[leaf_r]
-                    if not_enough_treated_fn(continuous, n_min_treat, d_dat_r, no_of_treat):
-                        continue
-
-                    if x_type_split[j] == 0:
-                        if d_cont_split:   # Treated and selected non-treated
-                            treated_l_oob = ~treat_0_oob & (x_oob_j <= val_eps)
-                            # leaf_oob_l = treated_l_oob | zeros_l_oob).flatten()
-                            leaf_oob_l = treated_l_oob | zeros_l_oob
-                        else:
-                            leaf_oob_l = x_oob_j <= val_eps
                     else:
-                        if cat_mask_oob is None:
-                            cat_mask_oob = x_oob_j == val
-                        else:
-                            cat_mask_oob |= (x_oob_j == val)
-
-                        leaf_oob_l = cat_mask_oob
-
-                    n_oob_l = count_nonzero(leaf_oob_l)
-                    n_oob_r = leaf_size_oob - n_oob_l
-
-                    # leaf_oob_r = ~leaf_oob_l
-                    if mtot in (1, 4):
-                        if continuous:
-                            y_nn_l = match_cont_fn(d_grid_dat[leaf_l], y_nn[leaf_l, :],
-                                                   ct_grid_nn_val, rng
-                                                   )
-                            y_nn_r = match_cont_fn(d_grid_dat[leaf_r], y_nn[leaf_r, :],
-                                                   ct_grid_nn_val, rng
-                                                   )
-                        else:
-                            y_nn_l, y_nn_r = y_nn[leaf_l, :], y_nn[leaf_r, :]
-                    else:
-                        y_nn_l = y_nn_r = 0
-                    if weighted:
-                        w_l, w_r = w_dat[leaf_l], w_dat[leaf_r]
-                    else:
-                        w_l = w_r = 0
-                    # compute objective functions given particular method
-                    mse_mce_l, shares_l, obs_by_treat_l = mcf_mse_fn(
-                        y_dat[leaf_l], y_nn_l, d_dat_l, w_l,
-                        n_obs=n_l, mtot=mtot, no_of_treat=no_of_treat, treat_values=d_values,
-                        w_yes=weighted, splitting=False, cuda=cuda, cython=cython,
-                        compare_only_to_zero=compare_only_to_zero, pen_mult=pen_mult_d,
-                        zero_tol=zero_tol,
-                        )
-                    mse_mce_r, shares_r, obs_by_treat_r = mcf_mse_fn(
-                        y_dat[leaf_r], y_nn_r, d_dat_r, w_r,
-                        n_obs=n_r, mtot=mtot, no_of_treat=no_of_treat, treat_values=d_values,
-                        w_yes=weighted, splitting=False, cuda=cuda, cython=cython,
-                        compare_only_to_zero=compare_only_to_zero, pen_mult=pen_mult_d,
-                        zero_tol=zero_tol,
-                        )
-                    mse_mce = add_mse_mce_split_fn(mse_mce_l=mse_mce_l, mse_mce_r=mse_mce_r,
-                                                   obs_by_treat_l=obs_by_treat_l,
-                                                   obs_by_treat_r=obs_by_treat_r, mtot=mtot,
-                                                   no_of_treat=no_of_treat,
-                                                   compare_only_to_zero=compare_only_to_zero,
-                                                   )
-                    if cython:
-                        # raise ValueError('Cython currently not used.')
-                        # mse_split = mcf_cy.compute_mse_mce_cy(
-                        #     mse_mce, mtot, no_of_treat,
-                        #     compare_only_to_zero)
-                        pass
-
-                    mse_split = compute_mse_mce_fn(mse_mce, mtot, no_of_treat, compare_only_to_zero)
-                    # add penalty for this split if 'diff_d'
-                    if (penalty_type == 'diff_d'
-                            and ((mtot == 1) or ((mtot == 4) and (rng.random() > 0.5)))):
-                        penalty = mcf_penalty_fn(shares_l, shares_r)
-                        mse_split = mse_split + pen_mult * penalty
-
-                    if mse_split < best_mse:
-                        split_done = True
-                        best_mse = mse_split
-                        # changed Oct., 22, 2025 to reduce copying
-                        best['j'] = int(j)
-                        best['type'] = int(x_type_split[j])
-                        best['d_cont_split'] = bool(d_cont_split)
-                        best['n_l'], best['n_r'] = n_l, n_r
-                        best['n_oob_l'], best['n_oob_r'] = n_oob_l, n_oob_r
+                        x_j, x_oob_j = x_dat[:, j], x_oob[:, j]
+                        if x_type_split[j] > 0:
+                            x_j = x_j.astype(np.int32, copy=False)
+                            x_oob_j = x_oob_j.astype(np.int32, copy=False)
+                        split_values = get_split_values(y_dat, w_dat, x_j,
+                                                        x_type=x_type_split[j],
+                                                        x_values=x_values_split[j],
+                                                        leaf_size=leaf_size_train,
+                                                        random_thresholds=thresholds,
+                                                        w_yes=weighted, rng=rng
+                                                        )
+                    split_values_unord_j = []
+                    cat_mask, cat_mask_oob = None, None
+                    # Loops over values of variables
+                    for val in split_values:
                         if x_type_split[j] == 0:
-                            best['value'] = float(val)
-                            if d_cont_split:
-                                # persist control assignments; they are part of the split definition
-                                best['zeros_l'] = zeros_l.copy()
-                                best['zeros_l_oob'] = zeros_l_oob.copy()
+                            val_eps = np.nextafter(val, np.inf)
+                            if d_cont_split:   # Treated and selected non-treated
+                                treated_l = ~treat_0 & (x_j <= val_eps)
+                                leaf_l = treated_l | zeros_l
+                            else:
+                                leaf_l = x_j <= val_eps
+                                # because of float
+                        else:                      # ordered with few vals.
+                            # Categorial variable: Either in group or not
+                            split_values_unord_j.append(val)
+                            if cat_mask is None:
+                                cat_mask = x_j == val
+                            else:
+                                cat_mask |= (x_j == val)
+
+                            leaf_l = cat_mask
+
+                        n_l = count_nonzero(leaf_l)
+                        n_r = leaf_size_train - n_l
+
+                        # Check if enough observations available
+                        if (n_l < obs_min) or (n_r < obs_min):
+                            continue
+                        if alpha_reg_treat:
+                            counts_l = np.bincount(treatment_index[leaf_l],
+                                                   minlength=no_of_treat)
+                            if (np.any(counts_l < min_counts)
+                                    or np.any(parent_counts - counts_l < min_counts)):
+                                continue
+                            leaf_r = ~leaf_l
+                            d_dat_l, d_dat_r = d_dat[leaf_l], d_dat[leaf_r]
                         else:
-                            # keep the current category set without
-                            # recomputing from scratch
-                            best['value'] = split_values_unord_j[:]
-                            # list of included categories
+                            # Next we check if any obs in each treatment
+                            d_dat_l = (d_bin_dat[leaf_l] if continuous else d_dat[leaf_l])
+                            if not_enough_treated_fn(continuous, n_min_treat,
+                                                     d_dat_l, no_of_treat):
+                                continue
+                            leaf_r = ~leaf_l  # Reverses True to False
+                            d_dat_r = d_bin_dat[leaf_r] if continuous else d_dat[leaf_r]
+                            if not_enough_treated_fn(continuous, n_min_treat,
+                                                     d_dat_r, no_of_treat):
+                                continue
+
+                        if x_type_split[j] == 0:
+                            if d_cont_split:   # Treated and selected non-treated
+                                treated_l_oob = ~treat_0_oob & (x_oob_j <= val_eps)
+                                # leaf_oob_l = treated_l_oob | zeros_l_oob).flatten()
+                                leaf_oob_l = treated_l_oob | zeros_l_oob
+                            else:
+                                leaf_oob_l = x_oob_j <= val_eps
+                        else:
+                            if cat_mask_oob is None:
+                                cat_mask_oob = x_oob_j == val
+                            else:
+                                cat_mask_oob |= (x_oob_j == val)
+
+                            leaf_oob_l = cat_mask_oob
+
+                        n_oob_l = count_nonzero(leaf_oob_l)
+                        n_oob_r = leaf_size_oob - n_oob_l
+
+                        # leaf_oob_r = ~leaf_oob_l
+                        if mtot in (1, 4):
+                            if continuous:
+                                y_nn_l = match_cont_fn(d_grid_dat[leaf_l], y_nn[leaf_l, :],
+                                                       ct_grid_nn_val, rng
+                                                       )
+                                y_nn_r = match_cont_fn(d_grid_dat[leaf_r], y_nn[leaf_r, :],
+                                                       ct_grid_nn_val, rng
+                                                       )
+                            else:
+                                y_nn_l, y_nn_r = y_nn[leaf_l, :], y_nn[leaf_r, :]
+                        else:
+                            y_nn_l = y_nn_r = 0
+                        if weighted:
+                            w_l, w_r = w_dat[leaf_l], w_dat[leaf_r]
+                        else:
+                            w_l = w_r = 0
+                        # compute objective functions given particular method
+                        mse_mce_l, shares_l, obs_by_treat_l = mcf_mse_fn(
+                            y_dat[leaf_l], y_nn_l, d_dat_l, w_l,
+                            n_obs=n_l, mtot=mtot_node, no_of_treat=no_of_treat,
+                            treat_values=d_values,
+                            w_yes=weighted, splitting=False, cuda=cuda, cython=cython,
+                            compare_only_to_zero=compare_only_to_zero, pen_mult=pen_mult_d,
+                            mce_type=mce_type, zero_tol=zero_tol,
+                            )
+                        mse_mce_r, shares_r, obs_by_treat_r = mcf_mse_fn(
+                            y_dat[leaf_r], y_nn_r, d_dat_r, w_r,
+                            n_obs=n_r, mtot=mtot_node, no_of_treat=no_of_treat,
+                            treat_values=d_values,
+                            w_yes=weighted, splitting=False, cuda=cuda, cython=cython,
+                            compare_only_to_zero=compare_only_to_zero, pen_mult=pen_mult_d,
+                            mce_type=mce_type, zero_tol=zero_tol,
+                            )
+                        mse_mce = add_mse_mce_split_fn(mse_mce_l=mse_mce_l, mse_mce_r=mse_mce_r,
+                                                       obs_by_treat_l=obs_by_treat_l,
+                                                       obs_by_treat_r=obs_by_treat_r,
+                                                       mtot=mtot_node,
+                                                       no_of_treat=no_of_treat,
+                                                       compare_only_to_zero=compare_only_to_zero,
+                                                       )
+                        if cython:
+                            # raise ValueError('Cython currently not used.')
+                            # mse_split = mcf_cy.compute_mse_mce_cy(
+                            #     mse_mce, mtot, no_of_treat,
+                            #     compare_only_to_zero)
+                            pass
+
+                        mse_split = compute_mse_mce_fn(mse_mce, mtot_node, no_of_treat,
+                                                       compare_only_to_zero,
+                                                       )
+                        # add penalty for this split if 'diff_d'
+                        if mtot == 4 and use_penalty:
+                            if penalty_type == 'mse_d':
+                                weight_l = np.sum(obs_by_treat_l)
+                                weight_r = np.sum(obs_by_treat_r)
+                                weight_all = weight_l + weight_r
+
+                                mse_d_l = np.sum(shares_l * (1 - shares_l))
+                                mse_d_r = np.sum(shares_r * (1 - shares_r))
+
+                                mse_split = (weight_l * mse_d_l + weight_r * mse_d_r) / weight_all
+                            else:
+                                diff = shares_l - shares_r
+                                mse_split = -np.dot(diff, diff)
+
+                        elif mtot == 1 and penalty_type == 'diff_d' and pen_mult > 0:
+                            penalty = mcf_penalty_fn(shares_l, shares_r)
+                            mse_split += pen_mult * penalty
+
+                        if mse_split < best_mse:
+                            split_done = True
+                            best_mse = mse_split
+                            # changed Oct., 22, 2025 to reduce copying
+                            best['j'] = int(j)
+                            best['type'] = int(x_type_split[j])
+                            best['d_cont_split'] = bool(d_cont_split)
+                            best['n_l'], best['n_r'] = n_l, n_r
+                            best['n_oob_l'], best['n_oob_r'] = n_oob_l, n_oob_r
+                            if x_type_split[j] == 0:
+                                best['value'] = float(val)
+                                if d_cont_split:
+                                    # Preserve the control allocation of the chosen split.
+                                    best['zeros_l'] = zeros_l.copy()
+                                    best['zeros_l_oob'] = zeros_l_oob.copy()
+                            else:
+                                # keep the current category set without
+                                # recomputing from scratch
+                                best['value'] = split_values_unord_j[:]
+                                # list of included categories
+
+            if split_done:
+                break
 
         if not split_done:
             return True, None, None, None, None, None, None, None, None, None, None, None
@@ -594,8 +672,8 @@ def next_split(data_train: NDArray[np.floating],
         best_leaf_r = leaf_r
         best_leaf_oob_l = leaf_oob_l
         best_leaf_oob_r = leaf_oob_r
-        best_n_oob_l = best['n_oob_l']
-        best_n_oob_r = best['n_oob_r']
+        best_n_oob_l = count_nonzero(leaf_oob_l)
+        best_n_oob_r = leaf_size_oob - best_n_oob_l
         best_value = best['value']
 
     return (terminal, best_var_i, best_type, best_n_l, best_n_r, best_leaf_l, best_leaf_r,
@@ -604,7 +682,7 @@ def next_split(data_train: NDArray[np.floating],
 
 
 def update_tree(data_oob_parent: NDArray[np.float64],
-                tree_dict_global: dict, *,
+                tree_dict_global_copy: dict, *,
                 parent_idx: int,
                 split_var_i: int | None,
                 split_type: int | None,
@@ -632,7 +710,7 @@ def update_tree(data_oob_parent: NDArray[np.float64],
                 zero_tol: float = 1e-10,
                 ) -> dict:
     """Assign values obtained from splitting to parent & daughter leaves."""
-    tree = deepcopy(tree_dict_global)
+    tree = tree_dict_global_copy
     if gen_cfg.d_type == 'continuous':
         no_of_treat, d_values, continuous = 2, [0, 1], True
     else:
@@ -646,7 +724,10 @@ def update_tree(data_oob_parent: NDArray[np.float64],
         d_oob = data_oob_parent[:, d_i] > zero_tol if continuous else data_oob_parent[:, d_i]
 
         if len(np.unique(d_oob)) < no_of_treat:
-            obj_fct_oob, obs_oob = 0, n_oob      # MSE cannot be computed
+            obj_fct_oob = np.nan
+            oob_weight = (float(np.sum(w_oob, dtype=np.float64)) if gen_cfg.weighted
+                          else float(n_oob)
+                          )
         else:
             if continuous:
                 y_nn = mcf_fo_add.match_cont(data_oob_parent[:, d_grid_i],
@@ -664,22 +745,30 @@ def update_tree(data_oob_parent: NDArray[np.float64],
                                                           splitting=False, cuda=cuda, cython=cython,
                                                           compare_only_to_zero=
                                                               cf_cfg.compare_only_to_zero,
+                                                          mce_type=cf_cfg.mce_type,
                                                           zero_tol=zero_tol,
                                                           )
             if cython:
                 # raise ValueError('Cython currently not used.')
                 pass
-                # obj_fct_oob = mcf_cy.compute_mse_mce_cy(
-                #     mse_mce, cf_cfg.mtot, no_of_treat,
-                #     cf_cfg.compare_only_to_zero)
 
             obj_fct_oob = mcf_fo_obj.compute_mse_mce(mse_mce, cf_cfg.mtot, no_of_treat,
                                                      cf_cfg.compare_only_to_zero
                                                      )
-            obs_oob = np.sum(obs_oob_list)
+            if np.isfinite(obj_fct_oob):
+                if gen_cfg.weighted:
+                    oob_weight = float(np.sum(obs_oob_list))
+                else:
+                    oob_weight = float(n_oob)
+            else:
+                # Retain missing OOB mass for the adjustment during tuning.
+                oob_weight = (float(np.sum(w_oob, dtype=np.float64)) if gen_cfg.weighted
+                              else float(n_oob)
+                              )
         tree['leaf_info_float'][parent_idx, 2] = obj_fct_oob
-        tree['leaf_info_int'][parent_idx, 9] = obs_oob
-        tree['train_data_list'][parent_idx] = None
+        tree['leaf_info_int'][parent_idx, 9] = n_oob
+        tree['leaf_info_float'][parent_idx, 3] = oob_weight
+
         if not cf_cfg.vi_oob_yes:
             tree['train_data_list'][parent_idx] = None
     else:
@@ -721,7 +810,7 @@ def update_tree(data_oob_parent: NDArray[np.float64],
     return tree
 
 
-def oob_in_tree(obs_in_leaf,
+def oob_in_tree(obs_in_leaf: NDArray[np.integer],
                 y_dat: NDArray[np.floating | np.integer],
                 y_nn: NDArray[np.floating | np.integer],
                 d_dat: NDArray[np.floating | np.integer],
@@ -734,13 +823,14 @@ def oob_in_tree(obs_in_leaf,
                 cuda: bool = False,
                 cython: bool = True,
                 compare_only_to_zero: bool = False,
+                mce_type: str = 'cross_error',
                 zero_tol: float = 1e-10,
                 ) -> np.floating:
     """Compute OOB values for a tree.
 
     Parameters
     ----------
-    obs_in_leaf : List of int. Terminal leaf no of observation
+    obs_in_leaf : Integer array with observation indices and terminal leaf IDs.
     y : Numpy array.
     y_nn : Numpy array.
     d : Numpy array.
@@ -753,6 +843,7 @@ def oob_in_tree(obs_in_leaf,
     cuda : Boolean. MSE computation with Cuda if True. Default is False.
     # cython : Boolean. MSE computation with Cython if True. Default is True.
     compare_only_to_zero : Boolean. Reduced covariance matrix.
+    mce_type : 'covariance' or 'cross_error' (default).
 
     Returns
     -------
@@ -760,7 +851,6 @@ def oob_in_tree(obs_in_leaf,
 
     """
     leaf_no = np.unique(obs_in_leaf[:, 1])
-    oob_tree = n_lost = n_total = 0
     mse_mce_tree = np.zeros((no_of_treat, no_of_treat))
     obs_t_tree = np.zeros(no_of_treat)
     for leaf in leaf_no:
@@ -778,28 +868,26 @@ def oob_in_tree(obs_in_leaf,
             else:
                 if len(np.unique(d_dat_in_leaf)) < no_of_treat:  # No MSE
                     enough_data_in_leaf = False
+
         if enough_data_in_leaf:
             mse_mce_leaf, _, obs_by_treat_leaf = mcf_fo_obj.mcf_mse(
                 y_dat[in_leaf], y_nn[in_leaf], d_dat_in_leaf, w_l,
                 n_obs=n_l, mtot=mtot, no_of_treat=no_of_treat, treat_values=treat_values,
                 w_yes=w_yes, splitting=cont, cuda=cuda, cython=cython,
-                compare_only_to_zero=compare_only_to_zero, zero_tol=zero_tol,
+                compare_only_to_zero=compare_only_to_zero,
+                mce_type=mce_type, zero_tol=zero_tol,
                 )
             mse_mce_tree, obs_t_tree = mcf_fo_obj.add_rescale_mse_mce(
                 mse_mce_leaf, obs_by_treat_leaf,
                 mtot=mtot, no_of_treat=no_of_treat, mse_mce_add_to=mse_mce_tree,
                 obs_by_treat_add_to=obs_t_tree, compare_only_to_zero=compare_only_to_zero,
                 )
-        else:
-            n_lost += n_l
-        n_total += n_l
     mse_mce_tree = mcf_fo_obj.get_avg_mse_mce(mse_mce_tree, obs_t_tree, mtot, no_of_treat,
                                               compare_only_to_zero
                                               )
     if cython:
         pass
-        # raise ValueError('Cython currently not used.')
-        # oob_tree = mcf_cy.compute_mse_mce_cy(mse_mce_tree, mtot, no_of_treat,compare_only_to_zero)
+
     oob_tree = mcf_fo_obj.compute_mse_mce(mse_mce_tree, mtot, no_of_treat, compare_only_to_zero)
 
     return oob_tree

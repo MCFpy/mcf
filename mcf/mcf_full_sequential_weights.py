@@ -8,17 +8,17 @@ Created on Tue Mar 31 14:05:57 2026.
 Contains main level files for the two different ways of computing effects (with full and sequential
 weight matrix).
 """
-from copy import deepcopy
+from copy import copy, deepcopy
 from time import time
 from typing import Any, TYPE_CHECKING
 from types import SimpleNamespace
 
 import numpy as np
 from numpy.typing import NDArray
-from pandas import DataFrame
+from pandas import DataFrame, concat
 try:
     import ray
-except ImportError:
+except (ImportError, OSError):
     ray = None
 try:
     from tqdm.auto import tqdm
@@ -37,7 +37,10 @@ from mcf.mcf_general import progress_clean_memory, split_dataframe, tqdm_setup
 from mcf.mcf_general_sys import find_no_of_workers, print_mememory_statistics
 from mcf.mcf_iate import iate_est_mp
 from mcf.mcf_qiate import qiate_est
-from mcf.mcf_versions import fit_tv_feature_spec, transform_x_tv
+from mcf.mcf_versions import (fit_tv_feature_spec, transform_x_tv,
+                               predict_version_scores,
+                               )
+from mcf.mcf_print_stats import print_mcf
 from mcf.mcf_weight import get_weights_mp
 from mcf.mcfoptp_parallel_backend_ray_classical import (init_ray_with_fallback, print_object_store,
                                                         ray_del_refs,
@@ -50,9 +53,11 @@ if TYPE_CHECKING:
     from mcf.mcf_main import ModifiedCausalForest
     from mcf.mcf_init import GenCfg
     from mcf.mcf_effect_helpers import EffParaFlags, EffectDicts
+    from mcf.mcf_versions import TvScores
 
 
-def effect_with_sequential_weights(mcf_: 'ModifiedCausalForest', *,
+def effect_with_sequential_weights(mcf_: 'ModifiedCausalForest',
+                                   *,
                                    data_df: DataFrame,
                                    forest_dic: dict,
                                    eff_flags: 'EffParaFlags',
@@ -61,13 +66,18 @@ def effect_with_sequential_weights(mcf_: 'ModifiedCausalForest', *,
                                    round_: str,
                                    idx_round: int,
                                    fold: int,
+                                   tv_scores_dc: 'TvScores | None',
                                    ) -> None:   # Dataclasses (effect, time) will be updated
     """Compute the effects by first computing weights and then effects with full weight matrix."""
     gen_cfg, int_cfg, p_cfg = mcf_.gen_cfg, mcf_.int_cfg, mcf_.p_cfg
     use_tqdm, output_clean = tqdm_setup(tqdm, gen_cfg.with_output and gen_cfg.verbose)
-    # mcf_seq = deepcopy(mcf_)    Needs far too much memory
-    # mcf_seq.gen_cfg.mp_parallel = 1
-    # mcf_seq.gen_cfg.with_output = False
+
+    if tv_scores_dc is not None and tv_scores_dc.scores_df is not None:
+        data_df = concat((data_df.reset_index(drop=True),
+                          tv_scores_dc.scores_df.reset_index(drop=True),
+                          ),
+                         axis=1,
+                         )
     mcf_seq = make_mcf_seq_for_low_memory(mcf_)
     start_time_w = time()
     # Split dataframe in pieces of approximate equal size
@@ -77,6 +87,35 @@ def effect_with_sequential_weights(mcf_: 'ModifiedCausalForest', *,
                                                    )
     no_of_chunks = len(data_df_split)
     n_rows = len(data_df)
+
+    # Keep the cache local to this sample, estimation round, and forest fold.
+    gen_tv_cfg = mcf_.gen_tv_cfg
+    score_type = gen_tv_cfg.score_type or ()
+    if isinstance(score_type, str):
+        score_type = (score_type,)
+    global_tv_scores = (gen_tv_cfg.yes and gen_tv_cfg.addscores
+                        and not gen_tv_cfg.score_version_local
+                        and ('prop_version' in score_type or 'prog_version' in score_type)
+                        )
+    tv_scores_pred_full = None
+    if global_tv_scores:
+        scores_round = gen_tv_cfg.scores_version_round
+        if scores_round is None or len(scores_round) != gen_cfg.no_of_treat:
+            raise ValueError('Global version scores need one entry per main treatment.')
+        if gen_cfg.with_output:
+            print_mcf(gen_cfg, '\nPredicting global version scores for IATE, ATE, and GATE.',
+                      summary=False)
+        start_time_scores = time()
+        tv_scores_pred_full = predict_version_scores(data_df, scores_round,
+                                                       ps_yes='prop_version' in score_type,
+                                                       pg_yes='prog_version' in score_type,
+                                                       dtype=np.float64,
+                                                       zero_tol=int_cfg.zero_tol,
+                                                       )
+        if gen_cfg.with_output:
+            txt_scores = ('Global version-score prediction completed in '
+                          f'{time() - start_time_scores:.2f} seconds.')
+            print_mcf(gen_cfg, txt_scores, summary=False)
 
     gate_context = None
     if p_cfg.gate and (round_ == 'regular' or eff_flags.gate_eff):
@@ -90,6 +129,21 @@ def effect_with_sequential_weights(mcf_: 'ModifiedCausalForest', *,
         x_tv_pred_full_df = None
 
     maxworkers = get_maxworkers(gen_cfg=gen_cfg, zero_tol=int_cfg.zero_tol)
+    if maxworkers > 1 and int_cfg.mp_use_old_ray:
+        if ray is None or ray_get_weights_aggregateweights_iate_chunk is None:
+            raise ImportError('int_cfg.mp_use_old_ray=True, but ray is not installed. '
+                              'Install ray or use the new backend with mp_use_old_ray=False.'
+                              )
+        if not ray.is_initialized():
+            ray_is_running, maxworkers = init_ray_with_fallback(
+                maxworkers, gen_cfg,
+                mem_object_store=int_cfg.mem_object_store_3,
+                mem_object_store_2=int_cfg.mem_object_store_2,
+                ray_err_txt='Ray does not start up in weight estimation 1',
+                )
+            if not ray_is_running:
+                maxworkers = 1
+
     if gen_cfg.with_output and gen_cfg.verbose and int_cfg.memory_print:
         print_mememory_statistics(gen_cfg, 'Sequential weighting and IATE estimation: Start')
 
@@ -98,9 +152,12 @@ def effect_with_sequential_weights(mcf_: 'ModifiedCausalForest', *,
 
     w_ate = w_bala = w_gate = None
     pot_iate = pot_iate_var = weights_dic_data = txt_iate = None
+    tv_scores_dc_names = None if tv_scores_dc is None else tv_scores_dc.names
     kw_get_weights = {'forest_dic': forest_dic, 'round_': round_, 'mcf_seq': mcf_seq,
                       'eff_flags':eff_flags, 'gate_context': gate_context,
                       'indices_split': indices_split, 'x_tv_pred_full_df': x_tv_pred_full_df,
+                      'tv_score_names': tv_scores_dc_names,
+                      'tv_scores_pred_full': tv_scores_pred_full,
                       }
     time_.weight += time() - start_time_w
     if maxworkers == 1:
@@ -136,16 +193,7 @@ def effect_with_sequential_weights(mcf_: 'ModifiedCausalForest', *,
                 weights_dic_data = weights_dic_data_chunk
                 txt_iate = txt_iate_chunk
 
-    elif (int_cfg.mp_use_old_ray and ray is not None
-              and ray_get_weights_aggregateweights_iate_chunk is not None
-              ):
-        if not ray.is_initialized():
-            ray_err_txt='Ray does not start up in weight estimation 1'
-            init_ray_with_fallback(maxworkers, gen_cfg,
-                                   mem_object_store=int_cfg.mem_object_store_3,
-                                   mem_object_store_2=int_cfg.mem_object_store_2,
-                                   ray_err_txt=ray_err_txt,
-                                   )
+    elif int_cfg.mp_use_old_ray:
         print_object_store(gen_cfg, int_cfg.mem_object_store_3)
         kw_get_weights_ref = ray.put(kw_get_weights)
 
@@ -267,6 +315,7 @@ def effect_with_sequential_weights(mcf_: 'ModifiedCausalForest', *,
                               w_ate=w_ate, weights_dic=weights_dic_data,
                               balancing_test=False, w_ate_only=False, with_output=True,
                               iv=gen_cfg.iv, pred_alloc=False,
+                              tv_scores_pred_precomp=tv_scores_pred_full,
                               )
         time_.ate += dtime
         # Aggregate ATEs over folds
@@ -285,6 +334,7 @@ def effect_with_sequential_weights(mcf_: 'ModifiedCausalForest', *,
                                   w_ate=w_bala, weights_dic=weights_dic_data,
                                   balancing_test=True, w_ate_only=False, with_output=True,
                                   iv=gen_cfg.iv, pred_alloc=False,
+                                  tv_scores_pred_precomp=tv_scores_pred_full,
                                   )
             time_.bala += dtime
             # Aggregate Balancing results over folds
@@ -306,6 +356,7 @@ def effect_with_sequential_weights(mcf_: 'ModifiedCausalForest', *,
                                     weights_dic_data=weights_dic_data,
                                     gate_type='GATE', paras_cbgate=None, z_name_cbgate=None,
                                     gate_context=gate_context,
+                                    tv_scores_pred_precomp=tv_scores_pred_full,
                                     with_output=True, iv=gen_cfg.iv,
                                     )
         time_.gate += dtime
@@ -333,14 +384,14 @@ def effect_with_sequential_weights(mcf_: 'ModifiedCausalForest', *,
          ) = bgate_est_low_memory(mcf_,
                                   data_df=data_df, forest_dic=forest_dic, gate_type='BGATE',
                                   )
-        effect.bgate_dic[idx_round], dtime = aggregate_pots(mcf_,
-                                                            y_pot_bgate_f, y_pot_var_bgate_f,
-                                                            effect_dic=effect.bgate_dic[idx_round],
-                                                            txt=txt_w_f, fold=fold,
-                                                            pot_is_list=True, title='BGATE',
-                                                            )
+        effect.bgate_dic[idx_round], _ = aggregate_pots(mcf_,
+                                                        y_pot_bgate_f, y_pot_var_bgate_f,
+                                                        effect_dic=effect.bgate_dic[idx_round],
+                                                        txt=txt_w_f, fold=fold,
+                                                        pot_is_list=True, title='BGATE',
+                                                        )
         if y_pot_mate_bgate_f is not None:
-            (effect.bgate_m_ate_dic[idx_round], dtime,
+            (effect.bgate_m_ate_dic[idx_round], _,
              ) = aggregate_pots(mcf_,
                                 y_pot_mate_bgate_f, y_pot_mate_var_bgate_f,
                                 effect_dic=effect.bgate_m_ate_dic[idx_round],
@@ -356,15 +407,14 @@ def effect_with_sequential_weights(mcf_: 'ModifiedCausalForest', *,
          ) = bgate_est_low_memory(mcf_,
                                   data_df=data_df, forest_dic=forest_dic, gate_type='CBGATE',
                                   )
-        effect.cbgate_dic[idx_round], dtime = aggregate_pots(mcf_,
-                                                             y_pot_cbgate_f, y_pot_var_cbgate_f,
-                                                             effect_dic
-                                                                 =effect.cbgate_dic[idx_round],
-                                                             txt=txt_w_f, fold=fold,
-                                                             pot_is_list=True, title='CBGATE',
-                                                             )
+        effect.cbgate_dic[idx_round], _ = aggregate_pots(mcf_,
+                                                         y_pot_cbgate_f, y_pot_var_cbgate_f,
+                                                         effect_dic =effect.cbgate_dic[idx_round],
+                                                         txt=txt_w_f, fold=fold,
+                                                         pot_is_list=True, title='CBGATE',
+                                                         )
         if y_pot_mate_cbgate_f is not None:
-            (effect.cbgate_m_ate_dic[idx_round], dtime
+            (effect.cbgate_m_ate_dic[idx_round], _
              ) = aggregate_pots(mcf_,
                                 y_pot_mate_cbgate_f, y_pot_mate_var_cbgate_f,
                                 effect_dic=effect.cbgate_m_ate_dic[idx_round], txt=txt_w_f,
@@ -384,8 +434,15 @@ def effect_with_full_weights(mcf_: 'ModifiedCausalForest', *,
                              round_: str,
                              idx_round: int,
                              fold: int,
+                             tv_scores_dc: 'TvScores | None',
                              ) -> None:    # Dataclasses (effect, time) will be updated
     """Compute the effects by first computing weights and then effects with full weight matrix."""
+    if tv_scores_dc is not None and tv_scores_dc.scores_df is not None:
+        data_df = concat((data_df.reset_index(drop=True),
+                          tv_scores_dc.scores_df.reset_index(drop=True),
+                          ),
+                         axis=1,
+                         )
     weights_dic, delta_time = get_weights_mp(data_df, forest_dic,
                                              reg_round=round_ == 'regular',
                                              cf_cfg=mcf_.cf_cfg, ct_cfg=mcf_.ct_cfg,
@@ -432,9 +489,8 @@ def effect_with_full_weights(mcf_: 'ModifiedCausalForest', *,
     if mcf_.p_cfg.bgate and (round_ == 'regular' or eff_flags.gate_eff):
         (y_pot_bgate_f, y_pot_var_bgate_f, y_pot_mate_bgate_f, y_pot_mate_var_bgate_f,
          effect.bgate_est_dic, txt_w_f, effect.txt_b) = bgate_est(mcf_,
-                                                                  data_df, weights_dic, w_ate,
-                                                                  forest_dic,
-                                                                  gate_type='BGATE',
+                                                                  data_df, forest_dic,
+                                                                  gate_type='BGATE'
                                                                   )
         effect.bgate_dic[idx_round], _ = aggregate_pots(mcf_,
                                                         y_pot_bgate_f, y_pot_var_bgate_f,
@@ -456,9 +512,8 @@ def effect_with_full_weights(mcf_: 'ModifiedCausalForest', *,
     if mcf_.p_cfg.cbgate and (round_ == 'regular' or eff_flags.gate_eff):
         (y_pot_cbgate_f, y_pot_var_cbgate_f, y_pot_mate_cbgate_f, y_pot_mate_var_cbgate_f,
          effect.cbgate_est_dic, txt_w_f, effect.txt_am,) = bgate_est(mcf_,
-                                                                     data_df, weights_dic, w_ate,
-                                                                     forest_dic,
-                                                                     gate_type='CBGATE',
+                                                                     data_df, forest_dic,
+                                                                     gate_type='CBGATE'
                                                                      )
         effect.cbgate_dic[idx_round], _ = aggregate_pots(mcf_,
                                                          y_pot_cbgate_f, y_pot_var_cbgate_f,
@@ -479,12 +534,15 @@ def effect_with_full_weights(mcf_: 'ModifiedCausalForest', *,
     # IATE
     time_i_start = time()
     if mcf_.p_cfg.iate and (round_ == 'regular' or eff_flags.iate_eff):
+        if mcf_.gen_tv_cfg.yes:
+            x_tv_df = data_df[mcf_.var_cfg.x_name_tv]
+        else:
+            x_tv_df = None
         (y_pot_f, y_pot_var_f, y_pot_m_ate_f, y_pot_m_ate_var_f, txt_w_f
          ) = iate_est_mp(mcf_,
                          weights_dic,
                          w_ate=w_ate, reg_round=round_ == 'regular',
-                         x_tv_df=(data_df[mcf_.var_cfg.x_name_tv] if mcf_.gen_tv_cfg.yes
-                                  else None),
+                         x_tv_df=x_tv_df,
                          )
         effect.iate_dic[idx_round], _ = aggregate_pots(mcf_,
                                                        y_pot_f, y_pot_var_f,
@@ -504,13 +562,22 @@ def effect_with_full_weights(mcf_: 'ModifiedCausalForest', *,
     # QIATE
     time_q_start = time()
     if mcf_.p_cfg.qiate and mcf_.p_cfg.iate and (round_ == 'regular' or eff_flags.qiate_eff):
+        pot_y_order, pot_y_var_order = y_pot_f, y_pot_var_f
+        need_order = round_ != 'regular' and not eff_flags.iate_eff
+        need_order_se = mcf_.p_cfg.qiate_bias_adjust and pot_y_var_order is None
+        if need_order or need_order_se:
+            # Compute ranking moments separately from the reported IATE aggregation.
+            mcf_order = copy(mcf_)
+            mcf_order.p_cfg = copy(mcf_.p_cfg)
+            mcf_order.p_cfg.iate_se = mcf_.p_cfg.qiate_bias_adjust
+            mcf_order.p_cfg.iate_m_ate = False
+            (pot_y_order, pot_y_var_order, _, _, _
+             ) = iate_est_mp(mcf_order, weights_dic, w_ate=None, reg_round=True)
+
         (y_pot_qiate_f, y_pot_var_qiate_f,
          y_pot_mmed_qiate_f, y_pot_mmed_var_qiate_f, y_pot_mopp_qiate_f,
-         y_pot_mopp_var_qiate_f, effect.qiate_est_dic, txt_w_f) = qiate_est(mcf_,
-                                                                            data_df, weights_dic,
-                                                                            y_pot_f,
-                                                                            y_pot_var=y_pot_var_f,
-                                                                            )
+         y_pot_mopp_var_qiate_f, effect.qiate_est_dic, txt_w_f
+         ) = qiate_est(mcf_, data_df, weights_dic, pot_y_order, y_pot_var=pot_y_var_order)
         effect.qiate_dic[idx_round], _ = aggregate_pots(mcf_,
                                                         y_pot_qiate_f, y_pot_var_qiate_f,
                                                         effect_dic=effect.qiate_dic[idx_round],
@@ -573,6 +640,9 @@ def get_weights_aggregateweights_iate_chunk(data_df_chunk: DataFrame, *,
                                             gate_context: he.GateContext | None = None,
                                             indices_split: list[NDArray[Any]] | None = None,
                                             x_tv_pred_full_df: DataFrame | None = None,
+                                            tv_score_names: list[str] | None = None,
+                                            tv_scores_pred_full:
+                                                list[NDArray[Any] | None] | None = None,
                                             ) -> tuple[int,
                                                        he.TimeState,
                                                        dict,
@@ -605,9 +675,12 @@ def get_weights_aggregateweights_iate_chunk(data_df_chunk: DataFrame, *,
     # IATE
     if mcf_seq.p_cfg.iate and (round_ == 'regular' or eff_flags.iate_eff):
         if x_tv_pred_full_df is not None and indices_split is not None:
-            tv_spec = fit_tv_feature_spec(weights_dic['x_tv_dat'],
+            if tv_score_names is None:
+                tv_score_names = []
+            tv_spec = fit_tv_feature_spec(weights_dic['x_tv_df'],
                                           mcf_seq.var_cfg,
                                           zero_tol=mcf_seq.int_cfg.zero_tol,
+                                          score_names=tv_score_names,
                                           )
             x_tv_pred_chunk = transform_x_tv(x_tv_pred_full_df.iloc[indices_split[chunk_idx]],
                                              tv_spec,
@@ -615,12 +688,24 @@ def get_weights_aggregateweights_iate_chunk(data_df_chunk: DataFrame, *,
         else:
             x_tv_pred_chunk = None
 
+        tv_scores_pred_chunk = None
+        if tv_scores_pred_full is not None:
+            if indices_split is None:
+                raise ValueError('Prediction score reuse requires chunk row positions.')
+            score_rows = indices_split[chunk_idx]
+            if len(score_rows) != len(data_df_chunk):
+                raise ValueError('Prediction score positions do not match chunk rows.')
+            tv_scores_pred_chunk = [None if scores is None else scores[score_rows, :]
+                                    for scores in tv_scores_pred_full]
+
         pot_iate, pot_iate_var, txt_iate, dtime = iate_pot_est(mcf_seq,
                                                                data_df=data_df_chunk,
                                                                weights_dic=weights_dic,
                                                                round_=round_,
                                                                x_tv_pred_np=x_tv_pred_chunk,
                                                                print_progress=False,
+                                                               tv_scores_pred_precomp
+                                                                   =tv_scores_pred_chunk,
                                                                )
         time_chunk.iate += dtime
     else:
@@ -780,10 +865,11 @@ def iate_pot_est(mcf_: 'ModifiedCausalForest', *,
                  round_: str,
                  x_tv_pred_np: NDArray[Any] | None = None,
                  print_progress: bool = True,
+                 tv_scores_pred_precomp: list[NDArray[Any] | None] | None = None,
                  ) -> tuple[NDArray, ArrayLike, str, float]:
     """Compute potential outcomes for IATE."""
     time_start = time()
-    if mcf_.gen_tv_cfg.yes and x_tv_pred_np is None:
+    if mcf_.gen_tv_cfg.yes:
         x_tv_df = data_df[mcf_.var_cfg.x_name_tv]
     else:
         x_tv_df = None
@@ -793,6 +879,8 @@ def iate_pot_est(mcf_: 'ModifiedCausalForest', *,
                                                         w_ate=None, reg_round=round_ == 'regular',
                                                         x_tv_df=x_tv_df, x_tv_pred_np=x_tv_pred_np,
                                                         print_progress=print_progress,
+                                                        tv_scores_pred_precomp
+                                                            =tv_scores_pred_precomp,
                                                         )
     return pot_chunk, pot_var_chunk, txt_w, time() - time_start
 
@@ -884,7 +972,28 @@ def update_weights_iates(*,
 
 
 def make_mcf_seq_for_low_memory(mcf_: 'ModifiedCausalForest') -> Any:
-    """Create a small MCF-like object for low-memory chunk workers."""
+    """Copy worker settings while sharing fitted version-score models and caches.
+
+    Score containers and metadata remain private to this worker configuration.
+    Shared fitted models, scalers, and cached scores must be used read-only.
+    """
+    score_memo: dict[int, Any] = {}
+    score_rounds = list(mcf_.gen_tv_cfg.scores_version_list or [])
+    score_rounds.append(mcf_.gen_tv_cfg.scores_version_round)
+
+    for scores_by_main in score_rounds:
+        if scores_by_main is None:
+            continue
+        for score_dc in scores_by_main:
+            shared_objects = [score_dc.scores_df, score_dc.scores_np]
+            if score_dc.instances is not None:
+                shared_objects.extend(score_dc.instances)
+            if score_dc.scalers is not None:
+                shared_objects.extend(score_dc.scalers)
+            for obj in shared_objects:
+                if obj is not None:
+                    score_memo[id(obj)] = obj
+
     mcf_seq = SimpleNamespace(gen_cfg=deepcopy(mcf_.gen_cfg),
                               int_cfg=deepcopy(mcf_.int_cfg),
                               p_cfg=deepcopy(mcf_.p_cfg),
@@ -892,7 +1001,7 @@ def make_mcf_seq_for_low_memory(mcf_: 'ModifiedCausalForest') -> Any:
                               ct_cfg=deepcopy(mcf_.ct_cfg),
                               cf_cfg=deepcopy(mcf_.cf_cfg),
                               p_ba_cfg=deepcopy(mcf_.p_ba_cfg),
-                              gen_tv_cfg=deepcopy(mcf_.gen_tv_cfg),
+                              gen_tv_cfg=deepcopy(mcf_.gen_tv_cfg, memo=score_memo),
                               var_x_values=deepcopy(mcf_.var_x_values),
                               low_mem_cfg=deepcopy(mcf_.low_mem_cfg),
                               )

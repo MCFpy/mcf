@@ -7,7 +7,7 @@ Contains specific functions for unconfoundedness.
 """
 from copy import copy, deepcopy
 from time import time
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 import pandas as pd
 
@@ -26,7 +26,7 @@ from mcf.mcf_general import check_reduce_dataframe
 from mcf.mcf_iate import iate_effects_print
 from mcf.mcf_local_centering import local_centering
 from mcf.mcf_qiate import qiate_effects_print
-from mcf.mcf_versions import d_dictionary
+from mcf.mcf_versions import d_dictionary, tv_scores_predict, version_scores_for_forest
 from mcf.mcfoptp_parallel_backend_ray_classical import check_ray_shutdown
 
 if TYPE_CHECKING:
@@ -87,7 +87,7 @@ def train_main(mcf_: 'ModifiedCausalForest',
 
     # Check treatment data
     data_df, _ = mcf_data.data_frame_vars_lower(data_df)
-    data_df = mcf_data.check_recode_treat_variable(mcf_, data_df)
+    data_df = mcf_data.check_recode_treat_variable(mcf_, data_df, train=True)
     # Initialise again with data information. Order of the following
     # init functions important. Change only if you know what you do.
     mcf_init_update.var_update_train(mcf_, data_df)
@@ -98,6 +98,8 @@ def train_main(mcf_: 'ModifiedCausalForest',
     mcf_init_update.lc_update_train(mcf_, data_df)
     mcf_init_update.int_update_train(mcf_)
     mcf_init_update.p_update_train(mcf_)
+    if mcf_.p_ba_cfg.yes:
+        mcf_init_update.p_ba_update_train(mcf_, data_df)
     if mcf_.gen_tv_cfg.yes:
         mcf_init_update.gen_tv_update_train(mcf_, data_df)
     if mcf_.low_mem_cfg.yes:
@@ -186,7 +188,7 @@ def train_main(mcf_: 'ModifiedCausalForest',
             mcf_.report["lc_r2"] = report
     time_4 = time()
 
-    # Train forest
+    # Train forest (including data preparation for version estimation)
     if mcf_.gen_cfg.with_output:
         mcf_ps.variable_features(mcf_, summary=False)
     mcf_.cf_cfg, mcf_.p_ba_cfg, mcf_.forest, time_vi, report = train_forest(mcf_,
@@ -201,10 +203,10 @@ def train_main(mcf_: 'ModifiedCausalForest',
                    'Local centering (recoding of Y):                ',
                    'Training the causal forest:                     ',
                    '  ... of which is time for variable importance: ',
-                   '\nTotal time training:                            '
+                   '\nTotal time training:                            ',
                    ]
     time_difference = [time_1 - time_start, time_2 - time_1, time_3 - time_2, time_4 - time_3,
-                       time_end - time_4, time_vi, time_end - time_start
+                       time_end - time_4, time_vi, time_end - time_start,
                        ]
     if mcf_.gen_cfg.with_output:
         time_train = mcf_ps.print_timing(mcf_.gen_cfg, 'Training', time_string, time_difference,
@@ -222,8 +224,8 @@ def train_main(mcf_: 'ModifiedCausalForest',
 
 def predict_main(mcf_: 'ModifiedCausalForest',
                  data_df: pd.DataFrame,
-                 exit_after_commonsupport=False,
-                 ) -> dict:
+                 exit_after_commonsupport: bool = False,
+                 ) -> dict[str, Any]:
     """
     Compute all effects given a causal forest estimated with mcf.
 
@@ -234,63 +236,68 @@ def predict_main(mcf_: 'ModifiedCausalForest',
         (and treatment if effects for treatment specific subpopulations are desired as well).
 
     exit_after_commonsupport : Boolean, optional
-        Programme exits once the common support is determined.
-        This is useful to determine common support cut-offs only.
+        If True, stop after common-support processing without estimating effects.
+        Return the processed prediction data in 'inputdata_on_support'.
+        The default is False.
 
     Returns
     -------
     results : Dictionary.
         Results. This dictionary has the following structure:
         'ate': ATE, 'ate_se': Standard error of ATE.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'ate_effect_list': List of names of estimated effects.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'gate': GATE, 'gate_se': SE of GATE.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'gate_diff': GATE minus ATE.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'gate_diff_se': Standard error of GATE minus ATE.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'cbgate': cbGATE (all covariates balanced).
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'cbgate_se': Standard error of CBGATE.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'cbgate_diff': CBGATE minus ATE.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'cbgate_diff_se': Standard error of CBGATE minus ATE.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'bgate': BGATE (only prespecified covariates balanced).
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'bgate_se': Standard error of BGATE.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'bgate_diff': BGATE minus ATE.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'bgate_diff_se': Standard errror of BGATE minus ATE.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'gate_names_values': Dictionary: Order of gates parameters, name and values of GATE effects.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'qiate': QIATE, 'qiate_se': Standard error of QIATEs.
-            None if exit_after_commonsupport is False.
-        'qiate_diff': QIATE minus QIATE at median.
-            None if exit_after_commonsupport is False.
-        'qiate_diff_se': Standard error of QIATE minus QIATE at median.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
+        'qiate_mmed': QIATE(q) - QIATE(0.5).
+            None if not computed or exit_after_commonsupport is True.
+        'qiate_mmed_se': Standard errors of qiate_mmed.
+            None if not computed or exit_after_commonsupport is True.
+        'qiate_mopp': QIATE(q) - QIATE(1 - q).
+            None if not computed or exit_after_commonsupport is True.
+        'qiate_mopp_se': Standard errors of qiate_mopp.
+            None if not computed or exit_after_commonsupport is True.
         'iate_data_df': DataFrame with IATEs.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'iate_names_dic': Dictionary containing names of IATEs.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'bala': Effects of balancing tests.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'bala_se': Standard error of effects of balancing tests.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'bala_effect_list': Names of effects of balancing tests.
-            None if exit_after_commonsupport is False.
+            None if exit_after_commonsupport is True.
         'common_support_probabilities: ': pd.DataFrame containing treatment probabilities for all
             treatments, the identifier of the observation, and a dummy variable indicating whether
             the observation is inside or outside the common support.
         'path_output': Pathlib object, location of directory in which output is saved.
-        'inputdata_on_support': DataFrame of input data that on the common support.
-            None, if exit_after_commonsupport is True.
+        'inputdata_on_support': Processed prediction data retained after common-support
+            processing when exit_after_commonsupport is True; otherwise None.
     """
     time_start = time()
     report = {}
@@ -314,7 +321,7 @@ def predict_main(mcf_: 'ModifiedCausalForest',
 
     # Check treatment data
     if mcf_.p_cfg.d_in_pred:
-        data_df = mcf_data.check_recode_treat_variable(mcf_, data_df)
+        data_df = mcf_data.check_recode_treat_variable(mcf_, data_df, train=False)
     mcf_init_update.int_update_pred(mcf_, len(data_df))
     mcf_init_update.post_update_pred(mcf_, data_df)
     if mcf_.gen_cfg.with_output:
@@ -350,8 +357,7 @@ def predict_main(mcf_: 'ModifiedCausalForest',
         mcf_init_update.gen_tv_update_pred(mcf_)
 
     data_df = data_df.copy().reset_index(drop=True)
-    if (mcf_.p_cfg.d_in_pred and mcf_.int_cfg.descriptive_stats
-            and mcf_.gen_cfg.with_output):
+    if mcf_.p_cfg.d_in_pred and mcf_.int_cfg.descriptive_stats and mcf_.gen_cfg.with_output:
         mcf_ps.desc_by_treatment(mcf_,
                                  data_df,
                                  summary=True, stage=3, subtreatments=mcf_.gen_tv_cfg.yes
@@ -373,12 +379,30 @@ def predict_main(mcf_: 'ModifiedCausalForest',
                 'path_output': mcf_.gen_cfg.outpath,
                 'inputdata_on_support': data_df,
                 }
-    # Local centering for IATE (to reverse its effect on potential outcomes)
+    # Restore potential-outcome levels using the ensemble(s) behind each estimate.
     if mcf_.lc_cfg.yes and mcf_.lc_cfg.uncenter_po:
         _, _, y_pred_x_df, _ = local_centering(mcf_, data_df, fill_y_df=None, train=False)
+        if getattr(mcf_.lc_cfg, 'forests_additional', None) is not None:
+            _, _, y_pred_x_add_df, _ = local_centering(mcf_, data_df, train=False,
+                                                       prediction_round='additional',
+                                                       )
+            y_pred_x_eff_df = (y_pred_x_df + y_pred_x_add_df) / 2
+        else:
+            y_pred_x_eff_df = y_pred_x_df
     else:
-        y_pred_x_df = 0
+        y_pred_x_df = y_pred_x_eff_df = 0
     time_3 = time()
+    score_type = mcf_.gen_tv_cfg.score_type or ()
+    if isinstance(score_type, str):
+        score_type = (score_type,)
+    compute_main_scores_version_estimation = (mcf_.gen_tv_cfg.yes
+                                              and mcf_.gen_tv_cfg.addscores
+                                              and any(score in score_type
+                                                      for score in ('prop_main', 'prog_main')
+                                                      )
+                                              )
+    if compute_main_scores_version_estimation:
+        tv_scores_pred_dc_list, mcf_.gen_tv_cfg.score_names = tv_scores_predict(mcf_, data_df)
 
     # Initialise instances of dataclasses holding results and parameters
     eff_flags_dc = inst_eff_flags(mcf_.gen_cfg)
@@ -408,6 +432,19 @@ def predict_main(mcf_: 'ModifiedCausalForest',
                     print(f'\n\nWeight maxtrix {fold+1} / {mcf_.cf_cfg.folds} forests, {round_}')
                 effect_fct = mcf_fsw.effect_with_full_weights
 
+            if compute_main_scores_version_estimation:
+                tv_scores_dc = tv_scores_pred_dc_list[idx_round]
+            else:
+                tv_scores_dc = None
+
+            if mcf_.gen_tv_cfg.scores_version_list is not None:
+                scores_round = mcf_.gen_tv_cfg.scores_version_list[idx_round]
+                mcf_.gen_tv_cfg.scores_version_round = version_scores_for_forest(scores_round,
+                                                                                 forest_dic,
+                                                                                 )
+            else:
+                mcf_.gen_tv_cfg.scores_version_round = None
+
             effect_fct(mcf_,
                        data_df=data_df,
                        forest_dic=forest_dic,
@@ -417,6 +454,7 @@ def predict_main(mcf_: 'ModifiedCausalForest',
                        round_=round_,
                        idx_round=idx_round,
                        fold=fold,
+                       tv_scores_dc=tv_scores_dc,
                        )
         if mcf_.int_cfg.mp_use_old_ray:
             check_ray_shutdown(mcf_.int_cfg.mp_ray_shutdown, mcf_.gen_cfg.mp_parallel)
@@ -434,8 +472,9 @@ def predict_main(mcf_: 'ModifiedCausalForest',
 
     # ATE
     time_a_start = time()
+    y_pred_ate_df = y_pred_x_eff_df if eff_flags_dc.ate_eff else y_pred_x_df
     ate, ate_se, ate_effect_list = ate_effects_print(mcf_,
-                                                     effect_dc.ate_dic, y_pred_x_df,
+                                                     effect_dc.ate_dic, y_pred_ate_df,
                                                      balancing_test=False,
                                                      )
     time_dc.ate += time() - time_a_start
@@ -510,11 +549,17 @@ def predict_main(mcf_: 'ModifiedCausalForest',
     # IATE
     time_i_start = time()
     if mcf_.p_cfg.iate:
-        (iate, iate_se, iate_names_dic, iate_df, report['iate_text']    # TODO
-         ) = iate_effects_print(mcf_, effect_dc.iate_dic, effect_dc.iate_m_ate_dic, y_pred_x_df)
-        data_df.reset_index(drop=True, inplace=True)
-        iate_df.reset_index(drop=True, inplace=True)
-        iate_pred_df = pd.concat([data_df, iate_df], axis=1)
+        y_pred_iate_df = y_pred_x_eff_df if eff_flags_dc.iate_eff else y_pred_x_df
+        (iate, iate_se, iate_names_dic, iate_df, report['iate_text'],
+         ) = iate_effects_print(mcf_, effect_dc.iate_dic, effect_dc.iate_m_ate_dic, y_pred_iate_df,
+                                report=report,
+                                )
+        if iate_df is not None:
+            data_df.reset_index(drop=True, inplace=True)
+            iate_df.reset_index(drop=True, inplace=True)
+            iate_pred_df = pd.concat([data_df, iate_df], axis=1)
+        else:
+            iate_pred_df = None
     else:
         iate = iate_se = iate_df = iate_pred_df = iate_names_dic = None
 
@@ -588,8 +633,13 @@ def analyse_main(mcf_: 'ModifiedCausalForest', results: dict) -> dict:
     Parameters
     ----------
     results : Dictionary
-        Contains estimation results. This dictionary must have the same
-        structure as the one returned from the :meth:`~ModifiedCausalForest.predict` method.
+        Results from predict(), or one nonempty dictionary returned by predict_iv():
+        results_global or results_local. For IV estimation, pass that dictionary rather than
+        the two-element return tuple. Use results from this trained instance, with IATE
+        estimation and IATE DataFrame return enabled; see 'post_est_stats'.
+        For IV results, correlations and sorted-effect/density analyses cover LIATEs,
+        first-stage IATEs and reduced-form IATEs. Clustering and descriptive random-forest
+        and regression-tree analyses use LIATEs only.
 
     Raises
     ------

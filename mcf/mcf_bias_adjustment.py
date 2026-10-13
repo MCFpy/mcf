@@ -16,18 +16,18 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 
 from mcf import mcf_estimation_weighted_regression as mcf_ewr
-from mcf.mcf_estimation_weighted_regression import standardize_col
 from mcf.mcf_data import get_treat_info
 from mcf.mcf_print_stats import print_mcf
-from mcf.mcf_estimation_generic import best_regression, scale, regress_instance
 from mcf.mcf_estimation import predict_proba_aligned
-from mcf.mcf_init_update_helper import pa_ba_update_train
+from mcf.mcf_estimation_generic import (best_regression, scale, regress_instance,
+                                        cv_k_update_train, NumericOutcomeClassifier,
+                                        )
 
 type ArrayLike = NDArray[Any] | None
 
 if TYPE_CHECKING:
     from mcf.mcf_main import ModifiedCausalForest
-    from mcf.mcf_init import PBaCfg
+    from mcf.mcf_init_predict import PBiasAdjustmentCfg as PBaCfg
 
 
 def get_weights_eval_ba(weights: NDArray[np.floating],
@@ -70,18 +70,36 @@ class BaData:
     weights_eval: ArrayLike
 
 
-# TODO this needs to be adjusted for the prediction data, if ever implemented
-def get_ba_data_prediction(weights_dic: dict, p_ba_cfg: 'PBaCfg') -> Any:
-    """Get data for bias adjustment as instance of named tuple."""
-    ba_data = BaData(x_ba_train=weights_dic['x_ba_dat'],
-                     prog_sc_train=weights_dic['prog_dat_np'],
-                     prop_sc_train=weights_dic['prop_dat_np'],
-                     x_ba_eval=p_ba_cfg.x_ba_eval,
-                     prog_sc_eval=p_ba_cfg.prog_score_eval,
-                     prop_sc_eval=p_ba_cfg.prop_score_eval,
-                     weights_eval = None  # If needed, it will be changed outside
-                     )
-    return ba_data
+def get_ba_data_prediction(weights_dic: dict[str, Any], p_ba_cfg: 'PBaCfg') -> BaData:
+    """Select enabled bias-adjustment regressors and their matching evaluation arrays."""
+    def select_block(key: str, enabled: bool, evaluation: ArrayLike
+                     ) -> tuple[ArrayLike, ArrayLike]:
+        """Select one prepared regressor block and its evaluation sample."""
+        if not enabled:
+            return None, None
+        training = weights_dic[key]
+        if training is None:
+            raise ValueError('Requested bias-adjustment regressors were not prepared during '
+                             'training. Retrain with the corresponding source enabled.')
+        if p_ba_cfg.adj_method == 'w_obs':
+            evaluation = training
+        elif p_ba_cfg.adj_method == 'zeros':
+            evaluation = None
+        return training, evaluation
+
+    x_train, x_eval = select_block('x_ba_dat', p_ba_cfg.use_x, p_ba_cfg.x_ba_eval)
+    prog_train, prog_eval = select_block('prog_dat_np', p_ba_cfg.use_prog_score,
+                                         p_ba_cfg.prog_score_eval)
+    prop_train, prop_eval = select_block('prop_dat_np', p_ba_cfg.use_prop_score,
+                                         p_ba_cfg.prop_score_eval)
+    if all(block is None for block in (x_train, prog_train, prop_train)):
+        raise ValueError('Bias adjustment requires at least one regressor source. '
+                         'Keep a source enabled or set p_ba=False.')
+
+    return BaData(x_ba_train=x_train, prog_sc_train=prog_train, prop_sc_train=prop_train,
+                  x_ba_eval=x_eval, prog_sc_eval=prog_eval, prop_sc_eval=prop_eval,
+                  weights_eval=None,
+                  )
 
 
 # TODO: In the future: Create CUDA version
@@ -97,17 +115,16 @@ def bias_correction_wregr(weights: NDArray[np.floating],
                           cv_k: int = 5,
                           ) -> NDArray[np.floating]:
     """Adjust the weights to account for the bias correction."""
-    def regressors_add(regr_train: list[NDArray[Any]],
-                       regr_eval: list[NDArray[Any]],
+    def regressors_add(regr_train: NDArray[Any],
+                       regr_eval: NDArray[Any],
                        x_train: NDArray[Any],
-                       x_eval: NDArray[Any],
-                       ) -> tuple[list[NDArray[Any]], list[NDArray[Any]],]:
-        """Build the regressor matrices."""
+                       x_eval: NDArray[Any] | None,
+                       ) -> tuple[NDArray[Any], NDArray[Any]]:
+        """Append regressors using the row count of each respective sample."""
         regr_train = np.concatenate((regr_train, x_train), axis=1)
         if x_eval is None or np.all(np.isclose(x_eval, 0, atol=zero_tol, rtol=zero_tol)):
-            regr_eval = np.concatenate((regr_eval, np.zeros_like(x_train)), axis=1,)
-        else:
-            regr_eval = np.concatenate((regr_eval, x_eval), axis=1)
+            x_eval = np.zeros((regr_eval.shape[0], x_train.shape[1]), dtype=regr_eval.dtype)
+        regr_eval = np.concatenate((regr_eval, x_eval), axis=1)
 
         return regr_train, regr_eval
 
@@ -164,27 +181,27 @@ def bias_correction_wregr(weights: NDArray[np.floating],
                                                not_penalize_first_k=1,
                                                dtype=int_dtype,
                                                )
-        weights_ba = mcf_ewr.ridge_equivalent_weights_for_mean(regr_train,
-                                                               w_non_zero,
-                                                               y=None,
-                                                               lam=best_lam,
-                                                               x_eval=regr_eval,
-                                                               int_dtype=int_dtype,
-                                                               out_dtype=out_dtype,
-                                                               weights_eval=ba_data.weights_eval,
-                                                               not_penalize_first_k=1,
-                                                               return_residuals=False,
-                                                               )
+        weights_ba, _ = mcf_ewr.ridge_equivalent_weights_for_mean(regr_train,
+                                                                  w_non_zero,
+                                                                  y=None,
+                                                                  lam=best_lam,
+                                                                  x_eval=regr_eval,
+                                                                  int_dtype=int_dtype,
+                                                                  out_dtype=out_dtype,
+                                                                  weights_eval=ba_data.weights_eval,
+                                                                  not_penalize_first_k=1,
+                                                                  return_residuals=False,
+                                                                  )
     else:
-        weights_ba = mcf_ewr.wls_equivalent_weights_for_mean(regr_train,
-                                                             weights[w_nonzero].reshape(-1, 1),
-                                                             y=None,
-                                                             x_eval=regr_eval,
-                                                             int_dtype=int_dtype,
-                                                             out_dtype=out_dtype,
-                                                             weights_eval=ba_data.weights_eval,
-                                                             return_residuals=False,
-                                                             )
+        weights_ba, _ = mcf_ewr.wls_equivalent_weights_for_mean(regr_train,
+                                                                weights[w_nonzero].reshape(-1, 1),
+                                                                y=None,
+                                                                x_eval=regr_eval,
+                                                                int_dtype=int_dtype,
+                                                                out_dtype=out_dtype,
+                                                                weights_eval=ba_data.weights_eval,
+                                                                return_residuals=False,
+                                                                )
     weights_ba = weights_ba.reshape(-1)                                   # pylint: disable=E1101
 
     sum_weighs_ba = np.sum(weights_ba)
@@ -243,8 +260,14 @@ def compute_scores_x(mcf_: 'ModifiedCausalForest',
     names_ordered = [name for name, type_ in var_x_type.items() if type_ in [0]]
     names_unordered = [name for name, type_ in var_x_type.items() if type_ in [1, 2]]
     if use_prop_score or use_prog_score:
-        prog_score, prop_score = get_scores(mcf_, train_df, predict_df,
-                                            names_ordered,  names_unordered
+        prog_score, prop_score = get_scores(mcf_,
+                                            train_df=train_df, predict_df=predict_df,
+                                            names_ordered=names_ordered,
+                                            names_unordered=names_unordered,
+                                            use_prop_score = use_prop_score,
+                                            use_prog_score = use_prog_score,
+                                            cv_k=mcf_.p_ba_cfg.cv_k,
+                                            estimator_name=mcf_.p_ba_cfg.estimator,
                                             )
     else:
         prog_score = prop_score = None
@@ -278,7 +301,11 @@ def get_x(mcf_: 'ModifiedCausalForest',
         x_ba_o = None
 
     if names_ba_unordered:
-        x_ba_u_df = data_df[names_ba_unordered].astype('category')
+        x_ba_u_df = data_df[names_ba_unordered].copy()
+        for name in names_ba_unordered:
+            x_ba_u_df[name] = pd.Categorical(x_ba_u_df[name],
+                                            categories=mcf_.var_x_values[name],
+                                            )
         x_ba_u_df = pd.get_dummies(data=x_ba_u_df,
                                    columns=names_ba_unordered,
                                    prefix=names_ba_unordered,
@@ -298,11 +325,15 @@ def get_x(mcf_: 'ModifiedCausalForest',
     return x_ba_u
 
 
-def get_scores(mcf_: 'ModifiedCausalForest',
+def get_scores(mcf_: 'ModifiedCausalForest', *,
                train_df: pd.DataFrame,
                predict_df: pd.DataFrame,
                names_ordered: list[str],
                names_unordered: list[str],
+               use_prop_score: bool = True,
+               use_prog_score: bool = True,
+               cv_k: int | None = 5,
+               estimator_name: str | None = None,
                ) -> tuple[NDArray[Any], NDArray[Any]]:
     """Compute the prognostic and the propensity scores."""
     # This procedure maybe optimized for doing training and prediction only
@@ -314,12 +345,9 @@ def get_scores(mcf_: 'ModifiedCausalForest',
     y_tree_name_unc = mcf_.var_cfg.y_tree_name_unc
     obs_bigdata = mcf_.int_cfg.obs_bigdata
     boot = mcf_.cf_cfg.boot
-    lc_cfg, gen_cfg, p_ba_cfg = mcf_.lc_cfg, mcf_.gen_cfg, mcf_.p_ba_cfg
+    lc_cfg, gen_cfg = mcf_.lc_cfg, mcf_.gen_cfg
     zero_tol = mcf_.int_cfg.zero_tol
     with_output = gen_cfg.with_output
-
-    use_prop_score = mcf_.p_ba_cfg.use_prop_score
-    use_prog_score = mcf_.p_ba_cfg.use_prog_score
 
     d_predict_np, d_in_predict_df = None, False
     y_predict_np, y_in_predict_df = None, False
@@ -388,6 +416,7 @@ def get_scores(mcf_: 'ModifiedCausalForest',
 
     # Use same parameters for both classifier estimations
     params_rfc = {"n_estimators": boot,
+                  'criterion': 'gini',
                   "max_features": "sqrt",
                   "bootstrap": True,
                   "oob_score": False,
@@ -420,18 +449,16 @@ def get_scores(mcf_: 'ModifiedCausalForest',
         y_discrete = np.unique(y_train_np).shape[0] < 10
 
         if y_discrete:
-            rfc_all = RandomForestClassifier(**params_rfc)
-        # else:
-        #     rfc_all = RandomForestRegressor(**params)
+            rfc_all = NumericOutcomeClassifier(**params_rfc)
 
         # Train for each individual treatment
         for idx, d_treatment in enumerate(d_values):
 
             # Train on the treatment group
             # if train:
-            treatments = np.isclose(d_train_np, d_treatment, rtol=zero_tol, atol=zero_tol).squeeze()
+            treatments = np.isclose(d_train_np, d_treatment, rtol=zero_tol, atol=zero_tol).ravel()
             x_tmp_np = x_train_np[treatments].copy()
-            y_tmp_np = y_train_np[treatments].squeeze().copy()
+            y_tmp_np = y_train_np[treatments].ravel().copy()
             # Get a new clean instance
             if y_discrete:
                 obj = deepcopy(rfc_all)
@@ -441,12 +468,17 @@ def get_scores(mcf_: 'ModifiedCausalForest',
                 prog_score_np[:, idx] = obj.predict(x_predict_np)
                 transform_x = False
             else:
-                if p_ba_cfg.cv_k is None:
-                    p_ba_cfg.cv_k = pa_ba_update_train(p_ba_cfg.cv_k, x_tmp_np.shape[0],)
+                n_train_treat = x_tmp_np.shape[0]
+                if n_train_treat == 0:
+                    raise ValueError(f'No score-training observations for treatment {d_treatment}.')
+                cv_k_treat = min(cv_k_update_train(cv_k, n_train_treat), n_train_treat)
+                estimator_treat = ('Mean' if estimator_name == 'automatic' and n_train_treat == 1
+                                   else estimator_name)
                 (estimator, params, txt_sel, _, transform_x, txt_mse
-                 ) = best_regression(x_tmp_np,  y_tmp_np.ravel(), estimator=p_ba_cfg.estimator,
-                                     boot=boot, seed=123456, max_workers=gen_cfg.mp_parallel,
-                                     test_share=0, cross_validation_k=p_ba_cfg.cv_k,
+                 ) = best_regression(x_tmp_np, y_tmp_np.ravel(),
+                                     estimator=estimator_treat, boot=boot, seed=123456,
+                                     max_workers=gen_cfg.mp_parallel,
+                                     test_share=0, cross_validation_k=cv_k_treat,
                                      obs_bigdata=obs_bigdata,
                                      )
                 if transform_x:
@@ -464,7 +496,9 @@ def get_scores(mcf_: 'ModifiedCausalForest',
 
             if with_output and y_in_predict_df and d_in_predict_df:
                 treatments_p = np.isclose(d_predict_np, d_treatment, atol=zero_tol, rtol=zero_tol
-                                          ).squeeze()
+                                          ).ravel()
+                if not np.any(treatments_p):
+                    continue
                 x_predict = x_pred if transform_x else x_predict_np
                 if obj is not None:
                     score = obj.score(x_predict[treatments_p], y_predict_np[treatments_p],)
@@ -496,11 +530,10 @@ def get_scores(mcf_: 'ModifiedCausalForest',
         classif.fit(x_train_np, d_train_np.ravel())
 
         # Predict the probabilities with the features of the prediction data
-        # prop_all = classif.predict_proba(x_predict_np).astype(np.float32)
+
         prop_all = predict_proba_aligned(classif, x_predict_np, d_values,
                                          dtype=np.float32, zero_tol=zero_tol,
                                          )
-        prop_score_np = prop_all[:, 1:]
         if with_output and d_in_predict_df:
             score = classif.score(x_predict_np, d_predict_np)
             txt = (f'\nOut-of-sample accuracy of propensity score: {score:.2%} '
@@ -519,40 +552,43 @@ def get_scores(mcf_: 'ModifiedCausalForest',
 def compute_ba_arrays(mcf_: 'ModifiedCausalForest', *,
                       train_df: pd.DataFrame,
                       predict_df: pd.DataFrame,
-                      ) -> tuple[ArrayLike, ArrayLike, ArrayLike, ArrayLike, ArrayLike]:
-    """Compute numpy arrays used for bias adjustment before forest building."""
-    # TODO --> auslagern in anderes File!!
-    # Note: For large data, this is done before forests are computed in
-    #       folds. Therefore, we need to save the index to be able to
-    #       relate the data to the correct folds in the prediction method
-    #       (if needed)
-    # These values will be stored in the respective forest_dic defined below
-    # TODO save instances if prediction data is used
+                      additional_data: tuple[pd.DataFrame, pd.DataFrame] | None = None,
+                      ) -> tuple[ArrayLike, ArrayLike, ArrayLike, ArrayLike, ArrayLike, ArrayLike]:
+    """Prepare bias-adjustment arrays, preserving regressor columns in both estimation rounds."""
+    def standardize(values: ArrayLike, zero_tol: float = 1e-10) -> ArrayLike:
+        """Center and scale each column; retain constant columns as zeros."""
+        if values is None:
+            return None
+        centered = values - np.mean(values, axis=0)
+        scales = np.std(values, axis=0)
+        return np.divide(centered, scales, out=np.zeros_like(centered), where=scales > zero_tol)
+
+    # Compute arrays before forest chunking; get_ba_data_train selects the corresponding rows.
     p_ba_cfg = mcf_.p_ba_cfg
     gen_cfg = mcf_.gen_cfg
     prog_r, prop_r, x_r = compute_scores_x(mcf_, train_df=train_df, predict_df=predict_df)
-    # TODO save means if prediction data is used
-    prog_r, prop_r = standardize_col(prog_r), standardize_col(prop_r)
-    x_r = standardize_col(x_r)
+    prog_r, prop_r, x_r = standardize(prog_r), standardize(prop_r), standardize(x_r)
 
-    # Define the evaluation points
     match p_ba_cfg.adj_method:
         case 'zeros':
             p_ba_cfg.x_ba_eval = None
             p_ba_cfg.prog_score_eval = None
             p_ba_cfg.prop_score_eval = None
         case 'obs' | 'w_obs':
-            p_ba_cfg.x_ba_eval = standardize_col(x_r)
-            p_ba_cfg.prog_score_eval = standardize_col(prog_r)
-            p_ba_cfg.prop_score_eval = standardize_col(prop_r)
-            # TODO here add NEW case if prediction data is used
+            p_ba_cfg.x_ba_eval = standardize(x_r)
+            p_ba_cfg.prog_score_eval = standardize(prog_r)
+            p_ba_cfg.prop_score_eval = standardize(prop_r)
         case _:
             raise ValueError('Invalid Bias Adjustment Method')
 
     if gen_cfg.any_eff:
-        # Change role of samples
-        prog_a, prop_a, x_a = compute_scores_x(mcf_, train_df=predict_df, predict_df=train_df)
-        prog_a, prop_a, x_a = standardize_col(prog_a), standardize_col(prop_a), standardize_col(x_a)
+        # Change roles using the outcomes centered for the additional round.
+        train_add_df, predict_add_df = ((predict_df, train_df) if additional_data is None
+                                      else additional_data)
+        prog_a, prop_a, x_a = compute_scores_x(mcf_, train_df=train_add_df,
+                                              predict_df=predict_add_df,
+                                              )
+        prog_a, prop_a, x_a = standardize(prog_a), standardize(prop_a), standardize(x_a)
     else:
         prog_a = prop_a = x_a = None
 

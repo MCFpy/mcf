@@ -70,9 +70,20 @@ def get_weights_iv_local(mcf_: 'ModifiedCausalForest', *,
 
 def scale_weights_1st_stage(effect_1st: NDArray[Any],
                             weights_redf_dic: dict,
-                            weight_as_sparse: bool
+                            weight_as_sparse: bool, *,
+                            zero_tol: float = 1e-10,
                             ) -> dict:
     """Obtain weights for final IV estimation (local and global)."""
+    effect_1st = np.asarray(effect_1st)
+
+    if not np.all(np.isfinite(effect_1st)):
+        raise RuntimeError('Estimated first-stage effects contain non-finite values.')
+
+    if np.any(np.abs(effect_1st) <= zero_tol):
+        raise RuntimeError('Estimated first-stage effect is zero or numerically indistinguishable '
+                           'from zero. IV effects cannot be computed.'
+                           )
+
     if weight_as_sparse:
         # Note: Rows of weights add to one here (before rescaling by 1st stage)
         effect_1st_inv = 1 / effect_1st.reshape(-1, 1)
@@ -99,8 +110,8 @@ def iate_1st_stage_all_folds_rounds(mcf_: 'ModifiedCausalForest',
                                     mcf_1st: 'ModifiedCausalForest',
                                     data_df: DataFrame,
                                     only_one_fold_one_round: bool
-                                    ) -> tuple[dict, dict]:
-    """Compute first stage IATEs across all folds and rounds."""
+                                    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Pool first-stage potentials over folds separately for each round."""
     iate_1st_dic = iate_eff_1st_dic = None
     for fold in range(mcf_.cf_cfg.folds):
         for round_ in mcf_.cf_cfg.est_rounds:
@@ -122,9 +133,9 @@ def iate_1st_stage_all_folds_rounds(mcf_: 'ModifiedCausalForest',
                                                       gen_tv_cfg_yes=mcf_1st.gen_tv_cfg.yes,
                                                       )
             y_pot_f, _, _, _, txt_w_f = mcf_iate.iate_est_mp(
-                 mcf_, weights_1st_dic, None,
+                 mcf_1st, weights_1st_dic, None,
                  reg_round=round_ == 'regular', iv_scaling=True,
-                 x_tv_df=data_df[mcf_.var_cfg.x_name_tv] if mcf_.gen_tv_cfg.yes else None,
+                 x_tv_df=(data_df[mcf_1st.var_cfg.x_name_tv] if mcf_1st.gen_tv_cfg.yes else None),
                  )
             if round_ == 'regular':
                 y_pot_iate_1st_f = y_pot_f.copy()
@@ -134,11 +145,11 @@ def iate_1st_stage_all_folds_rounds(mcf_: 'ModifiedCausalForest',
                                                          )
             else:
                 iate_eff_1st_dic, _ = mcf_est.aggregate_pots(mcf_1st,
-                                                             (y_pot_iate_1st_f + y_pot_f) / 2,
+                                                             y_pot_f,
                                                              None,
                                                              txt=txt_w_f,
                                                              effect_dic=iate_eff_1st_dic, fold=fold,
-                                                             title='IATE eff (1st stage)',
+                                                             title='IATE additional (1st stage)',
                                                              )
     return iate_1st_dic, iate_eff_1st_dic
 
@@ -244,52 +255,35 @@ def ate_iv(instances: tuple['ModifiedCausalForest', 'ModifiedCausalForest',
 
 def bgate_iv(mcf_: 'ModifiedCausalForest',
              data_df: DataFrame, *,
-             weights: tuple[dict, dict, dict],
-             # w_late_global: npt.NDArray[Any],
-             w_late_local: NDArray[Any],
-             lbgate_global_dic: dict,
-             lbgate_local_dic: dict,
-             lbgate_m_late_global_dic: dict,
-             lbgate_m_late_local_dic: dict,
+             lbgate_global_dic: dict[str, Any] | None,
+             lbgate_local_dic: dict[str, Any] | None,
+             lbgate_m_late_global_dic: dict[str, Any] | None,
+             lbgate_m_late_local_dic: dict[str, Any] | None,
              fold: int,
-             iv_tuple: tuple = None,
+             iv_tuple: tuple['ModifiedCausalForest', 'ModifiedCausalForest',
+                             dict, dict] | None = None,
              gate_type: str = 'BGATE',
              title: str = 'LBGATE',
              global_effects: bool = False,
              local_effects: bool = True,
-             ) -> tuple[dict, dict, dict, dict, dict, dict, str]:
+             round_: str = 'regular',
+             ) -> tuple[dict[str, Any] | None, dict[str, Any] | None,
+                        dict[str, Any] | None, dict[str, Any] | None,
+                        dict[str, Any] | None, dict[str, Any] | None, str]:
     """Compute BGATE with instrumental variables."""
-    # weights_local_dic, weights_1st_dic, weights_redf_dic = weights
-    weights_local_dic, _, _ = weights
     txt_b = ''
     if global_effects:
-        # weights_global_dic = None
-        # (y_pot_lbgate_f, y_pot_var_lbgate_f, y_pot_mlate_lbgate_f,
-        #  y_pot_mlate_var_lbgate_f, lbgate_est_global_dic, txt_w_f, txt_b,
-        #  ) = bgate_est(mcf_, data_df, weights_global_dic, w_late_global, None,
-        #                gate_type=gate_type, iv_tuple=iv_tuple,
-        #                # iv_global_effects=True
-        #                )
-        # lbgate_global_dic = mcf_est.aggregate_pots(
-        #     mcf_, y_pot_lbgate_f, y_pot_var_lbgate_f, txt_w_f,
-        #     lbgate_global_dic, fold, pot_is_list=True, title=title+' (local)'
-        #     )
-        # if y_pot_mlate_lbgate_f is not None:
-        #     lbgate_m_late_global_dic = mcf_est.aggregate_pots(
-        #         mcf_, y_pot_mlate_lbgate_f, y_pot_mlate_var_lbgate_f, txt_w_f,
-        #         lbgate_m_late_global_dic, fold, pot_is_list=True,
-        #         title=title + ' minus LATE (local)'
-        #         )
+
         raise NotImplementedError('LBGATEs, LCGATEs, and LGATEs are not '
-                                  'implemented for global compliers.')
+                                  'implemented for global compliers.'
+                                  )
     lbgate_est_global_dic = None
 
     if local_effects:
         (y_pot_lbgate_f, y_pot_var_lbgate_f, y_pot_mlate_lbgate_f,
          y_pot_mlate_var_lbgate_f, lbgate_est_local_dic, txt_w_f, txt_b,
-         ) = mcf_gate.bgate_est(mcf_, data_df, weights_local_dic, w_late_local,
-                                None, gate_type=gate_type, iv_tuple=iv_tuple,
-                                # iv_global_effects=False
+         ) = mcf_gate.bgate_est(mcf_, data_df, None,
+                                gate_type=gate_type, iv_tuple=iv_tuple, iv_round=round_,
                                 )
         lbgate_local_dic, _ = mcf_est.aggregate_pots(mcf_, y_pot_lbgate_f, y_pot_var_lbgate_f,
                                                      txt=txt_w_f, effect_dic=lbgate_local_dic,
@@ -330,24 +324,6 @@ def gate_iv(mcf_: 'ModifiedCausalForest',
     # weights_local_dic, weights_1st_dic, weights_redf_dic = weights
     weights_local_dic, _, _ = weights
     if global_effects:
-        # weights_global_dic = None
-        # (y_pot_lgate_f, y_pot_var_lgate_f, y_pot_mlate_lgate_f,
-        #  y_pot_mlate_var_lgate_f, lgate_est_global_dic, txt_w_f, txt_b,
-        #  ) = mcf_gate.gate_est(mcf_, data_df, weights_global_dic,
-        #               w_late_global, None,
-        #               gate_type=gate_type, iv_tuple=iv_tuple,
-        #               # iv_global_effects=True
-        #               )
-        # lgate_global_dic = mcf_est.aggregate_pots(
-        #     mcf_, y_pot_lgate_f, y_pot_var_lgate_f, txt_w_f,
-        #     lgate_global_dic, fold, pot_is_list=True, title=title+' (local)'
-        #     )
-        # if y_pot_mlate_lbgate_f is not None:
-        #     lgate_m_late_global_dic = mcf_est.aggregate_pots(
-        #         mcf_, y_pot_mlate_lgate_f, y_pot_mlate_var_lgate_f, txt_w_f,
-        #         lgate_m_late_global_dic, fold, pot_is_list=True,
-        #         title=title + ' minus LATE (local)'
-        #         )
         raise NotImplementedError('LBGATEs, LCGATEs, and LGATEs are not implemented for global '
                                   'compliers.'
                                   )
@@ -380,40 +356,28 @@ def gate_iv(mcf_: 'ModifiedCausalForest',
 
 
 def iate_iv(mcf_: 'ModifiedCausalForest', *,
-            weights_dic: dict,
-            iate_dic: dict,
-            iate_m_ate_dic: dict,
-            iate_eff_dic: dict,
-            w_ate: NDArray[Any],
-            y_pot_iate_f: list | NDArray[Any],
-            round_: bool,
+            weights_dic: dict[str, Any],
+            iate_dic: dict[str, Any] | None,
+            iate_m_ate_dic: dict[str, Any] | None,
+            w_ate: NDArray[Any] | None,
+            round_: str,
             fold: int,
             iv: bool = True,
             title: str = 'LIATE',
             x_tv_df: DataFrame | None = None,
-            ) -> tuple[dict, dict, dict, list | NDArray[Any]]:
-    """Compute IATEs."""
-    (y_pot_f, y_pot_var_f, y_pot_m_ate_f, y_pot_m_ate_var_f,
-     txt_w_f) = mcf_iate.iate_est_mp(mcf_, weights_dic, w_ate, reg_round=round_ == 'regular',
-                                     iv=True, x_tv_df=x_tv_df if mcf_.gen_tv_cfg.yes else None,
-                                     )
-    if round_ == 'regular':
-        y_pot_iate_f = y_pot_f.copy()
-        y_pot_varf = None if y_pot_var_f is None else y_pot_var_f.copy()
-        iate_dic, _ = mcf_est.aggregate_pots(mcf_, y_pot_iate_f, y_pot_varf,
-                                             txt=txt_w_f, effect_dic=iate_dic, fold=fold,
-                                             title=title,
-                                             )
-        if y_pot_m_ate_f is not None:
-            titel2 = title + ' minus LATE' if iv else title + ' minus ATE'
-            iate_m_ate_dic, _ = mcf_est.aggregate_pots(mcf_, y_pot_m_ate_f, y_pot_m_ate_var_f,
-                                                       txt=txt_w_f, effect_dic=iate_m_ate_dic,
-                                                       fold=fold, title=titel2,
-                                                       )
-    else:
-        y_pot_eff = (y_pot_iate_f + y_pot_f) / 2
-        iate_eff_dic, _ = mcf_est.aggregate_pots(mcf_, y_pot_eff, None,
-                                                 txt=txt_w_f, effect_dic=iate_eff_dic, fold=fold,
-                                                 title=title + ' eff',
-                                                 )
-    return iate_dic, iate_m_ate_dic, iate_eff_dic, y_pot_iate_f
+            ) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Accumulate individual effects and deviations within one IV estimation round."""
+    pot_y, pot_y_var, pot_y_m_ate, pot_y_m_ate_var, txt = mcf_iate.iate_est_mp(
+        mcf_, weights_dic, w_ate, reg_round=round_ == 'regular', iv=iv,
+        x_tv_df=x_tv_df if mcf_.gen_tv_cfg.yes else None,
+        )
+    iate_dic, _ = mcf_est.aggregate_pots(
+        mcf_, pot_y, pot_y_var, txt=txt, effect_dic=iate_dic, fold=fold, title=title,
+        )
+    if pot_y_m_ate is not None:
+        deviation_title = title + (' minus LATE' if iv else ' minus ATE')
+        iate_m_ate_dic, _ = mcf_est.aggregate_pots(
+            mcf_, pot_y_m_ate, pot_y_m_ate_var, txt=txt, effect_dic=iate_m_ate_dic,
+            fold=fold, title=deviation_title,
+            )
+    return iate_dic, iate_m_ate_dic

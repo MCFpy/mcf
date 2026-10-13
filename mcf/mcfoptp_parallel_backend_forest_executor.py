@@ -18,7 +18,7 @@ from typing import Any, TypeVar
 
 try:
     import ray
-except ImportError:  # pragma: no cover
+except (ImportError, OSError):  # pragma: no cover
     ray = None
 
 from mcf.mcfoptp_parallel_backends_base import (ParallelExecutor,
@@ -114,7 +114,7 @@ def init_ray_for_forest_with_fallback(*, maxworkers: int,
 
 def make_forest_executor(*, int_cfg: Any,
                          maxworkers: int,
-                         memmap_min_bytes: int = 4 * 1024 * 1024,
+                         memmap_min_bytes: int | None = None,
                          pickle_min_bytes: int = 128 * 1024 * 1024,
                          joblib_backend_large: str = 'loky',
                          temp_dir: str | Path | None = None,
@@ -149,7 +149,11 @@ def make_forest_executor(*, int_cfg: Any,
             return SequentialExecutor()
 
         case 'joblib':
-            # if shared_nbytes >= memmap_min_bytes:
+            if memmap_min_bytes is None:
+                memmap_min_bytes = int_cfg.mp_memmap_min_bytes
+            if temp_dir is None:
+                temp_dir = int_cfg.mp_memmap_dir
+
             return make_memmap_joblib_executor_from_settings(n_jobs=maxworkers,
                                                              backend=joblib_backend_large,
                                                              verbose=0,
@@ -159,6 +163,9 @@ def make_forest_executor(*, int_cfg: Any,
                                                              cleanup_on_shutdown=cleanup_on_shutdown
                                                              )
         case 'ray':
+            if ray is None:
+                raise RuntimeError('Ray backend requested, but Ray is not available.')
+
             store_1 = int_cfg.mem_object_store_1 if hasattr(int_cfg, 'mem_object_store_1') else None
             store_2 = int_cfg.mem_object_store_2 if hasattr(int_cfg, 'mem_object_store_2') else None
             ray_was_running = ray.is_initialized()
@@ -242,7 +249,7 @@ def map_task_batches(*, executor: ParallelExecutor,
     if stream_results and callable(map_iter):
         yield from executor.map_iter(tasks)
         return
-    
+
     batch_size = batch_size_fct(no_batches=int_cfg.mp_batches,
                                 no_workers=maxworkers,
                                 no_tasks=len(tasks),

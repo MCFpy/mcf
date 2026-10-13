@@ -144,12 +144,9 @@ def substitute_variable_name(var_cfg: 'VarCfg', old_name: str, new_name: str) ->
     if is_dataclass(var_cfg):
         for f in fields(vn_new):
             list_of_this_dc = getattr(vn_new, f.name)
-            if isinstance(list_of_this_dc, (list, tuple,)):
-                for j, elem in enumerate(list_of_this_dc):
-                    val = getattr(vn_new, f.name)
-                    if isinstance(val, list):
-                        # Transform in-place so no subsequent setattr needed
-                        val[:] = [new_name if x == old_name else x for x in val]
+            if isinstance(list_of_this_dc, list):
+                # Transform in-place so no subsequent setattr needed
+                list_of_this_dc[:] = [new_name if x == old_name else x for x in list_of_this_dc]
     else:  # No longer used. Speed increase possible by using list comprehension
         for i in vn_new:
             list_of_this_dic = vn_new[i]

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from numbers import Real
 from pathlib import Path
-from platform import system
+import sys
 from typing import Any
 
 import numpy as np
@@ -26,6 +26,8 @@ except (ImportError, OSError):
     ray = None  # type: ignore[assignment]
 
 from mcf.mcf_general_sys import get_fig_path
+
+type KmeansGroupsInput = int | float | list[int | float] | tuple[int | float, ...] | None
 
 
 def determine_cv_k(obs):
@@ -90,7 +92,7 @@ def p_ba_adjust_method(adj_method: Any, yes=True) -> str:
 
     match adj_method:
         case None:   # Default
-            return 'w_obs'
+            return 'obs'
         case 'zeros':
             return 'zeros'
         case 'train_obs':
@@ -108,12 +110,40 @@ def p_ba_adjust_method(adj_method: Any, yes=True) -> str:
 
 def p_cb_normalize(choice_based_probs: list[Real] | tuple[Real, ...],
                    no_of_treat: int
-                   ) -> list[Real]:
-    """Normalize the choice based probabilities."""
-    pcb = np.array(choice_based_probs)
+                   ) -> list[float]:
+    """Validate treatment multipliers and normalize them to have mean one."""
+    pcb = np.asarray(choice_based_probs, dtype=np.float64)
+    if pcb.ndim != 1 or pcb.size != no_of_treat or pcb.size == 0:
+        raise ValueError('Choice-based sampling requires one multiplier per treatment.')
+    if not np.all(np.isfinite(pcb)) or np.any(pcb <= 0):
+        raise ValueError('Choice-based sampling multipliers must be finite and strictly positive.')
+
+    pcb = pcb / np.max(pcb)  # Avoid overflow when summing large, finite multipliers.
     pcb = pcb / np.sum(pcb) * no_of_treat
 
     return pcb.tolist()
+
+
+def kmeans_groups_fct(groups: KmeansGroupsInput) -> list[int] | None:
+    """Normalize explicit cluster counts; preserve None for the automatic grid."""
+    if groups is None:
+        return None
+    values = groups if isinstance(groups, (list, tuple)) else [groups]
+    if not values:
+        raise ValueError('post_kmeans_no_of_groups must contain at least one cluster count.')
+
+    groups_v: list[int] = []
+    for value in values:
+        if isinstance(value, (bool, np.bool_)) or not isinstance(value, Real):
+            raise TypeError('post_kmeans_no_of_groups requires numeric cluster counts.')
+        if not np.isfinite(value):
+            raise ValueError('post_kmeans_no_of_groups requires finite cluster counts.')
+        count = int(round(value))
+        if count < 2:
+            raise ValueError('post_kmeans_no_of_groups counts must round to at least 2.')
+        groups_v.append(count)
+
+    return groups_v
 
 
 def iv_agg_method_fct(iv_aggregation_method: Any) -> tuple:
@@ -177,7 +207,7 @@ def inconsistencies(self) -> None:
     if self.gen_cfg.d_type == 'continuous' and self.p_cfg.choice_based_sampling:
         raise NotImplementedError('No choice based sample with continuous treatments.')
 
-    if self.gen_cfg.d_type == 'continuous' and self.p_ba_yes:
+    if self.gen_cfg.d_type == 'continuous' and self.p_ba_cfg.yes:
         raise NotImplementedError('No bias adjustment with continuous treatments.')
 
     if self.p_ba_cfg.yes and self.p_cfg.qiate:
@@ -201,7 +231,7 @@ def inconsistencies(self) -> None:
             txt += 'Use joblib instead (_int_mp_backend = "joblib").'
         raise RuntimeError(txt)
 
-    if (not self.int_cfg.mp_use_old_ray and system() == 'Windows'
+    if (not self.int_cfg.mp_use_old_ray and sys.platform.startswith('win')
         and self.int_cfg.mp_backend == 'joblib' and self.gen_cfg.mp_parallel > 60
             ):
         raise RuntimeError('Joblib on Windows cannot handle more than 60 parallel processes. Use '

@@ -22,9 +22,9 @@ if TYPE_CHECKING:
 def change_keywords(mcf_: 'ModifiedCausalForest',
                     estimator: str,
                     predict_analyse: str,
-                    new_keywords: dict | Any,
+                    new_keywords: dict[str, Any],
                     ) -> None:
-    """Change attributes of *_cfg in mcf class for predict(s) & analyse."""
+    """Apply controlling settings before validating the variable lists they enable."""
     iv = estimator == 'iv'
     analysis = predict_analyse == 'analyse'
     prediction = predict_analyse == 'predict'
@@ -34,9 +34,47 @@ def change_keywords(mcf_: 'ModifiedCausalForest',
                            )
     check_if_dictionary(new_keywords)
 
-    # Iterate in the user provided dictionary
-    for key, value in new_keywords.items():
-        mcf_ = change_method_for_prediction_and_analysis(mcf_, key, value, iv=iv)
+    control_keys = ('p_ba', 'p_ba_use_x', 'p_bt_yes', 'p_bgate', 'p_cbgate', 'p_ate_no_se_only')
+    variable_keys = ('var_z_name_ord', 'var_z_name_unord',
+                     'var_x_name_balance_test_ord', 'var_x_name_balance_test_unord',
+                     'var_x_name_balance_bgate', 'var_x_name_ba',
+                     )
+    ordered_keys = [key for key in control_keys if key in new_keywords]
+    ordered_keys.extend(key for key in new_keywords
+                        if key not in control_keys and key not in variable_keys)
+    for key in ordered_keys:
+        mcf_ = change_method_for_prediction_and_analysis(mcf_, key, new_keywords[key], iv=iv)
+
+    if mcf_.p_cfg.ate_no_se_only:
+        for name in ('atet', 'gatet', 'bgate', 'cbgate', 'bt_yes', 'iate', 'iate_se',
+                     'iate_m_ate', 'qiate', 'qiate_se', 'qiate_m_mqiate', 'qiate_m_opp',
+                     'se_boot_ate', 'se_boot_gate', 'se_boot_iate', 'se_boot_qiate'):
+            setattr(mcf_.p_cfg, name, False)
+
+    # New grouping variables can enable GATEs, so resolve them before BGATE balancing names.
+    for key in variable_keys[:2]:
+        if key in new_keywords:
+            mcf_ = change_method_for_prediction_and_analysis(mcf_, key, new_keywords[key], iv=iv)
+    mcf_.var_cfg.z_name = (mcf_.var_cfg.z_name_cont
+                           + mcf_.var_cfg.z_name_ord
+                           + mcf_.var_cfg.z_name_unord
+                           )
+    mcf_.p_cfg.gate = not mcf_.p_cfg.ate_no_se_only and bool(mcf_.var_cfg.z_name)
+    if not mcf_.p_cfg.gate:
+        mcf_.p_cfg.bgate = mcf_.p_cfg.cbgate = mcf_.p_cfg.gatet = False
+
+    for key in variable_keys[2:]:
+        if key in new_keywords:
+            mcf_ = change_method_for_prediction_and_analysis(mcf_, key, new_keywords[key], iv=iv)
+    if mcf_.p_cfg.bt_yes and any(key in new_keywords for key in variable_keys[2:4]):
+        mcf_.var_cfg.x_name_balance_test = list(dict.fromkeys(
+            mcf_.var_cfg.x_name_balance_test_ord + mcf_.var_cfg.x_name_balance_test_unord))
+        if not mcf_.var_cfg.x_name_balance_test and not mcf_.var_cfg.z_name:
+            mcf_.p_cfg.bt_yes = False
+
+    mcf_.gen_cfg.agg_yes = mcf_.p_cfg.gate
+    mcf_initvals.inconsistencies(mcf_)
+
     if mcf_.gen_cfg.with_output:
         (mcf_.gen_cfg.outfiletext, mcf_.gen_cfg.outfilesummary, mcf_.gen_cfg.outpath,
          mcf_.p_cfg.paths) = change_output_locations(mcf_.gen_cfg.outfiletext,
@@ -48,6 +86,21 @@ def change_keywords(mcf_: 'ModifiedCausalForest',
                                                      bgate=mcf_.p_cfg.bgate,
                                                      )
         print_dic(new_keywords, 'new_keywords', mcf_.gen_cfg, summary=True)
+
+
+def variable_names_needed(mcf_: 'ModifiedCausalForest', key: str) -> bool:
+    """Whether a variable-name update is used by the effective prediction settings."""
+    match key:
+        case 'var_x_name_ba':
+            return bool(mcf_.p_ba_cfg.yes and mcf_.p_ba_cfg.use_x)
+        case 'var_x_name_balance_test_ord' | 'var_x_name_balance_test_unord':
+            return bool(mcf_.p_cfg.bt_yes and not mcf_.p_cfg.ate_no_se_only)
+        case 'var_x_name_balance_bgate':
+            return bool(mcf_.p_cfg.bgate and mcf_.p_cfg.gate and not mcf_.p_cfg.ate_no_se_only)
+        case 'var_z_name_ord' | 'var_z_name_unord':
+            return not mcf_.p_cfg.ate_no_se_only
+        case _:
+            return True
 
 
 def change_output_locations(outfile: Path,
@@ -68,9 +121,6 @@ def change_output_locations(outfile: Path,
                                                       cbgate=cbgate,
                                                       bgate=bgate,
                                                       )
-    # for key, values in paths.items():
-    #     # paths_n[key] = outpath_n / values.name
-    #     paths_n[key] = outpath_n / values.relative_to(outpath)
     return outfile_n, outfilesummary_n, outpath_n, paths_n
 
 
@@ -78,9 +128,11 @@ def change_method_for_prediction_and_analysis(mcf_: 'ModifiedCausalForest',
                                               key: Any,
                                               value: Any,
                                               iv: bool,
-                                              ):
+                                              ) -> 'ModifiedCausalForest':
     """Change configuration files for prediction and analysis."""
     check_if_string(key)
+    if not variable_names_needed(mcf_, key):
+        return mcf_
     check_if_value_is_none(key, value)
     x_ord_names = mcf_.var_cfg.x_name_ord
     x_unord_names = mcf_.var_cfg.x_name_unord
@@ -105,11 +157,14 @@ def change_method_for_prediction_and_analysis(mcf_: 'ModifiedCausalForest',
                 valid_names_unord=x_unord_names,
                 )
         case 'var_x_name_ba':
-            mcf_.var_cfg.x_name_ba = check_valid_names(
-                key, value,
-                valid_names_ord=x_ord_names,
-                valid_names_unord=x_unord_names,
-                )
+            names = check_valid_names(key, value,
+                                       valid_names_ord=x_ord_names,
+                                       valid_names_unord=x_unord_names,
+                                       )
+            if set(names) != set(mcf_.var_cfg.x_name_ba or []):
+                raise ValueError('var_x_name_ba is fixed during training. '
+                                 'Retrain to use a different set of bias-adjustment covariates.'
+                                 )
         case 'var_z_name_ord':
             mcf_.var_cfg.z_name_ord = check_valid_names(
                 key, value,
@@ -139,7 +194,7 @@ def change_method_for_prediction_and_analysis(mcf_: 'ModifiedCausalForest',
         case 'p_ba_use_prog_score':
             mcf_.p_ba_cfg.use_prog_score = change_bool_one_way(key, value, False)
         case 'p_ba_ridge':
-            mcf_.p_ba_cfg.use_x = change_bool_both_ways(key, value)
+            mcf_.p_ba_cfg.ridge = change_bool_both_ways(key, value)
 
         # Parameters to predict (and their standard errors)
         case 'p_ate_no_se_only':
@@ -180,11 +235,11 @@ def change_method_for_prediction_and_analysis(mcf_: 'ModifiedCausalForest',
         case 'p_qiate_m_mqiate':
             mcf_.p_cfg.qiate_m_mqiate = change_bool_both_ways(key, value)
         case 'p_qiate_m_opp':
-            mcf_.p_cfg.qiate_m_mqiate = change_bool_both_ways(key, value)
+            mcf_.p_cfg.qiate_m_opp = change_bool_both_ways(key, value)
         case 'p_qiate_no_of_quantiles':
-            mcf_.p_cfg.qiate_no_of_quantiles = value_integer(
-                key, value, minv=10, maxv=float('inf')
-                )
+            mcf_.p_cfg.qiate_no_of_quantiles = value_integer(key, value, minv=10, maxv=float('inf'))
+            qn = mcf_.p_cfg.qiate_no_of_quantiles
+            mcf_.p_cfg.qiate_quantiles = np.arange(qn) / qn + 0.5 / qn
         case 'p_qiate_smooth':
             mcf_.p_cfg.qiate_smooth = change_bool_both_ways(key, value)
         case 'p_qiate_smooth_bandwidth':
@@ -230,7 +285,20 @@ def change_method_for_prediction_and_analysis(mcf_: 'ModifiedCausalForest',
             mcf_.p_cfg.se_boot_qiate = check_bootstrap_se(key, value)
 
         case 'gen_output_type':
-            mcf_.p_cfg.nw_kern = int_valid_values(key, value, (0, 1, 2,))
+            mcf_.gen_cfg.output_type = int_valid_values(key, value, (0, 1, 2,))
+            match mcf_.gen_cfg.output_type:
+                case 0:
+                    mcf_.gen_cfg.print_to_file = False
+                    mcf_.gen_cfg.print_to_terminal = True
+                case 1:
+                    mcf_.gen_cfg.print_to_file = True
+                    mcf_.gen_cfg.print_to_terminal = False
+                case _:
+                    mcf_.gen_cfg.print_to_file = True
+                    mcf_.gen_cfg.print_to_terminal = True
+            if not mcf_.gen_cfg.with_output:
+                mcf_.gen_cfg.print_to_file = False
+                mcf_.gen_cfg.print_to_terminal = False
 
         # analyse()
         case 'post_bin_corr_threshold':
@@ -243,7 +311,7 @@ def change_method_for_prediction_and_analysis(mcf_: 'ModifiedCausalForest',
         case 'post_kmeans_yes':
             mcf_.post_cfg.kmeans_yes = change_bool_both_ways(key, value)
         case 'post_kmeans_no_of_groups':
-            mcf_.post_cfg.kmeans_no_of_groups = value_integer( key, value, minv=2, maxv=100)
+            mcf_.post_cfg.kmeans_no_of_groups = mcf_initvals.kmeans_groups_fct(value)
         case 'post_kmeans_max_tries':
             mcf_.post_cfg.kmeans_max_tries = value_integer(key, value, minv=1, maxv=10000)
         case 'post_kmeans_min_size_share':
@@ -441,16 +509,17 @@ def check_cb_probs(key: str, probs: Any, no_of_treat: int) -> list[np.floating]:
     return mcf_initvals.p_cb_normalize(probs, no_of_treat)
 
 
-def int_valid_values(key: str, value: Any, valid_vals: list | tuple) -> int:
-    """Check if integer are within a given tuple of values."""
+def int_valid_values(key: str, value: Any, valid_vals: list[int] | tuple[int, ...]) -> int:
+    """Round a numeric input and check that the resulting integer is allowed."""
     if not isinstance(value, Real):
-        raise TypeError(f'{key} must be specified as number.')
+        raise TypeError(f'{key} must be specified as a number.')
 
-    value = round(value)
-    if not round(value) in valid_vals:
-        raise TypeError(f'{key} must have one of the following values: {" ".join(valid_vals)}')
+    value_int = int(round(value))
+    if value_int not in valid_vals:
+        allowed = ', '.join(str(val) for val in valid_vals)
+        raise TypeError(f'{key} must round to one of: {allowed}.')
 
-    return value
+    return value_int
 
 
 def check_bootstrap_se(key: str, value: Any):

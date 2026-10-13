@@ -6,8 +6,9 @@ Contains IV specific functions.
 # -*- coding: utf-8 -*-
 """
 from copy import copy, deepcopy
+from dataclasses import fields
 from time import time
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 import pandas as pd
 try:
@@ -18,6 +19,7 @@ except (ImportError, OSError):
 from mcf import mcf_ate
 from mcf import mcf_common_support as mcf_cs
 from mcf import mcf_data
+from mcf import mcf_estimation as mcf_est
 from mcf import mcf_feature_selection as mcf_fs
 from mcf import mcf_forest as mcf_fo
 from mcf import mcf_gateout
@@ -69,7 +71,7 @@ def train_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> dict:
     time_start = time()
     # Check treatment data
     data_df, _ = mcf_data.data_frame_vars_lower(data_df)
-    data_df = mcf_data.check_recode_treat_variable(mcf_, data_df)
+    data_df = mcf_data.check_recode_treat_variable(mcf_, data_df, train=True)
     # Initialise again with data information. Order of the following
     # init functions important. Change only if you know what you do.
 
@@ -90,7 +92,8 @@ def train_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> dict:
     mcf_init_update.int_update_train(mcf_)
     mcf_init_update.lc_update_train(mcf_, data_df)
     mcf_init_update.p_update_train(mcf_)
-
+    if mcf_.p_ba_cfg.yes:
+        mcf_init_update.p_ba_update_train(mcf_, data_df)
     if mcf_.gen_cfg.with_output:
         mcf_ps.print_dic_values_all(mcf_, summary_top=True, summary_dic=False, title='(IV training)'
                                     )
@@ -259,7 +262,8 @@ def train_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> dict:
     return results
 
 
-def predict_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> tuple[dict, dict]:
+def predict_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame
+                    ) -> tuple[dict[str, Any], dict[str, Any]]:
     """
     Compute all effects based on causal forests estimated by the train_iv.
 
@@ -293,6 +297,8 @@ def predict_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> tupl
 
     # Prepare data and some descriptive stats
     data_df, report = prepare_data_pred(mcf_, data_df, report)
+    for stage in (mcf_1st, mcf_redf):
+        stage.var_cfg.x_name_balance_test = mcf_.var_cfg.x_name_balance_test.copy()
     time_1 = time()
 
     # Common support
@@ -302,8 +308,20 @@ def predict_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> tupl
     # Local centering for IATE
     if mcf_.lc_cfg.yes and mcf_.lc_cfg.uncenter_po:
         y_pred_x_df, d_pred_x_df = local_center(mcf_1st, mcf_redf, data_df)
+        if mcf_.gen_cfg.ate_eff or mcf_.gen_cfg.iate_eff:
+            y_pred_add_df, d_pred_add_df = local_center(
+                mcf_1st, mcf_redf, data_df, prediction_round='additional',
+                )
+            y_pred_eff_df = (y_pred_x_df + y_pred_add_df) / 2
+            d_pred_eff_df = (d_pred_x_df + d_pred_add_df) / 2
+        else:
+            y_pred_eff_df, d_pred_eff_df = y_pred_x_df, d_pred_x_df
     else:
-        y_pred_x_df = d_pred_x_df = 0
+        y_pred_x_df = d_pred_x_df = y_pred_eff_df = d_pred_eff_df = 0
+    y_pred_ate_df = y_pred_eff_df if mcf_.gen_cfg.ate_eff else y_pred_x_df
+    d_pred_ate_df = d_pred_eff_df if mcf_.gen_cfg.ate_eff else d_pred_x_df
+    y_pred_iate_df = y_pred_eff_df if mcf_.gen_cfg.iate_eff else y_pred_x_df
+    d_pred_iate_df = d_pred_eff_df if mcf_.gen_cfg.iate_eff else d_pred_x_df
     time_3 = time()
 
     # Initialise time related variables
@@ -311,210 +329,169 @@ def predict_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> tupl
     time_delta_lgate = time_delta_lcbgate = time_delta_lbgate = 0
     time_delta_liate = time_delta_lqiate = 0
 
-    # Initialise dictionaries that contain the various results
     results_global, results_local = {}, {}
-    # Initialise variables containing results of 1st stages and reduced forms
-    ate_1st_dic = ate_redf_dic = bala_1st_dic = bala_redf_dic = None
-    iate_1st_dic = iate_redf_dic = None
-    iate_m_ate_1st_dic = iate_m_ate_redf_dic = None
-    iate_eff_1st_dic = iate_eff_redf_dic = None
-
-    # Initialise variables containing results for LIATEs
-    liate_dic = liate_m_late_local_dic = liate_eff_dic = None
-    # qliate_est_dic = qliate_dic = None
-    # qliate_m_med_dic = qliate_m_opp_dic = None
-
-    # Initialise variables containing results of local and global aggregations
-    late_global_dic = None
-    # lgate_global_dic = lgate_m_late_global_dic = None
-    # lbgate_global_dic = lbgate_m_late_global_dic = None
-    # lcbgate_global_dic = lcbgate_m_late_global_dic = None
-
-    late_local_dic = lgate_local_dic = lgate_m_late_local_dic = None
-    lbgate_local_dic = lbgate_m_late_local_dic = None
-    lcbgate_local_dic = lcbgate_m_late_local_dic = None
+    effect_rounds = {}
+    effect_groups = (
+        (('late_global', 'late_local', 'ate_1st', 'ate_redf', 'bala_1st', 'bala_redf'),
+         mcf_.gen_cfg.ate_eff),
+        (('lgate', 'lgate_m_late', 'lbgate', 'lbgate_m_late', 'lcbgate', 'lcbgate_m_late'),
+         mcf_.gen_cfg.gate_eff),
+        (('liate', 'liate_m_late', 'iate_1st', 'iate_m_ate_1st', 'iate_redf', 'iate_m_ate_redf'),
+         mcf_.gen_cfg.iate_eff),
+    )
+    for names, efficient in effect_groups:
+        for name in names:
+            effect_rounds[name] = [None, None] if efficient else [None]
+    lgate_est_local_dic = lbgate_est_local_dic = lcbgate_est_local_dic = None
+    txt_lbg = txt_lcbg = None
 
     global_effects = 'global' in mcf_.p_cfg.iv_aggregation_method
     local_effects = 'local' in mcf_.p_cfg.iv_aggregation_method
+    need_local_weights = local_effects or mcf_.p_cfg.iate
+    local_gate = local_effects and mcf_.p_cfg.gate
+    local_bgate = local_effects and mcf_.p_cfg.bgate
+    local_cbgate = local_effects and mcf_.p_cfg.cbgate
     only_one_fold_one_round = mcf_.cf_cfg.folds == 1 and len(mcf_.cf_cfg.est_rounds) == 1
 
     # Start with 1st stage only (as IATEs of 1st stage are needed for scaling)
-    iate_1st_dic, iate_eff_1st_dic = mcf_iv_add.iate_1st_stage_all_folds_rounds(
+    scaling_1st_dic, scaling_eff_1st_dic = mcf_iv_add.iate_1st_stage_all_folds_rounds(
         mcf_, mcf_1st, data_df, only_one_fold_one_round
         )
     time_1stscale = time()
-    # All other parameters
-    # Estimate effects fold by fold and then average across folds
+    # Aggregate folds within each round, then combine only the requested efficient estimates.
     for fold in range(mcf_.cf_cfg.folds):
         for round_ in mcf_.cf_cfg.est_rounds:
+            idx_round = 0 if round_ == 'regular' else 1
+            estimate_ate = round_ == 'regular' or mcf_.gen_cfg.ate_eff
+            estimate_gate = round_ == 'regular' or mcf_.gen_cfg.gate_eff
+            estimate_iate = round_ == 'regular' or mcf_.gen_cfg.iate_eff
             time_w_start = time()
-
-            # Get relevant forests
-            forest_1st_dic, forest_redf_dic = get_forests(mcf_,
-                                                          mcf_1st=mcf_1st, mcf_redf=mcf_redf,
-                                                          only_one_fold_one_round=
-                                                          only_one_fold_one_round,
-                                                          fold=fold, round_=round_,
-                                                          )
-            # Compute weights of reduced form & 1st stage & local estimation
-            (weights_1st_dic, weights_redf_dic, weights_local_dic
-             ) = mcf_iv_add.get_weights_iv_local(mcf_,
-                                                 mcf_1st=mcf_1st, mcf_redf=mcf_redf,
-                                                 forest_1st_dic=forest_1st_dic,
-                                                 forest_redf_dic=forest_redf_dic,
-                                                 iate_1st_dic=iate_1st_dic,
-                                                 iate_eff_1st_dic=iate_eff_1st_dic,
-                                                 data_df=data_df, round_=round_,
-                                                 local_effects=local_effects,
-                                                 )
+            forest_1st_dic, forest_redf_dic = get_forests(
+                mcf_, mcf_1st=mcf_1st, mcf_redf=mcf_redf,
+                only_one_fold_one_round=only_one_fold_one_round, fold=fold, round_=round_,
+                )
+            weights_1st_dic, weights_redf_dic, weights_local_dic = mcf_iv_add.get_weights_iv_local(
+                mcf_, mcf_1st=mcf_1st, mcf_redf=mcf_redf,
+                forest_1st_dic=forest_1st_dic, forest_redf_dic=forest_redf_dic,
+                iate_1st_dic=scaling_1st_dic, iate_eff_1st_dic=scaling_eff_1st_dic,
+                data_df=data_df, round_=round_, local_effects=need_local_weights,
+                )
             time_delta_weight += time() - time_w_start
+            weights = (weights_local_dic, weights_1st_dic, weights_redf_dic)
+            instances = (mcf_, mcf_1st, mcf_redf)
+
             time_a_start = time()
-            # Compute effects
-            weights = (weights_local_dic, weights_1st_dic, weights_redf_dic,)
-            instances = (mcf_, mcf_1st, mcf_redf,)
-            # LATE
-            if round_ == 'regular':
-                (_, w_late_local, late_global_dic, late_local_dic, w_ate_1st, ate_1st_dic,
-                 w_ate_redf, ate_redf_dic) = mcf_iv_add.ate_iv(instances,
-                                                               weights=weights,
-                                                               late_global_dic=late_global_dic,
-                                                               late_local_dic=late_local_dic,
-                                                               ate_1st_dic=ate_1st_dic,
-                                                               ate_redf_dic=ate_redf_dic,
-                                                               data_df=data_df, fold=fold,
-                                                               global_effects=global_effects,
-                                                               local_effects=local_effects,
-                                                               )
+            if estimate_ate:
+                (_, w_late_local, effect_rounds['late_global'][idx_round],
+                 effect_rounds['late_local'][idx_round], w_ate_1st,
+                 effect_rounds['ate_1st'][idx_round], w_ate_redf,
+                 effect_rounds['ate_redf'][idx_round]) = mcf_iv_add.ate_iv(
+                    instances, weights=weights,
+                    late_global_dic=effect_rounds['late_global'][idx_round],
+                    late_local_dic=effect_rounds['late_local'][idx_round],
+                    ate_1st_dic=effect_rounds['ate_1st'][idx_round],
+                    ate_redf_dic=effect_rounds['ate_redf'][idx_round], data_df=data_df,
+                    fold=fold, global_effects=global_effects, local_effects=need_local_weights,
+                    )
             else:
                 w_late_local = w_ate_1st = w_ate_redf = None
             time_delta_late += time() - time_a_start
 
-            # Balancing tests for reduced form and first stage
             time_b_start = time()
-            if round_ == 'regular' and mcf_.p_cfg.bt_yes:
-                bala_1st_dic, bala_redf_dic = mcf_iv_add.bala_1st_redf(instances,
-                                                                       weights=weights,
-                                                                       bala_1st_dic=bala_1st_dic,
-                                                                       bala_redf_dic=bala_redf_dic,
-                                                                       data_df=data_df, fold=fold,
-                                                                       )
+            if estimate_ate and mcf_.p_cfg.bt_yes:
+                (effect_rounds['bala_1st'][idx_round], effect_rounds['bala_redf'][idx_round]
+                 ) = mcf_iv_add.bala_1st_redf(
+                    instances, weights=weights,
+                    bala_1st_dic=effect_rounds['bala_1st'][idx_round],
+                    bala_redf_dic=effect_rounds['bala_redf'][idx_round], data_df=data_df, fold=fold,
+                    )
             time_delta_lbala += time() - time_b_start
 
-            # BGATE & CBGATE
+            iv_tuple = (mcf_1st, mcf_redf, forest_1st_dic, forest_redf_dic)
             time_lbgate_start = time()
-            if round_ == 'regular' and (mcf_.p_cfg.bgate or mcf_.p_cfg.cbgate):
-                iv_tuple = (mcf_1st, mcf_redf, forest_1st_dic, forest_redf_dic,)
-            else:
-                iv_tuple = None
-
-            # BGATE
-            if round_ == 'regular' and mcf_.p_cfg.bgate:
-                (_, lbgate_local_dic, _, lbgate_m_late_local_dic, _, lbgate_est_local_dic, txt_lbg
-                 ) = mcf_iv_add.bgate_iv(mcf_, data_df,
-                                         weights=weights, w_late_local=w_late_local,
-                                         lbgate_global_dic=None, lbgate_local_dic=lbgate_local_dic,
-                                         lbgate_m_late_global_dic=None,
-                                         lbgate_m_late_local_dic=lbgate_m_late_local_dic, fold=fold,
-                                         iv_tuple=iv_tuple, gate_type='BGATE', title='LBGATE',
-                                         global_effects=False, local_effects=local_effects,
-                                         )
-            else:
-                lbgate_local_dic = txt_lbg = None
-                lbgate_m_late_local_dic = lbgate_est_local_dic = None
+            if estimate_gate and local_bgate:
+                (_, effect_rounds['lbgate'][idx_round], _,
+                 effect_rounds['lbgate_m_late'][idx_round], _, lbgate_est_local_dic, txt_lbg
+                 ) = mcf_iv_add.bgate_iv(
+                    mcf_, data_df, lbgate_global_dic=None,
+                    lbgate_local_dic=effect_rounds['lbgate'][idx_round],
+                    lbgate_m_late_global_dic=None,
+                    lbgate_m_late_local_dic=effect_rounds['lbgate_m_late'][idx_round], fold=fold,
+                    iv_tuple=iv_tuple, gate_type='BGATE', title='LBGATE', global_effects=False,
+                    local_effects=True, round_=round_,
+                    )
             time_delta_lbgate += time() - time_lbgate_start
 
-            # CBGATE
             time_cbg_start = time()
-            if round_ == 'regular' and mcf_.p_cfg.cbgate:
-                (_, lcbgate_local_dic, _, lcbgate_m_late_local_dic, _, lcbgate_est_local_dic,
-                 txt_lcbg) = mcf_iv_add.bgate_iv(mcf_, data_df,
-                                                 weights=weights, w_late_local=w_late_local,
-                                                 lbgate_global_dic=None,
-                                                 lbgate_local_dic=lcbgate_local_dic,
-                                                 lbgate_m_late_global_dic=None,
-                                                 lbgate_m_late_local_dic=lcbgate_m_late_local_dic,
-                                                 fold=fold, iv_tuple=iv_tuple, gate_type='CBGATE',
-                                                 title='LCBGATE', global_effects=False,
-                                                 local_effects=local_effects,
-                                                 )
-            else:
-                lcbgate_local_dic = txt_lcbg = None
+            if estimate_gate and local_cbgate:
+                (_, effect_rounds['lcbgate'][idx_round], _,
+                 effect_rounds['lcbgate_m_late'][idx_round], _, lcbgate_est_local_dic, txt_lcbg
+                 ) = mcf_iv_add.bgate_iv(
+                    mcf_, data_df, lbgate_global_dic=None,
+                    lbgate_local_dic=effect_rounds['lcbgate'][idx_round],
+                    lbgate_m_late_global_dic=None,
+                    lbgate_m_late_local_dic=effect_rounds['lcbgate_m_late'][idx_round], fold=fold,
+                    iv_tuple=iv_tuple, gate_type='CBGATE', title='LCBGATE', global_effects=False,
+                    local_effects=True, round_=round_,
+                    )
             time_delta_lcbgate += time() - time_cbg_start
             if mcf_.int_cfg.del_forest:
                 del forest_1st_dic['forest'], forest_redf_dic['forest']
 
-            # IATE
             time_i_start = time()
-            if mcf_.p_cfg.iate:
-                y_pot_liate_f = y_pot_liate_1st_f = y_pot_liate_redf_f = None
-                # LIATE
-                liate_dic, liate_m_late_dic, liate_eff_dic, y_pot_liate_f = mcf_iv_add.iate_iv(
-                    mcf_,
-                    weights_dic=weights_local_dic, iate_dic=liate_dic,
-                    iate_m_ate_dic=liate_m_late_local_dic, iate_eff_dic=liate_eff_dic,
-                    w_ate=w_late_local, y_pot_iate_f=y_pot_liate_f, round_=round_, fold=fold,
-                    iv=True, title='LIATE',
+            if mcf_.p_cfg.iate and estimate_iate:
+                effect_rounds['liate'][idx_round], effect_rounds['liate_m_late'][idx_round] = (
+                    mcf_iv_add.iate_iv(
+                        mcf_, weights_dic=weights_local_dic,
+                        iate_dic=effect_rounds['liate'][idx_round],
+                        iate_m_ate_dic=effect_rounds['liate_m_late'][idx_round],
+                        w_ate=w_late_local, round_=round_, fold=fold, iv=True, title='LIATE',
+                        )
                     )
-                # IATE (1st stage)
-                iate_1st_dic, _, iate_eff_1st_dic, _ = mcf_iv_add.iate_iv(
-                     mcf_1st,
-                     weights_dic=weights_1st_dic, iate_dic=iate_1st_dic,
-                     iate_m_ate_dic=iate_m_ate_1st_dic, iate_eff_dic=iate_eff_1st_dic,
-                     w_ate=w_ate_1st, y_pot_iate_f=y_pot_liate_1st_f, round_=round_, fold=fold,
-                     iv=False, title='IATE (1st stage)',
-                     )
-                # IATE (reduced form)
-                iate_redf_dic, _, iate_eff_redf_dic, _ = mcf_iv_add.iate_iv(
-                     mcf_redf,
-                     weights_dic=weights_redf_dic, iate_dic=iate_redf_dic,
-                     iate_m_ate_dic=iate_m_ate_redf_dic, iate_eff_dic=iate_eff_redf_dic,
-                     w_ate=w_ate_redf, y_pot_iate_f=y_pot_liate_redf_f, round_=round_, fold=fold,
-                     iv=False, title='IATE (reduced form)',
-                     )
+                effect_rounds['iate_1st'][idx_round], effect_rounds['iate_m_ate_1st'][idx_round] = (
+                    mcf_iv_add.iate_iv(
+                        mcf_1st, weights_dic=weights_1st_dic,
+                        iate_dic=effect_rounds['iate_1st'][idx_round],
+                        iate_m_ate_dic=effect_rounds['iate_m_ate_1st'][idx_round],
+                        w_ate=w_ate_1st, round_=round_, fold=fold, iv=False,
+                        title='IATE (1st stage)',
+                        )
+                    )
+                (effect_rounds['iate_redf'][idx_round],
+                 effect_rounds['iate_m_ate_redf'][idx_round]) = (
+                    mcf_iv_add.iate_iv(
+                        mcf_redf, weights_dic=weights_redf_dic,
+                        iate_dic=effect_rounds['iate_redf'][idx_round],
+                        iate_m_ate_dic=effect_rounds['iate_m_ate_redf'][idx_round],
+                        w_ate=w_ate_redf, round_=round_, fold=fold, iv=False,
+                        title='IATE (reduced form)',
+                        )
+                    )
             time_delta_liate += time() - time_i_start
 
-            # No QIATE !
+            # QIATE estimation is not implemented for IV.
             time_q_start = time()
             mcf_.p_cfg.qiate = False
+            time_delta_lqiate += time() - time_q_start
 
-#             Not implemented for QIATE (if implementing, update before)
-#             if round_ == 'regular' and mcf_.p_cfg.qiate:
-#                 (y_pot_qiate_f, y_pot_var_qiate_f, y_pot_mmed_qiate_f,
-#                  y_pot_mmed_var_qiate_f, qiate_est_dic, txt_w_f
-#                  ) = mcf_qiate.qiate_est(mcf_, data_df, weights_dic, y_pot_f,
-#                                          iv=True)
-#                 qiate_dic = mcf_est.aggregate_pots(
-#                     mcf_, y_pot_qiate_f, y_pot_var_qiate_f, txt_w_f,
-#                     qiate_dic, fold, pot_is_list=True, title='QLIATE')
-#                 if y_pot_mmed_qiate_f is not None:
-#                     qiate_m_med_dic = mcf_est.aggregate_pots(
-#                         mcf_, y_pot_mmed_qiate_f, y_pot_mmed_var_qiate_f,
-#                         txt_w_f, qiate_m_med_dic, fold, pot_is_list=True,
-#                         title='QLIATE minus LIATE(median)')
-
-            time_delta_lqiate += time() - time_q_start  # QIATE
-
-            # GATE
             time_g_start = time()
-            if round_ == 'regular' and mcf_.p_cfg.gate:
-                (_, lgate_local_dic, _, lgate_m_late_local_dic, _, lgate_est_local_dic
-                 ) = mcf_iv_add.gate_iv(mcf_, data_df,
-                                        weights=weights, w_late_local=w_late_local,
-                                        lgate_global_dic=None, lgate_local_dic=lgate_local_dic,
-                                        lgate_m_late_global_dic=None,
-                                        lgate_m_late_local_dic=lgate_m_late_local_dic, fold=fold,
-                                        global_effects=False, local_effects=True,
-                                        )
-            else:
-                lgate_est_local_dic = None
+            if estimate_gate and local_gate:
+                (_, effect_rounds['lgate'][idx_round], _,
+                 effect_rounds['lgate_m_late'][idx_round], _, lgate_est_local_dic
+                 ) = mcf_iv_add.gate_iv(
+                    mcf_, data_df, weights=weights, w_late_local=w_late_local,
+                    lgate_global_dic=None, lgate_local_dic=effect_rounds['lgate'][idx_round],
+                    lgate_m_late_global_dic=None,
+                    lgate_m_late_local_dic=effect_rounds['lgate_m_late'][idx_round], fold=fold,
+                    global_effects=False, local_effects=True,
+                    )
             time_delta_lgate += time() - time_g_start
 
         if not only_one_fold_one_round and mcf_.int_cfg.del_forest:
-            mcf_.forest[fold] = mcf_1st.forest[fold] = None
             mcf_redf.forest[fold] = None
-            # Without this and the next delete, it becomes impossible to reuse
-            # the same forest for several data sets, which is bad.
-
+            # BGATE/CBGATE reference samples still need every first-stage fold for scaling.
+            if not (local_bgate or local_cbgate):
+                mcf_1st.forest[fold] = None
         if mcf_.int_cfg.mp_use_old_ray:
             check_ray_shutdown(mcf_.int_cfg.mp_ray_shutdown, mcf_.gen_cfg.mp_parallel)
 
@@ -522,6 +499,26 @@ def predict_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> tupl
         mcf_.forest = mcf_1st.forest = mcf_redf.forest = None
 
     del weights, weights_local_dic, weights_1st_dic, weights_redf_dic
+
+    # IATE additional-round variances are zero; averaging retains the factor 1/2.
+    late_global_dic = mcf_est.average_vals(effect_rounds['late_global'])
+    late_local_dic = mcf_est.average_vals(effect_rounds['late_local'])
+    ate_1st_dic = mcf_est.average_vals(effect_rounds['ate_1st'])
+    ate_redf_dic = mcf_est.average_vals(effect_rounds['ate_redf'])
+    bala_1st_dic = mcf_est.average_vals(effect_rounds['bala_1st'])
+    bala_redf_dic = mcf_est.average_vals(effect_rounds['bala_redf'])
+    lgate_local_dic = mcf_est.average_vals(effect_rounds['lgate'])
+    lgate_m_late_local_dic = mcf_est.average_vals(effect_rounds['lgate_m_late'])
+    lbgate_local_dic = mcf_est.average_vals(effect_rounds['lbgate'])
+    lbgate_m_late_local_dic = mcf_est.average_vals(effect_rounds['lbgate_m_late'])
+    lcbgate_local_dic = mcf_est.average_vals(effect_rounds['lcbgate'])
+    lcbgate_m_late_local_dic = mcf_est.average_vals(effect_rounds['lcbgate_m_late'])
+    liate_dic = mcf_est.average_vals(effect_rounds['liate'])
+    liate_m_late_dic = mcf_est.average_vals(effect_rounds['liate_m_late'])
+    iate_1st_dic = mcf_est.average_vals(effect_rounds['iate_1st'])
+    iate_m_ate_1st_dic = mcf_est.average_vals(effect_rounds['iate_m_ate_1st'])
+    iate_redf_dic = mcf_est.average_vals(effect_rounds['iate_redf'])
+    iate_m_ate_redf_dic = mcf_est.average_vals(effect_rounds['iate_m_ate_redf'])
 
     # ATE
     time_a_start = time()
@@ -531,17 +528,17 @@ def predict_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> tupl
 
     if global_effects:
         late_global, late_se_global, late_effect_list = mcf_ate.ate_effects_print(
-             mcf_, late_global_dic, y_pred_x_df, balancing_test=False, extra_title='(LATE-global)'
+             mcf_, late_global_dic, y_pred_ate_df, balancing_test=False, extra_title='(LATE-global)'
              )
     if local_effects:
         late_local, late_se_local, late_effect_list = mcf_ate.ate_effects_print(
-            mcf_, late_local_dic, y_pred_x_df, balancing_test=False, extra_title='(LATE-local)'
+            mcf_, late_local_dic, y_pred_ate_df, balancing_test=False, extra_title='(LATE-local)'
             )
     ate_1st, ate_1st_se, ate_1st_effect_list = mcf_ate.ate_effects_print(
-        mcf_1st, ate_1st_dic, d_pred_x_df, balancing_test=False, extra_title='(1st stage)'
+        mcf_1st, ate_1st_dic, d_pred_ate_df, balancing_test=False, extra_title='(1st stage)'
         )
     ate_redf, ate_redf_se, ate_redf_effect_list = mcf_ate.ate_effects_print(
-        mcf_redf, ate_redf_dic, y_pred_x_df, balancing_test=False, extra_title='(reduced form)'
+        mcf_redf, ate_redf_dic, y_pred_ate_df, balancing_test=False, extra_title='(reduced form)'
         )
     time_delta_late += time() - time_a_start
 
@@ -553,7 +550,7 @@ def predict_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> tupl
     lgate_local = lgate_se_local = lgate_diff_local = None
     lgate_diff_se_local = None
 
-    if mcf_.p_cfg.gate:
+    if local_gate:
         # if global_effects:
         #     (lgate_global, lgate_se_global,
         #      lgate_diff_global, lgate_diff_se_global,
@@ -582,25 +579,10 @@ def predict_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> tupl
     # BGATE
     time_lbgate_start = time()
     # Initialise variables
-    # lbgate_global = lbgate_se_global = lbgate_diff_global = None
-    # lbgate_diff_se_global = lbgate_est_global_dic = None
     lbgate_local = lbgate_se_local = lbgate_diff_local = None
     lbgate_diff_se_local = None
 
-    if mcf_.p_cfg.bgate:
-        # if global_effects:
-        #     (lbgate_global, lbgate_se_global,
-        #      lbgate_diff_global, lbgate_diff_se_global,
-        #      report['fig_bgate_global']
-        #      ) = mcf_gateout.gate_effects_print(mcf_,
-        #                                         lbgate_global_dic,
-        #                                         lbgate_m_late_global_dic,
-        #                                         lbgate_est_global_dic,
-        #                                         late_global, late_se_global,
-        #                                         gate_type='BGATE',
-        #                                         iv=True,
-        #                                         special_txt=txt_lbg
-        #                                         )  Add extra title
+    if local_bgate:
         (lbgate_local, lbgate_se_local, lbgate_diff_local, lbgate_diff_se_local,
          report['fig_bgate_local']) = mcf_gateout.gate_effects_print(mcf_,
                                                                      effect_dic=lbgate_local_dic,
@@ -618,25 +600,9 @@ def predict_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> tupl
     # CBGATE
     time_cbg_start = time()
     # Initialise variables
-    # lcbgate_global = lcbgate_se_global = lcbgate_diff_global = None
-    # lcbgate_diff_se_global = lcbgate_est_global_dic = None
-    lcbgate_local = lcbgate_se_local = lcbgate_diff_local = None
-    lcbgate_diff_se_local = lcbgate_est_local_dic = None
-    if mcf_.p_cfg.cbgate:
-        # if global_effects:
-        #     (lcbgate_global, lcbgate_se_global,
-        #      lcbgate_diff_global, lcbgate_diff_se_global,
-        #      report['fig_cbgate_global']
-        #      ) = mcf_gateout.gate_effects_print(mcf_,
-        #                                         lcbgate_global_dic,
-        #                                         lcbgate_m_late_global_dic,
-        #                                         lcbgate_est_global_dic,
-        #                                         late_global, late_se_global,
-        #                                         gate_type='CBGATE',
-        #                                         iv=True,
-        #                                         special_txt=txt_lcbg
-        #                                         )
+    lcbgate_local = lcbgate_se_local = lcbgate_diff_local = lcbgate_diff_se_local = None
 
+    if local_cbgate:
         (lcbgate_local, lcbgate_se_local, lcbgate_diff_local, lcbgate_diff_se_local,
          report['fig_cbgate_local']) = mcf_gateout.gate_effects_print(mcf_,
                                                                       effect_dic=lcbgate_local_dic,
@@ -651,29 +617,15 @@ def predict_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> tupl
                                                                       )
     time_delta_lcbgate += time() - time_cbg_start
     # Collect some information for results_dic
-    if mcf_.p_cfg.gate or mcf_.p_cfg.bgate or mcf_.p_cfg.cbgate:
-        # if global_effects:
-        #     gate_names_values = mcf_gateout.get_names_values(
-        #         mcf_,
-        #         lgate_est_global_dic, lbgate_est_global_dic,
-        #         lcbgate_est_global_dic
-        #         )
-        # else:
+    if local_gate or local_bgate or local_cbgate:
         gate_names_values = mcf_gateout.get_names_values(mcf_, lgate_est_local_dic,
                                                          lbgate_est_local_dic, lcbgate_est_local_dic
                                                          )
     else:
         gate_names_values = None
 
-    # QIATE (not yet(?) available)
     time_q_start = time()
-    # if mcf_.p_cfg.qiate: Not yet implemented
-    #     (qliate, qliate_se, qliate_diff, qliate_diff_se, qliate_mopp,
-    #      qliate_mopp_se, report['fig_qiate']) = mcf_qiate.qiate_effects_print(
-    #          mcf_, qliate_dic, qliate_m_med_dic, qliate_m_opp_dic,
-    #          qliate_est_dic)
 
-    # else:
     qliate = qliate_se = qliate_diff = qliate_diff_se = None
     # qliate_est_dic = None
     qliate_mopp = qliate_mopp_se = None
@@ -682,51 +634,56 @@ def predict_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> tupl
     # IATE
     time_i_start = time()
     if mcf_.p_cfg.iate:
-        # (liate, liate_se, liate_eff, liate_names_dic, liate_df,
-        #  report['iate_text']) = mcf_iate.iate_effects_print(
         (liate, liate_se, liate_names_dic, liate_df, report['iate_text']
          ) = mcf_iate.iate_effects_print(mcf_, liate_dic, liate_m_late_dic,  # liate_eff_dic,
-                                         y_pred_x_df,
-                                         extra_title='(LIATE)', iv=True
+                                         y_pred_iate_df,
+                                         extra_title='(LIATE)', iv=True, report=report,
                                          )
-        data_df.reset_index(drop=True, inplace=True)
-        liate_df.reset_index(drop=True, inplace=True)
-        liate_pred_df = pd.concat([data_df, liate_df], axis=1)
+        if liate_df is not None:
+            data_df.reset_index(drop=True, inplace=True)
+            liate_df.reset_index(drop=True, inplace=True)
+            liate_pred_df = pd.concat([data_df, liate_df], axis=1)
+        else:
+            liate_pred_df = None
     else:
         #  liate_eff = None
         liate = liate_se = liate_df = liate_pred_df = None
         liate_names_dic = None
 
     # IATE (1st stage)
-    time_i_start = time()
     if mcf_.p_cfg.iate:
         (iate_1st, iate_1st_se,  # iate_1st_eff,
          iate_1st_names_dic, iate_1st_df,
          report['iate_1st_text']) = mcf_iate.iate_effects_print(mcf_1st, iate_1st_dic,
                                                                 iate_m_ate_1st_dic,
-                                                                d_pred_x_df,
+                                                                d_pred_iate_df,
                                                                 extra_title='(1st stage)', iv=False
                                                                 )
-        data_df.reset_index(drop=True, inplace=True)
-        iate_1st_df.reset_index(drop=True, inplace=True)
-        iate_1st_pred_df = pd.concat([data_df, iate_1st_df], axis=1)
+        if iate_1st_df is not None:
+            data_df.reset_index(drop=True, inplace=True)
+            iate_1st_df.reset_index(drop=True, inplace=True)
+            iate_1st_pred_df = pd.concat([data_df, iate_1st_df], axis=1)
+        else:
+            iate_1st_pred_df = None
     else:
         # iate_1st_eff = None
         iate_1st = iate_1st_se = iate_1st_df = None
         iate_1st_pred_df = iate_1st_names_dic = None
 
     # IATE (reduced form)
-    time_i_start = time()
     if mcf_.p_cfg.iate:
         (iate_redf, iate_redf_se,  # iate_redf_eff,
          iate_redf_names_dic,
          iate_redf_df, report['iate_redf_text']) = mcf_iate.iate_effects_print(
              mcf_redf, iate_redf_dic, iate_m_ate_redf_dic,  # iate_eff_redf_dic,
-             y_pred_x_df, extra_title='(reduced form)', iv=False
+             y_pred_iate_df, extra_title='(reduced form)', iv=False
              )
-        data_df.reset_index(drop=True, inplace=True)
-        iate_redf_df.reset_index(drop=True, inplace=True)
-        iate_redf_pred_df = pd.concat([data_df, iate_redf_df], axis=1)
+        if iate_redf_df is not None:
+            data_df.reset_index(drop=True, inplace=True)
+            iate_redf_df.reset_index(drop=True, inplace=True)
+            iate_redf_pred_df = pd.concat([data_df, iate_redf_df], axis=1)
+        else:
+            iate_redf_pred_df = None
     else:
         #  iate_redf_eff = None
         iate_redf = iate_redf_se = iate_redf_df = None
@@ -769,7 +726,7 @@ def predict_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> tupl
                     'bala_redf_effect_list': bala_redf_effect_list,
                     'ate_effect_list': late_effect_list,
                     'gate_names_values': gate_names_values,
-                    'common_support_probabilities: ': cs_pred_prob,
+                    'common_support_probabilities': cs_pred_prob,
                     'path_output': mcf_.gen_cfg.outpath,
                     }
 
@@ -847,19 +804,18 @@ def predict_iv_main(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> tupl
 
 
 def ensure_binary_binary(mcf_: 'ModifiedCausalForest', data_df: pd.DataFrame) -> pd.DataFrame:
-    """Check if treatment and instrument are binary."""
-    # Check data is all numeric and convert it integers
-    int_series = pd.to_numeric(data_df[mcf_.var_cfg.iv_name].squeeze(), errors='raise').astype(int)
+    """Validate binary treatment and instrument values before integer conversion."""
+    iv_names, d_names = mcf_.var_cfg.iv_name, mcf_.var_cfg.d_name
+    if len(iv_names) != 1 or len(d_names) != 1:
+        raise ValueError('IV estimation requires one instrument column and one treatment column.')
 
-    # Check if instrument is binary
-    if not set(int_series.unique()).issubset({0, 1}):
-        raise ValueError('Instrument must be binary.')
-    data_df[mcf_.var_cfg.iv_name] = int_series.to_frame()
-
-    # Check if treatment is binary
-    d_series = data_df[mcf_.var_cfg.d_name].squeeze()
-    if not set(d_series.unique()).issubset({0, 1}):
+    instrument = pd.to_numeric(data_df[iv_names[0]], errors='raise')
+    if not instrument.isin((0, 1)).all():
+        raise ValueError('Instrument must contain only 0 and 1.')
+    if not data_df[d_names[0]].isin((0, 1)).all():
         raise ValueError('Treatment must be binary.')
+
+    data_df[iv_names[0]] = instrument.astype(int)
 
     return data_df
 
@@ -891,38 +847,58 @@ def update_inst_data(mcf_: 'ModifiedCausalForest',
                      mcf_redf: 'ModifiedCausalForest',
                      data_df: pd.DataFrame
                      ) -> pd.DataFrame:
-    """Update instances and Dataframe."""
+    """Apply current prediction settings while retaining each stage's fitted state."""
     data_df, _ = mcf_data.data_frame_vars_lower(data_df)
     data_df = mcf_init_update.p_update_pred(mcf_, data_df)
-    mcf_init_update.p_update_pred(mcf_1st, data_df)
-    mcf_init_update.p_update_pred(mcf_redf, data_df)
 
-    # Check treatment data
     if mcf_.p_cfg.d_in_pred:
-        data_df = mcf_data.check_recode_treat_variable(mcf_, data_df)
+        data_df = mcf_data.check_recode_treat_variable(mcf_, data_df, train=False)
 
-    mcf_init_update.int_update_pred(mcf_, len(data_df))
-    mcf_init_update.post_update_pred(mcf_, data_df)
-    mcf_init_update.int_update_pred(mcf_1st, len(data_df))
-    mcf_init_update.post_update_pred(mcf_1st, data_df)
-    mcf_init_update.int_update_pred(mcf_redf, len(data_df))
-    mcf_init_update.post_update_pred(mcf_redf, data_df)
+    for stage in (mcf_1st, mcf_redf):
+        for cfg_name in ('p_cfg', 'post_cfg'):
+            source_cfg = getattr(mcf_, cfg_name)
+            target_cfg = getattr(stage, cfg_name)
+            for item in fields(source_cfg):
+                if item.init:
+                    setattr(target_cfg, item.name, deepcopy(getattr(source_cfg, item.name)))
+        stage.p_cfg.gate = mcf_.p_cfg.gate
+
+        for name in ('yes', 'adj_method', 'pos_weights_only', 'use_x', 'use_prop_score',
+                     'use_prog_score', 'ridge'):
+            setattr(stage.p_ba_cfg, name, deepcopy(getattr(mcf_.p_ba_cfg, name)))
+
+        for name in ('x_name_balance_test_ord', 'x_name_balance_test_unord',
+                     'x_name_balance_test', 'x_name_balance_bgate', 'z_name_ord',
+                     'z_name_unord', 'z_name_cont', 'z_name'):
+            setattr(stage.var_cfg, name, deepcopy(getattr(mcf_.var_cfg, name)))
+
+        for name in ('output_type', 'print_to_file', 'print_to_terminal', 'outfiletext',
+                     'outfilesummary', 'outpath', 'agg_yes'):
+            setattr(stage.gen_cfg, name, deepcopy(getattr(mcf_.gen_cfg, name)))
+
+        mcf_init_update.p_update_pred(stage, data_df)
+
+    for instance in (mcf_, mcf_1st, mcf_redf):
+        mcf_init_update.int_update_pred(instance, len(data_df))
+        mcf_init_update.post_update_pred(instance, data_df)
 
     return data_df
 
 
 def local_center(mcf_1st: 'ModifiedCausalForest',
                  mcf_redf: 'ModifiedCausalForest',
-                 data_df: pd.DataFrame
+                 data_df: pd.DataFrame, *,
+                 prediction_round: str = 'regular',
                  ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Compute centering variables."""
-    _, _, d_pred_x_df, _ = mcf_lc.local_centering(mcf_1st, data_df,
-                                                  fill_y_df=None, train=False, title='(1st stage)',
-                                                  )
-    _, _, y_pred_x_df, _ = mcf_lc.local_centering(mcf_redf, data_df,
-                                                  fill_y_df=None, train=False,
-                                                  title='(reduced form)'
-                                                  )
+    """Compute the centering predictions for the requested IV estimation round."""
+    _, _, d_pred_x_df, _ = mcf_lc.local_centering(
+        mcf_1st, data_df, fill_y_df=None, train=False, title='(1st stage)',
+        prediction_round=prediction_round,
+        )
+    _, _, y_pred_x_df, _ = mcf_lc.local_centering(
+        mcf_redf, data_df, fill_y_df=None, train=False, title='(reduced form)',
+        prediction_round=prediction_round,
+        )
     return y_pred_x_df, d_pred_x_df
 
 

@@ -9,7 +9,7 @@ The **mcf** estimates causal effects under a causal identification model and use
 separate construction and filling samples for honesty. The research establishes
 asymptotic properties under identification, honesty, regularity and sampling
 assumptions; optional implementation settings do not by themselves establish
-all those conditions. See `Lechner and Mareckova (2024)<https://arxiv.org/abs/2405.10198v2>`_.
+all those conditions. See `Lechner and Mareckova (2024) <https://arxiv.org/abs/2405.10198v2>`_.
 
 Forest Growing
 --------------

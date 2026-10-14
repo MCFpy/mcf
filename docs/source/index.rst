@@ -56,7 +56,7 @@ If you prefer the command line, install conda as described `here <https://docs.c
 
 .. code-block:: bash
 
-  conda install Python="3.12"
+  conda install python=3.12
 
 3. Install **mcf** in this environment using pip:
 

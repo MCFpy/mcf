@@ -1,0 +1,6 @@
+﻿optpolicy\_main.OptimalPolicyVersions.solve
+===========================================
+
+.. currentmodule:: optpolicy_main
+
+.. automethod:: OptimalPolicyVersions.solve

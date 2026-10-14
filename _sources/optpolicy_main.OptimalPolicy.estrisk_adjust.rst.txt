@@ -1,0 +1,6 @@
+﻿optpolicy\_main.OptimalPolicy.estrisk\_adjust
+=============================================
+
+.. currentmodule:: optpolicy_main
+
+.. automethod:: OptimalPolicy.estrisk_adjust

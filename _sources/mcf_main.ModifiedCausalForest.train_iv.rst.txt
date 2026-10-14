@@ -1,0 +1,6 @@
+﻿mcf\_main.ModifiedCausalForest.train\_iv
+========================================
+
+.. currentmodule:: mcf_main
+
+.. automethod:: ModifiedCausalForest.train_iv
